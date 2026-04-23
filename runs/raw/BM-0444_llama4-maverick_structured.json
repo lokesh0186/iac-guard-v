@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0444",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_228",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 7,
+  "v4_diff_ratio": 0.25,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 404,
+  "output_tokens": 265,
+  "latency_seconds": 1.3,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  domain_endpoint_options {\\n    tls_security_policy = \\\"Policy-Min-TLS-1-2-2019-07\\\"\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\", \"patch_summary\": \"Added domain_endpoint_options with tls_security_policy set to 'Policy-Min-TLS-1-2-2019-07' to aws_elasticsearch_domain.fail.\", \"changed_resources\": [\"aws_elasticsearch_domain.fail\"], \"changed_attributes\": [\"domain_endpoint_options.tls_security_policy\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  domain_endpoint_options {\n    tls_security_policy = \"Policy-Min-TLS-1-2-2019-07\"\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_228",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_228 still present in 17 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 5,
+          "lines_removed": 2,
+          "lines_changed": 7,
+          "original_lines": 28,
+          "repaired_lines": 31,
+          "diff_ratio": 0.25
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

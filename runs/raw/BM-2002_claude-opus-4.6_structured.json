@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2002",
+  "model": "claude-opus-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_K8S_31",
+  "violation_class": "over_permissive_access",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 6,
+  "v4_diff_ratio": 0.2222,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 450,
+  "output_tokens": 332,
+  "latency_seconds": 4.56,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"apiVersion: v1\\nkind: Pod\\nmetadata:\\n  labels:\\n    run: attacker-pod\\n  name: attacker-pod\\n  annotations:\\n    seccomp.security.alpha.kubernetes.io/pod: runtime/default\\nspec:\\n  hostPID: true\\n  hostIPC: true\\n  hostNetwork: true\\n  volumes:\\n  - name: host-fs\\n    hostPath:\\n      path: /\\n  containers:\\n  - image: ubuntu\\n    name: attacker-pod\\n    command: [\\\"/bin/sh\\\", \\\"-c\\\", \\\"sleep infinity\\\"]\\n    securityContext:\\n      privileged: true\\n      allowPrivilegeEscalation: true\\n      seccompProfile:\\n        type: RuntimeDefault\\n    volumeMounts:\\n    - name: host-fs\\n      mountPath: /host\\n  restartPolicy: Never\\n\",\"patch_summary\":\"Added a seccomp profile set to RuntimeDefault in the container's securityContext and added the seccomp annotation on the pod metadata to satisfy CKV_K8S_31.\",\"changed_resources\":[\"Pod.default.attacker-pod\"],\"changed_attributes\":[\"spec.containers[0].securityContext.seccompProfile\",\"metadata.annotations.seccomp.security.alpha.kubernetes.io/pod\"]}",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    run: attacker-pod\n  name: attacker-pod\n  annotations:\n    seccomp.security.alpha.kubernetes.io/pod: runtime/default\nspec:\n  hostPID: true\n  hostIPC: true\n  hostNetwork: true\n  volumes:\n  - name: host-fs\n    hostPath:\n      path: /\n  containers:\n  - image: ubuntu\n    name: attacker-pod\n    command: [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n    securityContext:\n      privileged: true\n      allowPrivilegeEscalation: true\n      seccompProfile:\n        type: RuntimeDefault\n    volumeMounts:\n    - name: host-fs\n      mountPath: /host\n  restartPolicy: Never\n",
+      "verification": {
+        "target_rule_id": "CKV_K8S_31",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 4,
+          "lines_removed": 2,
+          "lines_changed": 6,
+          "original_lines": 27,
+          "repaired_lines": 29,
+          "diff_ratio": 0.2222
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

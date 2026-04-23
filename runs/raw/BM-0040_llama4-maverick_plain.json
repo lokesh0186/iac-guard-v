@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0040",
+  "model": "llama4-maverick",
+  "method": "plain",
+  "checkov_rule_id": "CKV2_AWS_33",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 16,
+  "v4_diff_ratio": 0.4848,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 285,
+  "output_tokens": 187,
+  "latency_seconds": 1.8,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "# pass\n\nresource \"aws_appsync_graphql_api\" \"all\" {\n  authentication_type = \"AWS_IAM\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = aws_iam_role.example.arn\n    field_log_level          = \"ALL\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"error\" {\n  authentication_type = \"AWS_IAM\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = aws_iam_role.example.arn\n    field_log_level          = \"ERROR\"\n  }\n}\n\n# fail\n\nresource \"aws_appsync_graphql_api\" \"none\" {\n  authentication_type = \"AWS_IAM\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = aws_iam_role.example.arn\n    field_log_level          = \"ERROR\"\n  }\n}",
+      "fixed_text": "# pass\n\nresource \"aws_appsync_graphql_api\" \"all\" {\n  authentication_type = \"AWS_IAM\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = aws_iam_role.example.arn\n    field_log_level          = \"ALL\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"error\" {\n  authentication_type = \"AWS_IAM\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = aws_iam_role.example.arn\n    field_log_level          = \"ERROR\"\n  }\n}\n\n# fail\n\nresource \"aws_appsync_graphql_api\" \"none\" {\n  authentication_type = \"AWS_IAM\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = aws_iam_role.example.arn\n    field_log_level          = \"ERROR\"\n  }\n}",
+      "verification": {
+        "target_rule_id": "CKV2_AWS_33",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV2_AWS_33 still present in 3 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 8,
+          "lines_removed": 8,
+          "lines_changed": 16,
+          "original_lines": 33,
+          "repaired_lines": 33,
+          "diff_ratio": 0.4848
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

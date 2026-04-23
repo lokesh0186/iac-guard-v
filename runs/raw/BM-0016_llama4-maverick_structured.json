@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0016",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_236",
+  "violation_class": "missing_encryption",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 6,
+  "v4_diff_ratio": 0.1622,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 502,
+  "output_tokens": 367,
+  "latency_seconds": 1.4,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_ami_copy\\\" \\\"fail\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  encrypted         = true\\n  kms_key_id        = \\\"alias/your-kms-key\\\"\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\\n\\nresource \\\"aws_ami_copy\\\" \\\"fail2\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  encrypted         = true\\n  kms_key_id        = \\\"alias/your-kms-key\\\"\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\\n\\nresource \\\"aws_ami_copy\\\" \\\"pass\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  encrypted         = true\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\", \"patch_summary\": \"Enabled encryption and added a KMS key for aws_ami_copy resources.\", \"changed_resources\": [\"aws_ami_copy.fail\", \"aws_ami_copy.fail2\"], \"changed_attributes\": [\"encrypted\", \"kms_key_id\"]}",
+      "fixed_text": "resource \"aws_ami_copy\" \"fail\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  kms_key_id        = \"alias/your-kms-key\"\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"fail2\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  kms_key_id        = \"alias/your-kms-key\"\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"pass\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_236",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_236 still present in 1 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 4,
+          "lines_removed": 2,
+          "lines_changed": 6,
+          "original_lines": 37,
+          "repaired_lines": 39,
+          "diff_ratio": 0.1622
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

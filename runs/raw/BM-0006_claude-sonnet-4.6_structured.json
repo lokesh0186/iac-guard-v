@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0006",
+  "model": "claude-sonnet-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_127",
+  "violation_class": "other",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 2,
+  "v4_diff_ratio": 0.0161,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 1283,
+  "output_tokens": 1273,
+  "latency_seconds": 10.76,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"# pass\\n\\nresource \\\"aws_lb\\\" \\\"pass\\\" {\\n  internal           = false\\n  load_balancer_type = \\\"application\\\"\\n  name               = \\\"alb\\\"\\n  subnets            = var.public_subnet_ids\\n  desync_mitigation_mode = \\\"strictest\\\"\\n  drop_invalid_header_fields = true\\n}\\n\\nresource \\\"aws_alb\\\" \\\"pass\\\" {\\n  internal           = false\\n  load_balancer_type = \\\"application\\\"\\n  name               = \\\"alb\\\"\\n  subnets            = var.public_subnet_ids\\n  drop_invalid_header_fields = true\\n}\\nresource \\\"aws_elb\\\" \\\"pass\\\" {\\n  name               = \\\"foobar-terraform-elb\\\"\\n  availability_zones = [\\\"us-west-2a\\\", \\\"us-west-2b\\\", \\\"us-west-2c\\\"]\\n\\n  access_logs {\\n    bucket        = \\\"foo\\\"\\n    bucket_prefix = \\\"bar\\\"\\n    interval      = 60\\n  }\\n\\n  listener {\\n    instance_port     = 8000\\n    instance_protocol = \\\"http\\\"\\n    lb_port           = 80\\n    lb_protocol       = \\\"http\\\"\\n  }\\n\\n  listener {\\n    instance_port      = 8000\\n    instance_protocol  = \\\"http\\\"\\n    lb_port            = 443\\n    lb_protocol        = \\\"https\\\"\\n    ssl_certificate_id = \\\"arn:aws:acm::123456789012:certificate/certName\\\"\\n  }\\n\\n  health_check {\\n    healthy_threshold   = 2\\n    unhealthy_threshold = 2\\n    timeout             = 3\\n    target              = \\\"HTTP:8000/\\\"\\n    interval            = 30\\n  }\\n\\n  instances                   = [aws_instance.foo.id]\\n  cross_zone_load_balancing   = true\\n  idle_timeout                = 400\\n  connection_draining         = true\\n  connection_draining_timeout = 400\\n\\n  tags = {\\n    Name = \\\"foobar-terraform-elb\\\"\\n  }\\n}\\n\\n\\nresource \\\"aws_elb\\\" \\\"fail\\\" {\\n  name               = \\\"foobar-terraform-elb\\\"\\n  availability_zones = [\\\"us-west-2a\\\", \\\"us-west-2b\\\", \\\"us-west-2c\\\"]\\n\\n  access_logs {\\n    bucket        = \\\"foo\\\"\\n    bucket_prefix = \\\"bar\\\"\\n    interval      = 60\\n  }\\n\\n  listener {\\n    instance_port     = 8000\\n    instance_protocol = \\\"http\\\"\\n    lb_port           = 80\\n    lb_protocol       = \\\"http\\\"\\n  }\\n\\n  listener {\\n    instance_port      = 8000\\n    instance_protocol  = \\\"http\\\"\\n    lb_port            = 443\\n    lb_protocol        = \\\"https\\\"\\n    ssl_certificate_id = \\\"arn:aws:iam::123456789012:server-certificate/certName\\\"\\n  }\\n\\n  health_check {\\n    healthy_threshold   = 2\\n    unhealthy_threshold = 2\\n    timeout             = 3\\n    target              = \\\"HTTP:8000/\\\"\\n    interval            = 30\\n  }\\n  desync_mitigation_mode = \\\"monitor\\\"\\n  instances                   = [aws_instance.foo.id]\\n  cross_zone_load_balancing   = true\\n  idle_timeout                = 400\\n  connection_draining         = true\\n  connection_draining_timeout = 400\\n\\n  tags = {\\n    Name = \\\"foobar-terraform-elb\\\"\\n  }\\n}\\n\\nresource \\\"aws_lb\\\" \\\"fail\\\" {\\n  internal           = false\\n  load_balancer_type = \\\"application\\\"\\n  name               = \\\"alb\\\"\\n  subnets            = var.public_subnet_ids\\n  desync_mitigation_mode = \\\"monitor\\\"\\n  drop_invalid_header_fields = true\\n}\\n\\nresource \\\"aws_alb\\\" \\\"fail\\\" {\\n  internal           = false\\n  load_balancer_type = \\\"application\\\"\\n  name               = \\\"alb\\\"\\n  subnets            = var.public_subnet_ids\\n  drop_invalid_header_fields = true\\n  desync_mitigation_mode = \\\"monitor\\\"\\n}\\n\",\n  \"patch_summary\": \"Updated the ssl_certificate_id in aws_elb.pass to use an ACM ARN (arn:aws:acm::...) instead of an IAM server certificate ARN (arn:aws:iam::...) so that the ELB uses an SSL certificate provided by AWS Certificate Manager.\",\n  \"changed_resources\": [\"aws_elb.pass\"],\n  \"changed_attributes\": [\"listener.ssl_certificate_id\"]\n}",
+      "fixed_text": "# pass\n\nresource \"aws_lb\" \"pass\" {\n  internal           = false\n  load_balancer_type = \"application\"\n  name               = \"alb\"\n  subnets            = var.public_subnet_ids\n  desync_mitigation_mode = \"strictest\"\n  drop_invalid_header_fields = true\n}\n\nresource \"aws_alb\" \"pass\" {\n  internal           = false\n  load_balancer_type = \"application\"\n  name               = \"alb\"\n  subnets            = var.public_subnet_ids\n  drop_invalid_header_fields = true\n}\nresource \"aws_elb\" \"pass\" {\n  name               = \"foobar-terraform-elb\"\n  availability_zones = [\"us-west-2a\", \"us-west-2b\", \"us-west-2c\"]\n\n  access_logs {\n    bucket        = \"foo\"\n    bucket_prefix = \"bar\"\n    interval      = 60\n  }\n\n  listener {\n    instance_port     = 8000\n    instance_protocol = \"http\"\n    lb_port           = 80\n    lb_protocol       = \"http\"\n  }\n\n  listener {\n    instance_port      = 8000\n    instance_protocol  = \"http\"\n    lb_port            = 443\n    lb_protocol        = \"https\"\n    ssl_certificate_id = \"arn:aws:acm::123456789012:certificate/certName\"\n  }\n\n  health_check {\n    healthy_threshold   = 2\n    unhealthy_threshold = 2\n    timeout             = 3\n    target              = \"HTTP:8000/\"\n    interval            = 30\n  }\n\n  instances                   = [aws_instance.foo.id]\n  cross_zone_load_balancing   = true\n  idle_timeout                = 400\n  connection_draining         = true\n  connection_draining_timeout = 400\n\n  tags = {\n    Name = \"foobar-terraform-elb\"\n  }\n}\n\n\nresource \"aws_elb\" \"fail\" {\n  name               = \"foobar-terraform-elb\"\n  availability_zones = [\"us-west-2a\", \"us-west-2b\", \"us-west-2c\"]\n\n  access_logs {\n    bucket        = \"foo\"\n    bucket_prefix = \"bar\"\n    interval      = 60\n  }\n\n  listener {\n    instance_port     = 8000\n    instance_protocol = \"http\"\n    lb_port           = 80\n    lb_protocol       = \"http\"\n  }\n\n  listener {\n    instance_port      = 8000\n    instance_protocol  = \"http\"\n    lb_port            = 443\n    lb_protocol        = \"https\"\n    ssl_certificate_id = \"arn:aws:iam::123456789012:server-certificate/certName\"\n  }\n\n  health_check {\n    healthy_threshold   = 2\n    unhealthy_threshold = 2\n    timeout             = 3\n    target              = \"HTTP:8000/\"\n    interval            = 30\n  }\n  desync_mitigation_mode = \"monitor\"\n  instances                   = [aws_instance.foo.id]\n  cross_zone_load_balancing   = true\n  idle_timeout                = 400\n  connection_draining         = true\n  connection_draining_timeout = 400\n\n  tags = {\n    Name = \"foobar-terraform-elb\"\n  }\n}\n\nresource \"aws_lb\" \"fail\" {\n  internal           = false\n  load_balancer_type = \"application\"\n  name               = \"alb\"\n  subnets            = var.public_subnet_ids\n  desync_mitigation_mode = \"monitor\"\n  drop_invalid_header_fields = true\n}\n\nresource \"aws_alb\" \"fail\" {\n  internal           = false\n  load_balancer_type = \"application\"\n  name               = \"alb\"\n  subnets            = var.public_subnet_ids\n  drop_invalid_header_fields = true\n  desync_mitigation_mode = \"monitor\"\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_127",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_127 still present in 19 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 1,
+          "lines_removed": 1,
+          "lines_changed": 2,
+          "original_lines": 124,
+          "repaired_lines": 124,
+          "diff_ratio": 0.0161
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

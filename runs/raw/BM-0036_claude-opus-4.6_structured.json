@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0036",
+  "model": "claude-opus-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_381",
+  "violation_class": "missing_encryption",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 2,
+  "v4_diff_ratio": 0.0455,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 659,
+  "output_tokens": 533,
+  "latency_seconds": 7.01,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_codegurureviewer_repository_association\\\" \\\"pass\\\" {\\n  repository {\\n    codecommit {\\n      name = \\\"repository_name\\\"\\n    }\\n  }\\n  kms_key_details {\\n    encryption_option = \\\"CUSTOMER_MANAGED_CMK\\\"\\n    kms_key_id        = \\\"aws_kms_key.example.key_id\\\"\\n  }\\n}\\n\\nresource \\\"aws_codegurureviewer_repository_association\\\" \\\"ckv_unittest_fail_no_encryption_option\\\" {\\n  repository {\\n    codecommit {\\n      name = \\\"repository_name\\\"\\n    }\\n  }\\n  kms_key_details {\\n    encryption_option = \\\"CUSTOMER_MANAGED_CMK\\\"\\n    kms_key_id        = \\\"aws_kms_key.example.key_id\\\"\\n  }\\n}\\n\\n\\nresource \\\"aws_codegurureviewer_repository_association\\\" \\\"ckv_unittest_fail_no_kms_key_details\\\" {\\n  repository {\\n    codecommit {\\n      name = \\\"repository_name\\\"\\n    }\\n  }\\n}\\n\\nresource \\\"aws_codegurureviewer_repository_association\\\" \\\"ckv_unittest_fail_encryption_option_OWNED\\\" {\\n  repository {\\n    codecommit {\\n      name = \\\"repository_name\\\"\\n    }\\n  }\\n  kms_key_details {\\n    encryption_option = \\\"AWS_OWNED_CMK\\\"\\n    kms_key_id        = \\\"aws_kms_key.example.key_id\\\"\\n  }\\n}\\n\",\"patch_summary\":\"Added the missing encryption_option = \\\"CUSTOMER_MANAGED_CMK\\\" attribute to the kms_key_details block of the ckv_unittest_fail_no_encryption_option resource.\",\"changed_resources\":[\"aws_codegurureviewer_repository_association.ckv_unittest_fail_no_encryption_option\"],\"changed_attributes\":[\"kms_key_details.encryption_option\"]}",
+      "fixed_text": "resource \"aws_codegurureviewer_repository_association\" \"pass\" {\n  repository {\n    codecommit {\n      name = \"repository_name\"\n    }\n  }\n  kms_key_details {\n    encryption_option = \"CUSTOMER_MANAGED_CMK\"\n    kms_key_id        = \"aws_kms_key.example.key_id\"\n  }\n}\n\nresource \"aws_codegurureviewer_repository_association\" \"ckv_unittest_fail_no_encryption_option\" {\n  repository {\n    codecommit {\n      name = \"repository_name\"\n    }\n  }\n  kms_key_details {\n    encryption_option = \"CUSTOMER_MANAGED_CMK\"\n    kms_key_id        = \"aws_kms_key.example.key_id\"\n  }\n}\n\n\nresource \"aws_codegurureviewer_repository_association\" \"ckv_unittest_fail_no_kms_key_details\" {\n  repository {\n    codecommit {\n      name = \"repository_name\"\n    }\n  }\n}\n\nresource \"aws_codegurureviewer_repository_association\" \"ckv_unittest_fail_encryption_option_OWNED\" {\n  repository {\n    codecommit {\n      name = \"repository_name\"\n    }\n  }\n  kms_key_details {\n    encryption_option = \"AWS_OWNED_CMK\"\n    kms_key_id        = \"aws_kms_key.example.key_id\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_381",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_381 still present in 2 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 1,
+          "lines_removed": 1,
+          "lines_changed": 2,
+          "original_lines": 44,
+          "repaired_lines": 44,
+          "diff_ratio": 0.0455
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

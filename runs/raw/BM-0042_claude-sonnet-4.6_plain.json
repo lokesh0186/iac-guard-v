@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0042",
+  "model": "claude-sonnet-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_AWS_193",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 11,
+  "v4_diff_ratio": 0.6111,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 210,
+  "output_tokens": 172,
+  "latency_seconds": 2.49,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "resource \"aws_appsync_graphql_api\" \"enabled\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"default\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}",
+      "fixed_text": "resource \"aws_appsync_graphql_api\" \"enabled\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"default\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_193",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 6,
+          "lines_removed": 5,
+          "lines_changed": 11,
+          "original_lines": 18,
+          "repaired_lines": 19,
+          "diff_ratio": 0.6111
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

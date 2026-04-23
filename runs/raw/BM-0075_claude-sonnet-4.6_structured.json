@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0075",
+  "model": "claude-sonnet-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_338",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 2,
+  "v4_diff_ratio": 0.4,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 324,
+  "output_tokens": 143,
+  "latency_seconds": 2.36,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_cloudwatch_log_group\\\" \\\"pass\\\" {\\n  retention_in_days = 365\\n}\\n\\nresource \\\"aws_cloudwatch_log_group\\\" \\\"fail\\\" {}\\n\",\n  \"patch_summary\": \"Updated retention_in_days from 3 to 365 for the 'pass' CloudWatch log group to ensure logs are retained for at least 1 year.\",\n  \"changed_resources\": [\"aws_cloudwatch_log_group.pass\"],\n  \"changed_attributes\": [\"retention_in_days\"]\n}",
+      "fixed_text": "resource \"aws_cloudwatch_log_group\" \"pass\" {\n  retention_in_days = 365\n}\n\nresource \"aws_cloudwatch_log_group\" \"fail\" {}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_338",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_338 still present in 4 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 1,
+          "lines_removed": 1,
+          "lines_changed": 2,
+          "original_lines": 5,
+          "repaired_lines": 5,
+          "diff_ratio": 0.4
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

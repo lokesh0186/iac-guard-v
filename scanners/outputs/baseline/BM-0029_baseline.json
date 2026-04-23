@@ -1,0 +1,53 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_206",
+        "bc_check_id": "BC_AWS_GENERAL_138",
+        "check_name": "Ensure API Gateway Domain uses a modern security Policy",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "security_policy"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0029.tf",
+        "file_abs_path": "benchmark/raw/BM-0029.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0029.tf",
+        "file_line_range": [
+          5,
+          8
+        ],
+        "resource": "aws_api_gateway_domain_name.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.APIGatewayDomainNameTLS",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-api-gateway-domain-uses-a-modern-security-policy",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0029.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 4,
+    "failed": 1,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 4,
+    "checkov_version": "3.2.517"
+  }
+}

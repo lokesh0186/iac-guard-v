@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0056",
+  "model": "claude-opus-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_153",
+  "violation_class": "insecure_defaults",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 8,
+  "v4_diff_ratio": 0.1379,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 804,
+  "output_tokens": 710,
+  "latency_seconds": 7.85,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_autoscaling_group\\\" \\\"passtag\\\" {\\n  name                      = \\\"foobar3-terraform-test\\\"\\n  max_size                  = 5\\n  min_size                  = 2\\n  health_check_grace_period = 300\\n  health_check_type         = \\\"ELB\\\"\\n  desired_capacity          = 4\\n  force_delete              = true\\n  placement_group           = aws_placement_group.test.id\\n  launch_configuration      = aws_launch_configuration.foobar.name\\n  vpc_zone_identifier       = [aws_subnet.example1.id, aws_subnet.example2.id]\\n\\n  tag {\\n    key                 = \\\"foo\\\"\\n    value               = \\\"bar\\\"\\n    propagate_at_launch = true\\n  }\\n\\n  tag {\\n    key                 = \\\"lorem\\\"\\n    value               = \\\"ipsum\\\"\\n    propagate_at_launch = false\\n  }\\n}\\n\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"passtags\\\" {\\n  name                 = \\\"foobar3-terraform-test\\\"\\n  max_size             = 5\\n  min_size             = 2\\n  launch_configuration = aws_launch_configuration.foobar.name\\n  vpc_zone_identifier  = [aws_subnet.example1.id, aws_subnet.example2.id]\\n\\n  tags = concat(\\n    [\\n      {\\n        \\\"key\\\"                 = \\\"interpolation1\\\"\\n        \\\"value\\\"               = \\\"value3\\\"\\n        \\\"propagate_at_launch\\\" = true\\n      },\\n      {\\n        \\\"key\\\"                 = \\\"interpolation2\\\"\\n        \\\"value\\\"               = \\\"value4\\\"\\n        \\\"propagate_at_launch\\\" = true\\n      },\\n    ],\\n    var.extra_tags,\\n  )\\n}\\n\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"fail\\\" {\\n  name                 = \\\"foobar3-terraform-test\\\"\\n  max_size             = 5\\n  min_size             = 2\\n  launch_configuration = aws_launch_configuration.foobar.name\\n  vpc_zone_identifier  = [aws_subnet.example1.id, aws_subnet.example2.id]\\n\\n  tag {\\n    key                 = \\\"Name\\\"\\n    value               = \\\"foobar3-terraform-test\\\"\\n    propagate_at_launch = true\\n  }\\n}\\n\",\"patch_summary\":\"Added a tag block with propagate_at_launch set to true to the aws_autoscaling_group.fail resource so that tags are supplied to launch configurations.\",\"changed_resources\":[\"aws_autoscaling_group.fail\"],\"changed_attributes\":[\"tag\"]}",
+      "fixed_text": "resource \"aws_autoscaling_group\" \"passtag\" {\n  name                      = \"foobar3-terraform-test\"\n  max_size                  = 5\n  min_size                  = 2\n  health_check_grace_period = 300\n  health_check_type         = \"ELB\"\n  desired_capacity          = 4\n  force_delete              = true\n  placement_group           = aws_placement_group.test.id\n  launch_configuration      = aws_launch_configuration.foobar.name\n  vpc_zone_identifier       = [aws_subnet.example1.id, aws_subnet.example2.id]\n\n  tag {\n    key                 = \"foo\"\n    value               = \"bar\"\n    propagate_at_launch = true\n  }\n\n  tag {\n    key                 = \"lorem\"\n    value               = \"ipsum\"\n    propagate_at_launch = false\n  }\n}\n\n\nresource \"aws_autoscaling_group\" \"passtags\" {\n  name                 = \"foobar3-terraform-test\"\n  max_size             = 5\n  min_size             = 2\n  launch_configuration = aws_launch_configuration.foobar.name\n  vpc_zone_identifier  = [aws_subnet.example1.id, aws_subnet.example2.id]\n\n  tags = concat(\n    [\n      {\n        \"key\"                 = \"interpolation1\"\n        \"value\"               = \"value3\"\n        \"propagate_at_launch\" = true\n      },\n      {\n        \"key\"                 = \"interpolation2\"\n        \"value\"               = \"value4\"\n        \"propagate_at_launch\" = true\n      },\n    ],\n    var.extra_tags,\n  )\n}\n\n\nresource \"aws_autoscaling_group\" \"fail\" {\n  name                 = \"foobar3-terraform-test\"\n  max_size             = 5\n  min_size             = 2\n  launch_configuration = aws_launch_configuration.foobar.name\n  vpc_zone_identifier  = [aws_subnet.example1.id, aws_subnet.example2.id]\n\n  tag {\n    key                 = \"Name\"\n    value               = \"foobar3-terraform-test\"\n    propagate_at_launch = true\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_153",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 7,
+          "lines_removed": 1,
+          "lines_changed": 8,
+          "original_lines": 58,
+          "repaired_lines": 64,
+          "diff_ratio": 0.1379
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

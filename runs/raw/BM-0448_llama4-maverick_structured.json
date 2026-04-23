@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0448",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_84",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 16,
+  "v4_diff_ratio": 0.5714,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 399,
+  "output_tokens": 311,
+  "latency_seconds": 1.67,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    log_type = \\\"INDEX_SLOW_LOGS\\\"\\n    enabled  = true\\n  }\\n\\n  log_publishing_options {\\n    log_type = \\\"SEARCH_SLOW_LOGS\\\"\\n    enabled  = true\\n  }\\n\\n  log_publishing_options {\\n    log_type = \\\"ES_APPLICATION_LOGS\\\"\\n    enabled  = true\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\", \"patch_summary\": \"Added log_publishing_options to enable Elasticsearch Domain Logging for the aws_elasticsearch_domain.fail resource.\", \"changed_resources\": [\"aws_elasticsearch_domain.fail\"], \"changed_attributes\": [\"log_publishing_options\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    log_type = \"INDEX_SLOW_LOGS\"\n    enabled  = true\n  }\n\n  log_publishing_options {\n    log_type = \"SEARCH_SLOW_LOGS\"\n    enabled  = true\n  }\n\n  log_publishing_options {\n    log_type = \"ES_APPLICATION_LOGS\"\n    enabled  = true\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_84",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_84 still present in 17 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 15,
+          "lines_removed": 1,
+          "lines_changed": 16,
+          "original_lines": 28,
+          "repaired_lines": 42,
+          "diff_ratio": 0.5714
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

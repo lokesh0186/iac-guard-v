@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0039",
+  "model": "claude-opus-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_194",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 2,
+  "v4_diff_ratio": 0.0606,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 538,
+  "output_tokens": 387,
+  "latency_seconds": 4.99,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"# pass\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"all\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ALL\\\"\\n  }\\n}\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"error\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ERROR\\\"\\n  }\\n}\\n\\n# fail\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"none\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ALL\\\"\\n  }\\n}\\n\",\"patch_summary\":\"Changed field_log_level from \\\"NONE\\\" to \\\"ALL\\\" in the aws_appsync_graphql_api.none resource to enable field-level logging.\",\"changed_resources\":[\"aws_appsync_graphql_api.none\"],\"changed_attributes\":[\"log_config.field_log_level\"]}",
+      "fixed_text": "# pass\n\nresource \"aws_appsync_graphql_api\" \"all\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"error\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n\n# fail\n\nresource \"aws_appsync_graphql_api\" \"none\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_194",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 1,
+          "lines_removed": 1,
+          "lines_changed": 2,
+          "original_lines": 33,
+          "repaired_lines": 33,
+          "diff_ratio": 0.0606
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

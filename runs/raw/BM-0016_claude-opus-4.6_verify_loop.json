@@ -1,0 +1,66 @@
+{
+  "artifact_id": "BM-0016",
+  "model": "claude-opus-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_236",
+  "violation_class": "missing_encryption",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 7,
+  "v4_diff_ratio": 0.1892,
+  "overall_verified_fix": true,
+  "num_attempts": 2,
+  "input_tokens": 1722,
+  "output_tokens": 965,
+  "latency_seconds": 13.76,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"\\nresource \\\"aws_ami_copy\\\" \\\"fail\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  encrypted         = true\\n  kms_key_id        = \\\"alias/my-cmk\\\"\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\\n\\nresource \\\"aws_ami_copy\\\" \\\"fail2\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\\n\\nresource \\\"aws_ami_copy\\\" \\\"pass\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  encrypted         = true\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\",\"patch_summary\":\"Set encrypted to true and added kms_key_id attribute to aws_ami_copy.fail to ensure AMI copying uses a CMK.\",\"changed_resources\":[\"aws_ami_copy.fail\"],\"changed_attributes\":[\"encrypted\",\"kms_key_id\"]}",
+      "fixed_text": "\nresource \"aws_ami_copy\" \"fail\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  kms_key_id        = \"alias/my-cmk\"\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"fail2\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"pass\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_236",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_236 still present in 3 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 2,
+          "lines_removed": 1,
+          "lines_changed": 3,
+          "original_lines": 37,
+          "repaired_lines": 38,
+          "diff_ratio": 0.0811
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_ami_copy\\\" \\\"fail\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  encrypted         = true\\n  kms_key_id        = \\\"alias/my-cmk\\\"\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\\n\\nresource \\\"aws_ami_copy\\\" \\\"fail2\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  encrypted         = true\\n  kms_key_id        = \\\"alias/my-cmk\\\"\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\\n\\nresource \\\"aws_ami_copy\\\" \\\"pass\\\" {\\n  name              = \\\"terraform-example\\\"\\n  description       = \\\"A copy of ami-xxxxxxxx\\\"\\n  source_ami_id     = \\\"ami-xxxxxxxx\\\"\\n  source_ami_region = \\\"us-west-1\\\"\\n  encrypted         = true\\n  kms_key_id        = \\\"alias/my-cmk\\\"\\n  tags = {\\n    Name = \\\"HelloWorld\\\"\\n    test = \\\"failed\\\"\\n  }\\n}\\n\",\"patch_summary\":\"The previous fix failed because CKV_AWS_236 requires a CMK (kms_key_id) to be set on all aws_ami_copy resources, not just encrypted=true; I added both encrypted=true and kms_key_id to all three resources including fail2 and pass which were missing the kms_key_id.\",\"changed_resources\":[\"aws_ami_copy.fail\",\"aws_ami_copy.fail2\",\"aws_ami_copy.pass\"],\"changed_attributes\":[\"encrypted\",\"kms_key_id\"]}",
+      "fixed_text": "resource \"aws_ami_copy\" \"fail\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  kms_key_id        = \"alias/my-cmk\"\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"fail2\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  kms_key_id        = \"alias/my-cmk\"\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"pass\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  kms_key_id        = \"alias/my-cmk\"\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_236",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 5,
+          "lines_removed": 2,
+          "lines_changed": 7,
+          "original_lines": 37,
+          "repaired_lines": 40,
+          "diff_ratio": 0.1892
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

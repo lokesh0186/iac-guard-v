@@ -1,0 +1,162 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_315",
+        "bc_check_id": "BC_AWS_GENERAL_226",
+        "check_name": "Ensure EC2 Auto Scaling groups use EC2 launch templates",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": []
+        },
+        "code_block": null,
+        "file_path": "/BM-0056.tf",
+        "file_abs_path": "benchmark/raw/BM-0056.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0056.tf",
+        "file_line_range": [
+          1,
+          24
+        ],
+        "resource": "aws_autoscaling_group.passtag",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AutoScalingLaunchTemplate",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-315",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0056.tf"
+      },
+      {
+        "check_id": "CKV_AWS_315",
+        "bc_check_id": "BC_AWS_GENERAL_226",
+        "check_name": "Ensure EC2 Auto Scaling groups use EC2 launch templates",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": []
+        },
+        "code_block": null,
+        "file_path": "/BM-0056.tf",
+        "file_abs_path": "benchmark/raw/BM-0056.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0056.tf",
+        "file_line_range": [
+          27,
+          49
+        ],
+        "resource": "aws_autoscaling_group.passtags",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AutoScalingLaunchTemplate",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-315",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0056.tf"
+      },
+      {
+        "check_id": "CKV_AWS_153",
+        "bc_check_id": "BC_AWS_GENERAL_82",
+        "check_name": "Autoscaling groups should supply tags to launch configurations",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "tag",
+            "tags"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0056.tf",
+        "file_abs_path": "benchmark/raw/BM-0056.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0056.tf",
+        "file_line_range": [
+          52,
+          58
+        ],
+        "resource": "aws_autoscaling_group.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AutoScalingTagging",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/autoscaling-groups-should-supply-tags-to-launch-configurations",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0056.tf"
+      },
+      {
+        "check_id": "CKV_AWS_315",
+        "bc_check_id": "BC_AWS_GENERAL_226",
+        "check_name": "Ensure EC2 Auto Scaling groups use EC2 launch templates",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": []
+        },
+        "code_block": null,
+        "file_path": "/BM-0056.tf",
+        "file_abs_path": "benchmark/raw/BM-0056.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0056.tf",
+        "file_line_range": [
+          52,
+          58
+        ],
+        "resource": "aws_autoscaling_group.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AutoScalingLaunchTemplate",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-315",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0056.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 2,
+    "failed": 4,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 3,
+    "checkov_version": "3.2.517"
+  }
+}

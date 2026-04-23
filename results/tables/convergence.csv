@@ -1,0 +1,7 @@
+technology,model,total,attempt_1,attempt_2,attempt_3,never
+terraform,claude-opus-4.6,50,17,28,1,4
+terraform,claude-sonnet-4.6,50,16,17,1,16
+terraform,llama4-maverick,50,21,12,2,15
+kubernetes,claude-opus-4.6,20,20,0,0,0
+kubernetes,claude-sonnet-4.6,20,20,0,0,0
+kubernetes,llama4-maverick,20,20,0,0,0

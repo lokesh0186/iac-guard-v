@@ -1,0 +1,77 @@
+resource "aws_ami" "pass" {
+  name                = "terraform-example"
+  virtualization_type = "hvm"
+  root_device_name    = "/dev/xvda1"
+
+  ebs_block_device {
+    device_name = "/dev/xvda1"
+    volume_size = 8
+    snapshot_id = "someid"
+    encrypted   = true
+  }
+
+  ebs_block_device {
+    device_name = "/dev/xvda2"
+    volume_size = 8
+    encrypted   = true
+  }
+}
+
+resource "aws_ami" "pass2" {
+  name                = "terraform-example"
+  virtualization_type = "hvm"
+  root_device_name    = "/dev/xvda1"
+
+  ebs_block_device {
+    device_name = "/dev/xvda1"
+    volume_size = 8
+    encrypted   = true
+  }
+}
+
+resource "aws_ami" "pass3" {
+  name                = "terraform-example"
+  virtualization_type = "hvm"
+  root_device_name    = "/dev/xvda1"
+
+  ebs_block_device {
+    device_name = "/dev/xvda1"
+    volume_size = 8
+    snapshot_id = "someid"
+    encrypted   = true
+  }
+
+  ebs_block_device {
+    device_name = "/dev/xvda2"
+    volume_size = 8
+    encrypted   = true
+  }
+}
+
+resource "aws_ami" "pass4" {
+  name                = "terraform-example"
+  virtualization_type = "hvm"
+  root_device_name    = "/dev/xvda1"
+
+  ebs_block_device {
+    device_name = "/dev/xvda1"
+    volume_size = 8
+    encrypted   = true
+  }
+}
+
+resource "aws_ami" "pass5" {
+  name                = "terraform-example"
+  virtualization_type = "hvm"
+  root_device_name    = "/dev/xvda1"
+
+  ebs_block_device {
+    device_name = "/dev/xvda1"
+    volume_size = 8
+    encrypted   = true
+  }
+}
+
+provider "aws" {
+  region = "eu-west-2"
+}

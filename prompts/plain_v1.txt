@@ -1,0 +1,7 @@
+You are a cloud infrastructure security expert. Below is a Terraform configuration file that contains a security misconfiguration.
+
+Fix the misconfiguration and return ONLY the complete fixed Terraform file. Do not include any explanation, markdown formatting, or code fences. Return only valid HCL code.
+
+--- TERRAFORM FILE ---
+{artifact_text}
+--- END FILE ---

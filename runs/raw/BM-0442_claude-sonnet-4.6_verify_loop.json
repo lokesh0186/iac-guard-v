@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0442",
+  "model": "claude-sonnet-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_137",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 10,
+  "v4_diff_ratio": 0.3571,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 460,
+  "output_tokens": 406,
+  "latency_seconds": 5.03,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\n  \"patch_summary\": \"Added a vpc_options block with subnet_ids and security_group_ids to the aws_elasticsearch_domain.fail resource to ensure it is deployed inside a VPC.\",\n  \"changed_resources\": [\"aws_elasticsearch_domain.fail\"],\n  \"changed_attributes\": [\"vpc_options\", \"vpc_options.subnet_ids\", \"vpc_options.security_group_ids\"]\n}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_137",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 9,
+          "lines_removed": 1,
+          "lines_changed": 10,
+          "original_lines": 28,
+          "repaired_lines": 36,
+          "diff_ratio": 0.3571
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

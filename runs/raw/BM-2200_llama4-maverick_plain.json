@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2200",
+  "model": "llama4-maverick",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_91",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 116,
+  "v4_diff_ratio": 2.5217,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 397,
+  "output_tokens": 402,
+  "latency_seconds": 1.62,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "resource \"kubernetes_pod\" \"kube_apiserver\" {\n  metadata {\n    name      = \"kube-apiserver\"\n    namespace = \"kube-system\"\n    labels = {\n      component = \"kube-apiserver\"\n      tier      = \"control-plane\"\n    }\n  }\n  spec {\n    container {\n      name  = \"kube-apiserver\"\n      image = \"gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\"\n      command = [\n        \"kube-apiserver\",\n        \"--anonymous-auth=false\",\n        \"--kubelet-https=true\",\n        \"--kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt\",\n        \"--kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key\"\n      ]\n      liveness_probe {\n        http_get {\n          path   = \"/healthz\"\n          port   = 6443\n          scheme = \"HTTPS\"\n        }\n        initial_delay_seconds = 15\n        timeout_seconds       = 15\n        failure_threshold     = 8\n      }\n      resources {\n        requests = {\n          cpu = \"250m\"\n        }\n      }\n      volume_mount {\n        name       = \"k8s\"\n        mount_path = \"/etc/kubernetes/\"\n        read_only  = true\n      }\n      volume_mount {\n        name       = \"certs\"\n        mount_path = \"/etc/ssl/certs\"\n      }\n      volume_mount {\n        name       = \"pki\"\n        mount_path = \"/etc/pki\"\n      }\n    }\n    volume {\n      name = \"k8s\"\n      host_path {\n        path = \"/etc/kubernetes\"\n      }\n    }\n    volume {\n      name = \"certs\"\n      host_path {\n        path = \"/etc/ssl/certs\"\n      }\n    }\n    volume {\n      name = \"pki\"\n      host_path {\n        path = \"/etc/pki\"\n      }\n    }\n    host_network = true\n  }\n}",
+      "fixed_text": "resource \"kubernetes_pod\" \"kube_apiserver\" {\n  metadata {\n    name      = \"kube-apiserver\"\n    namespace = \"kube-system\"\n    labels = {\n      component = \"kube-apiserver\"\n      tier      = \"control-plane\"\n    }\n  }\n  spec {\n    container {\n      name  = \"kube-apiserver\"\n      image = \"gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\"\n      command = [\n        \"kube-apiserver\",\n        \"--anonymous-auth=false\",\n        \"--kubelet-https=true\",\n        \"--kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt\",\n        \"--kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key\"\n      ]\n      liveness_probe {\n        http_get {\n          path   = \"/healthz\"\n          port   = 6443\n          scheme = \"HTTPS\"\n        }\n        initial_delay_seconds = 15\n        timeout_seconds       = 15\n        failure_threshold     = 8\n      }\n      resources {\n        requests = {\n          cpu = \"250m\"\n        }\n      }\n      volume_mount {\n        name       = \"k8s\"\n        mount_path = \"/etc/kubernetes/\"\n        read_only  = true\n      }\n      volume_mount {\n        name       = \"certs\"\n        mount_path = \"/etc/ssl/certs\"\n      }\n      volume_mount {\n        name       = \"pki\"\n        mount_path = \"/etc/pki\"\n      }\n    }\n    volume {\n      name = \"k8s\"\n      host_path {\n        path = \"/etc/kubernetes\"\n      }\n    }\n    volume {\n      name = \"certs\"\n      host_path {\n        path = \"/etc/ssl/certs\"\n      }\n    }\n    volume {\n      name = \"pki\"\n      host_path {\n        path = \"/etc/pki\"\n      }\n    }\n    host_network = true\n  }\n}",
+      "verification": {
+        "target_rule_id": "CKV_K8S_91",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 70,
+          "lines_removed": 46,
+          "lines_changed": 116,
+          "original_lines": 46,
+          "repaired_lines": 70,
+          "diff_ratio": 2.5217
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

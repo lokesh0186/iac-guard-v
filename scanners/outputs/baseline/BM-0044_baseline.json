@@ -1,0 +1,167 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_215",
+        "bc_check_id": "BC_AWS_GENERAL_140",
+        "check_name": "Ensure AppSync API Cache is encrypted in transit",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "transit_encryption_enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0044.tf",
+        "file_abs_path": "benchmark/raw/BM-0044.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0044.tf",
+        "file_line_range": [
+          10,
+          17
+        ],
+        "resource": "aws_appsync_api_cache.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AppsyncAPICacheEncryptionInTransit",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-appsync-api-cache-is-encrypted-in-transit",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0044.tf"
+      },
+      {
+        "check_id": "CKV_AWS_214",
+        "bc_check_id": "BC_AWS_GENERAL_156",
+        "check_name": "Ensure AppSync API Cache is encrypted at rest",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "at_rest_encryption_enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0044.tf",
+        "file_abs_path": "benchmark/raw/BM-0044.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0044.tf",
+        "file_line_range": [
+          10,
+          17
+        ],
+        "resource": "aws_appsync_api_cache.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AppsyncAPICacheEncryptionAtRest",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-appsync-api-cache-is-encrypted-at-rest",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0044.tf"
+      },
+      {
+        "check_id": "CKV_AWS_215",
+        "bc_check_id": "BC_AWS_GENERAL_140",
+        "check_name": "Ensure AppSync API Cache is encrypted in transit",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "transit_encryption_enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0044.tf",
+        "file_abs_path": "benchmark/raw/BM-0044.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0044.tf",
+        "file_line_range": [
+          19,
+          24
+        ],
+        "resource": "aws_appsync_api_cache.fail2",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AppsyncAPICacheEncryptionInTransit",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-appsync-api-cache-is-encrypted-in-transit",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0044.tf"
+      },
+      {
+        "check_id": "CKV_AWS_214",
+        "bc_check_id": "BC_AWS_GENERAL_156",
+        "check_name": "Ensure AppSync API Cache is encrypted at rest",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "at_rest_encryption_enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0044.tf",
+        "file_abs_path": "benchmark/raw/BM-0044.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0044.tf",
+        "file_line_range": [
+          19,
+          24
+        ],
+        "resource": "aws_appsync_api_cache.fail2",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AppsyncAPICacheEncryptionAtRest",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-appsync-api-cache-is-encrypted-at-rest",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0044.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 2,
+    "failed": 4,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 3,
+    "checkov_version": "3.2.517"
+  }
+}

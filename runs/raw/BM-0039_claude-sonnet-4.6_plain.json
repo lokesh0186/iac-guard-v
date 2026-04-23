@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0039",
+  "model": "claude-sonnet-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_AWS_194",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 6,
+  "v4_diff_ratio": 0.1818,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 342,
+  "output_tokens": 263,
+  "latency_seconds": 4.63,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "# pass\n\nresource \"aws_appsync_graphql_api\" \"all\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"error\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n\n# fixed\n\nresource \"aws_appsync_graphql_api\" \"none\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}",
+      "fixed_text": "# pass\n\nresource \"aws_appsync_graphql_api\" \"all\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"error\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n\n# fixed\n\nresource \"aws_appsync_graphql_api\" \"none\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_194",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 3,
+          "lines_removed": 3,
+          "lines_changed": 6,
+          "original_lines": 33,
+          "repaired_lines": 33,
+          "diff_ratio": 0.1818
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0042",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_193",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 5,
+  "v4_diff_ratio": 0.2778,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 358,
+  "output_tokens": 196,
+  "latency_seconds": 1.02,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"# pass\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"enabled\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ERROR\\\"\\n  }\\n}\\n\\n# fail\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"default\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ERROR\\\"\\n  }\\n}\\n\", \"patch_summary\": \"Added log_config block to aws_appsync_graphql_api.default resource.\", \"changed_resources\": [\"aws_appsync_graphql_api.default\"], \"changed_attributes\": [\"log_config\"]}",
+      "fixed_text": "# pass\n\nresource \"aws_appsync_graphql_api\" \"enabled\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n\n# fail\n\nresource \"aws_appsync_graphql_api\" \"default\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_193",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 5,
+          "lines_removed": 0,
+          "lines_changed": 5,
+          "original_lines": 18,
+          "repaired_lines": 23,
+          "diff_ratio": 0.2778
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

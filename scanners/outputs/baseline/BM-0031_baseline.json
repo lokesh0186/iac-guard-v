@@ -1,0 +1,91 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_308",
+        "bc_check_id": "BC_AWS_GENERAL_221",
+        "check_name": "Ensure API Gateway method setting caching is set to encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "settings/[0]/cache_data_encrypted"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0031.tf",
+        "file_abs_path": "benchmark/raw/BM-0031.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0031.tf",
+        "file_line_range": [
+          1,
+          13
+        ],
+        "resource": "aws_api_gateway_method_settings.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.APIGatewayMethodSettingsCacheEncrypted",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-308",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0031.tf"
+      },
+      {
+        "check_id": "CKV_AWS_225",
+        "bc_check_id": "BC_AWS_GENERAL_163",
+        "check_name": "Ensure API Gateway method setting caching is enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "settings/[0]/caching_enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0031.tf",
+        "file_abs_path": "benchmark/raw/BM-0031.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0031.tf",
+        "file_line_range": [
+          29,
+          39
+        ],
+        "resource": "aws_api_gateway_method_settings.pass2",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.APIGatewayMethodSettingsCacheEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-api-gateway-method-settings-enable-caching",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0031.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 7,
+    "failed": 2,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 3,
+    "checkov_version": "3.2.517"
+  }
+}

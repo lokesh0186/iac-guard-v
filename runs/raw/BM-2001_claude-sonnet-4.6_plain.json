@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2001",
+  "model": "claude-sonnet-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_37",
+  "violation_class": "over_permissive_access",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 33,
+  "v4_diff_ratio": 1.2222,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 245,
+  "output_tokens": 163,
+  "latency_seconds": 3.42,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    run: secure-pod\n  name: secure-pod\nspec:\n  hostPID: false\n  hostIPC: false\n  hostNetwork: false\n  containers:\n  - image: ubuntu\n    name: secure-pod\n    command: [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n    securityContext:\n      privileged: false\n      allowPrivilegeEscalation: false\n      runAsNonRoot: true\n      runAsUser: 1000\n      readOnlyRootFilesystem: true\n      capabilities:\n        drop:\n        - ALL\n  restartPolicy: Never",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    run: secure-pod\n  name: secure-pod\nspec:\n  hostPID: false\n  hostIPC: false\n  hostNetwork: false\n  containers:\n  - image: ubuntu\n    name: secure-pod\n    command: [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n    securityContext:\n      privileged: false\n      allowPrivilegeEscalation: false\n      runAsNonRoot: true\n      runAsUser: 1000\n      readOnlyRootFilesystem: true\n      capabilities:\n        drop:\n        - ALL\n  restartPolicy: Never",
+      "verification": {
+        "target_rule_id": "CKV_K8S_37",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 15,
+          "lines_removed": 18,
+          "lines_changed": 33,
+          "original_lines": 27,
+          "repaired_lines": 24,
+          "diff_ratio": 1.2222
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

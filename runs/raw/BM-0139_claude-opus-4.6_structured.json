@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0139",
+  "model": "claude-opus-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_316",
+  "violation_class": "over_permissive_access",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 2,
+  "v4_diff_ratio": 0.0333,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 706,
+  "output_tokens": 566,
+  "latency_seconds": 6.48,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"# pass\\n\\nresource \\\"aws_codebuild_project\\\" \\\"pass\\\" {\\n  name         = \\\"example\\\"\\n  service_role = \\\"aws_iam_role.example.arn\\\"\\n\\n  encryption_key = \\\"aws_kms_key.scanner_key.id\\\"\\n\\n  artifacts {\\n    type = \\\"S3\\\"\\n  }\\n  environment {\\n    compute_type = \\\"BUILD_GENERAL1_SMALL\\\"\\n    image        = \\\"docker:dind\\\"\\n    type         = \\\"LINUX_CONTAINER\\\"\\n    privileged_mode = false\\n  }\\n  source {\\n    type = \\\"NO_SOURCE\\\"\\n  }\\n}\\n\\nresource \\\"aws_codebuild_project\\\" \\\"pass2\\\" {\\n  name         = \\\"example\\\"\\n  service_role = \\\"aws_iam_role.example.arn\\\"\\n\\n  encryption_key = \\\"aws_kms_key.scanner_key.id\\\"\\n\\n  artifacts {\\n    type = \\\"S3\\\"\\n  }\\n  environment {\\n    compute_type = \\\"BUILD_GENERAL1_SMALL\\\"\\n    image        = \\\"docker:dind\\\"\\n    type         = \\\"LINUX_CONTAINER\\\"\\n  }\\n  source {\\n    type = \\\"NO_SOURCE\\\"\\n  }\\n}\\n\\n# fail\\n\\nresource \\\"aws_codebuild_project\\\" \\\"fail\\\" {\\n  name         = \\\"example\\\"\\n  service_role = \\\"aws_iam_role.example.arn\\\"\\n\\n  artifacts {\\n    type = \\\"S3\\\"\\n  }\\n  environment {\\n    compute_type = \\\"BUILD_GENERAL1_SMALL\\\"\\n    image        = \\\"docker:dind\\\"\\n    type         = \\\"LINUX_CONTAINER\\\"\\n    privileged_mode = false\\n  }\\n  source {\\n    type = \\\"NO_SOURCE\\\"\\n  }\\n}\\n\",\"patch_summary\":\"Changed privileged_mode from true to false in the aws_codebuild_project.fail environment block to disable privileged mode.\",\"changed_resources\":[\"aws_codebuild_project.fail\"],\"changed_attributes\":[\"environment.privileged_mode\"]}",
+      "fixed_text": "# pass\n\nresource \"aws_codebuild_project\" \"pass\" {\n  name         = \"example\"\n  service_role = \"aws_iam_role.example.arn\"\n\n  encryption_key = \"aws_kms_key.scanner_key.id\"\n\n  artifacts {\n    type = \"S3\"\n  }\n  environment {\n    compute_type = \"BUILD_GENERAL1_SMALL\"\n    image        = \"docker:dind\"\n    type         = \"LINUX_CONTAINER\"\n    privileged_mode = false\n  }\n  source {\n    type = \"NO_SOURCE\"\n  }\n}\n\nresource \"aws_codebuild_project\" \"pass2\" {\n  name         = \"example\"\n  service_role = \"aws_iam_role.example.arn\"\n\n  encryption_key = \"aws_kms_key.scanner_key.id\"\n\n  artifacts {\n    type = \"S3\"\n  }\n  environment {\n    compute_type = \"BUILD_GENERAL1_SMALL\"\n    image        = \"docker:dind\"\n    type         = \"LINUX_CONTAINER\"\n  }\n  source {\n    type = \"NO_SOURCE\"\n  }\n}\n\n# fail\n\nresource \"aws_codebuild_project\" \"fail\" {\n  name         = \"example\"\n  service_role = \"aws_iam_role.example.arn\"\n\n  artifacts {\n    type = \"S3\"\n  }\n  environment {\n    compute_type = \"BUILD_GENERAL1_SMALL\"\n    image        = \"docker:dind\"\n    type         = \"LINUX_CONTAINER\"\n    privileged_mode = false\n  }\n  source {\n    type = \"NO_SOURCE\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_316",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 1,
+          "lines_removed": 1,
+          "lines_changed": 2,
+          "original_lines": 60,
+          "repaired_lines": 60,
+          "diff_ratio": 0.0333
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0038",
+  "model": "claude-sonnet-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_263",
+  "violation_class": "missing_encryption",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 2,
+  "v4_diff_ratio": 0.023,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 826,
+  "output_tokens": 773,
+  "latency_seconds": 6.42,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_appflow_flow\\\" \\\"fail\\\" {\\n  name = \\\"example\\\"\\n\\n  source_flow_config {\\n    connector_type = \\\"S3\\\"\\n    source_connector_properties {\\n      s3 {\\n        bucket_name   = aws_s3_bucket_policy.example_source.bucket\\n        bucket_prefix = \\\"example\\\"\\n      }\\n    }\\n  }\\n\\n  destination_flow_config {\\n    connector_type = \\\"S3\\\"\\n    destination_connector_properties {\\n      s3 {\\n        bucket_name = aws_s3_bucket_policy.example_destination.bucket\\n\\n        s3_output_format_config {\\n          prefix_config {\\n            prefix_type = \\\"PATH\\\"\\n          }\\n        }\\n      }\\n    }\\n  }\\n\\n  task {\\n    source_fields     = [\\\"exampleField\\\"]\\n    destination_field = \\\"exampleField\\\"\\n    task_type         = \\\"Map\\\"\\n\\n    connector_operator {\\n      s3 = \\\"NO_OP\\\"\\n    }\\n  }\\n\\n  kms_arn = aws_kms_key.example.arn\\n\\n  trigger_config {\\n    trigger_type = \\\"OnDemand\\\"\\n  }\\n}\\n\\nresource \\\"aws_appflow_flow\\\" \\\"pass\\\" {\\n  name = \\\"example\\\"\\n\\n  source_flow_config {\\n    connector_type = \\\"S3\\\"\\n    source_connector_properties {\\n      s3 {\\n        bucket_name   = aws_s3_bucket_policy.example_source.bucket\\n        bucket_prefix = \\\"example\\\"\\n      }\\n    }\\n  }\\n\\n  destination_flow_config {\\n    connector_type = \\\"S3\\\"\\n    destination_connector_properties {\\n      s3 {\\n        bucket_name = aws_s3_bucket_policy.example_destination.bucket\\n\\n        s3_output_format_config {\\n          prefix_config {\\n            prefix_type = \\\"PATH\\\"\\n          }\\n        }\\n      }\\n    }\\n  }\\n\\n  task {\\n    source_fields     = [\\\"exampleField\\\"]\\n    destination_field = \\\"exampleField\\\"\\n    task_type         = \\\"Map\\\"\\n\\n    connector_operator {\\n      s3 = \\\"NO_OP\\\"\\n    }\\n  }\\n\\n  kms_arn = aws_kms_key.example.arn\\n\\n  trigger_config {\\n    trigger_type = \\\"OnDemand\\\"\\n  }\\n}\\n\",\n  \"patch_summary\": \"Added the `kms_arn` attribute referencing a KMS CMK to the `aws_appflow_flow.fail` resource to enable customer-managed key encryption.\",\n  \"changed_resources\": [\"aws_appflow_flow.fail\"],\n  \"changed_attributes\": [\"kms_arn\"]\n}",
+      "fixed_text": "resource \"aws_appflow_flow\" \"fail\" {\n  name = \"example\"\n\n  source_flow_config {\n    connector_type = \"S3\"\n    source_connector_properties {\n      s3 {\n        bucket_name   = aws_s3_bucket_policy.example_source.bucket\n        bucket_prefix = \"example\"\n      }\n    }\n  }\n\n  destination_flow_config {\n    connector_type = \"S3\"\n    destination_connector_properties {\n      s3 {\n        bucket_name = aws_s3_bucket_policy.example_destination.bucket\n\n        s3_output_format_config {\n          prefix_config {\n            prefix_type = \"PATH\"\n          }\n        }\n      }\n    }\n  }\n\n  task {\n    source_fields     = [\"exampleField\"]\n    destination_field = \"exampleField\"\n    task_type         = \"Map\"\n\n    connector_operator {\n      s3 = \"NO_OP\"\n    }\n  }\n\n  kms_arn = aws_kms_key.example.arn\n\n  trigger_config {\n    trigger_type = \"OnDemand\"\n  }\n}\n\nresource \"aws_appflow_flow\" \"pass\" {\n  name = \"example\"\n\n  source_flow_config {\n    connector_type = \"S3\"\n    source_connector_properties {\n      s3 {\n        bucket_name   = aws_s3_bucket_policy.example_source.bucket\n        bucket_prefix = \"example\"\n      }\n    }\n  }\n\n  destination_flow_config {\n    connector_type = \"S3\"\n    destination_connector_properties {\n      s3 {\n        bucket_name = aws_s3_bucket_policy.example_destination.bucket\n\n        s3_output_format_config {\n          prefix_config {\n            prefix_type = \"PATH\"\n          }\n        }\n      }\n    }\n  }\n\n  task {\n    source_fields     = [\"exampleField\"]\n    destination_field = \"exampleField\"\n    task_type         = \"Map\"\n\n    connector_operator {\n      s3 = \"NO_OP\"\n    }\n  }\n\n  kms_arn = aws_kms_key.example.arn\n\n  trigger_config {\n    trigger_type = \"OnDemand\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_263",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 2,
+          "lines_removed": 0,
+          "lines_changed": 2,
+          "original_lines": 87,
+          "repaired_lines": 89,
+          "diff_ratio": 0.023
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

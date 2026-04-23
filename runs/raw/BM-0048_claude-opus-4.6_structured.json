@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0048",
+  "model": "claude-opus-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_159",
+  "violation_class": "missing_encryption",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 5,
+  "v4_diff_ratio": 0.1667,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 476,
+  "output_tokens": 355,
+  "latency_seconds": 10.54,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_athena_workgroup\\\" \\\"pass\\\" {\\n  name = \\\"wg-encrypted\\\"\\n\\n  configuration {\\n    enforce_workgroup_configuration    = true\\n    publish_cloudwatch_metrics_enabled = true\\n\\n    result_configuration {\\n      output_location = \\\"s3://mys3bucket\\\"\\n      encryption_configuration {\\n        encryption_option = \\\"SSE_KMS\\\"\\n        kms_key_arn       = \\\"mykmsarn\\\"\\n      }\\n    }\\n  }\\n}\\n\\nresource \\\"aws_athena_workgroup\\\" \\\"fail\\\" {\\n  name = \\\"wg-non-encrypted\\\"\\n\\n  configuration {\\n    enforce_workgroup_configuration    = true\\n    publish_cloudwatch_metrics_enabled = true\\n\\n    result_configuration {\\n      output_location = \\\"s3://mys3bucket\\\"\\n      encryption_configuration {\\n        encryption_option = \\\"SSE_KMS\\\"\\n        kms_key_arn       = \\\"mykmsarn\\\"\\n      }\\n    }\\n  }\\n}\\n\",\"patch_summary\":\"Added encryption_configuration block with SSE_KMS encryption to the result_configuration of the aws_athena_workgroup.fail resource.\",\"changed_resources\":[\"aws_athena_workgroup.fail\"],\"changed_attributes\":[\"configuration.result_configuration.encryption_configuration\"]}",
+      "fixed_text": "resource \"aws_athena_workgroup\" \"pass\" {\n  name = \"wg-encrypted\"\n\n  configuration {\n    enforce_workgroup_configuration    = true\n    publish_cloudwatch_metrics_enabled = true\n\n    result_configuration {\n      output_location = \"s3://mys3bucket\"\n      encryption_configuration {\n        encryption_option = \"SSE_KMS\"\n        kms_key_arn       = \"mykmsarn\"\n      }\n    }\n  }\n}\n\nresource \"aws_athena_workgroup\" \"fail\" {\n  name = \"wg-non-encrypted\"\n\n  configuration {\n    enforce_workgroup_configuration    = true\n    publish_cloudwatch_metrics_enabled = true\n\n    result_configuration {\n      output_location = \"s3://mys3bucket\"\n      encryption_configuration {\n        encryption_option = \"SSE_KMS\"\n        kms_key_arn       = \"mykmsarn\"\n      }\n    }\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_159",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 4,
+          "lines_removed": 1,
+          "lines_changed": 5,
+          "original_lines": 30,
+          "repaired_lines": 33,
+          "diff_ratio": 0.1667
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

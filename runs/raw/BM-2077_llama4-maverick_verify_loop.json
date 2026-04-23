@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2077",
+  "model": "llama4-maverick",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_K8S_77",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 3,
+  "v4_diff_ratio": 0.0638,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 573,
+  "output_tokens": 383,
+  "latency_seconds": 1.66,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"apiVersion: v1\\nkind: Pod\\nmetadata:\\n  creationTimestamp: null\\n  labels:\\n    component: kube-apiserver\\n    tier: control-plane\\n  name: kube-apiserver-passed\\n  namespace: kube-system\\nspec:\\n  containers:\\n    - command:\\n        - kube-apiserver\\n        - --enable-admission-plugins=other\\n        - --authorization-mode=RBAC\\n      image: gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\\n      livenessProbe:\\n        failureThreshold: 8\\n        httpGet:\\n          host: 127.0.0.1\\n          path: /healthz\\n          port: 6443\\n          scheme: HTTPS\\n        initialDelaySeconds: 15\\n        timeoutSeconds: 15\\n      name: kube-apiserver\\n      resources:\\n        requests:\\n          cpu: 250m\\n      volumeMounts:\\n        - mountPath: /etc/kubernetes/\\n          name: k8s\\n          readOnly: true\\n        - mountPath: /etc/ssl/certs\\n          name: certs\\n        - mountPath: /etc/pki\\n          name: pki\\n  hostNetwork: true\\n  volumes:\\n    - hostPath:\\n        path: /etc/kubernetes\\n      name: k8s\\n    - hostPath:\\n        path: /etc/ssl/certs\\n      name: certs\\n    - hostPath:\\n        path: /etc/pki\\n      name: pki\", \"patch_summary\": \"Added --authorization-mode=RBAC to the kube-apiserver command.\", \"changed_resources\": [\"Pod.kube-system.kube-apiserver-passed\"], \"changed_attributes\": [\"spec.containers[0].command\"]}",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  creationTimestamp: null\n  labels:\n    component: kube-apiserver\n    tier: control-plane\n  name: kube-apiserver-passed\n  namespace: kube-system\nspec:\n  containers:\n    - command:\n        - kube-apiserver\n        - --enable-admission-plugins=other\n        - --authorization-mode=RBAC\n      image: gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\n      livenessProbe:\n        failureThreshold: 8\n        httpGet:\n          host: 127.0.0.1\n          path: /healthz\n          port: 6443\n          scheme: HTTPS\n        initialDelaySeconds: 15\n        timeoutSeconds: 15\n      name: kube-apiserver\n      resources:\n        requests:\n          cpu: 250m\n      volumeMounts:\n        - mountPath: /etc/kubernetes/\n          name: k8s\n          readOnly: true\n        - mountPath: /etc/ssl/certs\n          name: certs\n        - mountPath: /etc/pki\n          name: pki\n  hostNetwork: true\n  volumes:\n    - hostPath:\n        path: /etc/kubernetes\n      name: k8s\n    - hostPath:\n        path: /etc/ssl/certs\n      name: certs\n    - hostPath:\n        path: /etc/pki\n      name: pki",
+      "verification": {
+        "target_rule_id": "CKV_K8S_77",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 2,
+          "lines_removed": 1,
+          "lines_changed": 3,
+          "original_lines": 47,
+          "repaired_lines": 48,
+          "diff_ratio": 0.0638
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

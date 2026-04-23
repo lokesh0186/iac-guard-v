@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0016",
+  "model": "claude-sonnet-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_AWS_236",
+  "violation_class": "missing_encryption",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 6,
+  "v4_diff_ratio": 0.1622,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 379,
+  "output_tokens": 303,
+  "latency_seconds": 3.42,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "resource \"aws_ami_copy\" \"fail\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"fail2\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"pass\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}",
+      "fixed_text": "resource \"aws_ami_copy\" \"fail\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"fail2\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}\n\n\nresource \"aws_ami_copy\" \"pass\" {\n  name              = \"terraform-example\"\n  description       = \"A copy of ami-xxxxxxxx\"\n  source_ami_id     = \"ami-xxxxxxxx\"\n  source_ami_region = \"us-west-1\"\n  encrypted         = true\n  tags = {\n    Name = \"HelloWorld\"\n    test = \"failed\"\n  }\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_236",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_236 still present in 3 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 3,
+          "lines_removed": 3,
+          "lines_changed": 6,
+          "original_lines": 37,
+          "repaired_lines": 37,
+          "diff_ratio": 0.1622
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2113",
+  "model": "llama4-maverick",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_K8S_78",
+  "violation_class": "missing_runtime_safety",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 9,
+  "v4_diff_ratio": 0.6,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 395,
+  "output_tokens": 247,
+  "latency_seconds": 1.93,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"apiVersion: apiserver.config.k8s.io/v1\\nkind: AdmissionConfiguration\\nmetadata:\\n  name: \\\"admission-configuration-failed\\\"\\nplugins:\\n  - name: ValidatingAdmissionWebhook\\n    configuration:\\n      apiVersion: apiserver.config.k8s.io/v1\\n      kind: WebhookAdmissionConfiguration\\n      kubeConfigFile: \\\"<path-to-kubeconfig-file>\\\"\\n  - name: MutatingAdmissionWebhook\\n    configuration:\\n      apiVersion: apiserver.config.k8s.io/v1\\n      kind: WebhookAdmissionConfiguration\\n      kubeConfigFile: \\\"<path-to-kubeconfig-file>\\\"\\n  - name: EventRateLimit\\n    configuration:\\n      apiVersion: eventratelimit.admission.k8s.io/v1alpha1\\n      kind: Configuration\\n      limits:\\n      - type: Server\\n        qps: 50\\n        burst: 100\\n        cacheSize: 2000\", \"patch_summary\": \"Added the EventRateLimit admission control plugin to the AdmissionConfiguration.\", \"changed_resources\": [\"admission-configuration-failed\"], \"changed_attributes\": [\"plugins\"]}",
+      "fixed_text": "apiVersion: apiserver.config.k8s.io/v1\nkind: AdmissionConfiguration\nmetadata:\n  name: \"admission-configuration-failed\"\nplugins:\n  - name: ValidatingAdmissionWebhook\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: WebhookAdmissionConfiguration\n      kubeConfigFile: \"<path-to-kubeconfig-file>\"\n  - name: MutatingAdmissionWebhook\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: WebhookAdmissionConfiguration\n      kubeConfigFile: \"<path-to-kubeconfig-file>\"\n  - name: EventRateLimit\n    configuration:\n      apiVersion: eventratelimit.admission.k8s.io/v1alpha1\n      kind: Configuration\n      limits:\n      - type: Server\n        qps: 50\n        burst: 100\n        cacheSize: 2000",
+      "verification": {
+        "target_rule_id": "CKV_K8S_78",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 9,
+          "lines_removed": 0,
+          "lines_changed": 9,
+          "original_lines": 15,
+          "repaired_lines": 24,
+          "diff_ratio": 0.6
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

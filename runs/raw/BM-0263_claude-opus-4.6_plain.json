@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0263",
+  "model": "claude-opus-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_AWS_135",
+  "violation_class": "public_exposure",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 29,
+  "v4_diff_ratio": 0.232,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 902,
+  "output_tokens": 825,
+  "latency_seconds": 7.26,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "# pass\n\n# EC2 instance\n\nresource \"aws_instance\" \"default\" {\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n}\n\nresource \"aws_instance\" \"private\" {\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  associate_public_ip_address = false\n}\n\n# launch template\n\nresource \"aws_launch_template\" \"default\" {\n  image_id      = \"ami-12345\"\n  instance_type = \"t3.micro\"\n}\n\nresource \"aws_launch_template\" \"private\" {\n  image_id      = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  network_interfaces {\n    associate_public_ip_address = false\n  }\n}\n\n# fixed\n\n# EC2 instance\n\nresource \"aws_instance\" \"public\" {\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  associate_public_ip_address = false\n}\n\n# launch template\n\nresource \"aws_launch_template\" \"public\" {\n  image_id      = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  network_interfaces {\n    associate_public_ip_address = false\n  }\n}\n\nvariable \"public\" {\n  default = {\n    \"key1\": false,\n    \"key2\": false\n  }\n}\n\nresource \"aws_instance\" \"public_foreach\" {\n  for_each = var.public\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  associate_public_ip_address = false\n}\n\nvariable \"public_loop\" {\n  default = [{\n    \"name\": \"key3\",\n  },\n  {\n    \"name\": \"key4\",\n  }]\n}\n\nvariable \"loop_list\" {\n  default = [\"k\", \"v\"]\n}\n\nresource \"aws_instance\" \"public_foreach_loop\" {\n  for_each = { for val in var.public_loop : val.name => false }\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  associate_public_ip_address = false\n}\n\nresource \"aws_instance\" \"public_foreach_loop_list\" {\n  for_each = toset([ for val in var.loop_list : val ])\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n  associate_public_ip_address = false\n}\n\nvariable \"loop_list_of_dicts\" {\n  default = [\n    {\n      \"name\": \"public\",\n      \"public_ip\": false\n    },\n    {\n      \"name\": \"private\",\n      \"public_ip\": false\n    }\n  ]\n}\n\nlocals {\n  loop_list_of_dicts = [\n    for val in var.loop_list_of_dicts : {\n      name = val.name\n      public_ip = false\n    }\n  ]\n}\n\nresource \"aws_instance\" \"public_foreach_loop_list_of_dicts\" {\n  for_each = { for val in local.loop_list_of_dicts : val.name => val }\n\n  ami                         = \"ami-12345\"\n  instance_type               = \"t3.micro\"\n  associate_public_ip_address = false\n}",
+      "fixed_text": "# pass\n\n# EC2 instance\n\nresource \"aws_instance\" \"default\" {\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n}\n\nresource \"aws_instance\" \"private\" {\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  associate_public_ip_address = false\n}\n\n# launch template\n\nresource \"aws_launch_template\" \"default\" {\n  image_id      = \"ami-12345\"\n  instance_type = \"t3.micro\"\n}\n\nresource \"aws_launch_template\" \"private\" {\n  image_id      = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  network_interfaces {\n    associate_public_ip_address = false\n  }\n}\n\n# fixed\n\n# EC2 instance\n\nresource \"aws_instance\" \"public\" {\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  associate_public_ip_address = false\n}\n\n# launch template\n\nresource \"aws_launch_template\" \"public\" {\n  image_id      = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  network_interfaces {\n    associate_public_ip_address = false\n  }\n}\n\nvariable \"public\" {\n  default = {\n    \"key1\": false,\n    \"key2\": false\n  }\n}\n\nresource \"aws_instance\" \"public_foreach\" {\n  for_each = var.public\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  associate_public_ip_address = false\n}\n\nvariable \"public_loop\" {\n  default = [{\n    \"name\": \"key3\",\n  },\n  {\n    \"name\": \"key4\",\n  }]\n}\n\nvariable \"loop_list\" {\n  default = [\"k\", \"v\"]\n}\n\nresource \"aws_instance\" \"public_foreach_loop\" {\n  for_each = { for val in var.public_loop : val.name => false }\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n\n  associate_public_ip_address = false\n}\n\nresource \"aws_instance\" \"public_foreach_loop_list\" {\n  for_each = toset([ for val in var.loop_list : val ])\n  ami           = \"ami-12345\"\n  instance_type = \"t3.micro\"\n  associate_public_ip_address = false\n}\n\nvariable \"loop_list_of_dicts\" {\n  default = [\n    {\n      \"name\": \"public\",\n      \"public_ip\": false\n    },\n    {\n      \"name\": \"private\",\n      \"public_ip\": false\n    }\n  ]\n}\n\nlocals {\n  loop_list_of_dicts = [\n    for val in var.loop_list_of_dicts : {\n      name = val.name\n      public_ip = false\n    }\n  ]\n}\n\nresource \"aws_instance\" \"public_foreach_loop_list_of_dicts\" {\n  for_each = { for val in local.loop_list_of_dicts : val.name => val }\n\n  ami                         = \"ami-12345\"\n  instance_type               = \"t3.micro\"\n  associate_public_ip_address = false\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_135",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_135 still present in 53 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 15,
+          "lines_removed": 14,
+          "lines_changed": 29,
+          "original_lines": 125,
+          "repaired_lines": 126,
+          "diff_ratio": 0.232
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

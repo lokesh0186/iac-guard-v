@@ -1,0 +1,37 @@
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+metadata:
+  name: "admission-configuration-fixed"
+plugins:
+  - name: EventRateLimit
+    path: eventconfig.yaml
+  - name: ValidatingAdmissionWebhook
+    configuration:
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: WebhookAdmissionConfiguration
+      kubeConfigFile: "<path-to-kubeconfig-file>"
+  - name: MutatingAdmissionWebhook
+    configuration:
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: WebhookAdmissionConfiguration
+      kubeConfigFile: "<path-to-kubeconfig-file>"
+  - name: AlwaysPullImages
+    configuration:
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: AlwaysPullImagesConfiguration
+  - name: NodeRestriction
+    configuration:
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: NodeRestrictionConfiguration
+  - name: PodSecurityPolicy
+    configuration:
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: PodSecurityPolicyConfiguration
+  - name: SecurityContextDeny
+    configuration:
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: SecurityContextDenyConfiguration
+  - name: ServiceAccount
+    configuration:
+      apiVersion: apiserver.config.k8s.io/v1
+      kind: ServiceAccountConfiguration

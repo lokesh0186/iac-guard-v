@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0445",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_5",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 6,
+  "v4_diff_ratio": 0.2143,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 405,
+  "output_tokens": 230,
+  "latency_seconds": 1.37,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n  encrypt_at_rest {\\n    enabled = true\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\", \"patch_summary\": \"Added encrypt_at_rest block to aws_elasticsearch_domain.fail resource to enable encryption at rest.\", \"changed_resources\": [\"aws_elasticsearch_domain.fail\"], \"changed_attributes\": [\"encrypt_at_rest\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n  encrypt_at_rest {\n    enabled = true\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_5",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_5 still present in 17 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 4,
+          "lines_removed": 2,
+          "lines_changed": 6,
+          "original_lines": 28,
+          "repaired_lines": 30,
+          "diff_ratio": 0.2143
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,220 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_235",
+        "bc_check_id": "BC_AWS_GENERAL_157",
+        "check_name": "Ensure that copied AMIs are encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "encrypted"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0016.tf",
+        "file_abs_path": "benchmark/raw/BM-0016.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0016.tf",
+        "file_line_range": [
+          2,
+          12
+        ],
+        "resource": "aws_ami_copy.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AMICopyIsEncrypted",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "HelloWorld",
+          "test": "failed"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-copied-amis-are-encrypted",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0016.tf"
+      },
+      {
+        "check_id": "CKV_AWS_236",
+        "bc_check_id": "BC_AWS_GENERAL_123",
+        "check_name": "Ensure AMI copying uses a CMK",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "kms_key_id"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0016.tf",
+        "file_abs_path": "benchmark/raw/BM-0016.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0016.tf",
+        "file_line_range": [
+          2,
+          12
+        ],
+        "resource": "aws_ami_copy.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AMICopyUsesCMK",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "HelloWorld",
+          "test": "failed"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-ami-copying-uses-a-customer-managed-key-cmk",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0016.tf"
+      },
+      {
+        "check_id": "CKV_AWS_235",
+        "bc_check_id": "BC_AWS_GENERAL_157",
+        "check_name": "Ensure that copied AMIs are encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "encrypted"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0016.tf",
+        "file_abs_path": "benchmark/raw/BM-0016.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0016.tf",
+        "file_line_range": [
+          15,
+          24
+        ],
+        "resource": "aws_ami_copy.fail2",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AMICopyIsEncrypted",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "HelloWorld",
+          "test": "failed"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-copied-amis-are-encrypted",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0016.tf"
+      },
+      {
+        "check_id": "CKV_AWS_236",
+        "bc_check_id": "BC_AWS_GENERAL_123",
+        "check_name": "Ensure AMI copying uses a CMK",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "kms_key_id"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0016.tf",
+        "file_abs_path": "benchmark/raw/BM-0016.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0016.tf",
+        "file_line_range": [
+          15,
+          24
+        ],
+        "resource": "aws_ami_copy.fail2",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AMICopyUsesCMK",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "HelloWorld",
+          "test": "failed"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-ami-copying-uses-a-customer-managed-key-cmk",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0016.tf"
+      },
+      {
+        "check_id": "CKV_AWS_236",
+        "bc_check_id": "BC_AWS_GENERAL_123",
+        "check_name": "Ensure AMI copying uses a CMK",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "kms_key_id"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0016.tf",
+        "file_abs_path": "benchmark/raw/BM-0016.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0016.tf",
+        "file_line_range": [
+          27,
+          37
+        ],
+        "resource": "aws_ami_copy.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AMICopyUsesCMK",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "HelloWorld",
+          "test": "failed"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-ami-copying-uses-a-customer-managed-key-cmk",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0016.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 1,
+    "failed": 5,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 3,
+    "checkov_version": "3.2.517"
+  }
+}

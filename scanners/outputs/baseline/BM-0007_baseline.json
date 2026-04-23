@@ -1,0 +1,862 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_150",
+        "bc_check_id": "BC_AWS_NETWORKING_62",
+        "check_name": "Ensure that Load Balancer has deletion protection enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "enable_deletion_protection"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          3,
+          10
+        ],
+        "resource": "aws_lb.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LBDeletionProtection",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-150",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_91",
+        "bc_check_id": "BC_AWS_LOGGING_22",
+        "check_name": "Ensure the ELBv2 (Application/Network) has access logging enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "access_logs/0/enabled/0"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          3,
+          10
+        ],
+        "resource": "aws_lb.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ELBv2AccessLogs",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-logging-22",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_150",
+        "bc_check_id": "BC_AWS_NETWORKING_62",
+        "check_name": "Ensure that Load Balancer has deletion protection enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "enable_deletion_protection"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          12,
+          18
+        ],
+        "resource": "aws_alb.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LBDeletionProtection",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-150",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_91",
+        "bc_check_id": "BC_AWS_LOGGING_22",
+        "check_name": "Ensure the ELBv2 (Application/Network) has access logging enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "access_logs/0/enabled/0"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          12,
+          18
+        ],
+        "resource": "aws_alb.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ELBv2AccessLogs",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-logging-22",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_127",
+        "bc_check_id": "BC_AWS_GENERAL_67",
+        "check_name": "Ensure that Elastic Load Balancer(s) uses SSL certificates provided by AWS Certificate Manager",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "listener/0"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          19,
+          61
+        ],
+        "resource": "aws_elb.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ELBUsesSSL",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "foobar-terraform-elb"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-elastic-load-balancers-uses-ssl-certificates-provided-by-aws-certificate-manager",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_376",
+        "bc_check_id": "BC_AWS_NETWORKING_99",
+        "check_name": "Ensure AWS Elastic Load Balancer listener uses TLS/SSL",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "listener",
+            "listener/[0]/instance_protocol"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          19,
+          61
+        ],
+        "resource": "aws_elb.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ELBwListenerNotTLSSSL",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "foobar-terraform-elb"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-376",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_127",
+        "bc_check_id": "BC_AWS_GENERAL_67",
+        "check_name": "Ensure that Elastic Load Balancer(s) uses SSL certificates provided by AWS Certificate Manager",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "listener/0"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          64,
+          106
+        ],
+        "resource": "aws_elb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ELBUsesSSL",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "foobar-terraform-elb"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-elastic-load-balancers-uses-ssl-certificates-provided-by-aws-certificate-manager",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_328",
+        "bc_check_id": "BC_AWS_NETWORKING_89",
+        "check_name": "Ensure that ALB is configured with defensive or strictest desync mitigation mode",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "desync_mitigation_mode"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          64,
+          106
+        ],
+        "resource": "aws_elb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ALBDesyncMode",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "foobar-terraform-elb"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-328",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_376",
+        "bc_check_id": "BC_AWS_NETWORKING_99",
+        "check_name": "Ensure AWS Elastic Load Balancer listener uses TLS/SSL",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "listener",
+            "listener/[0]/instance_protocol"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          64,
+          106
+        ],
+        "resource": "aws_elb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ELBwListenerNotTLSSSL",
+        "fixed_definition": null,
+        "entity_tags": {
+          "Name": "foobar-terraform-elb"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-376",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_150",
+        "bc_check_id": "BC_AWS_NETWORKING_62",
+        "check_name": "Ensure that Load Balancer has deletion protection enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "enable_deletion_protection"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          108,
+          115
+        ],
+        "resource": "aws_lb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LBDeletionProtection",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-150",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_328",
+        "bc_check_id": "BC_AWS_NETWORKING_89",
+        "check_name": "Ensure that ALB is configured with defensive or strictest desync mitigation mode",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "desync_mitigation_mode"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          108,
+          115
+        ],
+        "resource": "aws_lb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ALBDesyncMode",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-328",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_91",
+        "bc_check_id": "BC_AWS_LOGGING_22",
+        "check_name": "Ensure the ELBv2 (Application/Network) has access logging enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "access_logs/0/enabled/0"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          108,
+          115
+        ],
+        "resource": "aws_lb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ELBv2AccessLogs",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-logging-22",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_150",
+        "bc_check_id": "BC_AWS_NETWORKING_62",
+        "check_name": "Ensure that Load Balancer has deletion protection enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "enable_deletion_protection"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          117,
+          124
+        ],
+        "resource": "aws_alb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LBDeletionProtection",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-150",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_328",
+        "bc_check_id": "BC_AWS_NETWORKING_89",
+        "check_name": "Ensure that ALB is configured with defensive or strictest desync mitigation mode",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "desync_mitigation_mode"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          117,
+          124
+        ],
+        "resource": "aws_alb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ALBDesyncMode",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-328",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV_AWS_91",
+        "bc_check_id": "BC_AWS_LOGGING_22",
+        "check_name": "Ensure the ELBv2 (Application/Network) has access logging enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "access_logs/0/enabled/0"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          117,
+          124
+        ],
+        "resource": "aws_alb.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ELBv2AccessLogs",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-logging-22",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_28",
+        "bc_check_id": "BC_AWS_NETWORKING_58",
+        "check_name": "Ensure public facing ALB are protected by WAF",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_lb": {
+              "pass": {
+                "__end_line__": 10,
+                "__start_line__": 3,
+                "desync_mitigation_mode": [
+                  "strictest"
+                ],
+                "drop_invalid_header_fields": [
+                  true
+                ],
+                "internal": [
+                  false
+                ],
+                "load_balancer_type": [
+                  "application"
+                ],
+                "name": [
+                  "alb"
+                ],
+                "subnets": [
+                  "var.public_subnet_ids"
+                ],
+                "__address__": "aws_lb.pass"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "load_balancer_type",
+            "internal",
+            "resource_type"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          3,
+          10
+        ],
+        "resource": "aws_lb.pass",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-public-facing-alb-are-protected-by-waf",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_28",
+        "bc_check_id": "BC_AWS_NETWORKING_58",
+        "check_name": "Ensure public facing ALB are protected by WAF",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_alb": {
+              "pass": {
+                "__end_line__": 18,
+                "__start_line__": 12,
+                "drop_invalid_header_fields": [
+                  true
+                ],
+                "internal": [
+                  false
+                ],
+                "load_balancer_type": [
+                  "application"
+                ],
+                "name": [
+                  "alb"
+                ],
+                "subnets": [
+                  "var.public_subnet_ids"
+                ],
+                "__address__": "aws_alb.pass"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "load_balancer_type",
+            "internal",
+            "resource_type"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          12,
+          18
+        ],
+        "resource": "aws_alb.pass",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-public-facing-alb-are-protected-by-waf",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_28",
+        "bc_check_id": "BC_AWS_NETWORKING_58",
+        "check_name": "Ensure public facing ALB are protected by WAF",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_lb": {
+              "fail": {
+                "__end_line__": 115,
+                "__start_line__": 108,
+                "desync_mitigation_mode": [
+                  "monitor"
+                ],
+                "drop_invalid_header_fields": [
+                  true
+                ],
+                "internal": [
+                  false
+                ],
+                "load_balancer_type": [
+                  "application"
+                ],
+                "name": [
+                  "alb"
+                ],
+                "subnets": [
+                  "var.public_subnet_ids"
+                ],
+                "__address__": "aws_lb.fail"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "load_balancer_type",
+            "internal",
+            "resource_type"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          108,
+          115
+        ],
+        "resource": "aws_lb.fail",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-public-facing-alb-are-protected-by-waf",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_28",
+        "bc_check_id": "BC_AWS_NETWORKING_58",
+        "check_name": "Ensure public facing ALB are protected by WAF",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_alb": {
+              "fail": {
+                "__end_line__": 124,
+                "__start_line__": 117,
+                "desync_mitigation_mode": [
+                  "monitor"
+                ],
+                "drop_invalid_header_fields": [
+                  true
+                ],
+                "internal": [
+                  false
+                ],
+                "load_balancer_type": [
+                  "application"
+                ],
+                "name": [
+                  "alb"
+                ],
+                "subnets": [
+                  "var.public_subnet_ids"
+                ],
+                "__address__": "aws_alb.fail"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "load_balancer_type",
+            "internal",
+            "resource_type"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0007.tf",
+        "file_abs_path": "benchmark/raw/BM-0007.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0007.tf",
+        "file_line_range": [
+          117,
+          124
+        ],
+        "resource": "aws_alb.fail",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-public-facing-alb-are-protected-by-waf",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0007.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 19,
+    "failed": 19,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 6,
+    "checkov_version": "3.2.517"
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-3936",
+  "model": "claude-sonnet-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_40",
+  "violation_class": "missing_runtime_safety",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 30,
+  "v4_diff_ratio": 0.8333,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 338,
+  "output_tokens": 339,
+  "latency_seconds": 3.1,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    test: liveness\n  name: liveness-exec\nspec:\n  containers:\n  - name: liveness\n    image: k8s.gcr.io/busybox\n    args:\n    - /bin/sh\n    - -c\n    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\n    livenessProbe:\n      exec:\n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5\n    readinessProbe:\n      exec:\n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5\n  - name: noliveness\n    image: k8s.gcr.io/busybox\n    args:\n    - /bin/sh\n    - -c\n    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\n    livenessProbe:\n      exec:\n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5\n    readinessProbe:\n      exec:\n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    test: liveness\n  name: liveness-exec\nspec:\n  containers:\n  - name: liveness\n    image: k8s.gcr.io/busybox\n    args:\n    - /bin/sh\n    - -c\n    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\n    livenessProbe:\n      exec:\n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5\n    readinessProbe:\n      exec:\n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5\n  - name: noliveness\n    image: k8s.gcr.io/busybox\n    args:\n    - /bin/sh\n    - -c\n    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\n    livenessProbe:\n      exec:\n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5\n    readinessProbe:\n      exec:\n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5",
+      "verification": {
+        "target_rule_id": "CKV_K8S_40",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 21,
+          "lines_removed": 9,
+          "lines_changed": 30,
+          "original_lines": 36,
+          "repaired_lines": 48,
+          "diff_ratio": 0.8333
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

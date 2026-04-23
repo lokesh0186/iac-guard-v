@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-3938",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_K8S_22",
+  "violation_class": "missing_runtime_safety",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 6,
+  "v4_diff_ratio": 0.1667,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 489,
+  "output_tokens": 335,
+  "latency_seconds": 1.75,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"apiVersion: v1\\nkind: Pod\\nmetadata:\\n  labels: \\n    test: liveness\\n  name: liveness-exec\\nspec: \\n  containers: \\n  - name: liveness\\n    image: k8s.gcr.io/busybox\\n    args:\\n    - /bin/sh\\n    - -c \\n    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\\n    livenessProbe: \\n      exec: \\n        command:\\n        - cat\\n        - /tmp/healthy\\n      initialDelaySeconds: 5\\n      periodSeconds: 5\\n    readinessProbe:\\n      exec:\\n        command:\\n        - cat \\n        - /tmp/healthy\\n      initialDelaySeconds: 5\\n      periodSeconds: 5\\n    securityContext:\\n      readOnlyRootFilesystem: true\\n  - name: noliveness\\n    image: k8s.gcr.io/busybox\\n    args:\\n    - /bin/sh\\n    - -c\\n    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\\n    securityContext:\\n      readOnlyRootFilesystem: true\", \"patch_summary\": \"Added securityContext with readOnlyRootFilesystem: true to containers.\", \"changed_resources\": [\"Pod.default.liveness-exec\"], \"changed_attributes\": [\"spec.containers[0].securityContext.readOnlyRootFilesystem\", \"spec.containers[1].securityContext.readOnlyRootFilesystem\"]}",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels: \n    test: liveness\n  name: liveness-exec\nspec: \n  containers: \n  - name: liveness\n    image: k8s.gcr.io/busybox\n    args:\n    - /bin/sh\n    - -c \n    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\n    livenessProbe: \n      exec: \n        command:\n        - cat\n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5\n    readinessProbe:\n      exec:\n        command:\n        - cat \n        - /tmp/healthy\n      initialDelaySeconds: 5\n      periodSeconds: 5\n    securityContext:\n      readOnlyRootFilesystem: true\n  - name: noliveness\n    image: k8s.gcr.io/busybox\n    args:\n    - /bin/sh\n    - -c\n    - touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\n    securityContext:\n      readOnlyRootFilesystem: true",
+      "verification": {
+        "target_rule_id": "CKV_K8S_22",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 4,
+          "lines_removed": 2,
+          "lines_changed": 6,
+          "original_lines": 36,
+          "repaired_lines": 38,
+          "diff_ratio": 0.1667
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2120",
+  "model": "llama4-maverick",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_82",
+  "violation_class": "insecure_defaults",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 115,
+  "v4_diff_ratio": 2.4468,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 401,
+  "output_tokens": 374,
+  "latency_seconds": 1.49,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "resource \"kubernetes_pod\" \"kube_apiserver\" {\n  metadata {\n    labels = {\n      component = \"kube-apiserver\"\n      tier       = \"control-plane\"\n    }\n    name      = \"kube-apiserver\"\n    namespace = \"kube-system\"\n  }\n  spec {\n    container {\n      command = [\n        \"kube-apiserver\",\n        \"--enable-admission-plugins=NodeRestriction,PodSecurityPolicy\",\n      ]\n      image = \"gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\"\n      liveness_probe {\n        failure_threshold = 8\n        http_get {\n          host   = \"127.0.0.1\"\n          path   = \"/healthz\"\n          port   = 6443\n          scheme = \"HTTPS\"\n        }\n        initial_delay_seconds = 15\n        timeout_seconds       = 15\n      }\n      name = \"kube-apiserver\"\n      resources {\n        requests = {\n          cpu = \"250m\"\n        }\n      }\n      volume_mount {\n        mount_path = \"/etc/kubernetes/\"\n        name       = \"k8s\"\n        read_only  = true\n      }\n      volume_mount {\n        mount_path = \"/etc/ssl/certs\"\n        name       = \"certs\"\n      }\n      volume_mount {\n        mount_path = \"/etc/pki\"\n        name       = \"pki\"\n      }\n    }\n    host_network = true\n    volume {\n      host_path {\n        path = \"/etc/kubernetes\"\n      }\n      name = \"k8s\"\n    }\n    volume {\n      host_path {\n        path = \"/etc/ssl/certs\"\n      }\n      name = \"certs\"\n    }\n    volume {\n      host_path {\n        path = \"/etc/pki\"\n      }\n      name = \"pki\"\n    }\n  }\n}",
+      "fixed_text": "resource \"kubernetes_pod\" \"kube_apiserver\" {\n  metadata {\n    labels = {\n      component = \"kube-apiserver\"\n      tier       = \"control-plane\"\n    }\n    name      = \"kube-apiserver\"\n    namespace = \"kube-system\"\n  }\n  spec {\n    container {\n      command = [\n        \"kube-apiserver\",\n        \"--enable-admission-plugins=NodeRestriction,PodSecurityPolicy\",\n      ]\n      image = \"gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\"\n      liveness_probe {\n        failure_threshold = 8\n        http_get {\n          host   = \"127.0.0.1\"\n          path   = \"/healthz\"\n          port   = 6443\n          scheme = \"HTTPS\"\n        }\n        initial_delay_seconds = 15\n        timeout_seconds       = 15\n      }\n      name = \"kube-apiserver\"\n      resources {\n        requests = {\n          cpu = \"250m\"\n        }\n      }\n      volume_mount {\n        mount_path = \"/etc/kubernetes/\"\n        name       = \"k8s\"\n        read_only  = true\n      }\n      volume_mount {\n        mount_path = \"/etc/ssl/certs\"\n        name       = \"certs\"\n      }\n      volume_mount {\n        mount_path = \"/etc/pki\"\n        name       = \"pki\"\n      }\n    }\n    host_network = true\n    volume {\n      host_path {\n        path = \"/etc/kubernetes\"\n      }\n      name = \"k8s\"\n    }\n    volume {\n      host_path {\n        path = \"/etc/ssl/certs\"\n      }\n      name = \"certs\"\n    }\n    volume {\n      host_path {\n        path = \"/etc/pki\"\n      }\n      name = \"pki\"\n    }\n  }\n}",
+      "verification": {
+        "target_rule_id": "CKV_K8S_82",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 68,
+          "lines_removed": 47,
+          "lines_changed": 115,
+          "original_lines": 47,
+          "repaired_lines": 68,
+          "diff_ratio": 2.4468
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

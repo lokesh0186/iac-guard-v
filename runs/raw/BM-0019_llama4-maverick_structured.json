@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0019",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_204",
+  "violation_class": "missing_encryption",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 8,
+  "v4_diff_ratio": 0.1067,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 706,
+  "output_tokens": 605,
+  "latency_seconds": 2.16,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_ami\\\" \\\"pass\\\" {\\n  name                = \\\"terraform-example\\\"\\n  virtualization_type = \\\"hvm\\\"\\n  root_device_name    = \\\"/dev/xvda1\\\"\\n\\n  ebs_block_device {\\n    device_name = \\\"/dev/xvda1\\\"\\n    volume_size = 8\\n    snapshot_id = \\\"someid\\\"\\n  }\\n\\n  ebs_block_device {\\n    device_name = \\\"/dev/xvda2\\\"\\n    volume_size = 8\\n    encrypted   = true\\n  }\\n}\\n\\nresource \\\"aws_ami\\\" \\\"pass2\\\" {\\n  name                = \\\"terraform-example\\\"\\n  virtualization_type = \\\"hvm\\\"\\n  root_device_name    = \\\"/dev/xvda1\\\"\\n\\n  ebs_block_device {\\n    device_name = \\\"/dev/xvda1\\\"\\n    volume_size = 8\\n    encrypted   = true\\n  }\\n}\\n\\nresource \\\"aws_ami\\\" \\\"fail\\\" {\\n  name                = \\\"terraform-example\\\"\\n  virtualization_type = \\\"hvm\\\"\\n  root_device_name    = \\\"/dev/xvda1\\\"\\n\\n  ebs_block_device {\\n    device_name = \\\"/dev/xvda1\\\"\\n    volume_size = 8\\n    snapshot_id = \\\"someid\\\"\\n    encrypted   = true\\n  }\\n\\n  ebs_block_device {\\n    device_name = \\\"/dev/xvda2\\\"\\n    volume_size = 8\\n    encrypted   = true\\n  }\\n}\\n\\nresource \\\"aws_ami\\\" \\\"fail2\\\" {\\n  name                = \\\"terraform-example\\\"\\n  virtualization_type = \\\"hvm\\\"\\n  root_device_name    = \\\"/dev/xvda1\\\"\\n\\n  ebs_block_device {\\n    device_name = \\\"/dev/xvda1\\\"\\n    volume_size = 8\\n    encrypted   = true\\n  }\\n}\\n\\nresource \\\"aws_ami\\\" \\\"fail3\\\" {\\n  name                = \\\"terraform-example\\\"\\n  virtualization_type = \\\"hvm\\\"\\n  root_device_name    = \\\"/dev/xvda1\\\"\\n\\n  ebs_block_device {\\n    device_name = \\\"/dev/xvda1\\\"\\n    volume_size = 8\\n    encrypted   = true\\n  }\\n}\\n\\n\\nprovider \\\"aws\\\" {\\n  region = \\\"eu-west-2\\\"\\n}\\n\", \"patch_summary\": \"Added or modified 'encrypted' attribute to 'true' in ebs_block_device for aws_ami.fail resource.\", \"changed_resources\": [\"aws_ami.fail\", \"aws_ami.fail2\", \"aws_ami.fail3\"], \"changed_attributes\": [\"ebs_block_device.encrypted\"]}",
+      "fixed_text": "resource \"aws_ami\" \"pass\" {\n  name                = \"terraform-example\"\n  virtualization_type = \"hvm\"\n  root_device_name    = \"/dev/xvda1\"\n\n  ebs_block_device {\n    device_name = \"/dev/xvda1\"\n    volume_size = 8\n    snapshot_id = \"someid\"\n  }\n\n  ebs_block_device {\n    device_name = \"/dev/xvda2\"\n    volume_size = 8\n    encrypted   = true\n  }\n}\n\nresource \"aws_ami\" \"pass2\" {\n  name                = \"terraform-example\"\n  virtualization_type = \"hvm\"\n  root_device_name    = \"/dev/xvda1\"\n\n  ebs_block_device {\n    device_name = \"/dev/xvda1\"\n    volume_size = 8\n    encrypted   = true\n  }\n}\n\nresource \"aws_ami\" \"fail\" {\n  name                = \"terraform-example\"\n  virtualization_type = \"hvm\"\n  root_device_name    = \"/dev/xvda1\"\n\n  ebs_block_device {\n    device_name = \"/dev/xvda1\"\n    volume_size = 8\n    snapshot_id = \"someid\"\n    encrypted   = true\n  }\n\n  ebs_block_device {\n    device_name = \"/dev/xvda2\"\n    volume_size = 8\n    encrypted   = true\n  }\n}\n\nresource \"aws_ami\" \"fail2\" {\n  name                = \"terraform-example\"\n  virtualization_type = \"hvm\"\n  root_device_name    = \"/dev/xvda1\"\n\n  ebs_block_device {\n    device_name = \"/dev/xvda1\"\n    volume_size = 8\n    encrypted   = true\n  }\n}\n\nresource \"aws_ami\" \"fail3\" {\n  name                = \"terraform-example\"\n  virtualization_type = \"hvm\"\n  root_device_name    = \"/dev/xvda1\"\n\n  ebs_block_device {\n    device_name = \"/dev/xvda1\"\n    volume_size = 8\n    encrypted   = true\n  }\n}\n\n\nprovider \"aws\" {\n  region = \"eu-west-2\"\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_204",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 5,
+          "lines_removed": 3,
+          "lines_changed": 8,
+          "original_lines": 75,
+          "repaired_lines": 77,
+          "diff_ratio": 0.1067
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

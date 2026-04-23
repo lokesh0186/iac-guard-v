@@ -1,0 +1,96 @@
+{
+  "artifact_id": "BM-0443",
+  "model": "claude-sonnet-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_317",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 2,
+  "v4_lines_changed": 22,
+  "v4_diff_ratio": 0.7857,
+  "overall_verified_fix": false,
+  "num_attempts": 3,
+  "input_tokens": 2527,
+  "output_tokens": 1759,
+  "latency_seconds": 22.19,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\\n    log_type                 = \\\"AUDIT_LOGS\\\"\\n    enabled                  = true\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\n  \"patch_summary\": \"Added a log_publishing_options block with log_type set to AUDIT_LOGS and enabled set to true to the aws_elasticsearch_domain.fail resource to enable audit logging.\",\n  \"changed_resources\": [\"aws_elasticsearch_domain.fail\"],\n  \"changed_attributes\": [\"log_publishing_options.cloudwatch_log_group_arn\", \"log_publishing_options.log_type\", \"log_publishing_options.enabled\"]\n}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\n    log_type                 = \"AUDIT_LOGS\"\n    enabled                  = true\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_317",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_317 still present in 16 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 6,
+          "lines_removed": 1,
+          "lines_changed": 7,
+          "original_lines": 28,
+          "repaired_lines": 33,
+          "diff_ratio": 0.25
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "Looking at the verification failure, the issue is that CKV_AWS_317 still appears in 16 failures. This suggests the `pass` resource also needs audit logging, and possibly the `aws_cloudwatch_log_group` resource reference needs to exist. But more importantly, the checkov rule requires audit logging on ALL elasticsearch domains in the file - the `pass` resource is missing it too.\n\nLet me add `log_publishing_options` with `AUDIT_LOGS` to both resources, and also add the required cloudwatch log group resource.\n\n```json\n{\n  \"fixed_artifact\": \"resource \\\"aws_cloudwatch_log_group\\\" \\\"example\\\" {\\n  name = \\\"/aws/elasticsearch/domains/audit\\\"\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\\n    log_type                 = \\\"AUDIT_LOGS\\\"\\n    enabled                  = true\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\\n    log_type                 = \\\"AUDIT_LOGS\\\"\\n    enabled                  = true\\n  }\\n}\\n\",\n  \"patch_summary\": \"Added log_publishing_options with AUDIT_LOGS to both the 'fail' and 'pass' elasticsearch domain resources, and added the required aws_cloudwatch_log_group resource, since the previous fix only added audit logging to the 'fail' resource while the 'pass' resource also lacked it causing continued checkov failures.\",\n  \"changed_resources\": [\"aws_elasticsearch_domain.fail\", \"aws_elasticsearch_domain.pass\", \"aws_cloudwatch_log_group.example\"],\n  \"changed_attributes\": [\"log_publishing_options.cloudwatch_log_group_arn\", \"log_publishing_options.log_type\", \"log_publishing_options.enabled\"]\n}\n```",
+      "fixed_text": "resource \"aws_cloudwatch_log_group\" \"example\" {\n  name = \"/aws/elasticsearch/domains/audit\"\n}\n\nresource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\n    log_type                 = \"AUDIT_LOGS\"\n    enabled                  = true\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\n    log_type                 = \"AUDIT_LOGS\"\n    enabled                  = true\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_317",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 3,
+        "v3_new_issues_list": [
+          "CKV_AWS_66",
+          "CKV_AWS_338",
+          "CKV_AWS_158"
+        ],
+        "v4_minimality": {
+          "lines_added": 14,
+          "lines_removed": 0,
+          "lines_changed": 14,
+          "original_lines": 28,
+          "repaired_lines": 42,
+          "diff_ratio": 0.5
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 3,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_cloudwatch_log_group\\\" \\\"example\\\" {\\n  name              = \\\"/aws/elasticsearch/domains/audit\\\"\\n  retention_in_days = 7\\n  kms_key_id        = aws_kms_key.example.arn\\n}\\n\\nresource \\\"aws_kms_key\\\" \\\"example\\\" {\\n  description             = \\\"KMS key for CloudWatch log group encryption\\\"\\n  deletion_window_in_days = 7\\n  enable_key_rotation     = true\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\\n    log_type                 = \\\"AUDIT_LOGS\\\"\\n    enabled                  = true\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\\n    log_type                 = \\\"AUDIT_LOGS\\\"\\n    enabled                  = true\\n  }\\n}\\n\",\n  \"patch_summary\": \"The previous fix introduced CKV_AWS_66 (missing log group retention), CKV_AWS_338 (missing log group retention), and CKV_AWS_158 (missing KMS encryption on log group), so this fix adds retention_in_days and kms_key_id to the CloudWatch log group resource, along with a KMS key with rotation enabled to satisfy those additional checks.\",\n  \"changed_resources\": [\"aws_elasticsearch_domain.fail\", \"aws_cloudwatch_log_group.example\", \"aws_kms_key.example\"],\n  \"changed_attributes\": [\"log_publishing_options\", \"retention_in_days\", \"kms_key_id\", \"enable_key_rotation\"]\n}",
+      "fixed_text": "resource \"aws_cloudwatch_log_group\" \"example\" {\n  name              = \"/aws/elasticsearch/domains/audit\"\n  retention_in_days = 7\n  kms_key_id        = aws_kms_key.example.arn\n}\n\nresource \"aws_kms_key\" \"example\" {\n  description             = \"KMS key for CloudWatch log group encryption\"\n  deletion_window_in_days = 7\n  enable_key_rotation     = true\n}\n\nresource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\n    log_type                 = \"AUDIT_LOGS\"\n    enabled                  = true\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.example.arn\n    log_type                 = \"AUDIT_LOGS\"\n    enabled                  = true\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_317",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 2,
+        "v3_new_issues_list": [
+          "CKV_AWS_338",
+          "CKV2_AWS_64"
+        ],
+        "v4_minimality": {
+          "lines_added": 22,
+          "lines_removed": 0,
+          "lines_changed": 22,
+          "original_lines": 28,
+          "repaired_lines": 50,
+          "diff_ratio": 0.7857
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

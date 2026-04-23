@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0003",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_234",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 2,
+  "v4_diff_ratio": 0.0455,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 493,
+  "output_tokens": 326,
+  "latency_seconds": 1.69,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_acm_certificate\\\" \\\"pass\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  options {\\n    certificate_transparency_logging_preference = \\\"ENABLED\\\"\\n  }\\n  #   lifecycle {\\n  #     create_before_destroy = true\\n  #   }\\n}\\n\\nresource \\\"aws_acm_certificate\\\" \\\"pass2\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  #  options {\\n  #    certificate_transparency_logging_preference = \\\"DISABLED\\\"\\n  #  }\\n  #   lifecycle {\\n  #     create_before_destroy = true\\n  #   }\\n}\\n\\nresource \\\"aws_acm_certificate\\\" \\\"fail\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  options {\\n    certificate_transparency_logging_preference = \\\"ENABLED\\\"\\n  }\\n  #   lifecycle {\\n  #     create_before_destroy = true\\n  #   }\\n}\\n\", \"patch_summary\": \"Enabled certificate transparency logging preference for the aws_acm_certificate.fail resource.\", \"changed_resources\": [\"aws_acm_certificate.fail\"], \"changed_attributes\": [\"options.certificate_transparency_logging_preference\"]}",
+      "fixed_text": "resource \"aws_acm_certificate\" \"pass\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  options {\n    certificate_transparency_logging_preference = \"ENABLED\"\n  }\n  #   lifecycle {\n  #     create_before_destroy = true\n  #   }\n}\n\nresource \"aws_acm_certificate\" \"pass2\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  #  options {\n  #    certificate_transparency_logging_preference = \"DISABLED\"\n  #  }\n  #   lifecycle {\n  #     create_before_destroy = true\n  #   }\n}\n\nresource \"aws_acm_certificate\" \"fail\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  options {\n    certificate_transparency_logging_preference = \"ENABLED\"\n  }\n  #   lifecycle {\n  #     create_before_destroy = true\n  #   }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_234",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 1,
+          "lines_removed": 1,
+          "lines_changed": 2,
+          "original_lines": 44,
+          "repaired_lines": 44,
+          "diff_ratio": 0.0455
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

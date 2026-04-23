@@ -1,0 +1,66 @@
+{
+  "artifact_id": "BM-0002",
+  "model": "claude-opus-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_233",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 18,
+  "v4_diff_ratio": 0.4091,
+  "overall_verified_fix": true,
+  "num_attempts": 2,
+  "input_tokens": 1685,
+  "output_tokens": 860,
+  "latency_seconds": 11.14,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_acm_certificate\\\" \\\"pass\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  options {\\n    certificate_transparency_logging_preference = \\\"ENABLED\\\"\\n  }\\n  lifecycle {\\n    create_before_destroy = true\\n  }\\n}\\n\\nresource \\\"aws_acm_certificate\\\" \\\"pass2\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  #  options {\\n  #    certificate_transparency_logging_preference = \\\"DISABLED\\\"\\n  #  }\\n  #   lifecycle {\\n  #     create_before_destroy = true\\n  #   }\\n}\\n\\nresource \\\"aws_acm_certificate\\\" \\\"fail\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  options {\\n    certificate_transparency_logging_preference = \\\"DISABLED\\\"\\n  }\\n  #   lifecycle {\\n  #     create_before_destroy = true\\n  #   }\\n}\\n\",\"patch_summary\":\"Uncommented the lifecycle block with create_before_destroy = true in the aws_acm_certificate.pass resource to ensure the certificate is created before the old one is destroyed.\",\"changed_resources\":[\"aws_acm_certificate.pass\"],\"changed_attributes\":[\"lifecycle.create_before_destroy\"]}",
+      "fixed_text": "resource \"aws_acm_certificate\" \"pass\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  options {\n    certificate_transparency_logging_preference = \"ENABLED\"\n  }\n  lifecycle {\n    create_before_destroy = true\n  }\n}\n\nresource \"aws_acm_certificate\" \"pass2\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  #  options {\n  #    certificate_transparency_logging_preference = \"DISABLED\"\n  #  }\n  #   lifecycle {\n  #     create_before_destroy = true\n  #   }\n}\n\nresource \"aws_acm_certificate\" \"fail\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  options {\n    certificate_transparency_logging_preference = \"DISABLED\"\n  }\n  #   lifecycle {\n  #     create_before_destroy = true\n  #   }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_233",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_233 still present in 3 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 3,
+          "lines_removed": 3,
+          "lines_changed": 6,
+          "original_lines": 44,
+          "repaired_lines": 44,
+          "diff_ratio": 0.1364
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_acm_certificate\\\" \\\"pass\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  options {\\n    certificate_transparency_logging_preference = \\\"ENABLED\\\"\\n  }\\n  lifecycle {\\n    create_before_destroy = true\\n  }\\n}\\n\\nresource \\\"aws_acm_certificate\\\" \\\"pass2\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  #  options {\\n  #    certificate_transparency_logging_preference = \\\"DISABLED\\\"\\n  #  }\\n  lifecycle {\\n    create_before_destroy = true\\n  }\\n}\\n\\nresource \\\"aws_acm_certificate\\\" \\\"fail\\\" {\\n  domain_name       = \\\"example.com\\\"\\n  validation_method = \\\"DNS\\\"\\n\\n  tags = {\\n    Environment = \\\"test\\\"\\n  }\\n  options {\\n    certificate_transparency_logging_preference = \\\"DISABLED\\\"\\n  }\\n  lifecycle {\\n    create_before_destroy = true\\n  }\\n}\\n\",\"patch_summary\":\"The previous fix only added lifecycle create_before_destroy to the 'pass' resource but left 'pass2' and 'fail' without it; all three ACM certificate resources need the lifecycle block with create_before_destroy = true to resolve CKV_AWS_233.\",\"changed_resources\":[\"aws_acm_certificate.pass\",\"aws_acm_certificate.pass2\",\"aws_acm_certificate.fail\"],\"changed_attributes\":[\"lifecycle.create_before_destroy\"]}",
+      "fixed_text": "resource \"aws_acm_certificate\" \"pass\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  options {\n    certificate_transparency_logging_preference = \"ENABLED\"\n  }\n  lifecycle {\n    create_before_destroy = true\n  }\n}\n\nresource \"aws_acm_certificate\" \"pass2\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  #  options {\n  #    certificate_transparency_logging_preference = \"DISABLED\"\n  #  }\n  lifecycle {\n    create_before_destroy = true\n  }\n}\n\nresource \"aws_acm_certificate\" \"fail\" {\n  domain_name       = \"example.com\"\n  validation_method = \"DNS\"\n\n  tags = {\n    Environment = \"test\"\n  }\n  options {\n    certificate_transparency_logging_preference = \"DISABLED\"\n  }\n  lifecycle {\n    create_before_destroy = true\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_233",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 9,
+          "lines_removed": 9,
+          "lines_changed": 18,
+          "original_lines": 44,
+          "repaired_lines": 44,
+          "diff_ratio": 0.4091
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

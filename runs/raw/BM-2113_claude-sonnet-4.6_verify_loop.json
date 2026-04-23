@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2113",
+  "model": "claude-sonnet-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_K8S_78",
+  "violation_class": "missing_runtime_safety",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 8,
+  "v4_diff_ratio": 0.5333,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 452,
+  "output_tokens": 383,
+  "latency_seconds": 4.59,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"apiVersion: apiserver.config.k8s.io/v1\\nkind: AdmissionConfiguration\\nmetadata:\\n  name: \\\"admission-configuration-failed\\\"\\nplugins:\\n  - name: EventRateLimit\\n    configuration:\\n      apiVersion: eventratelimit.admission.k8s.io/v1alpha1\\n      kind: Configuration\\n      limits:\\n        - type: Server\\n          qps: 5000\\n          burst: 20000\\n  - name: ValidatingAdmissionWebhook\\n    configuration:\\n      apiVersion: apiserver.config.k8s.io/v1\\n      kind: WebhookAdmissionConfiguration\\n      kubeConfigFile: \\\"<path-to-kubeconfig-file>\\\"\\n  - name: MutatingAdmissionWebhook\\n    configuration:\\n      apiVersion: apiserver.config.k8s.io/v1\\n      kind: WebhookAdmissionConfiguration\\n      kubeConfigFile: \\\"<path-to-kubeconfig-file>\\\"\\n\",\n  \"patch_summary\": \"Added the EventRateLimit admission control plugin with a server-level rate limit configuration to satisfy CKV_K8S_78.\",\n  \"changed_resources\": [\"AdmissionConfiguration.default.admission-configuration-failed\"],\n  \"changed_attributes\": [\"plugins[EventRateLimit]\", \"plugins[EventRateLimit].configuration.apiVersion\", \"plugins[EventRateLimit].configuration.kind\", \"plugins[EventRateLimit].configuration.limits\"]\n}",
+      "fixed_text": "apiVersion: apiserver.config.k8s.io/v1\nkind: AdmissionConfiguration\nmetadata:\n  name: \"admission-configuration-failed\"\nplugins:\n  - name: EventRateLimit\n    configuration:\n      apiVersion: eventratelimit.admission.k8s.io/v1alpha1\n      kind: Configuration\n      limits:\n        - type: Server\n          qps: 5000\n          burst: 20000\n  - name: ValidatingAdmissionWebhook\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: WebhookAdmissionConfiguration\n      kubeConfigFile: \"<path-to-kubeconfig-file>\"\n  - name: MutatingAdmissionWebhook\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: WebhookAdmissionConfiguration\n      kubeConfigFile: \"<path-to-kubeconfig-file>\"\n",
+      "verification": {
+        "target_rule_id": "CKV_K8S_78",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 8,
+          "lines_removed": 0,
+          "lines_changed": 8,
+          "original_lines": 15,
+          "repaired_lines": 23,
+          "diff_ratio": 0.5333
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

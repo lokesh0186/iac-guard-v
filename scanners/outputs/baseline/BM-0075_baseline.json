@@ -1,0 +1,205 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_338",
+        "bc_check_id": "BC_AWS_LOGGING_46",
+        "check_name": "Ensure CloudWatch log groups retains logs for at least 1 year",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "retention_in_days"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0075.tf",
+        "file_abs_path": "benchmark/raw/BM-0075.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0075.tf",
+        "file_line_range": [
+          1,
+          3
+        ],
+        "resource": "aws_cloudwatch_log_group.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.CloudWatchLogGroupRetentionYear",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-338",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0075.tf"
+      },
+      {
+        "check_id": "CKV_AWS_158",
+        "bc_check_id": "BC_AWS_GENERAL_85",
+        "check_name": "Ensure that CloudWatch Log Group is encrypted by KMS",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "kms_key_id"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0075.tf",
+        "file_abs_path": "benchmark/raw/BM-0075.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0075.tf",
+        "file_line_range": [
+          1,
+          3
+        ],
+        "resource": "aws_cloudwatch_log_group.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.CloudWatchLogGroupKMSKey",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-cloudwatch-log-group-is-encrypted-by-kms",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0075.tf"
+      },
+      {
+        "check_id": "CKV_AWS_66",
+        "bc_check_id": "BC_AWS_LOGGING_13",
+        "check_name": "Ensure that CloudWatch Log Group specifies retention days",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "retention_in_days"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0075.tf",
+        "file_abs_path": "benchmark/raw/BM-0075.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0075.tf",
+        "file_line_range": [
+          5,
+          5
+        ],
+        "resource": "aws_cloudwatch_log_group.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.CloudWatchLogGroupRetention",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/logging-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0075.tf"
+      },
+      {
+        "check_id": "CKV_AWS_338",
+        "bc_check_id": "BC_AWS_LOGGING_46",
+        "check_name": "Ensure CloudWatch log groups retains logs for at least 1 year",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "retention_in_days"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0075.tf",
+        "file_abs_path": "benchmark/raw/BM-0075.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0075.tf",
+        "file_line_range": [
+          5,
+          5
+        ],
+        "resource": "aws_cloudwatch_log_group.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.CloudWatchLogGroupRetentionYear",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-338",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0075.tf"
+      },
+      {
+        "check_id": "CKV_AWS_158",
+        "bc_check_id": "BC_AWS_GENERAL_85",
+        "check_name": "Ensure that CloudWatch Log Group is encrypted by KMS",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "kms_key_id"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0075.tf",
+        "file_abs_path": "benchmark/raw/BM-0075.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0075.tf",
+        "file_line_range": [
+          5,
+          5
+        ],
+        "resource": "aws_cloudwatch_log_group.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.CloudWatchLogGroupKMSKey",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-cloudwatch-log-group-is-encrypted-by-kms",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0075.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 1,
+    "failed": 5,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 2,
+    "checkov_version": "3.2.517"
+  }
+}

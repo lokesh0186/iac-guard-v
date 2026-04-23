@@ -1,0 +1,66 @@
+{
+  "artifact_id": "BM-0445",
+  "model": "claude-sonnet-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_5",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 8,
+  "v4_diff_ratio": 0.2857,
+  "overall_verified_fix": true,
+  "num_attempts": 2,
+  "input_tokens": 1405,
+  "output_tokens": 788,
+  "latency_seconds": 9.7,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  encrypt_at_rest {\\n    enabled = true\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\n  \"patch_summary\": \"Added an `encrypt_at_rest` block with `enabled = true` to the `aws_elasticsearch_domain.fail` resource to ensure data is encrypted at rest.\",\n  \"changed_resources\": [\"aws_elasticsearch_domain.fail\"],\n  \"changed_attributes\": [\"encrypt_at_rest.enabled\"]\n}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  encrypt_at_rest {\n    enabled = true\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_5",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_5 still present in 17 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 4,
+          "lines_removed": 1,
+          "lines_changed": 5,
+          "original_lines": 28,
+          "repaired_lines": 31,
+          "diff_ratio": 0.1786
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "Looking at the verification failure, the issue is that CKV_AWS_5 still appears in 17 failures, which suggests the `pass` resource also needs `encrypt_at_rest` enabled. The previous fix only added it to the `fail` resource but the `pass` resource was also failing the check.\n\n```json\n{\n  \"fixed_artifact\": \"\\nresource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  encrypt_at_rest {\\n    enabled = true\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  encrypt_at_rest {\\n    enabled = true\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\n  \"patch_summary\": \"Added `encrypt_at_rest { enabled = true }` to both the `fail` and `pass` resources, as the previous attempt only fixed the `fail` resource while the `pass` resource was also triggering CKV_AWS_5 failures.\",\n  \"changed_resources\": [\"aws_elasticsearch_domain.fail\", \"aws_elasticsearch_domain.pass\"],\n  \"changed_attributes\": [\"encrypt_at_rest.enabled\"]\n}\n```",
+      "fixed_text": "\nresource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  encrypt_at_rest {\n    enabled = true\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  encrypt_at_rest {\n    enabled = true\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_5",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 8,
+          "lines_removed": 0,
+          "lines_changed": 8,
+          "original_lines": 28,
+          "repaired_lines": 36,
+          "diff_ratio": 0.2857
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

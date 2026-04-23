@@ -1,0 +1,819 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_137",
+        "bc_check_id": "BC_AWS_NETWORKING_42",
+        "check_name": "Ensure that Elasticsearch is configured inside a VPC",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "vpc_options"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchInVPC",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-that-elasticsearch-is-configured-inside-a-vpc",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_317",
+        "bc_check_id": "BC_AWS_LOGGING_42",
+        "check_name": "Ensure Elasticsearch Domain Audit Logging is enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "log_publishing_options"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchDomainAuditLogging",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-317",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_228",
+        "bc_check_id": "BC_AWS_GENERAL_151",
+        "check_name": "Verify Elasticsearch domain is using an up to date TLS policy",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "domain_endpoint_options/[0]/tls_security_policy"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchTLSPolicy",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-elasticsearch-domain-uses-an-updated-tls-policy",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_5",
+        "bc_check_id": "BC_AWS_ELASTICSEARCH_3",
+        "check_name": "Ensure all data stored in the Elasticsearch is securely encrypted at rest",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "encrypt_at_rest/[0]/enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/elastisearch-policies/elasticsearch-3-enable-encryptionatrest",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_247",
+        "bc_check_id": "BC_AWS_GENERAL_155",
+        "check_name": "Ensure all data stored in the Elasticsearch is encrypted with a CMK",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "encrypt_at_rest/[0]/kms_key_id"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchEncryptionWithCMK",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-all-data-stored-in-the-elasticsearch-domain-is-encrypted-using-a-customer-managed-key-cmk",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_248",
+        "bc_check_id": "BC_AWS_NETWORKING_70",
+        "check_name": "Ensure that Elasticsearch is not using the default Security Group",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "vpc_options/[0]/security_group_ids"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchDefaultSG",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-aws-elasticsearch-does-not-use-the-default-security-group",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_84",
+        "bc_check_id": "BC_AWS_ELASTICSEARCH_7",
+        "check_name": "Ensure Elasticsearch Domain Logging is enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "log_publishing_options/[0]/cloudwatch_log_group_arn"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchDomainLogging",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/elastisearch-policies/elasticsearch-7",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_318",
+        "bc_check_id": "BC_AWS_GENERAL_228",
+        "check_name": "Ensure Elasticsearch domains are configured with at least three dedicated master nodes for HA",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "cluster_config"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchDomainHA",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-318",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_317",
+        "bc_check_id": "BC_AWS_LOGGING_42",
+        "check_name": "Ensure Elasticsearch Domain Audit Logging is enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "log_publishing_options"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          11,
+          28
+        ],
+        "resource": "aws_elasticsearch_domain.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchDomainAuditLogging",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-317",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_228",
+        "bc_check_id": "BC_AWS_GENERAL_151",
+        "check_name": "Verify Elasticsearch domain is using an up to date TLS policy",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "domain_endpoint_options/[0]/tls_security_policy"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          11,
+          28
+        ],
+        "resource": "aws_elasticsearch_domain.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchTLSPolicy",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-elasticsearch-domain-uses-an-updated-tls-policy",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_5",
+        "bc_check_id": "BC_AWS_ELASTICSEARCH_3",
+        "check_name": "Ensure all data stored in the Elasticsearch is securely encrypted at rest",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "encrypt_at_rest/[0]/enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          11,
+          28
+        ],
+        "resource": "aws_elasticsearch_domain.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/elastisearch-policies/elasticsearch-3-enable-encryptionatrest",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_247",
+        "bc_check_id": "BC_AWS_GENERAL_155",
+        "check_name": "Ensure all data stored in the Elasticsearch is encrypted with a CMK",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "encrypt_at_rest/[0]/kms_key_id"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          11,
+          28
+        ],
+        "resource": "aws_elasticsearch_domain.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchEncryptionWithCMK",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-all-data-stored-in-the-elasticsearch-domain-is-encrypted-using-a-customer-managed-key-cmk",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_84",
+        "bc_check_id": "BC_AWS_ELASTICSEARCH_7",
+        "check_name": "Ensure Elasticsearch Domain Logging is enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "log_publishing_options/[0]/cloudwatch_log_group_arn"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          11,
+          28
+        ],
+        "resource": "aws_elasticsearch_domain.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchDomainLogging",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/elastisearch-policies/elasticsearch-7",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV_AWS_318",
+        "bc_check_id": "BC_AWS_GENERAL_228",
+        "check_name": "Ensure Elasticsearch domains are configured with at least three dedicated master nodes for HA",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "cluster_config"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          11,
+          28
+        ],
+        "resource": "aws_elasticsearch_domain.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.ElasticsearchDomainHA",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-318",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_52",
+        "bc_check_id": "BC_AWS_IAM_74",
+        "check_name": "Ensure AWS ElasticSearch/OpenSearch Fine-grained access control is enabled",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_elasticsearch_domain": {
+              "fail": {
+                "__end_line__": 9,
+                "__start_line__": 2,
+                "cluster_config": [
+                  {
+                    "instance_type": [
+                      "m4.large.elasticsearch"
+                    ]
+                  }
+                ],
+                "domain_name": [
+                  "var.domain"
+                ],
+                "elasticsearch_version": [
+                  "6.3"
+                ],
+                "__address__": "aws_elasticsearch_domain.fail"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "advanced_security_options/internal_user_database_enabled",
+            "advanced_security_options/enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-2-52",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_52",
+        "bc_check_id": "BC_AWS_IAM_74",
+        "check_name": "Ensure AWS ElasticSearch/OpenSearch Fine-grained access control is enabled",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_elasticsearch_domain": {
+              "pass": {
+                "__end_line__": 28,
+                "__start_line__": 11,
+                "cluster_config": [
+                  {
+                    "instance_type": [
+                      "m4.large.elasticsearch"
+                    ]
+                  }
+                ],
+                "domain_name": [
+                  "var.domain"
+                ],
+                "elasticsearch_version": [
+                  "6.3"
+                ],
+                "vpc_options": [
+                  {
+                    "security_group_ids": [
+                      [
+                        "aws_security_group.es.id"
+                      ]
+                    ],
+                    "subnet_ids": [
+                      [
+                        "data.aws_subnet_ids.selected.ids[0]",
+                        "data.aws_subnet_ids.selected.ids[1]"
+                      ]
+                    ]
+                  }
+                ],
+                "__address__": "aws_elasticsearch_domain.pass"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "advanced_security_options/internal_user_database_enabled",
+            "advanced_security_options/enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          11,
+          28
+        ],
+        "resource": "aws_elasticsearch_domain.pass",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/bc-aws-2-52",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_59",
+        "bc_check_id": "BC_AWS_GENERAL_194",
+        "check_name": "Ensure ElasticSearch/OpenSearch has dedicated master node enabled",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_elasticsearch_domain": {
+              "fail": {
+                "__end_line__": 9,
+                "__start_line__": 2,
+                "cluster_config": [
+                  {
+                    "instance_type": [
+                      "m4.large.elasticsearch"
+                    ]
+                  }
+                ],
+                "domain_name": [
+                  "var.domain"
+                ],
+                "elasticsearch_version": [
+                  "6.3"
+                ],
+                "__address__": "aws_elasticsearch_domain.fail"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "cluster_config/dedicated_master_enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          2,
+          9
+        ],
+        "resource": "aws_elasticsearch_domain.fail",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-2-59",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_59",
+        "bc_check_id": "BC_AWS_GENERAL_194",
+        "check_name": "Ensure ElasticSearch/OpenSearch has dedicated master node enabled",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_elasticsearch_domain": {
+              "pass": {
+                "__end_line__": 28,
+                "__start_line__": 11,
+                "cluster_config": [
+                  {
+                    "instance_type": [
+                      "m4.large.elasticsearch"
+                    ]
+                  }
+                ],
+                "domain_name": [
+                  "var.domain"
+                ],
+                "elasticsearch_version": [
+                  "6.3"
+                ],
+                "vpc_options": [
+                  {
+                    "security_group_ids": [
+                      [
+                        "aws_security_group.es.id"
+                      ]
+                    ],
+                    "subnet_ids": [
+                      [
+                        "data.aws_subnet_ids.selected.ids[0]",
+                        "data.aws_subnet_ids.selected.ids[1]"
+                      ]
+                    ]
+                  }
+                ],
+                "__address__": "aws_elasticsearch_domain.pass"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "cluster_config/dedicated_master_enabled"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0445.tf",
+        "file_abs_path": "benchmark/raw/BM-0445.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0445.tf",
+        "file_line_range": [
+          11,
+          28
+        ],
+        "resource": "aws_elasticsearch_domain.pass",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-2-59",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0445.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 6,
+    "failed": 18,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 2,
+    "checkov_version": "3.2.517"
+  }
+}

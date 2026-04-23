@@ -1,0 +1,66 @@
+{
+  "artifact_id": "BM-0049",
+  "model": "claude-sonnet-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_79",
+  "violation_class": "public_exposure",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 14,
+  "v4_diff_ratio": 0.25,
+  "overall_verified_fix": true,
+  "num_attempts": 2,
+  "input_tokens": 2616,
+  "output_tokens": 1646,
+  "latency_seconds": 15.760000000000002,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_launch_configuration\\\" \\\"fail\\\" {\\n  name          = \\\"vulnerable-lc-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\" # Replace with a valid AMI ID for your region\\n  instance_type = \\\"t2.micro\\\"\\n  associate_public_ip_address = true # THIS IS THE VULNERABILITY\\n\\n  metadata_options {\\n    http_tokens   = \\\"required\\\"\\n    http_endpoint = \\\"enabled\\\"\\n  }\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"vulnerable_asg\\\" {\\n  name                 = \\\"vulnerable-asg-${random_id.id.hex}\\\"\\n  launch_configuration = aws_launch_configuration.vulnerable_launch_config.name\\n  min_size             = 1\\n  max_size             = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"] # Replace with valid subnet IDs\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"VulnerableAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\\nresource \\\"random_id\\\" \\\"id\\\" {\\n  byte_length = 8\\n}\\n\\nresource \\\"aws_launch_configuration\\\" \\\"pass\\\" {\\n  name          = \\\"safe-lc-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\" # Replace with a valid AMI ID for your region\\n  instance_type = \\\"t2.micro\\\"\\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"safe_asg\\\" {\\n  name                 = \\\"safe-asg-${random_id.id.hex}\\\"\\n  launch_configuration = aws_launch_configuration.safe_launch_config.name\\n  min_size             = 1\\n  max_size             = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"] # Replace with valid subnet IDs\\n\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"SafeAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\\nresource \\\"random_id\\\" \\\"id\\\" {\\n  byte_length = 8\\n}\\n\",\n  \"patch_summary\": \"Added a metadata_options block to the 'fail' aws_launch_configuration resource with http_tokens set to 'required' to enforce IMDSv2 and disable IMDSv1.\",\n  \"changed_resources\": [\"aws_launch_configuration.fail\"],\n  \"changed_attributes\": [\"metadata_options.http_tokens\", \"metadata_options.http_endpoint\"]\n}",
+      "fixed_text": "resource \"aws_launch_configuration\" \"fail\" {\n  name          = \"vulnerable-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = true # THIS IS THE VULNERABILITY\n\n  metadata_options {\n    http_tokens   = \"required\"\n    http_endpoint = \"enabled\"\n  }\n}\n\nresource \"aws_autoscaling_group\" \"vulnerable_asg\" {\n  name                 = \"vulnerable-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.vulnerable_launch_config.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"VulnerableAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"random_id\" \"id\" {\n  byte_length = 8\n}\n\nresource \"aws_launch_configuration\" \"pass\" {\n  name          = \"safe-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\n}\n\nresource \"aws_autoscaling_group\" \"safe_asg\" {\n  name                 = \"safe-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.safe_launch_config.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"SafeAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"random_id\" \"id\" {\n  byte_length = 8\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_79",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_79 still present in 6 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 6,
+          "lines_removed": 1,
+          "lines_changed": 7,
+          "original_lines": 56,
+          "repaired_lines": 61,
+          "diff_ratio": 0.125
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_launch_configuration\\\" \\\"fail\\\" {\\n  name          = \\\"vulnerable-lc-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\" # Replace with a valid AMI ID for your region\\n  instance_type = \\\"t2.micro\\\"\\n  associate_public_ip_address = true # THIS IS THE VULNERABILITY\\n\\n  metadata_options {\\n    http_tokens   = \\\"required\\\"\\n    http_endpoint = \\\"enabled\\\"\\n  }\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"vulnerable_asg\\\" {\\n  name                 = \\\"vulnerable-asg-${random_id.id.hex}\\\"\\n  launch_configuration = aws_launch_configuration.vulnerable_launch_config.name\\n  min_size             = 1\\n  max_size             = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"] # Replace with valid subnet IDs\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"VulnerableAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\\nresource \\\"random_id\\\" \\\"id\\\" {\\n  byte_length = 8\\n}\\n\\nresource \\\"aws_launch_configuration\\\" \\\"pass\\\" {\\n  name          = \\\"safe-lc-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\" # Replace with a valid AMI ID for your region\\n  instance_type = \\\"t2.micro\\\"\\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\\n\\n  metadata_options {\\n    http_tokens   = \\\"required\\\"\\n    http_endpoint = \\\"enabled\\\"\\n  }\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"safe_asg\\\" {\\n  name                 = \\\"safe-asg-${random_id.id.hex}\\\"\\n  launch_configuration = aws_launch_configuration.safe_launch_config.name\\n  min_size             = 1\\n  max_size             = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"] # Replace with valid subnet IDs\\n\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"SafeAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\",\n  \"patch_summary\": \"Added metadata_options blocks with http_tokens='required' and http_endpoint='enabled' to both aws_launch_configuration resources (fail and pass), as the previous attempt only added it to the fail resource while the pass resource also lacked the metadata_options block causing CKV_AWS_79 to still fail on multiple resources.\",\n  \"changed_resources\": [\"aws_launch_configuration.fail\", \"aws_launch_configuration.pass\"],\n  \"changed_attributes\": [\"metadata_options.http_tokens\", \"metadata_options.http_endpoint\"]\n}",
+      "fixed_text": "resource \"aws_launch_configuration\" \"fail\" {\n  name          = \"vulnerable-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = true # THIS IS THE VULNERABILITY\n\n  metadata_options {\n    http_tokens   = \"required\"\n    http_endpoint = \"enabled\"\n  }\n}\n\nresource \"aws_autoscaling_group\" \"vulnerable_asg\" {\n  name                 = \"vulnerable-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.vulnerable_launch_config.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"VulnerableAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"random_id\" \"id\" {\n  byte_length = 8\n}\n\nresource \"aws_launch_configuration\" \"pass\" {\n  name          = \"safe-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\n\n  metadata_options {\n    http_tokens   = \"required\"\n    http_endpoint = \"enabled\"\n  }\n}\n\nresource \"aws_autoscaling_group\" \"safe_asg\" {\n  name                 = \"safe-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.safe_launch_config.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"SafeAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_79",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 10,
+          "lines_removed": 4,
+          "lines_changed": 14,
+          "original_lines": 56,
+          "repaired_lines": 62,
+          "diff_ratio": 0.25
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

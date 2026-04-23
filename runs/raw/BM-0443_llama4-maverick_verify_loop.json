@@ -1,0 +1,97 @@
+{
+  "artifact_id": "BM-0443",
+  "model": "llama4-maverick",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_317",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 3,
+  "v4_lines_changed": 13,
+  "v4_diff_ratio": 0.4643,
+  "overall_verified_fix": false,
+  "num_attempts": 3,
+  "input_tokens": 2045,
+  "output_tokens": 895,
+  "latency_seconds": 4.46,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    log_type = \\\"AUDIT_LOGS\\\"\\n    enabled  = true\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\", \"patch_summary\": \"Added log_publishing_options to enable AUDIT_LOGS for aws_elasticsearch_domain.fail.\", \"changed_resources\": [\"aws_elasticsearch_domain.fail\"], \"changed_attributes\": [\"log_publishing_options\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    log_type = \"AUDIT_LOGS\"\n    enabled  = true\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_317",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_317 still present in 16 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 6,
+          "lines_removed": 2,
+          "lines_changed": 8,
+          "original_lines": 28,
+          "repaired_lines": 32,
+          "diff_ratio": 0.2857
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    log_type = \\\"AUDIT_LOGS\\\"\\n    enabled  = true\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es.arn\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\\nresource \\\"aws_cloudwatch_log_group\\\" \\\"es\\\" {\\n  name = \\\"${var.domain}-es-audit-logs\\\"\\n}\", \"patch_summary\": \"The previous fix failed because it didn't specify the cloudwatch_log_group_arn for the log_publishing_options, which is required for enabling audit logging; I added the aws_cloudwatch_log_group resource and referenced its ARN in the log_publishing_options.\", \"changed_resources\": [\"aws_elasticsearch_domain.fail\", \"aws_cloudwatch_log_group.es\"], \"changed_attributes\": [\"log_publishing_options.cloudwatch_log_group_arn\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    log_type = \"AUDIT_LOGS\"\n    enabled  = true\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es.arn\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n\nresource \"aws_cloudwatch_log_group\" \"es\" {\n  name = \"${var.domain}-es-audit-logs\"\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_317",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_317 still present in 19 failures",
+        "v3_new_issues_count": 3,
+        "v3_new_issues_list": [
+          "CKV_AWS_66",
+          "CKV_AWS_158",
+          "CKV_AWS_338"
+        ],
+        "v4_minimality": {
+          "lines_added": 10,
+          "lines_removed": 1,
+          "lines_changed": 11,
+          "original_lines": 28,
+          "repaired_lines": 37,
+          "diff_ratio": 0.3929
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 3,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    log_type = \\\"AUDIT_LOGS\\\"\\n    enabled  = true\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es.arn\\n  }\\n}\\n\\nresource \\\"aws_cloudwatch_log_group\\\" \\\"es\\\" {\\n  name = \\\"${var.domain}-es-audit-logs\\\"\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\",\"patch_summary\": \"The previous fix failed because it did not modify the correct resource; I updated 'aws_elasticsearch_domain.fail' to include 'log_publishing_options' for audit logging.\",\"changed_resources\": [\"aws_elasticsearch_domain.fail\"],\"changed_attributes\": [\"log_publishing_options\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    log_type = \"AUDIT_LOGS\"\n    enabled  = true\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es.arn\n  }\n}\n\nresource \"aws_cloudwatch_log_group\" \"es\" {\n  name = \"${var.domain}-es-audit-logs\"\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_317",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_317 still present in 19 failures",
+        "v3_new_issues_count": 3,
+        "v3_new_issues_list": [
+          "CKV_AWS_66",
+          "CKV_AWS_158",
+          "CKV_AWS_338"
+        ],
+        "v4_minimality": {
+          "lines_added": 11,
+          "lines_removed": 2,
+          "lines_changed": 13,
+          "original_lines": 28,
+          "repaired_lines": 37,
+          "diff_ratio": 0.4643
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "artifact_id": "BM-2003",
+  "model": "llama4-maverick",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_8",
+  "violation_class": "over_permissive_access",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 1,
+  "v4_lines_changed": 64,
+  "v4_diff_ratio": 2.3704,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 239,
+  "output_tokens": 201,
+  "latency_seconds": 1.09,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "resource \"kubernetes_pod\" \"example\" {\n  metadata {\n    labels = {\n      run = \"example-pod\"\n    }\n    name = \"example-pod\"\n  }\n  spec {\n    host_pid = false\n    host_ipc = false\n    host_network = false\n    volume {\n      name = \"example-fs\"\n      host_path {\n        path = \"/tmp\"\n      }\n    }\n    container {\n      image = \"ubuntu\"\n      name  = \"example-pod\"\n      command = [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n      security_context {\n        privileged = false\n        allow_privilege_escalation = false\n        run_as_user = 1000\n        run_as_group = 1000\n        fs_group = 1000\n      }\n      volume_mount {\n        name = \"example-fs\"\n        mount_path = \"/example\"\n        read_only = true\n      }\n    }\n    restart_policy = \"Never\"\n  }\n}",
+      "fixed_text": "resource \"kubernetes_pod\" \"example\" {\n  metadata {\n    labels = {\n      run = \"example-pod\"\n    }\n    name = \"example-pod\"\n  }\n  spec {\n    host_pid = false\n    host_ipc = false\n    host_network = false\n    volume {\n      name = \"example-fs\"\n      host_path {\n        path = \"/tmp\"\n      }\n    }\n    container {\n      image = \"ubuntu\"\n      name  = \"example-pod\"\n      command = [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n      security_context {\n        privileged = false\n        allow_privilege_escalation = false\n        run_as_user = 1000\n        run_as_group = 1000\n        fs_group = 1000\n      }\n      volume_mount {\n        name = \"example-fs\"\n        mount_path = \"/example\"\n        read_only = true\n      }\n    }\n    restart_policy = \"Never\"\n  }\n}",
+      "verification": {
+        "target_rule_id": "CKV_K8S_8",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_K8S_8 still present in 12 failures",
+        "v3_new_issues_count": 1,
+        "v3_new_issues_list": [
+          "CKV_K8S_15"
+        ],
+        "v4_minimality": {
+          "lines_added": 37,
+          "lines_removed": 27,
+          "lines_changed": 64,
+          "original_lines": 27,
+          "repaired_lines": 37,
+          "diff_ratio": 2.3704
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

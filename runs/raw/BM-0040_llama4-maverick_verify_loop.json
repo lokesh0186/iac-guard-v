@@ -1,0 +1,89 @@
+{
+  "artifact_id": "BM-0040",
+  "model": "llama4-maverick",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV2_AWS_33",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 14,
+  "v4_diff_ratio": 0.4242,
+  "overall_verified_fix": false,
+  "num_attempts": 3,
+  "input_tokens": 2184,
+  "output_tokens": 954,
+  "latency_seconds": 4.109999999999999,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"# pass\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"all\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ALL\\\"\\n  }\\n}\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"error\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ERROR\\\"\\n  }\\n}\\n\\n# fail\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"none\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ALL\\\"\\n  }\\n}\\n\", \"patch_summary\": \"Changed the field_log_level attribute of the log_config block in the aws_appsync_graphql_api.none resource from 'NONE' to 'ALL'.\", \"changed_resources\": [\"aws_appsync_graphql_api.none\"], \"changed_attributes\": [\"log_config.field_log_level\"]}",
+      "fixed_text": "# pass\n\nresource \"aws_appsync_graphql_api\" \"all\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"error\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n\n# fail\n\nresource \"aws_appsync_graphql_api\" \"none\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV2_AWS_33",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV2_AWS_33 still present in 3 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 1,
+          "lines_removed": 1,
+          "lines_changed": 2,
+          "original_lines": 33,
+          "repaired_lines": 33,
+          "diff_ratio": 0.0606
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_appsync_graphql_api\\\" \\\"all\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ALL\\\"\\n  }\\n}\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"error\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ERROR\\\"\\n  }\\n}\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"none\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ALL\\\"\\n  }\\n\\n  waf_web_acl_arn = \\\"aws_waf_web_acl.example.arn\\\"\\n}\", \"patch_summary\": \"The previous fix failed because it didn't address the CKV2_AWS_33 rule requiring AppSync to be protected by WAF; I added a waf_web_acl_arn attribute to the affected resource.\", \"changed_resources\": [\"aws_appsync_graphql_api.none\"], \"changed_attributes\": [\"waf_web_acl_arn\"]}",
+      "fixed_text": "resource \"aws_appsync_graphql_api\" \"all\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"error\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n}\n\nresource \"aws_appsync_graphql_api\" \"none\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n\n  waf_web_acl_arn = \"aws_waf_web_acl.example.arn\"\n}",
+      "verification": {
+        "target_rule_id": "CKV2_AWS_33",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV2_AWS_33 still present in 3 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 4,
+          "lines_removed": 6,
+          "lines_changed": 10,
+          "original_lines": 33,
+          "repaired_lines": 31,
+          "diff_ratio": 0.303
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 3,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_appsync_graphql_api\\\" \\\"all\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ALL\\\"\\n  }\\n\\n  waf_web_acl_arn = \\\"aws_waf_web_acl.example.arn\\\"\\n}\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"error\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ERROR\\\"\\n  }\\n\\n  waf_web_acl_arn = \\\"aws_waf_web_acl.example.arn\\\"\\n}\\n\\nresource \\\"aws_appsync_graphql_api\\\" \\\"none\\\" {\\n  authentication_type = \\\"API_KEY\\\"\\n  name                = \\\"example\\\"\\n\\n  log_config {\\n    cloudwatch_logs_role_arn = \\\"aws_iam_role.example.arn\\\"\\n    field_log_level          = \\\"ALL\\\"\\n  }\\n\\n  waf_web_acl_arn = \\\"aws_waf_web_acl.example.arn\\\"\\n}\", \"patch_summary\": \"The previous fix failed because it only added WAF protection to one of the three AppSync resources, while the rule requires all AppSync APIs to be protected by WAF; this corrected fix adds WAF protection to all three resources.\", \"changed_resources\": [\"aws_appsync_graphql_api.all\", \"aws_appsync_graphql_api.error\", \"aws_appsync_graphql_api.none\"], \"changed_attributes\": [\"waf_web_acl_arn\"]}",
+      "fixed_text": "resource \"aws_appsync_graphql_api\" \"all\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n\n  waf_web_acl_arn = \"aws_waf_web_acl.example.arn\"\n}\n\nresource \"aws_appsync_graphql_api\" \"error\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ERROR\"\n  }\n\n  waf_web_acl_arn = \"aws_waf_web_acl.example.arn\"\n}\n\nresource \"aws_appsync_graphql_api\" \"none\" {\n  authentication_type = \"API_KEY\"\n  name                = \"example\"\n\n  log_config {\n    cloudwatch_logs_role_arn = \"aws_iam_role.example.arn\"\n    field_log_level          = \"ALL\"\n  }\n\n  waf_web_acl_arn = \"aws_waf_web_acl.example.arn\"\n}",
+      "verification": {
+        "target_rule_id": "CKV2_AWS_33",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV2_AWS_33 still present in 3 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 8,
+          "lines_removed": 6,
+          "lines_changed": 14,
+          "original_lines": 33,
+          "repaired_lines": 35,
+          "diff_ratio": 0.4242
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

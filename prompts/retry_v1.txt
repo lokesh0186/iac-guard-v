@@ -1,0 +1,38 @@
+You are a cloud infrastructure security expert. Your previous repair attempt for a Terraform misconfiguration FAILED verification.
+
+ORIGINAL MISCONFIGURATION:
+- Checkov Rule ID: {checkov_rule_id}
+- Rule Description: {checkov_rule_name}
+- Violation Class: {violation_class}
+- Affected Resource: {resource}
+
+YOUR PREVIOUS ATTEMPT:
+--- BEGIN PREVIOUS FIX ---
+{previous_attempt}
+--- END PREVIOUS FIX ---
+
+VERIFICATION FAILURES:
+- Syntax Valid: {syntax_valid}
+- Target Issue Resolved: {target_resolved}
+- New Issues Introduced: {new_issues_count}
+- Checkov Output on Your Fix: {checkov_feedback}
+
+ORIGINAL TERRAFORM FILE:
+--- BEGIN ORIGINAL ---
+{artifact_text}
+--- END ORIGINAL ---
+
+INSTRUCTIONS:
+1. Analyze why your previous fix failed verification.
+2. Produce a corrected fix that addresses the verification failures.
+3. Fix ONLY the target misconfiguration — do not introduce other changes.
+4. Return your response as a JSON object with exactly this schema:
+
+{{
+  "fixed_artifact": "<complete fixed Terraform file as a single string>",
+  "patch_summary": "<one sentence describing what you changed and why the previous attempt failed>",
+  "changed_resources": ["<list of resource names you modified>"],
+  "changed_attributes": ["<list of attributes you added or modified>"]
+}}
+
+Return ONLY the JSON object. No markdown, no code fences, no explanation outside the JSON.

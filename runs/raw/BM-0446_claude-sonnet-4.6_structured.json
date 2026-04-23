@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0446",
+  "model": "claude-sonnet-4.6",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_247",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 6,
+  "v4_diff_ratio": 0.2143,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 464,
+  "output_tokens": 385,
+  "latency_seconds": 5.59,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  encrypt_at_rest {\\n    enabled    = true\\n    kms_key_id = aws_kms_key.es_cmk.key_id\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\n  \"patch_summary\": \"Added an `encrypt_at_rest` block to the `aws_elasticsearch_domain.fail` resource with `enabled = true` and a CMK `kms_key_id` to satisfy CKV_AWS_247.\",\n  \"changed_resources\": [\"aws_elasticsearch_domain.fail\"],\n  \"changed_attributes\": [\"encrypt_at_rest.enabled\", \"encrypt_at_rest.kms_key_id\"]\n}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  encrypt_at_rest {\n    enabled    = true\n    kms_key_id = aws_kms_key.es_cmk.key_id\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_247",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_247 still present in 16 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 5,
+          "lines_removed": 1,
+          "lines_changed": 6,
+          "original_lines": 28,
+          "repaired_lines": 32,
+          "diff_ratio": 0.2143
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

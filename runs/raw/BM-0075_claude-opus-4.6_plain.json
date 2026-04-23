@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0075",
+  "model": "claude-opus-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_AWS_338",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 4,
+  "v4_diff_ratio": 0.8,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 124,
+  "output_tokens": 58,
+  "latency_seconds": 1.8,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "resource \"aws_cloudwatch_log_group\" \"pass\" {\n  retention_in_days = 3\n}\n\nresource \"aws_cloudwatch_log_group\" \"fail\" {\n  retention_in_days = 3\n}",
+      "fixed_text": "resource \"aws_cloudwatch_log_group\" \"pass\" {\n  retention_in_days = 3\n}\n\nresource \"aws_cloudwatch_log_group\" \"fail\" {\n  retention_in_days = 3\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_338",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_338 still present in 4 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 3,
+          "lines_removed": 1,
+          "lines_changed": 4,
+          "original_lines": 5,
+          "repaired_lines": 7,
+          "diff_ratio": 0.8
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

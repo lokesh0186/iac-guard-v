@@ -1,0 +1,66 @@
+{
+  "artifact_id": "BM-0448",
+  "model": "claude-opus-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_84",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 30,
+  "v4_diff_ratio": 1.0714,
+  "overall_verified_fix": true,
+  "num_attempts": 2,
+  "input_tokens": 1548,
+  "output_tokens": 1198,
+  "latency_seconds": 14.21,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"\\nresource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"INDEX_SLOW_LOGS\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"SEARCH_SLOW_LOGS\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"ES_APPLICATION_LOGS\\\"\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\"patch_summary\":\"Added log_publishing_options blocks for INDEX_SLOW_LOGS, SEARCH_SLOW_LOGS, and ES_APPLICATION_LOGS to the aws_elasticsearch_domain.fail resource to enable Elasticsearch domain logging.\",\"changed_resources\":[\"aws_elasticsearch_domain.fail\"],\"changed_attributes\":[\"log_publishing_options\"]}",
+      "fixed_text": "\nresource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"INDEX_SLOW_LOGS\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"SEARCH_SLOW_LOGS\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"ES_APPLICATION_LOGS\"\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_84",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_84 still present in 17 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 15,
+          "lines_removed": 0,
+          "lines_changed": 15,
+          "original_lines": 28,
+          "repaired_lines": 43,
+          "diff_ratio": 0.5357
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"INDEX_SLOW_LOGS\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"SEARCH_SLOW_LOGS\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"ES_APPLICATION_LOGS\\\"\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"INDEX_SLOW_LOGS\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"SEARCH_SLOW_LOGS\\\"\\n  }\\n\\n  log_publishing_options {\\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\\n    log_type                 = \\\"ES_APPLICATION_LOGS\\\"\\n  }\\n}\\n\",\"patch_summary\":\"The previous fix only added log_publishing_options to the 'fail' resource but not to the 'pass' resource, which also lacked logging and was flagged by CKV_AWS_84; now both resources have all three log types enabled.\",\"changed_resources\":[\"aws_elasticsearch_domain.fail\",\"aws_elasticsearch_domain.pass\"],\"changed_attributes\":[\"log_publishing_options\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"INDEX_SLOW_LOGS\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"SEARCH_SLOW_LOGS\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"ES_APPLICATION_LOGS\"\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"INDEX_SLOW_LOGS\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"SEARCH_SLOW_LOGS\"\n  }\n\n  log_publishing_options {\n    cloudwatch_log_group_arn = aws_cloudwatch_log_group.es_log_group.arn\n    log_type                 = \"ES_APPLICATION_LOGS\"\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_84",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 29,
+          "lines_removed": 1,
+          "lines_changed": 30,
+          "original_lines": 28,
+          "repaired_lines": 56,
+          "diff_ratio": 1.0714
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

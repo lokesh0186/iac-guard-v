@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2006",
+  "model": "claude-opus-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_K8S_13",
+  "violation_class": "over_permissive_access",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 5,
+  "v4_diff_ratio": 0.1852,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 437,
+  "output_tokens": 284,
+  "latency_seconds": 4.6,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"apiVersion: v1\\nkind: Pod\\nmetadata:\\n  labels:\\n    run: attacker-pod\\n  name: attacker-pod\\nspec:\\n  hostPID: true\\n  hostIPC: true\\n  hostNetwork: true\\n  volumes:\\n  - name: host-fs\\n    hostPath:\\n      path: /\\n  containers:\\n  - image: ubuntu\\n    name: attacker-pod\\n    command: [\\\"/bin/sh\\\", \\\"-c\\\", \\\"sleep infinity\\\"]\\n    resources:\\n      limits:\\n        memory: \\\"128Mi\\\"\\n    securityContext:\\n      privileged: true\\n      allowPrivilegeEscalation: true\\n    volumeMounts:\\n    - name: host-fs\\n      mountPath: /host\\n  restartPolicy: Never\\n\",\"patch_summary\":\"Added resources.limits.memory to the attacker-pod container to satisfy the CKV_K8S_13 rule requiring memory limits to be set.\",\"changed_resources\":[\"Pod.default.attacker-pod\"],\"changed_attributes\":[\"containers[0].resources.limits.memory\"]}",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    run: attacker-pod\n  name: attacker-pod\nspec:\n  hostPID: true\n  hostIPC: true\n  hostNetwork: true\n  volumes:\n  - name: host-fs\n    hostPath:\n      path: /\n  containers:\n  - image: ubuntu\n    name: attacker-pod\n    command: [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n    resources:\n      limits:\n        memory: \"128Mi\"\n    securityContext:\n      privileged: true\n      allowPrivilegeEscalation: true\n    volumeMounts:\n    - name: host-fs\n      mountPath: /host\n  restartPolicy: Never\n",
+      "verification": {
+        "target_rule_id": "CKV_K8S_13",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 3,
+          "lines_removed": 2,
+          "lines_changed": 5,
+          "original_lines": 27,
+          "repaired_lines": 28,
+          "diff_ratio": 0.1852
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

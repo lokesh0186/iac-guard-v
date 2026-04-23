@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0049",
+  "model": "claude-opus-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_AWS_79",
+  "violation_class": "public_exposure",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 19,
+  "v4_diff_ratio": 0.3393,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 670,
+  "output_tokens": 568,
+  "latency_seconds": 5.3,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "resource \"aws_launch_configuration\" \"fail\" {\n  name          = \"vulnerable-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = false # FIXED: Changed from true to false\n}\n\nresource \"aws_autoscaling_group\" \"vulnerable_asg\" {\n  name                 = \"vulnerable-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.fail.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity     = 1\n  vpc_zone_identifier  = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"VulnerableAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"random_id\" \"id\" {\n  byte_length = 8\n}\n\nresource \"aws_launch_configuration\" \"pass\" {\n  name          = \"safe-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\n}\n\nresource \"aws_autoscaling_group\" \"safe_asg\" {\n  name                 = \"safe-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.pass.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity     = 1\n  vpc_zone_identifier  = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"SafeAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}",
+      "fixed_text": "resource \"aws_launch_configuration\" \"fail\" {\n  name          = \"vulnerable-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = false # FIXED: Changed from true to false\n}\n\nresource \"aws_autoscaling_group\" \"vulnerable_asg\" {\n  name                 = \"vulnerable-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.fail.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity     = 1\n  vpc_zone_identifier  = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"VulnerableAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"random_id\" \"id\" {\n  byte_length = 8\n}\n\nresource \"aws_launch_configuration\" \"pass\" {\n  name          = \"safe-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\n}\n\nresource \"aws_autoscaling_group\" \"safe_asg\" {\n  name                 = \"safe-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.pass.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity     = 1\n  vpc_zone_identifier  = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"SafeAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_79",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_79 still present in 6 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 7,
+          "lines_removed": 12,
+          "lines_changed": 19,
+          "original_lines": 56,
+          "repaired_lines": 51,
+          "diff_ratio": 0.3393
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

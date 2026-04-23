@@ -1,0 +1,285 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0049.tf",
+        "file_abs_path": "benchmark/raw/BM-0049.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0049.tf",
+        "file_line_range": [
+          1,
+          6
+        ],
+        "resource": "aws_launch_configuration.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0049.tf"
+      },
+      {
+        "check_id": "CKV_AWS_389",
+        "bc_check_id": null,
+        "check_name": "Ensure AWS Auto Scaling group launch configuration doesn't have public IP address assignment enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "associate_public_ip_address"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0049.tf",
+        "file_abs_path": "benchmark/raw/BM-0049.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0049.tf",
+        "file_line_range": [
+          1,
+          6
+        ],
+        "resource": "aws_launch_configuration.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AutoScalingGroupWithPublicAccess",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": {},
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": null,
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0049.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0049.tf",
+        "file_abs_path": "benchmark/raw/BM-0049.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0049.tf",
+        "file_line_range": [
+          1,
+          6
+        ],
+        "resource": "aws_launch_configuration.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0049.tf"
+      },
+      {
+        "check_id": "CKV_AWS_315",
+        "bc_check_id": "BC_AWS_GENERAL_226",
+        "check_name": "Ensure EC2 Auto Scaling groups use EC2 launch templates",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": []
+        },
+        "code_block": null,
+        "file_path": "/BM-0049.tf",
+        "file_abs_path": "benchmark/raw/BM-0049.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0049.tf",
+        "file_line_range": [
+          8,
+          23
+        ],
+        "resource": "aws_autoscaling_group.vulnerable_asg",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AutoScalingLaunchTemplate",
+        "fixed_definition": null,
+        "entity_tags": {
+          "key": "Name",
+          "propagate_at_launch": true,
+          "value": "VulnerableAutoScalingGroup"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-315",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0049.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0049.tf",
+        "file_abs_path": "benchmark/raw/BM-0049.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0049.tf",
+        "file_line_range": [
+          29,
+          34
+        ],
+        "resource": "aws_launch_configuration.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0049.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0049.tf",
+        "file_abs_path": "benchmark/raw/BM-0049.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0049.tf",
+        "file_line_range": [
+          29,
+          34
+        ],
+        "resource": "aws_launch_configuration.pass",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0049.tf"
+      },
+      {
+        "check_id": "CKV_AWS_315",
+        "bc_check_id": "BC_AWS_GENERAL_226",
+        "check_name": "Ensure EC2 Auto Scaling groups use EC2 launch templates",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": []
+        },
+        "code_block": null,
+        "file_path": "/BM-0049.tf",
+        "file_abs_path": "benchmark/raw/BM-0049.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0049.tf",
+        "file_line_range": [
+          36,
+          52
+        ],
+        "resource": "aws_autoscaling_group.safe_asg",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AutoScalingLaunchTemplate",
+        "fixed_definition": null,
+        "entity_tags": {
+          "key": "Name",
+          "propagate_at_launch": true,
+          "value": "SafeAutoScalingGroup"
+        },
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-315",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0049.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 7,
+    "failed": 7,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 5,
+    "checkov_version": "3.2.517"
+  }
+}

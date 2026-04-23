@@ -1,0 +1,45 @@
+{
+  "artifact_id": "BM-3937",
+  "model": "llama4-maverick",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_10",
+  "violation_class": "missing_runtime_safety",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 1,
+  "v4_lines_changed": 77,
+  "v4_diff_ratio": 2.1389,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 326,
+  "output_tokens": 287,
+  "latency_seconds": 1.08,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "resource \"kubernetes_pod\" \"liveness-exec\" {\n  metadata {\n    labels = {\n      test = \"liveness\"\n    }\n    name = \"liveness-exec\"\n  }\n  spec {\n    container {\n      name    = \"liveness\"\n      image   = \"k8s.gcr.io/busybox\"\n      args    = [\"/bin/sh\", \"-c\", \"touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\"]\n      liveness_probe {\n        exec {\n          command = [\"cat\", \"/tmp/healthy\"]\n        }\n        initial_delay_seconds = 5\n        period_seconds        = 5\n      }\n      readiness_probe {\n        exec {\n          command = [\"cat\", \"/tmp/healthy\"]\n        }\n        initial_delay_seconds = 5\n        period_seconds        = 5\n      }\n    }\n    container {\n      name    = \"noliveness\"\n      image   = \"k8s.gcr.io/busybox\"\n      args    = [\"/bin/sh\", \"-c\", \"touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\"]\n      liveness_probe {\n        exec {\n          command = [\"cat\", \"/tmp/healthy\"]\n        }\n        initial_delay_seconds = 5\n        period_seconds        = 5\n      }\n    }\n  }\n}",
+      "fixed_text": "resource \"kubernetes_pod\" \"liveness-exec\" {\n  metadata {\n    labels = {\n      test = \"liveness\"\n    }\n    name = \"liveness-exec\"\n  }\n  spec {\n    container {\n      name    = \"liveness\"\n      image   = \"k8s.gcr.io/busybox\"\n      args    = [\"/bin/sh\", \"-c\", \"touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\"]\n      liveness_probe {\n        exec {\n          command = [\"cat\", \"/tmp/healthy\"]\n        }\n        initial_delay_seconds = 5\n        period_seconds        = 5\n      }\n      readiness_probe {\n        exec {\n          command = [\"cat\", \"/tmp/healthy\"]\n        }\n        initial_delay_seconds = 5\n        period_seconds        = 5\n      }\n    }\n    container {\n      name    = \"noliveness\"\n      image   = \"k8s.gcr.io/busybox\"\n      args    = [\"/bin/sh\", \"-c\", \"touch /tmp/healthy; sleep 30; rm -rf /tmp/healthy; sleep 600\"]\n      liveness_probe {\n        exec {\n          command = [\"cat\", \"/tmp/healthy\"]\n        }\n        initial_delay_seconds = 5\n        period_seconds        = 5\n      }\n    }\n  }\n}",
+      "verification": {
+        "target_rule_id": "CKV_K8S_10",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_K8S_10 still present in 11 failures",
+        "v3_new_issues_count": 1,
+        "v3_new_issues_list": [
+          "CKV_K8S_15"
+        ],
+        "v4_minimality": {
+          "lines_added": 41,
+          "lines_removed": 36,
+          "lines_changed": 77,
+          "original_lines": 36,
+          "repaired_lines": 41,
+          "diff_ratio": 2.1389
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

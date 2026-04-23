@@ -1,0 +1,2636 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          5,
+          8
+        ],
+        "resource": "aws_instance.default",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          5,
+          8
+        ],
+        "resource": "aws_instance.default",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          5,
+          8
+        ],
+        "resource": "aws_instance.default",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          5,
+          8
+        ],
+        "resource": "aws_instance.default",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          10,
+          15
+        ],
+        "resource": "aws_instance.private",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          10,
+          15
+        ],
+        "resource": "aws_instance.private",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          10,
+          15
+        ],
+        "resource": "aws_instance.private",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          10,
+          15
+        ],
+        "resource": "aws_instance.private",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          19,
+          22
+        ],
+        "resource": "aws_launch_template.default",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          24,
+          31
+        ],
+        "resource": "aws_launch_template.private",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          37,
+          42
+        ],
+        "resource": "aws_instance.public",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_88",
+        "bc_check_id": "BC_AWS_PUBLIC_12",
+        "check_name": "EC2 instance should not have public IP.",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "associate_public_ip_address"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          37,
+          42
+        ],
+        "resource": "aws_instance.public",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2PublicIP",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-12",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          37,
+          42
+        ],
+        "resource": "aws_instance.public",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          37,
+          42
+        ],
+        "resource": "aws_instance.public",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          37,
+          42
+        ],
+        "resource": "aws_instance.public",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          46,
+          53
+        ],
+        "resource": "aws_launch_template.public",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_88",
+        "bc_check_id": "BC_AWS_PUBLIC_12",
+        "check_name": "EC2 instance should not have public IP.",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "network_interfaces/[0]/associate_public_ip_address"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          46,
+          53
+        ],
+        "resource": "aws_launch_template.public",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2PublicIP",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-12",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key1\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_88",
+        "bc_check_id": "BC_AWS_PUBLIC_12",
+        "check_name": "EC2 instance should not have public IP.",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "associate_public_ip_address"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key1\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2PublicIP",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-12",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key1\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key1\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key1\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key3\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_88",
+        "bc_check_id": "BC_AWS_PUBLIC_12",
+        "check_name": "EC2 instance should not have public IP.",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "associate_public_ip_address"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key3\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2PublicIP",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-12",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key3\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key3\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key3\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"k\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"k\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"k\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"k\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"public\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_88",
+        "bc_check_id": "BC_AWS_PUBLIC_12",
+        "check_name": "EC2 instance should not have public IP.",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "associate_public_ip_address"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"public\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2PublicIP",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-12",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"public\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"public\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"public\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key2\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key2\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key2\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key2\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key4\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_88",
+        "bc_check_id": "BC_AWS_PUBLIC_12",
+        "check_name": "EC2 instance should not have public IP.",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "associate_public_ip_address"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key4\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2PublicIP",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/public-policies/public-12",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key4\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key4\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key4\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"v\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"v\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"v\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"v\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_79",
+        "bc_check_id": "BC_AWS_GENERAL_31",
+        "check_name": "Ensure Instance Metadata Service Version 1 is not enabled",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "metadata_options/[0]/http_tokens"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"private\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.IMDSv1Disabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_126",
+        "bc_check_id": "BC_AWS_LOGGING_26",
+        "check_name": "Ensure that detailed monitoring is enabled for EC2 instances",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "monitoring"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"private\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2DetailedMonitoringEnabled",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_135",
+        "bc_check_id": "BC_AWS_GENERAL_68",
+        "check_name": "Ensure that EC2 is EBS optimized",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_optimized"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"private\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.EC2EBSOptimized",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV_AWS_8",
+        "bc_check_id": "BC_AWS_GENERAL_13",
+        "check_name": "Ensure all data stored in the Launch configuration or instance Elastic Blocks Store is securely encrypted",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "root_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"private\"]",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.LaunchConfigurationEBSEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "default": {
+                "__end_line__": 8,
+                "__start_line__": 5,
+                "ami": [
+                  "ami-12345"
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.default"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          5,
+          8
+        ],
+        "resource": "aws_instance.default",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "private": {
+                "__end_line__": 15,
+                "__start_line__": 10,
+                "ami": [
+                  "ami-12345"
+                ],
+                "associate_public_ip_address": [
+                  false
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.private"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          10,
+          15
+        ],
+        "resource": "aws_instance.private",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public": {
+                "__end_line__": 42,
+                "__start_line__": 37,
+                "ami": [
+                  "ami-12345"
+                ],
+                "associate_public_ip_address": [
+                  true
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.public"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          37,
+          42
+        ],
+        "resource": "aws_instance.public",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public_foreach[\"key1\"]": {
+                "__end_line__": 68,
+                "__start_line__": 62,
+                "ami": [
+                  "ami-12345"
+                ],
+                "associate_public_ip_address": [
+                  true
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.public_foreach[\"key1\"]"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key1\"]",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public_foreach_loop[\"key3\"]": {
+                "__end_line__": 89,
+                "__start_line__": 83,
+                "ami": [
+                  "ami-12345"
+                ],
+                "associate_public_ip_address": [
+                  true
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.public_foreach_loop[\"key3\"]"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key3\"]",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public_foreach_loop_list[\"k\"]": {
+                "__end_line__": 96,
+                "__start_line__": 91,
+                "ami": [
+                  "ami-12345"
+                ],
+                "associate_public_ip_address": [
+                  "k"
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.public_foreach_loop_list[\"k\"]"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"k\"]",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public_foreach_loop_list_of_dicts[\"public\"]": {
+                "__end_line__": 125,
+                "__start_line__": 120,
+                "associate_public_ip_address": [
+                  true
+                ],
+                "name": [
+                  "public"
+                ],
+                "__address__": "aws_instance.public_foreach_loop_list_of_dicts[\"public\"]"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"public\"]",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public_foreach[\"key2\"]": {
+                "__end_line__": 68,
+                "__start_line__": 62,
+                "ami": [
+                  "ami-12345"
+                ],
+                "associate_public_ip_address": [
+                  false
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.public_foreach[\"key2\"]"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          62,
+          68
+        ],
+        "resource": "aws_instance.public_foreach[\"key2\"]",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public_foreach_loop[\"key4\"]": {
+                "__end_line__": 89,
+                "__start_line__": 83,
+                "ami": [
+                  "ami-12345"
+                ],
+                "associate_public_ip_address": [
+                  true
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.public_foreach_loop[\"key4\"]"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          83,
+          89
+        ],
+        "resource": "aws_instance.public_foreach_loop[\"key4\"]",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public_foreach_loop_list[\"v\"]": {
+                "__end_line__": 96,
+                "__start_line__": 91,
+                "ami": [
+                  "ami-12345"
+                ],
+                "associate_public_ip_address": [
+                  "v"
+                ],
+                "instance_type": [
+                  "t3.micro"
+                ],
+                "__address__": "aws_instance.public_foreach_loop_list[\"v\"]"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          91,
+          96
+        ],
+        "resource": "aws_instance.public_foreach_loop_list[\"v\"]",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      },
+      {
+        "check_id": "CKV2_AWS_41",
+        "bc_check_id": "BC_AWS_IAM_69",
+        "check_name": "Ensure an IAM role is attached to EC2 instance",
+        "check_result": {
+          "result": "FAILED",
+          "entity": {
+            "aws_instance": {
+              "public_foreach_loop_list_of_dicts[\"private\"]": {
+                "__end_line__": 125,
+                "__start_line__": 120,
+                "associate_public_ip_address": [
+                  false
+                ],
+                "name": [
+                  "private"
+                ],
+                "__address__": "aws_instance.public_foreach_loop_list_of_dicts[\"private\"]"
+              }
+            }
+          },
+          "evaluated_keys": [
+            "iam_instance_profile"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0263.tf",
+        "file_abs_path": "benchmark/raw/BM-0263.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0263.tf",
+        "file_line_range": [
+          120,
+          125
+        ],
+        "resource": "aws_instance.public_foreach_loop_list_of_dicts[\"private\"]",
+        "evaluations": null,
+        "check_class": "checkov.common.graph.checks_infra.base_check",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0263.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 25,
+    "failed": 64,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 14,
+    "checkov_version": "3.2.517"
+  }
+}

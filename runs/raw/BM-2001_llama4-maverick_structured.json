@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2001",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_K8S_37",
+  "violation_class": "over_permissive_access",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 11,
+  "v4_diff_ratio": 0.4074,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 404,
+  "output_tokens": 252,
+  "latency_seconds": 1.29,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"apiVersion: v1\\nkind: Pod\\nmetadata:\\n  labels:\\n    run: attacker-pod\\n  name: attacker-pod\\nspec:\\n  hostPID: true\\n  hostIPC: true\\n  hostNetwork: true\\n  volumes:\\n  - name: host-fs\\n    hostPath:\\n      path: /\\n  containers:\\n  - image: ubuntu\\n    name: attacker-pod\\n    command: [\\\"/bin/sh\\\", \\\"-c\\\", \\\"sleep infinity\\\"]\\n    securityContext:\\n      privileged: false\\n      allowPrivilegeEscalation: false\\n      capabilities:\\n        drop:\\n        - ALL\\n    volumeMounts:\\n    - name: host-fs\\n      mountPath: /host\\n  restartPolicy: Never\", \"patch_summary\": \"Dropped all Linux capabilities for the container and set privileged and allowPrivilegeEscalation to false.\", \"changed_resources\": [\"Pod.default.attacker-pod\"], \"changed_attributes\": [\"spec.containers[0].securityContext.privileged\", \"spec.containers[0].securityContext.allowPrivilegeEscalation\", \"spec.containers[0].securityContext.capabilities\"]}",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    run: attacker-pod\n  name: attacker-pod\nspec:\n  hostPID: true\n  hostIPC: true\n  hostNetwork: true\n  volumes:\n  - name: host-fs\n    hostPath:\n      path: /\n  containers:\n  - image: ubuntu\n    name: attacker-pod\n    command: [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n    securityContext:\n      privileged: false\n      allowPrivilegeEscalation: false\n      capabilities:\n        drop:\n        - ALL\n    volumeMounts:\n    - name: host-fs\n      mountPath: /host\n  restartPolicy: Never",
+      "verification": {
+        "target_rule_id": "CKV_K8S_37",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 6,
+          "lines_removed": 5,
+          "lines_changed": 11,
+          "original_lines": 27,
+          "repaired_lines": 28,
+          "diff_ratio": 0.4074
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

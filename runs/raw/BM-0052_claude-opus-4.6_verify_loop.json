@@ -1,0 +1,68 @@
+{
+  "artifact_id": "BM-0052",
+  "model": "claude-opus-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_315",
+  "violation_class": "public_exposure",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 53,
+  "v4_diff_ratio": 0.9464,
+  "overall_verified_fix": true,
+  "num_attempts": 2,
+  "input_tokens": 2615,
+  "output_tokens": 1577,
+  "latency_seconds": 17.06,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_launch_template\\\" \\\"fail\\\" {\\n  name          = \\\"vulnerable-lt-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\" # Replace with a valid AMI ID for your region\\n  instance_type = \\\"t2.micro\\\"\\n\\n  network_interfaces {\\n    associate_public_ip_address = true # THIS IS THE VULNERABILITY\\n  }\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"vulnerable_asg\\\" {\\n  name                 = \\\"vulnerable-asg-${random_id.id.hex}\\\"\\n  min_size             = 1\\n  max_size             = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"] # Replace with valid subnet IDs\\n\\n  launch_template {\\n    id      = aws_launch_template.fail.id\\n    version = \\\"$Latest\\\"\\n  }\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"VulnerableAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\\nresource \\\"random_id\\\" \\\"id\\\" {\\n  byte_length = 8\\n}\\n\\nresource \\\"aws_launch_configuration\\\" \\\"pass\\\" {\\n  name          = \\\"safe-lc-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\" # Replace with a valid AMI ID for your region\\n  instance_type = \\\"t2.micro\\\"\\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"safe_asg\\\" {\\n  name                 = \\\"safe-asg-${random_id.id.hex}\\\"\\n  launch_configuration = aws_launch_configuration.safe_launch_config.name\\n  min_size             = 1\\n  max_size             = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"] # Replace with valid subnet IDs\\n\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"SafeAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\",\"patch_summary\":\"Replaced aws_launch_configuration.fail with aws_launch_template.fail and updated aws_autoscaling_group.vulnerable_asg to use a launch_template block instead of launch_configuration, ensuring EC2 Auto Scaling groups use EC2 launch templates as required by CKV_AWS_315.\",\"changed_resources\":[\"aws_launch_configuration.fail\",\"aws_autoscaling_group.vulnerable_asg\"],\"changed_attributes\":[\"launch_template\",\"launch_configuration\"]}",
+      "fixed_text": "resource \"aws_launch_template\" \"fail\" {\n  name          = \"vulnerable-lt-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n\n  network_interfaces {\n    associate_public_ip_address = true # THIS IS THE VULNERABILITY\n  }\n}\n\nresource \"aws_autoscaling_group\" \"vulnerable_asg\" {\n  name                 = \"vulnerable-asg-${random_id.id.hex}\"\n  min_size             = 1\n  max_size             = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n  launch_template {\n    id      = aws_launch_template.fail.id\n    version = \"$Latest\"\n  }\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"VulnerableAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"random_id\" \"id\" {\n  byte_length = 8\n}\n\nresource \"aws_launch_configuration\" \"pass\" {\n  name          = \"safe-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\n}\n\nresource \"aws_autoscaling_group\" \"safe_asg\" {\n  name                 = \"safe-asg-${random_id.id.hex}\"\n  launch_configuration = aws_launch_configuration.safe_launch_config.name\n  min_size             = 1\n  max_size             = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"SafeAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_315",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_315 still present in 5 failures",
+        "v3_new_issues_count": 1,
+        "v3_new_issues_list": [
+          "CKV_AWS_88"
+        ],
+        "v4_minimality": {
+          "lines_added": 11,
+          "lines_removed": 8,
+          "lines_changed": 19,
+          "original_lines": 56,
+          "repaired_lines": 59,
+          "diff_ratio": 0.3393
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_launch_template\\\" \\\"fail\\\" {\\n  name          = \\\"vulnerable-lt-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\"\\n  instance_type = \\\"t2.micro\\\"\\n\\n  network_interfaces {\\n    associate_public_ip_address = false\\n  }\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"vulnerable_asg\\\" {\\n  name               = \\\"vulnerable-asg-${random_id.id.hex}\\\"\\n  min_size           = 1\\n  max_size           = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"]\\n\\n  launch_template {\\n    id      = aws_launch_template.fail.id\\n    version = \\\"$Latest\\\"\\n  }\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"VulnerableAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\\nresource \\\"random_id\\\" \\\"id\\\" {\\n  byte_length = 8\\n}\\n\\nresource \\\"aws_launch_template\\\" \\\"pass\\\" {\\n  name          = \\\"safe-lt-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\"\\n  instance_type = \\\"t2.micro\\\"\\n\\n  network_interfaces {\\n    associate_public_ip_address = false\\n  }\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"safe_asg\\\" {\\n  name               = \\\"safe-asg-${random_id.id.hex}\\\"\\n  min_size           = 1\\n  max_size           = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"]\\n\\n  launch_template {\\n    id      = aws_launch_template.pass.id\\n    version = \\\"$Latest\\\"\\n  }\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"SafeAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\",\"patch_summary\":\"Previous attempt failed because it kept launch_configuration references for safe_asg and had associate_public_ip_address=true causing CKV_AWS_88; now both ASGs use launch_template blocks referencing aws_launch_template resources with associate_public_ip_address=false, and all launch_configuration resources are removed.\",\"changed_resources\":[\"aws_launch_template.fail\",\"aws_launch_template.pass\",\"aws_autoscaling_group.vulnerable_asg\",\"aws_autoscaling_group.safe_asg\"],\"changed_attributes\":[\"launch_template\",\"launch_configuration\",\"associate_public_ip_address\"]}",
+      "fixed_text": "resource \"aws_launch_template\" \"fail\" {\n  name          = \"vulnerable-lt-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\"\n  instance_type = \"t2.micro\"\n\n  network_interfaces {\n    associate_public_ip_address = false\n  }\n}\n\nresource \"aws_autoscaling_group\" \"vulnerable_asg\" {\n  name               = \"vulnerable-asg-${random_id.id.hex}\"\n  min_size           = 1\n  max_size           = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"]\n\n  launch_template {\n    id      = aws_launch_template.fail.id\n    version = \"$Latest\"\n  }\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"VulnerableAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"random_id\" \"id\" {\n  byte_length = 8\n}\n\nresource \"aws_launch_template\" \"pass\" {\n  name          = \"safe-lt-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\"\n  instance_type = \"t2.micro\"\n\n  network_interfaces {\n    associate_public_ip_address = false\n  }\n}\n\nresource \"aws_autoscaling_group\" \"safe_asg\" {\n  name               = \"safe-asg-${random_id.id.hex}\"\n  min_size           = 1\n  max_size           = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"]\n\n  launch_template {\n    id      = aws_launch_template.pass.id\n    version = \"$Latest\"\n  }\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"SafeAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_315",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 31,
+          "lines_removed": 22,
+          "lines_changed": 53,
+          "original_lines": 56,
+          "repaired_lines": 65,
+          "diff_ratio": 0.9464
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

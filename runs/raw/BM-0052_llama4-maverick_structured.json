@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0052",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_315",
+  "violation_class": "public_exposure",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 23,
+  "v4_diff_ratio": 0.4107,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 737,
+  "output_tokens": 701,
+  "latency_seconds": 2.96,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_launch_configuration\\\" \\\"fail\\\" {\\n  name          = \\\"vulnerable-lc-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\" # Replace with a valid AMI ID for your region\\n  instance_type = \\\"t2.micro\\\"\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"vulnerable_asg\\\" {\\n  name                 = \\\"vulnerable-asg-${random_id.id.hex}\\\"\\n  launch_template {\\n    id      = aws_launch_template.vulnerable_lt.id\\n    version = \\\"$Latest\\\"\\n  }\\n  min_size             = 1\\n  max_size             = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"] # Replace with valid subnet IDs\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"VulnerableAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\\nresource \\\"random_id\\\" \\\"id\\\" {\\n  byte_length = 8\\n}\\n\\nresource \\\"aws_launch_configuration\\\" \\\"pass\\\" {\\n  name          = \\\"safe-lc-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\" # Replace with a valid AMI ID for your region\\n  instance_type = \\\"t2.micro\\\"\\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\\n}\\n\\nresource \\\"aws_autoscaling_group\\\" \\\"safe_asg\\\" {\\n  name                 = \\\"safe-asg-${random_id.id.hex}\\\"\\n  launch_template {\\n    id      = aws_launch_template.safe_lt.id\\n    version = \\\"$Latest\\\"\\n  }\\n  min_size             = 1\\n  max_size             = 3\\n  desired_capacity   = 1\\n  vpc_zone_identifier = [\\\"subnet-0bb1c79de3EXAMPLE\\\", \\\"subnet-0bb1c79de4EXAMPLE\\\"] # Replace with valid subnet IDs\\n\\n\\n  tags = [\\n    {\\n      key                 = \\\"Name\\\"\\n      value               = \\\"SafeAutoScalingGroup\\\"\\n      propagate_at_launch = true\\n    },\\n  ]\\n}\\n\\nresource \\\"aws_launch_template\\\" \\\"vulnerable_lt\\\" {\\n  name          = \\\"vulnerable-lt-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\"\\n  instance_type = \\\"t2.micro\\\"\\n}\\n\\nresource \\\"aws_launch_template\\\" \\\"safe_lt\\\" {\\n  name          = \\\"safe-lt-${random_id.id.hex}\\\"\\n  image_id      = \\\"ami-0c55b24b055c14ff6\\\"\\n  instance_type = \\\"t2.micro\\\"\\n}\", \"patch_summary\": \"Replaced aws_launch_configuration with aws_launch_template for aws_autoscaling_group resources.\", \"changed_resources\": [\"aws_autoscaling_group.vulnerable_asg\", \"aws_autoscaling_group.safe_asg\"], \"changed_attributes\": [\"launch_template\", \"launch_configuration\"]}",
+      "fixed_text": "resource \"aws_launch_configuration\" \"fail\" {\n  name          = \"vulnerable-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n}\n\nresource \"aws_autoscaling_group\" \"vulnerable_asg\" {\n  name                 = \"vulnerable-asg-${random_id.id.hex}\"\n  launch_template {\n    id      = aws_launch_template.vulnerable_lt.id\n    version = \"$Latest\"\n  }\n  min_size             = 1\n  max_size             = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"VulnerableAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"random_id\" \"id\" {\n  byte_length = 8\n}\n\nresource \"aws_launch_configuration\" \"pass\" {\n  name          = \"safe-lc-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\" # Replace with a valid AMI ID for your region\n  instance_type = \"t2.micro\"\n  associate_public_ip_address = false # THIS IS THE SAFE CONFIGURATION\n}\n\nresource \"aws_autoscaling_group\" \"safe_asg\" {\n  name                 = \"safe-asg-${random_id.id.hex}\"\n  launch_template {\n    id      = aws_launch_template.safe_lt.id\n    version = \"$Latest\"\n  }\n  min_size             = 1\n  max_size             = 3\n  desired_capacity   = 1\n  vpc_zone_identifier = [\"subnet-0bb1c79de3EXAMPLE\", \"subnet-0bb1c79de4EXAMPLE\"] # Replace with valid subnet IDs\n\n\n  tags = [\n    {\n      key                 = \"Name\"\n      value               = \"SafeAutoScalingGroup\"\n      propagate_at_launch = true\n    },\n  ]\n}\n\nresource \"aws_launch_template\" \"vulnerable_lt\" {\n  name          = \"vulnerable-lt-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\"\n  instance_type = \"t2.micro\"\n}\n\nresource \"aws_launch_template\" \"safe_lt\" {\n  name          = \"safe-lt-${random_id.id.hex}\"\n  image_id      = \"ami-0c55b24b055c14ff6\"\n  instance_type = \"t2.micro\"\n}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_315",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 18,
+          "lines_removed": 5,
+          "lines_changed": 23,
+          "original_lines": 56,
+          "repaired_lines": 69,
+          "diff_ratio": 0.4107
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

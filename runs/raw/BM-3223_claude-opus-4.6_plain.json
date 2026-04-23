@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-3223",
+  "model": "claude-opus-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_108",
+  "violation_class": "other",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 3,
+  "v4_diff_ratio": 0.0638,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 439,
+  "output_tokens": 375,
+  "latency_seconds": 5.29,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "apiVersion: v1\nkind: Pod\nmetadata:\n  creationTimestamp: null\n  labels:\n    component: kube-apiserver\n    tier: control-plane\n  name: kube-apiserver\n  namespace: kube-system\nspec:\n  containers:\n  - command:\n    - kube-controller-manager\n    - --bind-address=127.0.0.1\n    - --terminated-pod-gc-threshold=12500\n    image: gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\n    livenessProbe:\n      failureThreshold: 8\n      httpGet:\n        host: 127.0.0.1\n        path: /healthz\n        port: 6443\n        scheme: HTTPS\n      initialDelaySeconds: 15\n      timeoutSeconds: 15\n    name: kube-apiserver\n    resources:\n      requests:\n        cpu: 250m\n    volumeMounts:\n    - mountPath: /etc/kubernetes/\n      name: k8s\n      readOnly: true\n    - mountPath: /etc/ssl/certs\n      name: certs\n    - mountPath: /etc/pki\n      name: pki\n  hostNetwork: true\n  volumes:\n  - hostPath:\n      path: /etc/kubernetes\n    name: k8s\n  - hostPath:\n      path: /etc/ssl/certs\n    name: certs\n  - hostPath:\n      path: /etc/pki\n    name: pki",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  creationTimestamp: null\n  labels:\n    component: kube-apiserver\n    tier: control-plane\n  name: kube-apiserver\n  namespace: kube-system\nspec:\n  containers:\n  - command:\n    - kube-controller-manager\n    - --bind-address=127.0.0.1\n    - --terminated-pod-gc-threshold=12500\n    image: gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\n    livenessProbe:\n      failureThreshold: 8\n      httpGet:\n        host: 127.0.0.1\n        path: /healthz\n        port: 6443\n        scheme: HTTPS\n      initialDelaySeconds: 15\n      timeoutSeconds: 15\n    name: kube-apiserver\n    resources:\n      requests:\n        cpu: 250m\n    volumeMounts:\n    - mountPath: /etc/kubernetes/\n      name: k8s\n      readOnly: true\n    - mountPath: /etc/ssl/certs\n      name: certs\n    - mountPath: /etc/pki\n      name: pki\n  hostNetwork: true\n  volumes:\n  - hostPath:\n      path: /etc/kubernetes\n    name: k8s\n  - hostPath:\n      path: /etc/ssl/certs\n    name: certs\n  - hostPath:\n      path: /etc/pki\n    name: pki",
+      "verification": {
+        "target_rule_id": "CKV_K8S_108",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 2,
+          "lines_removed": 1,
+          "lines_changed": 3,
+          "original_lines": 47,
+          "repaired_lines": 48,
+          "diff_ratio": 0.0638
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0032",
+  "model": "claude-sonnet-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_225",
+  "violation_class": "missing_encryption",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 2,
+  "v4_diff_ratio": 0.0513,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 633,
+  "output_tokens": 524,
+  "latency_seconds": 5.1,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\n  \"fixed_artifact\": \"resource \\\"aws_api_gateway_method_settings\\\" \\\"fail\\\" {\\n  rest_api_id = aws_api_gateway_rest_api.fail.id\\n  stage_name  = aws_api_gateway_stage.fail.stage_name\\n  method_path = \\\"path1/GET\\\"\\n\\n  settings {\\n    caching_enabled      = true\\n    metrics_enabled      = false\\n    logging_level        = \\\"INFO\\\"\\n    cache_data_encrypted = false\\n    data_trace_enabled   = false\\n  }\\n}\\n\\nresource \\\"aws_api_gateway_method_settings\\\" \\\"pass\\\" {\\n  rest_api_id = aws_api_gateway_rest_api.fail.id\\n  stage_name  = aws_api_gateway_stage.fail.stage_name\\n  method_path = \\\"path1/GET\\\"\\n\\n  settings {\\n    caching_enabled      = true\\n    metrics_enabled      = false\\n    logging_level        = \\\"INFO\\\"\\n    cache_data_encrypted = true\\n    data_trace_enabled   = false\\n  }\\n}\\n\\nresource \\\"aws_api_gateway_method_settings\\\" \\\"pass2\\\" {\\n  rest_api_id = aws_api_gateway_rest_api.fail.id\\n  stage_name  = aws_api_gateway_stage.fail.stage_name\\n  method_path = \\\"path1/GET\\\"\\n\\n  settings {\\n    caching_enabled      = true\\n    cache_data_encrypted = true\\n    metrics_enabled      = false\\n    logging_level        = \\\"INFO\\\"\\n    data_trace_enabled   = false\\n  }\\n}\\n\",\n  \"patch_summary\": \"Added `caching_enabled = true` and `cache_data_encrypted = true` to the `pass2` resource's settings block to enable and encrypt API Gateway method caching.\",\n  \"changed_resources\": [\"aws_api_gateway_method_settings.pass2\"],\n  \"changed_attributes\": [\"caching_enabled\", \"cache_data_encrypted\"]\n}",
+      "fixed_text": "resource \"aws_api_gateway_method_settings\" \"fail\" {\n  rest_api_id = aws_api_gateway_rest_api.fail.id\n  stage_name  = aws_api_gateway_stage.fail.stage_name\n  method_path = \"path1/GET\"\n\n  settings {\n    caching_enabled      = true\n    metrics_enabled      = false\n    logging_level        = \"INFO\"\n    cache_data_encrypted = false\n    data_trace_enabled   = false\n  }\n}\n\nresource \"aws_api_gateway_method_settings\" \"pass\" {\n  rest_api_id = aws_api_gateway_rest_api.fail.id\n  stage_name  = aws_api_gateway_stage.fail.stage_name\n  method_path = \"path1/GET\"\n\n  settings {\n    caching_enabled      = true\n    metrics_enabled      = false\n    logging_level        = \"INFO\"\n    cache_data_encrypted = true\n    data_trace_enabled   = false\n  }\n}\n\nresource \"aws_api_gateway_method_settings\" \"pass2\" {\n  rest_api_id = aws_api_gateway_rest_api.fail.id\n  stage_name  = aws_api_gateway_stage.fail.stage_name\n  method_path = \"path1/GET\"\n\n  settings {\n    caching_enabled      = true\n    cache_data_encrypted = true\n    metrics_enabled      = false\n    logging_level        = \"INFO\"\n    data_trace_enabled   = false\n  }\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_225",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 2,
+          "lines_removed": 0,
+          "lines_changed": 2,
+          "original_lines": 39,
+          "repaired_lines": 41,
+          "diff_ratio": 0.0513
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

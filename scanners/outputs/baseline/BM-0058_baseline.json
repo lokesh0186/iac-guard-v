@@ -1,0 +1,54 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_210",
+        "bc_check_id": "BC_AWS_GENERAL_125",
+        "check_name": "Batch job does not define a privileged container",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "container_properties",
+            "container_properties/[0]/privileged"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0058.tf",
+        "file_abs_path": "benchmark/raw/BM-0058.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0058.tf",
+        "file_line_range": [
+          8,
+          46
+        ],
+        "resource": "aws_batch_job_definition.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.BatchJobIsNotPrivileged",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-batch-job-is-not-defined-as-a-privileged-container",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0058.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 3,
+    "failed": 1,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 7,
+    "checkov_version": "3.2.517"
+  }
+}

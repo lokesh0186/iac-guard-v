@@ -1,0 +1,131 @@
+{
+  "check_type": "terraform",
+  "results": {
+    "failed_checks": [
+      {
+        "check_id": "CKV_AWS_204",
+        "bc_check_id": "BC_AWS_GENERAL_153",
+        "check_name": "Ensure AMIs are encrypted using KMS CMKs",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_block_device",
+            "ebs_block_device/[1]/encrypted"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0019.tf",
+        "file_abs_path": "benchmark/raw/BM-0019.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0019.tf",
+        "file_line_range": [
+          31,
+          47
+        ],
+        "resource": "aws_ami.fail",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AMIEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-amis-are-encrypted-by-key-management-service-kms-using-customer-managed-keys-cmks",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0019.tf"
+      },
+      {
+        "check_id": "CKV_AWS_204",
+        "bc_check_id": "BC_AWS_GENERAL_153",
+        "check_name": "Ensure AMIs are encrypted using KMS CMKs",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_block_device",
+            "ebs_block_device/[0]/encrypted"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0019.tf",
+        "file_abs_path": "benchmark/raw/BM-0019.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0019.tf",
+        "file_line_range": [
+          49,
+          59
+        ],
+        "resource": "aws_ami.fail2",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AMIEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-amis-are-encrypted-by-key-management-service-kms-using-customer-managed-keys-cmks",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0019.tf"
+      },
+      {
+        "check_id": "CKV_AWS_204",
+        "bc_check_id": "BC_AWS_GENERAL_153",
+        "check_name": "Ensure AMIs are encrypted using KMS CMKs",
+        "check_result": {
+          "result": "FAILED",
+          "evaluated_keys": [
+            "ebs_block_device"
+          ]
+        },
+        "code_block": null,
+        "file_path": "/BM-0019.tf",
+        "file_abs_path": "benchmark/raw/BM-0019.tf",
+        "repo_file_path": "/iac-guard-v/benchmark/raw/BM-0019.tf",
+        "file_line_range": [
+          61,
+          70
+        ],
+        "resource": "aws_ami.fail3",
+        "evaluations": null,
+        "check_class": "checkov.terraform.checks.resource.aws.AMIEncryption",
+        "fixed_definition": null,
+        "entity_tags": null,
+        "caller_file_path": null,
+        "caller_file_line_range": null,
+        "resource_address": null,
+        "severity": null,
+        "bc_category": null,
+        "benchmarks": null,
+        "description": null,
+        "short_description": null,
+        "vulnerability_details": null,
+        "connected_node": null,
+        "guideline": "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-aws-amis-are-encrypted-by-key-management-service-kms-using-customer-managed-keys-cmks",
+        "details": [],
+        "check_len": null,
+        "definition_context_file_path": "benchmark/raw/BM-0019.tf"
+      }
+    ]
+  },
+  "summary": {
+    "passed": 3,
+    "failed": 3,
+    "skipped": 0,
+    "parsing_errors": 0,
+    "resource_count": 5,
+    "checkov_version": "3.2.517"
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "artifact_id": "BM-0449",
+  "model": "claude-opus-4.6",
+  "method": "verify_loop",
+  "checkov_rule_id": "CKV_AWS_318",
+  "violation_class": "network_hardening",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 11,
+  "v4_diff_ratio": 0.3929,
+  "overall_verified_fix": false,
+  "num_attempts": 3,
+  "input_tokens": 2434,
+  "output_tokens": 1246,
+  "latency_seconds": 21.55,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\":\"\\nresource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type            = \\\"m4.large.elasticsearch\\\"\\n    dedicated_master_enabled = true\\n    dedicated_master_count   = 3\\n    dedicated_master_type    = \\\"m4.large.elasticsearch\\\"\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\"patch_summary\":\"Added dedicated_master_enabled set to true, dedicated_master_count set to 3, and dedicated_master_type to the cluster_config of aws_elasticsearch_domain.fail to ensure at least three dedicated master nodes for high availability.\",\"changed_resources\":[\"aws_elasticsearch_domain.fail\"],\"changed_attributes\":[\"cluster_config.dedicated_master_enabled\",\"cluster_config.dedicated_master_count\",\"cluster_config.dedicated_master_type\"]}",
+      "fixed_text": "\nresource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type            = \"m4.large.elasticsearch\"\n    dedicated_master_enabled = true\n    dedicated_master_count   = 3\n    dedicated_master_type    = \"m4.large.elasticsearch\"\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_318",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_318 still present in 17 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 4,
+          "lines_removed": 1,
+          "lines_changed": 5,
+          "original_lines": 28,
+          "repaired_lines": 31,
+          "diff_ratio": 0.1786
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 2,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type            = \\\"m4.large.elasticsearch\\\"\\n    dedicated_master_enabled = true\\n    dedicated_master_count   = 3\\n    dedicated_master_type    = \\\"m4.large.elasticsearch\\\"\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type            = \\\"m4.large.elasticsearch\\\"\\n    dedicated_master_enabled = true\\n    dedicated_master_count   = 3\\n    dedicated_master_type    = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\"patch_summary\":\"The previous fix only added dedicated master node configuration to the 'fail' resource but the rule CKV_AWS_318 was still failing on the 'pass' resource as well, so both elasticsearch domains need at least three dedicated master nodes configured.\",\"changed_resources\":[\"aws_elasticsearch_domain.fail\",\"aws_elasticsearch_domain.pass\"],\"changed_attributes\":[\"cluster_config.dedicated_master_enabled\",\"cluster_config.dedicated_master_count\",\"cluster_config.dedicated_master_type\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type            = \"m4.large.elasticsearch\"\n    dedicated_master_enabled = true\n    dedicated_master_count   = 3\n    dedicated_master_type    = \"m4.large.elasticsearch\"\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type            = \"m4.large.elasticsearch\"\n    dedicated_master_enabled = true\n    dedicated_master_count   = 3\n    dedicated_master_type    = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_318",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_318 still present in 16 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 8,
+          "lines_removed": 3,
+          "lines_changed": 11,
+          "original_lines": 28,
+          "repaired_lines": 33,
+          "diff_ratio": 0.3929
+        },
+        "overall_verified_fix": false
+      }
+    },
+    {
+      "attempt": 3,
+      "response": "{\"fixed_artifact\":\"resource \\\"aws_elasticsearch_domain\\\" \\\"fail\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type            = \\\"m4.large.elasticsearch\\\"\\n    dedicated_master_enabled = true\\n    dedicated_master_count   = 3\\n    dedicated_master_type    = \\\"m4.large.elasticsearch\\\"\\n  }\\n}\\n\\nresource \\\"aws_elasticsearch_domain\\\" \\\"pass\\\" {\\n  domain_name           = var.domain\\n  elasticsearch_version = \\\"6.3\\\"\\n\\n  cluster_config {\\n    instance_type            = \\\"m4.large.elasticsearch\\\"\\n    dedicated_master_enabled = true\\n    dedicated_master_count   = 3\\n    dedicated_master_type    = \\\"m4.large.elasticsearch\\\"\\n  }\\n\\n  vpc_options {\\n    subnet_ids = [\\n      data.aws_subnet_ids.selected.ids[0],\\n      data.aws_subnet_ids.selected.ids[1],\\n    ]\\n\\n    security_group_ids = [aws_security_group.es.id]\\n  }\\n\\n}\\n\",\"patch_summary\":\"The previous fix correctly added dedicated master node configuration to the fail resource but the rule CKV_AWS_318 was still flagging because both resources needed the fix; the pass resource also lacked dedicated_master_enabled, dedicated_master_count, and dedicated_master_type settings, so I added them to both resources.\",\"changed_resources\":[\"aws_elasticsearch_domain.fail\",\"aws_elasticsearch_domain.pass\"],\"changed_attributes\":[\"cluster_config.dedicated_master_enabled\",\"cluster_config.dedicated_master_count\",\"cluster_config.dedicated_master_type\"]}",
+      "fixed_text": "resource \"aws_elasticsearch_domain\" \"fail\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type            = \"m4.large.elasticsearch\"\n    dedicated_master_enabled = true\n    dedicated_master_count   = 3\n    dedicated_master_type    = \"m4.large.elasticsearch\"\n  }\n}\n\nresource \"aws_elasticsearch_domain\" \"pass\" {\n  domain_name           = var.domain\n  elasticsearch_version = \"6.3\"\n\n  cluster_config {\n    instance_type            = \"m4.large.elasticsearch\"\n    dedicated_master_enabled = true\n    dedicated_master_count   = 3\n    dedicated_master_type    = \"m4.large.elasticsearch\"\n  }\n\n  vpc_options {\n    subnet_ids = [\n      data.aws_subnet_ids.selected.ids[0],\n      data.aws_subnet_ids.selected.ids[1],\n    ]\n\n    security_group_ids = [aws_security_group.es.id]\n  }\n\n}\n",
+      "verification": {
+        "target_rule_id": "CKV_AWS_318",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_318 still present in 16 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 8,
+          "lines_removed": 3,
+          "lines_changed": 11,
+          "original_lines": 28,
+          "repaired_lines": 33,
+          "diff_ratio": 0.3929
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

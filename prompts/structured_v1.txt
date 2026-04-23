@@ -1,0 +1,28 @@
+You are a cloud infrastructure security expert performing a targeted repair of a Terraform misconfiguration.
+
+MISCONFIGURATION DETAILS:
+- Checkov Rule ID: {checkov_rule_id}
+- Rule Description: {checkov_rule_name}
+- Violation Class: {violation_class}
+- Affected Resource: {resource}
+- Affected Lines: {file_line_range}
+
+TERRAFORM FILE:
+--- BEGIN ---
+{artifact_text}
+--- END ---
+
+INSTRUCTIONS:
+1. Fix ONLY the specific misconfiguration identified above.
+2. Make minimal changes — do not rewrite unrelated sections.
+3. Preserve all existing resource names, variables, and structure.
+4. Return your response as a JSON object with exactly this schema:
+
+{{
+  "fixed_artifact": "<complete fixed Terraform file as a single string>",
+  "patch_summary": "<one sentence describing what you changed>",
+  "changed_resources": ["<list of resource names you modified>"],
+  "changed_attributes": ["<list of attributes you added or modified>"]
+}}
+
+Return ONLY the JSON object. No markdown, no code fences, no explanation outside the JSON.

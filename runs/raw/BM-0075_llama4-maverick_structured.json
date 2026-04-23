@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-0075",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_AWS_338",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": false,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 4,
+  "v4_diff_ratio": 0.8,
+  "overall_verified_fix": false,
+  "num_attempts": 1,
+  "input_tokens": 300,
+  "output_tokens": 87,
+  "latency_seconds": 0.54,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"resource \\\"aws_cloudwatch_log_group\\\" \\\"pass\\\" {\\n  retention_in_days = 365\\n}\\n\\nresource \\\"aws_cloudwatch_log_group\\\" \\\"fail\\\" {}\", \"patch_summary\": \"Updated the retention_in_days attribute of aws_cloudwatch_log_group.pass to 365.\", \"changed_resources\": [\"aws_cloudwatch_log_group.pass\"], \"changed_attributes\": [\"retention_in_days\"]}",
+      "fixed_text": "resource \"aws_cloudwatch_log_group\" \"pass\" {\n  retention_in_days = 365\n}\n\nresource \"aws_cloudwatch_log_group\" \"fail\" {}",
+      "verification": {
+        "target_rule_id": "CKV_AWS_338",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": false,
+        "v2_resolution_detail": "Target rule CKV_AWS_338 still present in 4 failures",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 2,
+          "lines_removed": 2,
+          "lines_changed": 4,
+          "original_lines": 5,
+          "repaired_lines": 5,
+          "diff_ratio": 0.8
+        },
+        "overall_verified_fix": false
+      }
+    }
+  ]
+}

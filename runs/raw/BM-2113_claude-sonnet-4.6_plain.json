@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2113",
+  "model": "claude-sonnet-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_78",
+  "violation_class": "missing_runtime_safety",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 24,
+  "v4_diff_ratio": 1.6,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 250,
+  "output_tokens": 393,
+  "latency_seconds": 4.47,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "apiVersion: apiserver.config.k8s.io/v1\nkind: AdmissionConfiguration\nmetadata:\n  name: \"admission-configuration-fixed\"\nplugins:\n  - name: EventRateLimit\n    path: eventconfig.yaml\n  - name: ValidatingAdmissionWebhook\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: WebhookAdmissionConfiguration\n      kubeConfigFile: \"<path-to-kubeconfig-file>\"\n  - name: MutatingAdmissionWebhook\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: WebhookAdmissionConfiguration\n      kubeConfigFile: \"<path-to-kubeconfig-file>\"\n  - name: AlwaysPullImages\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: AlwaysPullImagesConfiguration\n  - name: NodeRestriction\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: NodeRestrictionConfiguration\n  - name: PodSecurityPolicy\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: PodSecurityPolicyConfiguration\n  - name: SecurityContextDeny\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: SecurityContextDenyConfiguration\n  - name: ServiceAccount\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: ServiceAccountConfiguration",
+      "fixed_text": "apiVersion: apiserver.config.k8s.io/v1\nkind: AdmissionConfiguration\nmetadata:\n  name: \"admission-configuration-fixed\"\nplugins:\n  - name: EventRateLimit\n    path: eventconfig.yaml\n  - name: ValidatingAdmissionWebhook\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: WebhookAdmissionConfiguration\n      kubeConfigFile: \"<path-to-kubeconfig-file>\"\n  - name: MutatingAdmissionWebhook\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: WebhookAdmissionConfiguration\n      kubeConfigFile: \"<path-to-kubeconfig-file>\"\n  - name: AlwaysPullImages\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: AlwaysPullImagesConfiguration\n  - name: NodeRestriction\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: NodeRestrictionConfiguration\n  - name: PodSecurityPolicy\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: PodSecurityPolicyConfiguration\n  - name: SecurityContextDeny\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: SecurityContextDenyConfiguration\n  - name: ServiceAccount\n    configuration:\n      apiVersion: apiserver.config.k8s.io/v1\n      kind: ServiceAccountConfiguration",
+      "verification": {
+        "target_rule_id": "CKV_K8S_78",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 23,
+          "lines_removed": 1,
+          "lines_changed": 24,
+          "original_lines": 15,
+          "repaired_lines": 37,
+          "diff_ratio": 1.6
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

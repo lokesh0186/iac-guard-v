@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2200",
+  "model": "llama4-maverick",
+  "method": "structured",
+  "checkov_rule_id": "CKV_K8S_91",
+  "violation_class": "weak_observability",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 8,
+  "v4_diff_ratio": 0.1739,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 567,
+  "output_tokens": 442,
+  "latency_seconds": 1.62,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "{\"fixed_artifact\": \"apiVersion: v1\\nkind: Pod\\nmetadata:\\n  creationTimestamp: null\\n  labels:\\n    component: kube-apiserver\\n    tier: control-plane\\n  name: kube-apiserver-fail\\n  namespace: kube-system\\nspec:\\n  containers:\\n  - command:\\n    - kube-apiserver\\n    - --audit-log-path=/var/log/apiserver/audit.log\\n    image: gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\\n    livenessProbe:\\n      failureThreshold: 8\\n      httpGet:\\n        host: 127.0.0.1\\n        path: /healthz\\n        port: 6443\\n        scheme: HTTPS\\n      initialDelaySeconds: 15\\n      timeoutSeconds: 15\\n    name: kube-apiserver-should-fail\\n    resources:\\n      requests:\\n        cpu: 250m\\n    volumeMounts:\\n    - mountPath: /etc/kubernetes/\\n      name: k8s\\n      readOnly: true\\n    - mountPath: /etc/ssl/certs\\n      name: certs\\n    - mountPath: /etc/pki\\n      name: pki\\n    - mountPath: /var/log/apiserver\\n      name: audit-log\\n  hostNetwork: true\\n  volumes:\\n  - hostPath:\\n      path: /etc/kubernetes\\n    name: k8s\\n  - hostPath:\\n      path: /etc/ssl/certs\\n    name: certs\\n  - hostPath:\\n      path: /etc/pki\\n    name: pki\\n  - hostPath:\\n      path: /var/log/apiserver\\n    name: audit-log\", \"patch_summary\": \"Added --audit-log-path argument to kube-apiserver command and created a volume for audit log.\", \"changed_resources\": [\"Pod.kube-system.kube-apiserver-fail\"], \"changed_attributes\": [\"spec.containers[0].command\", \"spec.containers[0].volumeMounts\", \"spec.volumes\"]}",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  creationTimestamp: null\n  labels:\n    component: kube-apiserver\n    tier: control-plane\n  name: kube-apiserver-fail\n  namespace: kube-system\nspec:\n  containers:\n  - command:\n    - kube-apiserver\n    - --audit-log-path=/var/log/apiserver/audit.log\n    image: gcr.io/google_containers/kube-apiserver-amd64:v1.6.0\n    livenessProbe:\n      failureThreshold: 8\n      httpGet:\n        host: 127.0.0.1\n        path: /healthz\n        port: 6443\n        scheme: HTTPS\n      initialDelaySeconds: 15\n      timeoutSeconds: 15\n    name: kube-apiserver-should-fail\n    resources:\n      requests:\n        cpu: 250m\n    volumeMounts:\n    - mountPath: /etc/kubernetes/\n      name: k8s\n      readOnly: true\n    - mountPath: /etc/ssl/certs\n      name: certs\n    - mountPath: /etc/pki\n      name: pki\n    - mountPath: /var/log/apiserver\n      name: audit-log\n  hostNetwork: true\n  volumes:\n  - hostPath:\n      path: /etc/kubernetes\n    name: k8s\n  - hostPath:\n      path: /etc/ssl/certs\n    name: certs\n  - hostPath:\n      path: /etc/pki\n    name: pki\n  - hostPath:\n      path: /var/log/apiserver\n    name: audit-log",
+      "verification": {
+        "target_rule_id": "CKV_K8S_91",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 7,
+          "lines_removed": 1,
+          "lines_changed": 8,
+          "original_lines": 46,
+          "repaired_lines": 52,
+          "diff_ratio": 0.1739
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}

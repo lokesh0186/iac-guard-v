@@ -1,0 +1,43 @@
+{
+  "artifact_id": "BM-2004",
+  "model": "claude-opus-4.6",
+  "method": "plain",
+  "checkov_rule_id": "CKV_K8S_12",
+  "violation_class": "over_permissive_access",
+  "v1_syntax_valid": true,
+  "v2_target_resolved": true,
+  "v3_new_issues_count": 0,
+  "v4_lines_changed": 27,
+  "v4_diff_ratio": 1.0,
+  "overall_verified_fix": true,
+  "num_attempts": 1,
+  "input_tokens": 245,
+  "output_tokens": 166,
+  "latency_seconds": 3.63,
+  "error": "",
+  "attempts": [
+    {
+      "attempt": 1,
+      "response": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    run: attacker-pod\n  name: attacker-pod\nspec:\n  hostPID: false\n  hostIPC: false\n  hostNetwork: false\n  containers:\n  - image: ubuntu\n    name: attacker-pod\n    command: [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n    securityContext:\n      privileged: false\n      allowPrivilegeEscalation: false\n      readOnlyRootFilesystem: true\n      runAsNonRoot: true\n      runAsUser: 1000\n      capabilities:\n        drop:\n          - ALL\n  restartPolicy: Never",
+      "fixed_text": "apiVersion: v1\nkind: Pod\nmetadata:\n  labels:\n    run: attacker-pod\n  name: attacker-pod\nspec:\n  hostPID: false\n  hostIPC: false\n  hostNetwork: false\n  containers:\n  - image: ubuntu\n    name: attacker-pod\n    command: [\"/bin/sh\", \"-c\", \"sleep infinity\"]\n    securityContext:\n      privileged: false\n      allowPrivilegeEscalation: false\n      readOnlyRootFilesystem: true\n      runAsNonRoot: true\n      runAsUser: 1000\n      capabilities:\n        drop:\n          - ALL\n  restartPolicy: Never",
+      "verification": {
+        "target_rule_id": "CKV_K8S_12",
+        "v1_syntax_valid": true,
+        "v1_syntax_detail": "Parsed successfully",
+        "v2_target_resolved": true,
+        "v2_resolution_detail": "Target rule cleared",
+        "v3_new_issues_count": 0,
+        "v3_new_issues_list": [],
+        "v4_minimality": {
+          "lines_added": 12,
+          "lines_removed": 15,
+          "lines_changed": 27,
+          "original_lines": 27,
+          "repaired_lines": 24,
+          "diff_ratio": 1.0
+        },
+        "overall_verified_fix": true
+      }
+    }
+  ]
+}
