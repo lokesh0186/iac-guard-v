@@ -8,7 +8,7 @@
 [![Benchmark: 70 items](https://img.shields.io/badge/Benchmark-70_items-green.svg)](benchmark/)
 [![Experiments: 630 runs](https://img.shields.io/badge/Experiments-630_runs-orange.svg)](runs/)
 
-**Paper**: Under review at [IEEE QRS 2026](https://qrs26.techconf.org/) (26th International Conference on Software Quality, Reliability, and Security)
+**Paper**: ✅ Accepted at [IEEE QRS 2026](https://qrs26.techconf.org/) (26th International Conference on Software Quality, Reliability, and Security) | Published in Springer LNCS
 
 **Author**: [Lokesh Chauhan](https://github.com/lokesh0186)
 
