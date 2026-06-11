@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this software or benchmark, please cite the QRS 2026 paper."
+title: "IaC-Guard-V: A Verification Framework for LLM-Generated Infrastructure-as-Code Repairs"
+authors:
+  - family-names: Chauhan
+    given-names: Lokesh
+    orcid: "https://orcid.org/0009-0004-1544-6424"
+    email: lokesh0186@gmail.com
+    affiliation: "Independent Researcher"
+type: software
+license: Apache-2.0
+repository-code: "https://github.com/lokesh0186/iac-guard-v"
+url: "https://github.com/lokesh0186/iac-guard-v"
+keywords:
+  - infrastructure-as-code
+  - large-language-models
+  - automated-program-repair
+  - verification
+  - software-reliability
+  - terraform
+  - kubernetes
+preferred-citation:
+  type: conference-paper
+  title: "IaC-Guard-V: A Verification Framework for LLM-Generated Infrastructure-as-Code Repairs"
+  authors:
+    - family-names: Chauhan
+      given-names: Lokesh
+      orcid: "https://orcid.org/0009-0004-1544-6424"
+  year: 2026
+  conference:
+    name: "26th IEEE International Conference on Software Quality, Reliability, and Security (QRS 2026)"
+    city: Florence
+    country: Italy
+    date-start: 2026-07-22
+    date-end: 2026-07-25
+  collection-title: "Lecture Notes in Computer Science"
+  publisher:
+    name: "Springer"

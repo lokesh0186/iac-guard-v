@@ -8,9 +8,11 @@
 [![Benchmark: 70 items](https://img.shields.io/badge/Benchmark-70_items-green.svg)](benchmark/)
 [![Experiments: 630 runs](https://img.shields.io/badge/Experiments-630_runs-orange.svg)](runs/)
 
-**Paper**: ✅ Accepted at [IEEE QRS 2026](https://qrs26.techconf.org/) (26th International Conference on Software Quality, Reliability, and Security) | Published in Springer LNCS
+**Paper**: ✅ Accepted at the [26th IEEE International Conference on Software Quality, Reliability, and Security (QRS 2026)](https://qrs26.techconf.org/), to be held July 22–25, 2026 in Florence, Italy. Proceedings will appear in Springer Lecture Notes in Computer Science (LNCS).
 
-**Author**: [Lokesh Chauhan](https://github.com/lokesh0186)
+**Author**: [Lokesh Chauhan](https://orcid.org/0009-0004-1544-6424), Independent Researcher
+
+> 📎 The paper is not hosted in this repository. A preprint will be made available; a link will be added here once posted, and the publisher's DOI will be added once the proceedings are published.
 
 ---
 

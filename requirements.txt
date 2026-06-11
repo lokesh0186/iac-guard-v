@@ -1,0 +1,9 @@
+# Core dependencies for IaC-Guard-V experiments
+# Pinned to exact versions used in the paper for reproducibility
+
+checkov==3.2.517
+boto3>=1.34,<2.0
+numpy>=1.24,<2.0
+pandas>=2.0,<3.0
+scipy>=1.11,<2.0
+matplotlib>=3.7,<4.0
