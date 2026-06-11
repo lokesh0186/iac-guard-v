@@ -257,7 +257,7 @@ iac-guard-v/
 │
 ├── docs/
 │   ├── EXAMPLE_WALKTHROUGH.md            # Worked example (BM-0075)
-│   ├── VERIFICATION_PROCEDURE.md         # Plain-English Algorithm 1
+│   └── VERIFICATION_PROCEDURE.md         # Plain-English Algorithm 1
 │
 ├── CITATION.cff                          # Citation metadata
 ├── requirements.txt                      # Pinned dependencies
