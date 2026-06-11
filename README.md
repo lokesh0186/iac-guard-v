@@ -253,7 +253,17 @@ iac-guard-v/
 │       ├── figure2_hero_vfr.png          # Main VFR results
 │       └── figure3_convergence.png       # Convergence analysis
 │
-└── scanners/outputs/baseline/            # 70 Checkov baseline outputs
+├── scanners/outputs/baseline/            # 70 Checkov baseline outputs
+│
+├── docs/
+│   ├── EXAMPLE_WALKTHROUGH.md            # Worked example (BM-0075)
+│   ├── VERIFICATION_PROCEDURE.md         # Plain-English Algorithm 1
+│
+├── CITATION.cff                          # Citation metadata
+├── requirements.txt                      # Pinned dependencies
+├── LICENSE                               # Apache 2.0
+└── README.md                             # This file
+
 ```
 
 ---
