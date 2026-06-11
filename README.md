@@ -46,7 +46,7 @@ From **630 experimental runs** across 3 LLM families, 3 repair strategies, and 7
 
 2. **Verification-guided repair dramatically improves trustworthiness.** Iterative repair with scanner feedback achieves 68--92% verified-fix rates, statistically significantly outperforming baselines (McNemar's test, p < 0.001).
 
-3. **Verification matters more than model capability.** An open-source model (Llama 4 Maverick) with verification outperforms the strongest commercial model (Claude Opus 4.6) without it --- at 1/12th the cost per verified fix.
+3. **Verification matters more than model capability.** An open-source model (Llama 4 Maverick) with verification outperforms the strongest commercial model (Claude Opus 4.6) without it, at less than one-tenth the cost per verified fix.
 
 4. **Structured prompting hurts Terraform repairs.** Constraining LLM output to JSON schema consistently degrades repair quality (32--42% vs. 44--50%), a counterintuitive result that reverses on Kubernetes.
 
@@ -266,7 +266,9 @@ If you use IaC-Guard-V in your research, please cite:
 @inproceedings{chauhan2026iacguardv,
   title={{IaC-Guard-V}: A Verification Framework for {LLM}-Generated Infrastructure-as-Code Repairs},
   author={Chauhan, Lokesh},
-  booktitle={Proceedings of the IEEE International Conference on Software Quality, Reliability, and Security (QRS)},
+  booktitle={Software Quality, Reliability, and Security (QRS 2026)},
+  series={Lecture Notes in Computer Science},
+  publisher={Springer},
   year={2026}
 }
 ```
