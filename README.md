@@ -2,11 +2,19 @@
 
 ### A Verification Framework for LLM-Generated Infrastructure-as-Code Repairs
 
+**A verification framework that evaluates whether LLM-generated Infrastructure-as-Code repairs are actually correct, not just syntactically valid.**
+
+[![Accepted: QRS 2026](https://img.shields.io/badge/QRS%202026-Accepted-brightgreen)](https://qrs26.techconf.org/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![Checkov v3.2.517](https://img.shields.io/badge/Checkov-v3.2.517-blueviolet.svg)](https://www.checkov.io/)
 [![Benchmark: 70 items](https://img.shields.io/badge/Benchmark-70_items-green.svg)](benchmark/)
 [![Experiments: 630 runs](https://img.shields.io/badge/Experiments-630_runs-orange.svg)](runs/)
+
+<!-- After arXiv submission, uncomment and fill ID: -->
+<!-- [![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b.svg)](https://arxiv.org/abs/XXXX.XXXXX) -->
+<!-- After Zenodo DOI, uncomment and fill: -->
+<!-- [![DOI](https://zenodo.org/badge/DOI/ADD-DOI-HERE.svg)](https://doi.org/ADD-DOI-HERE) -->
 
 **Paper**: ✅ Accepted at the [26th IEEE International Conference on Software Quality, Reliability, and Security (QRS 2026)](https://qrs26.techconf.org/), to be held July 22–25, 2026 in Florence, Italy. Proceedings will appear in Springer Lecture Notes in Computer Science (LNCS).
 
@@ -201,6 +209,15 @@ python scripts/analyze_part3.py
 ```
 
 Output tables are written to [`results/tables/`](results/tables/) and figures to [`results/figures/`](results/figures/).
+
+---
+
+## Limitations
+
+- **Benchmark scope**: 70 items from Checkov's test suite; may not represent all real-world configurations.
+- **Single scanner**: Results are Checkov-specific; multi-scanner consensus untested.
+- **No human evaluation**: Repair quality assessed only through automated verification gates.
+- **Retry cap**: Maximum 2 retries; diminishing returns suggest 3+ would add minimal benefit.
 
 ---
 
