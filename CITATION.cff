@@ -11,6 +11,8 @@ type: software
 license: Apache-2.0
 repository-code: "https://github.com/lokesh0186/iac-guard-v"
 url: "https://github.com/lokesh0186/iac-guard-v"
+year: 2026
+abstract: "IaC-Guard-V is a verification framework for LLM-generated Infrastructure-as-Code repairs, evaluating syntactic validity, target-issue resolution, regression safety, and patch minimality across Terraform and Kubernetes artifacts."
 keywords:
   - infrastructure-as-code
   - large-language-models
@@ -36,3 +38,9 @@ preferred-citation:
   collection-title: "Lecture Notes in Computer Science"
   publisher:
     name: "Springer"
+# After arXiv ID and Zenodo DOI are available, uncomment and fill:
+# identifiers:
+#   - type: doi
+#     value: "ADD-ZENODO-DOI-HERE"
+#   - type: other
+#     value: "arXiv:ADD-ID-HERE"
