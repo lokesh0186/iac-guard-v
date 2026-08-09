@@ -1,0 +1,22 @@
+{
+  "algorithm": "sha256-jsonl-v1",
+  "built_from_commit": "5cf3cd7dba928937040d750504b35bdc259453f1",
+  "entry_count": 4842,
+  "frozen_files": [
+    "requirements.txt"
+  ],
+  "frozen_prefixes": [
+    "benchmark/",
+    "runs/",
+    "results/",
+    "prompts/",
+    "scanners/",
+    "scripts/"
+  ],
+  "frozen_snapshot_commit": "7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5",
+  "manifest_file": "qrs2026-byte-manifest.jsonl",
+  "manifest_root": "a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3",
+  "normalisation": "none",
+  "note": "manifest_root is sha256 over the canonical sorted JSONL record lines joined by \\n with a trailing \\n. It is stored here, outside the JSONL, so entry_count is exactly the frozen file count.",
+  "record_type": "manifest_root"
+}
