@@ -218,9 +218,114 @@ def test_analysis_scripts_exit_cleanly(replay_result: dict) -> None:
 # inference discipline
 # --------------------------------------------------------------------------- #
 def test_research_replay_tooling_makes_no_provider_calls() -> None:
-    """NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V, enforced statically."""
-    forbidden = ("boto3", "bedrock-runtime", "invoke_model", "openai", "anthropic")
-    for script in (REPO / "research").glob("*.py"):
-        source = script.read_text(encoding="utf-8").lower()
-        for token in forbidden:
-            assert token not in source, f"{script.name} references {token}"
+    """NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V, enforced statically.
+
+    Checked by parsing imports rather than by substring search: a tool is allowed to
+    mention a provider SDK by name (research/verify_reproduction_env.py asserts that
+    boto3 is absent from the replay lock), but no research tool may import one or
+    construct a client.
+    """
+    import ast
+
+    forbidden_modules = {"boto3", "botocore", "openai", "anthropic", "google"}
+    forbidden_calls = {"invoke_model", "invoke_model_with_response_stream", "converse"}
+
+    scripts = list((REPO / "research").rglob("*.py"))
+    assert scripts, "no research tooling found to check"
+
+    for script in scripts:
+        tree = ast.parse(script.read_text(encoding="utf-8"), filename=str(script))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    root_module = alias.name.split(".")[0]
+                    assert root_module not in forbidden_modules, (
+                        f"{script.name} imports {alias.name}"
+                    )
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                root_module = node.module.split(".")[0]
+                assert root_module not in forbidden_modules, (
+                    f"{script.name} imports from {node.module}"
+                )
+            elif isinstance(node, ast.Call):
+                func = node.func
+                name = getattr(func, "attr", None) or getattr(func, "id", None)
+                assert name not in forbidden_calls, (
+                    f"{script.name} calls {name}()"
+                )
+
+
+def test_legacy_wrapper_is_quarantined() -> None:
+    """The legacy profile must be unreachable from the product surface."""
+    wrapper = REPO / "research" / "compat" / "legacy_verify.py"
+    profile = REPO / "research" / "compat" / "qrs2026.yml"
+    assert wrapper.is_file() and profile.is_file()
+
+    source = wrapper.read_text(encoding="utf-8")
+    assert "--acknowledge-legacy-non-production-semantics" in source
+    assert "LEGACY_REPLAY_RESULT" in source
+    # It must never be able to signal success to a CI gate.
+    assert "return 0" not in source
+
+    profile_text = profile.read_text(encoding="utf-8")
+    for required in (
+        "status: reproduction_only",
+        "selectable_by_product_config: false",
+        "selectable_by_github_action: false",
+        "emits_production_verdict: false",
+        "result_label: LEGACY_REPLAY_RESULT",
+    ):
+        assert required in profile_text, required
+
+
+def test_legacy_wrapper_refuses_without_acknowledgement() -> None:
+    artifact = REPO / "benchmark" / "raw" / "BM-0002.tf"
+    baseline = REPO / "scanners" / "outputs" / "baseline" / "BM-0002_baseline.json"
+    if not (artifact.is_file() and baseline.is_file()):
+        pytest.skip("frozen fixture not present")
+    proc = run(
+        str(REPO / "research" / "compat" / "legacy_verify.py"),
+        "--before", str(artifact), "--after", str(artifact),
+        "--target-rule", "CKV_AWS_233", "--baseline", str(baseline),
+    )
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "REFUSED" in proc.stderr
+    assert proc.stdout.strip() == "", "banner must go to stderr so --json stays clean"
+
+
+# --------------------------------------------------------------------------- #
+# environment records: historical facts must stay separate from replay facts
+# --------------------------------------------------------------------------- #
+ORIGINAL = REPO / "research" / "ORIGINAL_EXPERIMENT_METADATA.json"
+REPLAY_ENV = REPO / "research" / "VALIDATED_REPLAY_ENVIRONMENT.json"
+
+
+def test_environment_records_verify() -> None:
+    proc = run(str(REPO / "research" / "verify_reproduction_env.py"),
+               "--original", str(ORIGINAL), "--replay", str(REPLAY_ENV),
+               "--root", str(REPO), "--json")
+    payload = json.loads(proc.stdout)
+    assert payload["status"] == "PASS", payload["failures"]
+    assert payload["evidenced_fields"] > 0
+    assert payload["not_recorded_fields"] > 0
+
+
+def test_historical_record_never_claims_host_environment() -> None:
+    fields = json.loads(ORIGINAL.read_text(encoding="utf-8"))["fields"]
+    for key in (
+        "experiment_host_python_version",
+        "experiment_host_os_and_architecture",
+        "experiment_host_library_versions",
+        "experiment_start_timestamp",
+        "bedrock_request_ids",
+    ):
+        assert fields[key]["status"] == "not_recorded", key
+        assert fields[key]["value"] is None, key
+
+
+def test_replay_record_disclaims_being_the_original() -> None:
+    replay = json.loads(REPLAY_ENV.read_text(encoding="utf-8"))
+    assert "is_not" in replay
+    assert replay["model_calls_made"] == 0
+    assert replay["result"]["derived_tables_byte_identical"] == 0
+    assert replay["inference_statement"] == "NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED"
