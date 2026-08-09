@@ -1,0 +1,33 @@
+# Reproduction environment lock for the QRS 2026 replay.
+#
+# Scope: this pins the environment that successfully replayed the frozen data on
+# 2026-08-09 (see research/VALIDATED_REPLAY_ENVIRONMENT.json). It is deliberately
+# narrower than the product's supported Python range: the product supports 3.10-3.13,
+# the replay is pinned to one interpreter and four exact library versions.
+#
+# This file is NOT a record of the original experiment environment. That host was
+# never captured; see the not_recorded fields in
+# research/ORIGINAL_EXPERIMENT_METADATA.json.
+#
+# Interpreter: CPython 3.11.5
+#
+# HASH PINNING STATUS: version-pinned, not yet hash-pinned.
+#   Artifact hashes require a networked resolution step:
+#       pip download --require-hashes -r research/requirements-reproduction.lock
+#   or `uv pip compile --generate-hashes`. That step is deferred to the
+#   research-regression CI workflow (Phase E) so the hashes recorded here are ones
+#   an independent party can reproduce, rather than ones asserted from a local cache.
+#   Until then, treat this as an exact-version lock only.
+
+pandas==2.0.3
+numpy==1.26.4
+scipy==1.11.1
+matplotlib==3.7.2
+
+# Required only when re-executing the scanner rather than replaying frozen records.
+# The version is evidenced by requirements.txt:4 and by the checkov_version field
+# embedded in all 70 frozen baseline outputs.
+checkov==3.2.517
+
+# Deliberately excluded from the replay environment: boto3. The replay makes no
+# provider calls, so the AWS SDK is not needed to reproduce any table.

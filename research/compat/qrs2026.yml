@@ -1,0 +1,65 @@
+# QRS 2026 legacy verification profile — REPRODUCTION ONLY.
+#
+# This profile describes the semantics of the frozen research harness
+# (scripts/verify_patch.py) exactly as it behaved for the accepted paper. It is
+# preserved so the published numbers stay reproducible. It is NOT a verification
+# profile for any real repository.
+#
+# Why it is dangerous outside replication (see docs/spec/CURRENT_STATE_AUDIT.md):
+#   - an empty Checkov result is treated as "no findings", so a crashed scanner can
+#     look like a clean scan (F1);
+#   - syntax validity is inferred from the absence of output (F2);
+#   - findings are identified by rule ID alone, so moved and duplicated findings are
+#     invisible (F3);
+#   - a suppression, a deleted resource, and a genuine repair are indistinguishable
+#     (F4).
+#
+# Enforcement, not convention:
+#   - this file lives under research/compat/, outside the product's profile
+#     directory, so it cannot be selected by .iac-guard.yml, by an environment
+#     variable, by a CLI --profile flag, or by the GitHub Action;
+#   - it is reachable only through `research/compat/legacy_verify.py`, which
+#     requires --acknowledge-legacy-non-production-semantics;
+#   - it never yields a production verdict. Its output label is
+#     LEGACY_REPLAY_RESULT, never VERIFIED.
+
+profile: qrs2026
+status: reproduction_only
+selectable_by_product_config: false
+selectable_by_github_action: false
+default: false
+emits_production_verdict: false
+result_label: LEGACY_REPLAY_RESULT
+
+provenance:
+  frozen_harness: scripts/verify_patch.py
+  frozen_harness_sha256: 8ea163e4a5a41afa359c1071dcc870ee16fa96185003cd67a3c4ad50b24b7b9d
+  frozen_snapshot_commit: 7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5
+  required_scanner: checkov
+  required_scanner_version: 3.2.517
+
+semantics:
+  syntax:
+    parser: checkov
+    independent_parser: false
+    empty_output_means_valid: true          # F2 — unsafe by design, preserved
+  target_resolution:
+    identity: rule_id_only                  # F3/F4
+    suppression_detection: false
+    resource_deletion_detection: false
+    scanner_version_contract: false
+    empty_output_means_resolved: true       # F1 — the false-pass path
+  regression:
+    comparison: set_difference_of_rule_ids  # F3
+    occurrence_sensitive: false
+    resource_sensitive: false
+  minimality:
+    metrics: [lines_added, lines_removed, lines_changed, diff_ratio]
+    gate: advisory
+  verdict:
+    expression: v1_syntax_valid AND v2_target_resolved AND v3_new_issues_count == 0
+    error_state: absent                     # F6 — operational failure collapses into False
+
+superseded_by:
+  profile: hardened
+  specification: docs/spec/VERIFICATION_SEMANTICS.md

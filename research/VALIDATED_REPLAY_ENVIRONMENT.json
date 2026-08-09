@@ -1,0 +1,50 @@
+{
+  "schema": "iac-guard-v/validated-replay-environment/v1",
+  "describes": "The environment in which the frozen QRS 2026 data was successfully replayed",
+  "is_not": "A record of the original experiment environment. Nothing in this file may be copied into ORIGINAL_EXPERIMENT_METADATA.json. The original host environment was never recorded and remains not_recorded there.",
+  "replay_performed_on": "2026-08-09",
+  "replayed_from_commit": "7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5",
+  "manifest_root": "a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3",
+  "interpreter": {
+    "python": "3.11.5",
+    "implementation": "CPython"
+  },
+  "platform": {
+    "os_family": "macOS",
+    "architecture": "arm64",
+    "note": "Recorded at the granularity needed to reproduce numeric results. Linux CI is expected to produce the same tables; that expectation is verified by the research-regression workflow, not asserted here."
+  },
+  "packages": {
+    "pandas": "2.0.3",
+    "numpy": "1.26.4",
+    "scipy": "1.11.1",
+    "matplotlib": "3.7.2"
+  },
+  "scanner_not_exercised": {
+    "checkov_installed_locally": "3.3.0",
+    "checkov_required_for_replication": "3.2.517",
+    "note": "The replay recomputes tables from frozen run records and does not invoke Checkov, so the local 3.3.0 installation cannot influence the result. Any workflow that re-executes the scanner must pin 3.2.517."
+  },
+  "result": {
+    "frozen_run_records": 630,
+    "committed_rows": 630,
+    "field_comparisons": 10080,
+    "field_comparisons_equal": 10080,
+    "attempt_blobs_parsed_with_ast_literal_eval": 759,
+    "attempt_parse_failures": 0,
+    "verdict_consistency_failures": 0,
+    "derived_tables_compared": 7,
+    "derived_tables_semantic_match": 7,
+    "derived_tables_byte_identical": 0,
+    "canonicalisation_applied": "CRLF->LF plus exactly one trailing newline",
+    "figures_regenerated": false,
+    "figures_note": "No frozen analysis script calls savefig; the three committed PNGs are not reproduced by this replay and are protected by the byte manifest instead."
+  },
+  "reproduce_with": [
+    "python research/verify_byte_manifest.py --manifest research/qrs2026-byte-manifest.jsonl --root . --expect-entries 4842 --strict",
+    "python research/replay_from_frozen_runs.py --check",
+    "python -m pytest tests/research -q"
+  ],
+  "model_calls_made": 0,
+  "inference_statement": "NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED"
+}

@@ -1,0 +1,275 @@
+{
+  "schema": "iac-guard-v/original-experiment-metadata/v1",
+  "describes": "The QRS 2026 experiment, as evidenced by the frozen replication artifact",
+  "frozen_snapshot_commit": "7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5",
+  "manifest_root": "a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3",
+  "rules": [
+    "Every populated field cites a frozen source file, and where practical a line, plus that source file's SHA-256.",
+    "A field that was never captured has value null and status not_recorded. It must never be back-filled from a later environment.",
+    "This file is not a record of the machine that ran the experiment. The environment that successfully replayed the data on 2026-08-09 is recorded separately in VALIDATED_REPLAY_ENVIRONMENT.json.",
+    "Evidence of a setting in a frozen script means the committed code specified that setting. It is not a per-request receipt: the run records contain no request identifiers."
+  ],
+  "fields": {
+    "aws_region": {
+      "value": "us-east-1",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/call_bedrock.py",
+        "line": 25,
+        "source_sha256": "c3ea5a4d4b8a8f15a886a247511c89ee77a60cfb361276d6fefdb7b5c4d375e1",
+        "excerpt": "client = boto3.client('bedrock-runtime', region_name='us-east-1')"
+      }
+    },
+    "model_id_claude_sonnet_4_6": {
+      "value": "us.anthropic.claude-sonnet-4-6",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/call_bedrock.py",
+        "line": 12,
+        "source_sha256": "c3ea5a4d4b8a8f15a886a247511c89ee77a60cfb361276d6fefdb7b5c4d375e1",
+        "excerpt": "'model_id': 'us.anthropic.claude-sonnet-4-6',"
+      }
+    },
+    "model_id_llama4_maverick": {
+      "value": "us.meta.llama4-maverick-17b-instruct-v1:0",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/call_bedrock.py",
+        "line": 16,
+        "source_sha256": "c3ea5a4d4b8a8f15a886a247511c89ee77a60cfb361276d6fefdb7b5c4d375e1",
+        "excerpt": "'model_id': 'us.meta.llama4-maverick-17b-instruct-v1:0',"
+      }
+    },
+    "model_id_claude_opus_4_6": {
+      "value": "us.anthropic.claude-opus-4-6-v1",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/call_bedrock.py",
+        "line": 20,
+        "source_sha256": "c3ea5a4d4b8a8f15a886a247511c89ee77a60cfb361276d6fefdb7b5c4d375e1",
+        "excerpt": "'model_id': 'us.anthropic.claude-opus-4-6-v1',"
+      }
+    },
+    "temperature_anthropic": {
+      "value": "0.0",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/call_bedrock.py",
+        "line": 38,
+        "source_sha256": "c3ea5a4d4b8a8f15a886a247511c89ee77a60cfb361276d6fefdb7b5c4d375e1",
+        "excerpt": "'temperature': 0.0,"
+      }
+    },
+    "temperature_meta": {
+      "value": "0.0",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/call_bedrock.py",
+        "line": 62,
+        "source_sha256": "c3ea5a4d4b8a8f15a886a247511c89ee77a60cfb361276d6fefdb7b5c4d375e1",
+        "excerpt": "'temperature': 0.0,"
+      }
+    },
+    "max_output_tokens_default": {
+      "value": "4096",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/call_bedrock.py",
+        "line": 28,
+        "source_sha256": "c3ea5a4d4b8a8f15a886a247511c89ee77a60cfb361276d6fefdb7b5c4d375e1",
+        "excerpt": "def call_model(model_name, prompt, max_tokens=4096):"
+      }
+    },
+    "anthropic_api_version": {
+      "value": "bedrock-2023-05-31",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/call_bedrock.py",
+        "line": 35,
+        "source_sha256": "c3ea5a4d4b8a8f15a886a247511c89ee77a60cfb361276d6fefdb7b5c4d375e1",
+        "excerpt": "'anthropic_version': 'bedrock-2023-05-31',"
+      }
+    },
+    "retry_cap": {
+      "value": "2",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/run_experiment.py",
+        "line": 34,
+        "source_sha256": "9a1fcdbc09790db58a1a6e6a91880ba0818ab2e8407a1b145f6b9cfd443b0dcf",
+        "excerpt": "MAX_RETRIES = 2  # For verify_loop method"
+      }
+    },
+    "checkov_version": {
+      "value": "3.2.517",
+      "status": "evidenced",
+      "provenance": {
+        "source": "requirements.txt",
+        "line": 4,
+        "source_sha256": "046b2589678a2056834a046b9153968e4cf79e06088322acbd568f7d74949475",
+        "excerpt": "checkov==3.2.517",
+        "corroboration": {
+          "evidence_set_glob": "scanners/outputs/baseline/*.json",
+          "expect_files": 70,
+          "must_contain": "\"checkov_version\": \"3.2.517\"",
+          "note": "The scanner itself recorded its version inside every frozen baseline output, which is stronger evidence than the dependency pin alone."
+        }
+      }
+    },
+    "checkov_framework_terraform": {
+      "value": "terraform",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/run_baseline_checkov.py",
+        "line": 38,
+        "source_sha256": "1780e16cd679a8a5d5def1f0c13a23297e653e76829be45685a9d046907cb9a4",
+        "excerpt": "[CHECKOV_BIN, '-f', tf_file, '--framework', 'terraform', '--output', 'json', '--quiet', '--compact'],"
+      }
+    },
+    "checkov_framework_kubernetes": {
+      "value": "kubernetes",
+      "status": "evidenced",
+      "provenance": {
+        "source": "scripts/run_k8s_baseline.py",
+        "line": 26,
+        "source_sha256": "feed8258a6d1ddee95c67b0ae337c628ee5c5527aa450158c746e47c4a5341f6",
+        "excerpt": "[CHECKOV_BIN, '-f', tf_file, '--framework', 'kubernetes', '--output', 'json', '--quiet', '--compact'],"
+      }
+    },
+    "prompt_sha256_plain_v1": {
+      "value": "f8a820f99c2132e44b5582f269df913a8103b55401939a39f48d7d9ae110f8c6",
+      "status": "evidenced",
+      "provenance": {
+        "source": "prompts/plain_v1.txt",
+        "line": null,
+        "source_sha256": "f8a820f99c2132e44b5582f269df913a8103b55401939a39f48d7d9ae110f8c6",
+        "excerpt": null,
+        "note": "The value is the SHA-256 of the cited frozen file itself."
+      }
+    },
+    "prompt_sha256_structured_v1": {
+      "value": "7bc5ddeda51a13aa8da68b9ce8db008bc54dee7ee9923cad0aa11abcf0c9392c",
+      "status": "evidenced",
+      "provenance": {
+        "source": "prompts/structured_v1.txt",
+        "line": null,
+        "source_sha256": "7bc5ddeda51a13aa8da68b9ce8db008bc54dee7ee9923cad0aa11abcf0c9392c",
+        "excerpt": null,
+        "note": "Used by both the structured and verify_loop methods; see scripts/run_experiment.py filemap."
+      }
+    },
+    "prompt_sha256_retry_v1": {
+      "value": "93eda54e15319385c1cc1b7f131d3e740cfe0c24c71732a405cc9d934e937aa7",
+      "status": "evidenced",
+      "provenance": {
+        "source": "prompts/retry_v1.txt",
+        "line": null,
+        "source_sha256": "93eda54e15319385c1cc1b7f131d3e740cfe0c24c71732a405cc9d934e937aa7",
+        "excerpt": null
+      }
+    },
+    "benchmark_items_terraform": {
+      "value": "50",
+      "status": "evidenced",
+      "provenance": {
+        "source": "benchmark/selected_manifest_enriched.csv",
+        "line": null,
+        "source_sha256": "d8c60bcc8e8c851635f3f8de52dcbf473adcc6289d2d9bb9deabb29de09225a5",
+        "excerpt": null,
+        "note": "Row count excluding the header; also 50 baseline outputs with check_type terraform."
+      }
+    },
+    "benchmark_items_kubernetes": {
+      "value": "20",
+      "status": "evidenced",
+      "provenance": {
+        "source": "benchmark/k8s_selected_manifest_enriched.csv",
+        "line": null,
+        "source_sha256": "67dec2a179e02f097bbdfa010151d60d62b21fa492aa690946c5810c086932d0",
+        "excerpt": null,
+        "note": "Row count excluding the header; also 20 baseline outputs with check_type kubernetes."
+      }
+    },
+    "run_count": {
+      "value": "630",
+      "status": "evidenced",
+      "provenance": {
+        "source": "runs/raw",
+        "line": null,
+        "source_sha256": null,
+        "excerpt": null,
+        "note": "630 frozen run records = 70 items x 3 models x 3 methods; each model and each method appears exactly 210 times."
+      }
+    },
+    "experiment_start_timestamp": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "No frozen run record contains a timestamp field. File modification times are not evidence: they reflect checkout, not execution."
+      }
+    },
+    "experiment_end_timestamp": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "See experiment_start_timestamp."
+      }
+    },
+    "bedrock_request_ids": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "The runner did not persist provider request identifiers, so individual calls cannot be traced back to the provider."
+      }
+    },
+    "model_service_version_or_snapshot": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "Only the inference-profile identifier was recorded, not any provider-side model build or snapshot date."
+      }
+    },
+    "stop_reason_and_truncation_state": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "Responses were stored as text; no stop_reason, refusal flag, or truncation indicator was captured."
+      }
+    },
+    "cached_token_counts": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "Only input_tokens and output_tokens were recorded."
+      }
+    },
+    "provider_reported_cost_per_call": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "Cost figures in results/tables/cost_effectiveness.csv are computed from token counts and published prices at the time, not from provider billing records."
+      }
+    },
+    "experiment_host_python_version": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "The Python interpreter used to run the experiment was never recorded. The 2026-08-09 replay used Python 3.11.5, which is evidence about the replay only and must not be copied into this field."
+      }
+    },
+    "experiment_host_os_and_architecture": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "Not recorded. requirements.txt pins library ranges but says nothing about the host."
+      }
+    },
+    "experiment_host_library_versions": {
+      "value": null,
+      "status": "not_recorded",
+      "provenance": {
+        "note": "requirements.txt:5-9 declares ranges (boto3>=1.34,<2.0; numpy>=1.24,<2.0; pandas>=2.0,<3.0; scipy>=1.11,<2.0; matplotlib>=3.7,<4.0). The exact resolved versions at experiment time were not captured."
+      }
+    }
+  }
+}

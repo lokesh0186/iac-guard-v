@@ -1,0 +1,48 @@
+# Reproduction environment for the QRS 2026 replay.
+#
+# Scope: replaying the frozen data (rebuilding all_runs.csv from runs/raw and
+# regenerating the seven derived tables). This image deliberately does NOT install
+# boto3 or any model SDK: the replay makes no provider calls.
+#
+# This is not a claim about the machine the original experiment ran on. That host
+# was never recorded; see the not_recorded fields in
+# research/ORIGINAL_EXPERIMENT_METADATA.json.
+#
+# Base image is pinned by digest rather than tag so the environment cannot drift.
+# The digest below is a placeholder that must be resolved in the networked CI step
+# that first builds this image; a tag-only reference would defeat the purpose.
+#   docker buildx imagetools inspect python:3.11.5-slim-bookworm
+# PINNED_DIGEST_STATUS: unresolved (deferred to the research-regression workflow)
+#
+# Build:
+#   docker build -f research/Dockerfile.reproduction -t iac-guard-v-repro:qrs2026 .
+# Run (read-only source, no network, writable scratch only):
+#   docker run --rm --network=none --read-only \
+#     --cap-drop=ALL --security-opt=no-new-privileges \
+#     --user "$(id -u):$(id -g)" \
+#     --tmpfs /tmp:rw,noexec,nosuid,size=256m \
+#     -e HOME=/tmp \
+#     -v "$PWD:/src:ro" -w /src \
+#     iac-guard-v-repro:qrs2026 \
+#     python research/replay_from_frozen_runs.py --check
+
+FROM python:3.11.5-slim-bookworm
+
+# Exact versions only; see research/requirements-reproduction.lock for the rationale
+# and for the deferred hash-pinning step.
+COPY research/requirements-reproduction.lock /tmp/lock.txt
+
+# checkov is excluded from the image: the replay never invokes a scanner, and
+# installing 3.2.517 here would suggest the tables depend on running it.
+RUN grep -v '^checkov==' /tmp/lock.txt > /tmp/replay-only.txt \
+    && pip install --no-cache-dir --no-compile -r /tmp/replay-only.txt \
+    && rm -f /tmp/lock.txt /tmp/replay-only.txt
+
+# Non-root by default. The runtime --user flag above overrides this with the host
+# UID so that any mounted output directory stays writable on Linux CI.
+RUN useradd --create-home --uid 10001 replay
+USER 10001
+
+WORKDIR /src
+ENTRYPOINT ["python"]
+CMD ["research/replay_from_frozen_runs.py", "--check"]
