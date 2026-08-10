@@ -268,6 +268,48 @@ def test_single_wrong_root_is_a_mismatch_not_ambiguity(frozen_repo: Path) -> Non
     assert "TAG_ROOT_AMBIGUOUS" not in failure_codes
 
 
+@pytest.mark.parametrize("label_template,expected_code", [
+    ("NOT_MANIFEST_ROOT: {root}", "TAG_ROOT_ABSENT"),
+    ("XMANIFEST_ROOT: {root}", "TAG_ROOT_ABSENT"),
+    ("MANIFEST_ROOT: {root} trailing-text", "TAG_ROOT_ABSENT"),
+    ("MANIFEST_ROOT:{root}extra", "TAG_ROOT_ABSENT"),
+    ("prefix MANIFEST_ROOT: {root}", "TAG_ROOT_ABSENT"),
+])
+def test_malformed_root_labels_are_not_accepted(
+    frozen_repo: Path, label_template: str, expected_code: str
+) -> None:
+    """A decorated label must not count as a root declaration.
+
+    An unanchored parser accepted all of these, so provenance could be spoofed by
+    writing the real root under a lookalike key.
+    """
+    sidecar = json.loads(
+        (frozen_repo / "research" / "qrs2026-byte-manifest.root").read_text(encoding="utf-8")
+    )
+    head = subprocess.run(["git", "-C", str(frozen_repo), "rev-parse", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    git(frozen_repo, "tag", "-d", TAG)
+    git(frozen_repo, "tag", "-a", TAG, head,
+        "-m", "probe\n" + label_template.format(root=sidecar["manifest_root"]) + "\n")
+
+    result = verify(frozen_repo)
+    assert result["status"] == "FAIL"
+    assert expected_code in codes(result), result["failures"]
+
+
+def test_indented_exact_root_is_accepted(frozen_repo: Path) -> None:
+    """Alignment whitespace is fine; the declaration just has to be exact."""
+    sidecar = json.loads(
+        (frozen_repo / "research" / "qrs2026-byte-manifest.root").read_text(encoding="utf-8")
+    )
+    head = subprocess.run(["git", "-C", str(frozen_repo), "rev-parse", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    git(frozen_repo, "tag", "-d", TAG)
+    git(frozen_repo, "tag", "-a", TAG, head,
+        "-m", f"probe\n    MANIFEST_ROOT:     {sidecar['manifest_root']}   \n")
+    assert verify(frozen_repo)["status"] == "PASS"
+
+
 def test_builder_refuses_canonical_name_for_unbound_output(frozen_repo: Path) -> None:
     proc = run(str(BUILDER), "--root", str(frozen_repo),
                "--output-dir", str(frozen_repo / "research"),

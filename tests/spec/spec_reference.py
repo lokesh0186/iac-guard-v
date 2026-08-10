@@ -1,26 +1,36 @@
 """Reference model of docs/spec/VERIFICATION_SEMANTICS.md §4, §5.2, and §7.
 
 This is **not** product code and nothing in `src/` may import it. It exists so the
-specification's predicates can be executed and tested before Phase D writes the engine,
-and so Phase D has an oracle to conform to. If this model and the document disagree,
-the document is authoritative and this file is the defect.
+specification's rules can be executed and tested before Phase D writes the engine, and
+so Phase D has a conformance oracle. If this model and the document disagree, the
+document is authoritative and this file is the defect.
 
-Deliberately written as a flat transcription of the ordering rules rather than as
-clever code: its value is that a reader can diff it against the tables in the
-specification line by line.
+Corrections applied after review, each with tests:
 
-Two corrections applied after review:
-
-* validators and oracles carry the full `Status` vocabulary, not booleans, because
-  "definitively invalid" and "could not be checked" must not produce the same verdict;
-* oracle results are no longer part of the target-outcome predicate. Keeping them there
-  made the whole-run rule "required oracle failed ⇒ FAILED" unreachable, because the
-  classifier would never have emitted `FIXED` in the first place.
+* validators, oracles, and policy gates carry the full `Status` vocabulary, because
+  "definitively wrong" and "could not be checked" must not produce the same verdict;
+* oracle results are not inputs to target classification (§4.3);
+* **permissions are per target, not per outcome type.** A global
+  `permitted_outcomes` set allowed one approved deletion to waive every deletion, and
+  allowed `STILL_PRESENT` to be waived into `VERIFIED` — turning a known unresolved
+  finding into a pass, which is the exact failure this project exists to prevent;
+* only a closed set of outcomes is ever exception-eligible;
+* the input domain is enforced: `N >= 1`, `M >= 0`, at least one target, at least one
+  required validator. Invalid input raises rather than being classified.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import date
 from enum import Enum
+
+
+class SpecDomainError(ValueError):
+    """Input outside the specified domain. Never classified, always raised."""
+
+
+class InvalidVerificationRequest(SpecDomainError):
+    """A request that cannot be verified at all. CLI exit code 2."""
 
 
 class Status(str, Enum):
@@ -34,7 +44,7 @@ class Status(str, Enum):
     INCONCLUSIVE = "INCONCLUSIVE"
 
 
-#: Gate states that mean "we could not establish anything", per §7.
+#: Gate states meaning "we could not establish anything" (§7 step 1).
 UNDECIDED_STATES = frozenset(
     {Status.ERROR, Status.TIMEOUT, Status.UNSUPPORTED, Status.PARTIAL,
      Status.INCONCLUSIVE, Status.SKIPPED}
@@ -60,6 +70,35 @@ class Verdict(str, Enum):
     INCONCLUSIVE = "INCONCLUSIVE"
 
 
+#: Outcomes an organisation may knowingly accept through a trusted, target-scoped,
+#: unexpired exception. Deliberately closed and deliberately small.
+PERMITTABLE_EXCEPTION_OUTCOMES = frozenset({
+    Outcome.SUPPRESSED,
+    Outcome.RESOURCE_DELETED,
+    Outcome.FILE_DELETED_OR_RENAMED,
+})
+
+#: Never waivable. The first two are unresolved defects; the rest are absences of
+#: evidence, which cannot be approved into evidence.
+NEVER_PERMITTABLE_OUTCOMES = frozenset({
+    Outcome.STILL_PRESENT,
+    Outcome.PARTIALLY_FIXED,
+    Outcome.SCANNER_ERROR,
+    Outcome.RULE_OR_SCANNER_DRIFT,
+    Outcome.INCONCLUSIVE,
+    Outcome.OUT_OF_SCOPE,
+})
+
+#: Where an exception may come from (§2.1). The candidate head is never trusted.
+TRUSTED_EXCEPTION_ORIGINS = frozenset({"operator", "protected_policy_repo", "trusted_base"})
+UNTRUSTED_EXCEPTION_ORIGIN = "candidate_head"
+
+INCONCLUSIVE_OUTCOMES = frozenset(
+    {Outcome.SCANNER_ERROR, Outcome.RULE_OR_SCANNER_DRIFT, Outcome.INCONCLUSIVE}
+)
+PASSING_OUTCOMES = frozenset({Outcome.FIXED})
+
+
 # --------------------------------------------------------------------------- #
 # §4  target classification: structural and scanner evidence only
 # --------------------------------------------------------------------------- #
@@ -67,8 +106,8 @@ class Verdict(str, Enum):
 class TargetObservation:
     """Everything the classifier may look at. Note the absence of oracle state."""
 
-    baseline_occurrences: int          # N, >= 1 by construction
-    candidate_matches: int             # M, at EXACT or RELOCATED tier
+    baseline_occurrences: int          # N
+    candidate_matches: int             # M
     scanner_integrity_ok: bool = True
     scanner_ruleset_stable: bool = True
     artifact_structurally_eligible: bool = True
@@ -76,6 +115,25 @@ class TargetObservation:
     target_resource_present: bool = True
     suppression_covering_scope_added: bool = False
     occurrence_evidence_sufficient: bool = True
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.baseline_occurrences, int) or isinstance(
+            self.baseline_occurrences, bool
+        ):
+            raise SpecDomainError("baseline_occurrences must be an int")
+        if not isinstance(self.candidate_matches, int) or isinstance(
+            self.candidate_matches, bool
+        ):
+            raise SpecDomainError("candidate_matches must be an int")
+        if self.baseline_occurrences < 1:
+            raise SpecDomainError(
+                f"baseline_occurrences (N) must be >= 1, got {self.baseline_occurrences}: "
+                f"a target exists because the baseline had at least one occurrence"
+            )
+        if self.candidate_matches < 0:
+            raise SpecDomainError(
+                f"candidate_matches (M) must be >= 0, got {self.candidate_matches}"
+            )
 
 
 def classify(obs: TargetObservation) -> Outcome:
@@ -93,7 +151,7 @@ def classify(obs: TargetObservation) -> Outcome:
     if obs.candidate_matches == 0 and obs.suppression_covering_scope_added:
         return Outcome.SUPPRESSED
 
-    # Evidence sufficiency gates every count-based outcome. A classification computed
+    # Evidence sufficiency gates every count-based outcome: a classification computed
     # from counts we do not trust would be a guess wearing a label.
     if not obs.occurrence_evidence_sufficient:
         return Outcome.INCONCLUSIVE
@@ -106,10 +164,90 @@ def classify(obs: TargetObservation) -> Outcome:
     return Outcome.FIXED
 
 
-INCONCLUSIVE_OUTCOMES = frozenset(
-    {Outcome.SCANNER_ERROR, Outcome.RULE_OR_SCANNER_DRIFT, Outcome.INCONCLUSIVE}
-)
-PASSING_OUTCOMES = frozenset({Outcome.FIXED})
+# --------------------------------------------------------------------------- #
+# §2.4  exceptions bind to one target
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class ExceptionRecord:
+    exception_id: str
+    target_id: str
+    scope: str
+    reason: str
+    owner: str
+    expires: date
+    origin: str = "trusted_base"
+
+
+@dataclass(frozen=True)
+class TargetDecision:
+    target_id: str
+    outcome: Outcome
+    target_scope: str = ""
+    policy_permitted: bool = False
+    exception_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.target_id:
+            raise SpecDomainError("target_id is required")
+        if self.policy_permitted and not self.exception_id:
+            raise SpecDomainError(
+                f"target {self.target_id}: policy_permitted requires an exception_id; "
+                f"a permission with no record is not an approval"
+            )
+
+
+def permission_rejection_reason(
+    decision: TargetDecision,
+    exceptions: dict[str, ExceptionRecord],
+    evaluation_date: date,
+) -> str | None:
+    """Why this permission does not hold, or None when it does.
+
+    Every clause exists because its absence would let something through:
+    an outcome that must never be waived, an exception belonging to another target, a
+    self-granted exception authored by the change under evaluation, or an expired one.
+    """
+    if not decision.policy_permitted:
+        return "not claimed"
+    if decision.outcome in NEVER_PERMITTABLE_OUTCOMES:
+        return f"{decision.outcome.value} is never exception-eligible"
+    if decision.outcome not in PERMITTABLE_EXCEPTION_OUTCOMES:
+        return f"{decision.outcome.value} is not in the exception-eligible set"
+    record = exceptions.get(decision.exception_id or "")
+    if record is None:
+        return f"exception {decision.exception_id!r} not found in the trusted policy"
+    if record.target_id != decision.target_id:
+        return (
+            f"exception {record.exception_id} binds target {record.target_id!r}, "
+            f"not {decision.target_id!r}"
+        )
+    if record.scope != decision.target_scope:
+        return (
+            f"exception {record.exception_id} scope {record.scope!r} does not match "
+            f"target scope {decision.target_scope!r}"
+        )
+    if record.origin == UNTRUSTED_EXCEPTION_ORIGIN:
+        return (
+            f"exception {record.exception_id} originates in the evaluated change; "
+            f"a self-granted approval is not an approval"
+        )
+    if record.origin not in TRUSTED_EXCEPTION_ORIGINS:
+        return f"exception {record.exception_id} origin {record.origin!r} is not trusted"
+    if not record.reason.strip():
+        return f"exception {record.exception_id} has no reason"
+    if not record.owner.strip():
+        return f"exception {record.exception_id} has no owner"
+    if record.expires < evaluation_date:
+        return f"exception {record.exception_id} expired on {record.expires.isoformat()}"
+    return None
+
+
+def is_permitted(
+    decision: TargetDecision,
+    exceptions: dict[str, ExceptionRecord],
+    evaluation_date: date,
+) -> bool:
+    return permission_rejection_reason(decision, exceptions, evaluation_date) is None
 
 
 # --------------------------------------------------------------------------- #
@@ -141,11 +279,13 @@ def location_changed(
 
 
 # --------------------------------------------------------------------------- #
-# §7  whole-run verdict, with typed gate states
+# §7  whole-run verdict
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
 class RunObservation:
-    target_outcomes: tuple[Outcome, ...]
+    target_decisions: tuple[TargetDecision, ...]
+    exceptions: dict[str, ExceptionRecord] = field(default_factory=dict)
+    evaluation_date: date = date(2026, 8, 9)
     required_validator_states: tuple[Status, ...] = (Status.PASS,)
     required_oracle_states: tuple[Status, ...] = ()
     required_scanner_integrity: Status = Status.PASS
@@ -155,7 +295,30 @@ class RunObservation:
     regression_policy: Status = Status.PASS
     suppression_policy: Status = Status.PASS
     preflight: Status = Status.PASS
-    permitted_outcomes: frozenset = field(default_factory=frozenset)
+    optional_gates: frozenset = field(default_factory=frozenset)
+
+    def __post_init__(self) -> None:
+        if not self.target_decisions:
+            raise InvalidVerificationRequest(
+                "a verification request must name at least one target; a run with no "
+                "targets verifies nothing and must not report VERIFIED. Use the "
+                "scan command for target-free scanning."
+            )
+        if not self.required_validator_states:
+            raise InvalidVerificationRequest(
+                "at least one required validator is needed: validity must be "
+                "established independently of the security scanner (V1), and an empty "
+                "validator set would satisfy the gate vacuously"
+            )
+        ids = [d.target_id for d in self.target_decisions]
+        if len(set(ids)) != len(ids):
+            raise SpecDomainError(f"duplicate target_id in request: {ids}")
+
+
+def _policy_state_is_undecided(state: Status, gate: str, optional: frozenset) -> bool:
+    if state is Status.SKIPPED and gate in optional:
+        return False
+    return state in UNDECIDED_STATES
 
 
 def decide(run: RunObservation) -> Verdict:
@@ -165,26 +328,30 @@ def decide(run: RunObservation) -> Verdict:
         or run.required_scanner_integrity is not Status.PASS
         or any(s in UNDECIDED_STATES for s in run.required_validator_states)
         or any(s in UNDECIDED_STATES for s in run.required_oracle_states)
-        or any(o in INCONCLUSIVE_OUTCOMES for o in run.target_outcomes)
+        or any(d.outcome in INCONCLUSIVE_OUTCOMES for d in run.target_decisions)
         or run.coverage_decreased_on_required_scanner
         or run.rule_substituted_on_required_target
+        or _policy_state_is_undecided(run.regression_policy, "regression", run.optional_gates)
+        or _policy_state_is_undecided(run.suppression_policy, "suppression", run.optional_gates)
     )
     if undecided:
         return Verdict.INCONCLUSIVE
 
     unresolved = [
-        o for o in run.target_outcomes
-        if o not in PASSING_OUTCOMES and o not in run.permitted_outcomes
+        d for d in run.target_decisions
+        if d.outcome not in PASSING_OUTCOMES
+        and not is_permitted(d, run.exceptions, run.evaluation_date)
     ]
     failed = (
         Status.FAIL in run.required_validator_states
         or Status.FAIL in run.required_oracle_states
         or run.policy_drift
         or bool(unresolved)
-        or run.regression_policy is not Status.PASS
-        or run.suppression_policy is not Status.PASS
+        or run.regression_policy is Status.FAIL
+        or run.suppression_policy is Status.FAIL
     )
     return Verdict.FAILED if failed else Verdict.VERIFIED
 
 
 EXIT_CODES = {Verdict.VERIFIED: 0, Verdict.FAILED: 1, Verdict.INCONCLUSIVE: 3}
+INVALID_REQUEST_EXIT_CODE = 2

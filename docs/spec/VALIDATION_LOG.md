@@ -22,7 +22,7 @@ right now.
 | --- | --- |
 | Frozen snapshot commit | `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5` |
 | Branch | `adoption/p1-research-and-spec` |
-| Verified at commit | `ce2d2a2` then the semantic-consistency commit below |
+| Verified at commit | see "Test counts of record" below; the final gate run is from a clean clone of the last commit on this branch |
 | Python | 3.11.5 |
 | git | 2.50.1 |
 | Docker | 29.6.2 |
@@ -359,10 +359,22 @@ passing CI gate.
 
 ```console
 $ python3 -m pytest tests -q
-........................................................................ [ 94%]
-....                                                                     [100%]
-76 passed in 7.51s
+169 passed
 ```
+
+### Test counts of record
+
+| Suite | Count |
+| --- | --- |
+| `tests/spec` (specification truth tables and domain probes) | 121 |
+| `tests/research/test_qrs_regression.py` | 29 |
+| `tests/research/test_freeze_adversarial.py` | 19 |
+| **total** | **169** |
+
+Progression, so the record shows what each review round added: 24 at the first freeze
+commit, 76 after the first adversarial remediation, 108 after the semantic-consistency
+commit, 169 after the domain-hardening commit. Earlier totals in this log have been
+replaced; only the current figures are presented as the gate result.
 
 **Gate B: PASS.**
 
@@ -393,7 +405,6 @@ The final Gate C run reports **zero warnings**: verifier diagnostic codes such a
 describe how a tool failed rather than what a verification outcome means.
 
 ### C.1 Semantic consistency corrections
-
 Review 1 found four places where the document and the executable reference model
 disagreed. All four are corrected, and each correction has tests:
 
@@ -409,7 +420,63 @@ artifact or repair is demonstrably wrong and yields `FAILED`; `ERROR`, `TIMEOUT`
 `UNSUPPORTED`, `PARTIAL`, `INCONCLUSIVE` and `SKIPPED` mean the check did not complete
 and yield `INCONCLUSIVE`.
 
-### C.2 Executable semantic truth tables
+### C.2 Domain and policy-boundary hardening
+
+Review probes of the conformance oracle itself found nine unsafe behaviours. The
+oracle is the model Phase D's engine will be written against, so each would have been
+implemented into the product. Measured before, then after:
+
+| Probe | Before | After |
+| --- | --- | --- |
+| verification request with zero targets | `VERIFIED` | `InvalidVerificationRequest`, exit code 2 |
+| `STILL_PRESENT` waived by permission | `VERIFIED` | `FAILED` — never exception-eligible |
+| `PARTIALLY_FIXED` waived by permission | `VERIFIED` | `FAILED` — never exception-eligible |
+| two deletions, one blanket permission | `VERIFIED` | `FAILED` — the exception binds one `target_id` |
+| regression policy `ERROR` | `FAILED` | `INCONCLUSIVE` |
+| suppression policy `TIMEOUT` | `FAILED` | `INCONCLUSIVE` |
+| empty required-validator list | `VERIFIED` | `InvalidVerificationRequest` |
+| target counts `N=0, M=0` | `STILL_PRESENT` | `SpecDomainError` |
+| target counts `N=1, M=-1` | `FIXED` | `SpecDomainError` |
+| target counts `N=-1, M=0` | `STILL_PRESENT` | `SpecDomainError` |
+
+The global `permitted_outcomes` set was replaced by per-target `TargetDecision` records
+bound to `ExceptionRecord`s. A permission now holds only when the outcome is in the
+closed eligible set, the record names that exact target, its scope matches, its origin
+is trusted rather than the evaluated change, it carries a reason and an owner, and it
+has not expired. Each clause has a test that fails when it is removed, and the
+rejection reason is reported rather than the claim being silently dropped:
+
+```
+exception EX-1 binds target 'T-A', not 'T-B'
+STILL_PRESENT is never exception-eligible
+exception EX-1 originates in the evaluated change; a self-granted approval is not an approval
+exception EX-1 expired on 2026-01-01
+```
+
+The `MANIFEST_ROOT` parser was also unanchored, so decorated labels counted as
+declarations. Measured:
+
+| Annotation line | Before | After |
+| --- | --- | --- |
+| `MANIFEST_ROOT: <root>` | 1 match | 1 match |
+| `    MANIFEST_ROOT:     <root>   ` | 1 match | 1 match (alignment is fine) |
+| `NOT_MANIFEST_ROOT: <root>` | **1 match** | 0 matches → `TAG_ROOT_ABSENT` |
+| `XMANIFEST_ROOT: <root>` | **1 match** | 0 matches → `TAG_ROOT_ABSENT` |
+| `MANIFEST_ROOT: <root> trailing-text` | **1 match** | 0 matches → `TAG_ROOT_ABSENT` |
+| two exact declarations | 2 | 2 → `TAG_ROOT_AMBIGUOUS` |
+
+And one test was tautological: `assert all(...) or excluded_artifacts` passes whether
+the list is empty or not. It is replaced by a test that plants a `.pyc`, a `.pyo` and a
+`.DS_Store` in a synthetic tree and asserts none is copied. Verified to fail when the
+exclusion list is removed:
+
+```console
+E  assert not ['scripts/stray.pyo', 'scripts/__pycache__/analyze_part1.cpython-311.pyc',
+               'runs/raw/.DS_Store']
+FAILED tests/research/test_qrs_regression.py::test_replay_workspace_copy_rejects_artifacts_that_exist
+```
+
+### C.3 Executable semantic truth tables
 
 Enum names existing is not the same as outcome predicates being coherent. The
 specification's predicates are transcribed into `tests/spec/spec_reference.py` and
@@ -429,8 +496,9 @@ undecided gate state yields `INCONCLUSIVE` for both validators and oracles; an
 undecided gate dominates a definite defect; target classification takes no oracle
 input, so the previously impossible test state cannot be constructed; the count
 predicates for `PARTIALLY_FIXED`, `STILL_PRESENT`, and `FIXED` are disjoint and total
-across a 5x7 grid of `(N, M)`; classification is total across all 256 combinations of
-the eight observation flags; `SUPPRESSED` and `OUT_OF_SCOPE` cannot collide; `M == 0`
+across a 5x7 grid of `(N, M)`; classification is total across all 128 combinations of
+the seven observation flags, evaluated against five `(N, M)` pairs for 640 total
+classifications; `SUPPRESSED` and `OUT_OF_SCOPE` cannot collide; `M == 0`
 alone never yields `FIXED`; every verdict is reachable; and operational failure yields
 `INCONCLUSIVE` rather than `VERIFIED` or `FAILED`, including when a real defect is
 also present.

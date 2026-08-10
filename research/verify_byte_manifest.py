@@ -61,7 +61,10 @@ FROZEN_PREFIXES: tuple[str, ...] = (
 FROZEN_ROOTS: tuple[str, ...] = tuple(p.rstrip("/") for p in FROZEN_PREFIXES)
 FROZEN_FILES: tuple[str, ...] = ("requirements.txt",)
 REQUIRED_KEYS = {"path", "git_mode", "git_blob_oid", "size_bytes", "sha256"}
-ROOT_IN_TAG = re.compile(r"MANIFEST_ROOT:\s*([0-9a-f]{64})")
+# Line-anchored and exact. An unanchored pattern also matched misleading labels such
+# as "NOT_MANIFEST_ROOT: <root>" or "XMANIFEST_ROOT: <root>", and tolerated trailing
+# text after the digest, so provenance could be spoofed by decoration.
+ROOT_IN_TAG = re.compile(r"(?m)^[ \t]*MANIFEST_ROOT:[ \t]*([0-9a-f]{64})[ \t]*$")
 
 
 def is_frozen(rel_path: str) -> bool:

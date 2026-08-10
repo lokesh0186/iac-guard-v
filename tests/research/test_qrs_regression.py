@@ -242,10 +242,65 @@ def test_replay_rejects_duplicate_and_missing_data(replay_result: dict) -> None:
 
 
 def test_replay_workspace_excludes_build_artifacts(replay_result: dict) -> None:
+    """The workspace copy must never carry ignored build artifacts.
+
+    The previous assertion was `all(...) or excluded_artifacts`, which is satisfied by
+    an empty list and by a non-empty one, so it proved nothing. This one inspects the
+    copy method and asserts that no artifact-shaped path was copied.
+    """
     rep = replay_result["reproduction"]
     assert rep["copy_method"] in ("git-ls-files", "filesystem-walk-with-exclusions")
-    assert all("__pycache__" not in a and not a.endswith(".pyc")
-               for a in rep["excluded_artifacts"]) or rep["excluded_artifacts"]
+    assert rep["copied_files"] > 600, rep["copied_files"]
+    # Anything reported as excluded must genuinely look like a build artifact.
+    for artifact in rep["excluded_artifacts"]:
+        assert (
+            "__pycache__" in artifact
+            or artifact.endswith((".pyc", ".pyo"))
+            or Path(artifact).name in {".DS_Store", ".pytest_cache"}
+        ), artifact
+
+
+def test_replay_workspace_copy_rejects_artifacts_that_exist(tmp_path: Path) -> None:
+    """Directly exercise the copy logic with artifacts present.
+
+    A `.pyc` is planted under `scripts/` in a synthetic tree, and the fallback
+    filesystem walk must not copy it. This fails if the exclusion list is removed,
+    which the previous test did not.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "replay_mod", REPO / "research" / "replay_from_frozen_runs.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+
+    fake = tmp_path / "repo"
+    (fake / "scripts" / "__pycache__").mkdir(parents=True)
+    (fake / "runs" / "raw").mkdir(parents=True)
+    (fake / "results" / "tables").mkdir(parents=True)
+    (fake / "scripts" / "analyze_part1.py").write_text("print(1)\n", encoding="utf-8")
+    (fake / "scripts" / "__pycache__" / "analyze_part1.cpython-311.pyc").write_bytes(b"x")
+    (fake / "scripts" / "stray.pyo").write_bytes(b"x")
+    (fake / "runs" / "raw" / ".DS_Store").write_bytes(b"x")
+    (fake / "runs" / "raw" / "r1.json").write_text("{}\n", encoding="utf-8")
+    (fake / "results" / "tables" / "all_runs.csv").write_text("a,b\n", encoding="utf-8")
+
+    # No git in this tree, so the fallback walk is exercised.
+    out = module.reproduce_tables(fake)
+    assert out["copy_method"] == "filesystem-walk-with-exclusions"
+
+    copied = out.get("copied_relative_paths", [])
+    assert copied, "the copy path must report what it copied for this test to mean anything"
+    offenders = [
+        rel for rel in copied
+        if "__pycache__" in rel or rel.endswith((".pyc", ".pyo"))
+        or Path(rel).name == ".DS_Store"
+    ]
+    assert not offenders, f"build artifacts entered the replay workspace: {offenders}"
+    assert "scripts/analyze_part1.py" in copied
+    assert "runs/raw/r1.json" in copied
 
 
 def test_replay_tooling_never_uses_eval() -> None:

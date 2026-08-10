@@ -217,7 +217,8 @@ def reconstruct(root: Path) -> dict:
 
 def reproduce_tables(root: Path, keep: Path | None = None) -> dict:
     out: dict = {"tables": {}, "script_runs": {}, "copied_files": 0,
-                 "copy_method": None, "excluded_artifacts": []}
+                 "copy_method": None, "excluded_artifacts": [],
+                 "copied_relative_paths": []}
     tmp = Path(tempfile.mkdtemp(prefix="iacg-replay-"))
     work = tmp / "repo"
     try:
@@ -238,6 +239,7 @@ def reproduce_tables(root: Path, keep: Path | None = None) -> dict:
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(root / rel, dest)
             out["copied_files"] += 1
+            out["copied_relative_paths"].append(rel)
 
         tracked: list[str] = []
         try:

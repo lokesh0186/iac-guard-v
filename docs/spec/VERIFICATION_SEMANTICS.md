@@ -16,7 +16,7 @@ specification may use these words in a normative sentence without pointing here.
 | Term | Definition in this system |
 | --- | --- |
 | **successful** | Not used normatively. Replaced by an explicit `Status` value and, for a whole run, by `Verdict`. |
-| **fixed** | Only as the target outcome `FIXED`, defined in §4. It requires target scope still present, scanner integrity intact, no new suppression, the finding absent, and any required oracle passing. |
+| **fixed** | Only as the target outcome `FIXED`, defined in §4: target scope still present and eligible, scanner integrity intact, no suppression covering the scope added, and no matching finding remaining. Oracle results are **not** part of this predicate; they are whole-run gates (§4.3). |
 | **resolved** | Synonym of `FIXED`; used only in prose that immediately cites §4. |
 | **safe** | Not used normatively. The system makes no safety claim; it reports gate results and a `Verdict`. |
 | **supported** | A `(scanner, version range, artifact kind)` triple that has both contract fixtures and a pinned integration test (`SCANNER_CONTRACTS.md`). Absent either, the adapter reports `UNSUPPORTED`. |
@@ -99,7 +99,48 @@ stable `id`, `scope`, `reason`, `owner`, `created`, and `expires`.
 - An `owner` string is not proof of approval. Approval is established only by the
   record residing in the trusted source, and optionally by a configured
   `approval_binding`: a protected file path, a signed commit, or a required review.
-- A suppressed event remains in the report with `policy_permitted: true`.
+- A suppressed event remains in the report with `policy_permitted: true` and the
+  `exception_id` that permitted it.
+
+### 2.5 Exceptions bind to one target, and only for a closed outcome set
+
+A permission is **per target**, never per outcome type. Permitting an outcome type
+would let one approved deletion waive every deletion in the repository.
+
+Exception-eligible outcomes — the complete set:
+
+| Outcome | Why it can be knowingly accepted |
+| --- | --- |
+| `SUPPRESSED` | an organisation may accept a documented, owned suppression |
+| `RESOURCE_DELETED` | deleting the offending resource can be the correct remediation |
+| `FILE_DELETED_OR_RENAMED` | removing the artifact can be the correct remediation |
+
+Never exception-eligible, and no configuration may make them so:
+
+| Outcome | Why not |
+| --- | --- |
+| `STILL_PRESENT` | the defect is present; approving it would convert a known unresolved finding into `VERIFIED` |
+| `PARTIALLY_FIXED` | some occurrences remain; same reason |
+| `SCANNER_ERROR` | absence of evidence cannot be approved into evidence |
+| `RULE_OR_SCANNER_DRIFT` | the comparison is invalid; approval cannot make it valid |
+| `INCONCLUSIVE` | nothing was established |
+| `OUT_OF_SCOPE` | the artifact left scanner selection; that is a coverage loss, not a risk decision |
+
+`FIXED` needs no exception.
+
+A permission holds only when **all** of these are true, and each clause exists because
+its absence would let something through:
+
+1. the outcome is in the exception-eligible set above;
+2. an exception record with the claimed `exception_id` exists in the trusted policy;
+3. that record names **this** `target_id`;
+4. its `scope` matches the target's scope;
+5. its origin is trusted — never the evaluated change (`candidate_head`);
+6. it carries a non-empty `reason` and `owner`;
+7. it has not expired as of the evaluation date.
+
+Failing any clause leaves the target unresolved, and the report records the specific
+rejection reason rather than silently ignoring the claim.
 
 ---
 
@@ -139,7 +180,7 @@ A finding is not a rule ID. That representation is audit finding F3.
 
 ## 4. Target outcomes
 
-Exactly one value per target. Only `FIXED` can contribute to `VERIFIED`.
+Exactly one value per target. A target contributes to `VERIFIED` only when it is `FIXED`, or when its specific non-fix event is explicitly permitted by a trusted, target-scoped, unexpired exception drawn from the closed exception-eligible set (§2.5).
 
 For one target `(scanner, rule_id, scope)` define:
 
@@ -237,7 +278,7 @@ The whole-run decision table, which §7 formalises:
 | every required gate proves the fix and no regression | `VERIFIED` |
 
 `allow_resource_deletion` and `allow_suppression` exist, default `false`, and when
-enabled require an exception record per §2.4. A permitted outcome remains visible in
+enabled require an exception record per §2.5. A permitted outcome remains visible in
 the report with `policy_permitted: true`; permission changes the decision, never the
 classification.
 
