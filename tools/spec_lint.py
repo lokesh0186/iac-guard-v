@@ -106,6 +106,7 @@ ALLOWLIST = DIAGNOSTIC_CODES | DECISION_LABELS | META_NAMES | {
     "SARIF", "YAML", "HCL", "URL", "API", "CLI", "UID", "PID", "SDK", "OS", "PR",
     "ADR", "PDF", "CSV", "LF", "CRLF", "AM", "DOI", "SHA", "OIDC", "SBOM", "SLSA",
     "LICENSE", "NOTICE", "BASE", "HEAD", "ID", "AVD", "MisconfSummary",
+    "SIGKILL", "SIGTERM", "TMPDIR",
     "P0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "F1", "F2", "F3", "F4", "F5",
     "F6", "F12", "N", "A", "B", "C", "D", "E", "T1", "T2", "T3", "T4", "T5", "T6",
     "T7", "T8", "T9", "GHCR", "PyPI", "MCP", "OPA", "ARM", "CDK", "IDE",
