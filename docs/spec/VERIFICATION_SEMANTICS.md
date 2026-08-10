@@ -92,8 +92,8 @@ MUST:
 ### 2.4 Exception records
 
 An exception suppresses a *policy decision*, never an *event*. Each record requires a
-stable `id`, `target_id`, `scope`, `reason`, `owner`, `created`, and `expires`, and its
-trust `origin` is **stamped by the loader that read it** — never taken from a field
+stable `id`, `target_id`, `scope`, `reason`, `owner`, `created`, `expires`, and
+`permitted_outcomes`, and its trust `origin` is **stamped by the loader that read it** — never taken from a field
 inside the record. A record that declares `origin: trusted_base` while being read from
 the candidate is stamped `candidate_head`.
 
@@ -131,6 +131,15 @@ Never exception-eligible, and no configuration may make them so:
 
 `FIXED` needs no exception.
 
+#### The record must name the event it authorises
+
+An exception carries `permitted_outcomes`: a non-empty, exact `frozenset[Outcome]` that
+is a subset of the eligible set above. **There is no default.** Without this field one
+record authorised all three eligible events, so approving a Checkov suppression also
+approved deleting the whole Terraform resource and renaming the file out of scanner
+scope. Those are different remediations with different risk, and an approval of one is
+not an approval of another.
+
 A permission holds only when **all** of these are true, and each clause exists because
 its absence would let something through:
 
@@ -138,9 +147,14 @@ its absence would let something through:
 2. an exception record with the claimed `exception_id` exists in the trusted policy;
 3. that record names **this** `target_id`;
 4. its `scope` matches the target's scope;
-5. its origin is trusted — never the evaluated change (`candidate_head`);
-6. it carries a non-empty `reason` and `owner`;
-7. it has not expired as of the evaluation date.
+5. **the decision's outcome appears in the record's `permitted_outcomes`**;
+6. its origin is trusted — never the evaluated change (`candidate_head`);
+7. it carries a non-empty `reason` and `owner`;
+8. `created <= evaluation_date <= expires`.
+
+Trusted provenance and event authorisation are **separate** requirements: a record from a
+trusted source that authorises suppression still cannot authorise deletion, and a record
+naming the right event from an untrusted source authorises nothing.
 
 Failing any clause leaves the target unresolved, and the report records the specific
 rejection reason rather than silently ignoring the claim.
@@ -215,6 +229,31 @@ results must cover exactly that set:
 Counting statuses is not the same as covering the gates: two required validators are not
 satisfied by one `PASS`, and an unknown gate must never be able to fill a gap.
 
+### 2.6.3 Domain objects are frozen, slotted, and reconstructed
+
+"Frozen" means there is no `__dict__` and no normal attribute assignment. Three designs
+that looked immutable were not, and each allowed a stored verdict to change afterwards:
+a frozen dataclass holding the caller's `dict`; a `__slots__` class whose object was
+still assignable; and a frozen container that rebuilt itself while aliasing the records
+inside it. Measured before the rule existed:
+`RunObservation.__dict__["policy_drift"] = True` flipped `VERIFIED` to `FAILED`, and
+`TargetObservation.__dict__["candidate_matches"] = -1` produced a `FIXED` classification
+from an impossible state.
+
+Therefore, for every persistent domain value:
+
+| Rule | Consequence |
+| --- | --- |
+| frozen **and** slotted | no `__dict__` to write through, no attribute reassignment |
+| nested values reconstructed | records, findings and decisions are rebuilt from copied primitives, enums and dates — never aliased |
+| collections rebuilt into exact built-in types | a `tuple` subclass with a mutable `__iter__` cannot change a stored verdict |
+| canonical ordering | exceptions by `exception_id`, decisions by `(target_id, target_scope, outcome, exception_id)`, findings by exact-identity key |
+| exact types at security boundaries | `isinstance` is not used: a `TargetDecision` subclass reporting `FIXED` while storing `STILL_PRESENT` reached `VERIFIED` |
+
+Out of scope, stated plainly: trusted code that deliberately calls
+`object.__setattr__` on a frozen instance. That is what the constructor does, so it
+cannot be distinguished from legitimate construction.
+
 ### 2.7 Evaluation time is trusted execution context
 
 The evaluation date is supplied by the execution context, never defaulted and never
@@ -262,7 +301,8 @@ A finding is not a rule ID. That representation is audit finding F3.
 
 ## 4. Target outcomes
 
-Exactly one value per target. A target contributes to `VERIFIED` only when it is `FIXED`, or when its specific non-fix event is explicitly permitted by a trusted, target-scoped, unexpired exception drawn from the closed exception-eligible set (§2.5).
+Exactly one value per target. A target contributes to `VERIFIED` only when it is `FIXED`, or when its specific non-fix event is explicitly permitted by a trusted, target-scoped, unexpired exception that **names that outcome** and is drawn from the closed
+exception-eligible set (§2.5).
 
 For one target `(scanner, rule_id, scope)` define:
 

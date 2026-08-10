@@ -293,7 +293,10 @@ def approved(target_id: str, outcome: Outcome, scope: str = "aws_s3_bucket.data"
                              reason="accepted risk, tracked in TICKET-42",
                              owner="platform-team", created=date(2026, 1, 1),
                              expires=date(2026, 12, 31),
-                             origin=ExceptionOrigin.TRUSTED_BASE)
+                             origin=ExceptionOrigin.TRUSTED_BASE,
+                             permitted_outcomes=frozenset({outcome})
+                             if outcome in PERMITTABLE_EXCEPTION_OUTCOMES
+                             else frozenset({Outcome.SUPPRESSED}))
     return decision, ExceptionPolicy((record,))
 
 
@@ -368,7 +371,8 @@ def test_defective_exceptions_do_not_permit(mutation: str, expected_fragment: st
     base = dict(exception_id="EX-1", target_id="T1", scope="aws_s3_bucket.data",
                 reason="accepted risk", owner="platform-team",
                 created=date(2026, 1, 1), expires=date(2026, 12, 31),
-                origin=ExceptionOrigin.TRUSTED_BASE)
+                origin=ExceptionOrigin.TRUSTED_BASE,
+                permitted_outcomes=frozenset({Outcome.SUPPRESSED}))
     if mutation == "missing":
         exceptions = ExceptionPolicy(())
     elif mutation == "other_target":

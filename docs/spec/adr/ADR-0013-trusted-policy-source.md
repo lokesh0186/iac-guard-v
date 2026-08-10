@@ -56,6 +56,29 @@ Exception records also carry `created` as well as `expires`, and a record is in 
 only when `created <= evaluation_date <= expires`, inclusive on both bounds. A record
 whose window has not opened yet is rejected with `not yet in force`.
 
+## Amendment, 2026-08-09 (second): trust and authorisation are separate
+
+Binding an exception to a target and a scope was not sufficient. The record said *who*
+approved *which target*, but not *what was approved*, so one record authorised all three
+exception-eligible events: an approved Checkov suppression also authorised deleting the
+Terraform resource and renaming the file out of scanner scope.
+
+`ExceptionRecord` therefore carries `permitted_outcomes`, a non-empty exact
+`frozenset[Outcome]` with no default, constrained to the eligible set. The permission
+check requires `decision.outcome in record.permitted_outcomes` in addition to every
+existing clause.
+
+The two properties are independent and both required:
+
+| | trusted origin | names the event |
+| --- | --- | --- |
+| authorises | yes | yes |
+| rejected: `origin 'candidate_head' is not trusted` | no | yes |
+| rejected: `authorises ['SUPPRESSED'], not RESOURCE_DELETED` | yes | no |
+
+Loaders parse and validate the field, rejecting a missing authorisation, unknown outcome
+names, duplicates, never-permittable outcomes, and malformed collection types.
+
 ## Consequences
 
 - A legitimate policy change takes two steps: merge the policy, then the change that

@@ -74,6 +74,8 @@ artifacts.
 | F-09d | Deeply immutable domain objects: collections copied and frozen at construction, canonically ordered, rebuilt rather than aliased, with subclasses and lookalikes rejected, so no later external mutation can change a verdict | P0 |
 | F-09e | Separate validators for identifiers, resource scopes, and repository paths; reserved placeholders rejected; `target_scope` mandatory with no default; identifiers Unicode-normalised before duplicate detection | P0 |
 | F-09f | Required gates are named identities: observed gate results must cover exactly the required set, and missing, duplicate, or substituted gates are invalid requests | P0 |
+| F-09g | Every exception names the events it authorises (`permitted_outcomes`, no default). Approving suppression does not approve resource deletion or file renaming | P0 |
+| F-09h | Domain objects are frozen and slotted with no `__dict__`; nested records and collections are reconstructed into exact built-in types and canonically ordered; subclasses are rejected at security boundaries | P0 |
 | F-10 | `doctor` reports detected tools, versions, support, and exact install guidance | P0 |
 | F-11 | `demo` shows verified, failed, suppressed, and inconclusive on bundled fixtures | P0 |
 | F-12 | Checkov adapter with contract fixtures for the research and product versions | P0 |

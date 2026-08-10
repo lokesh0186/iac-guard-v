@@ -359,7 +359,7 @@ passing CI gate.
 
 ```console
 $ python3 -m pytest tests -q
-243 passed
+445 passed
 ```
 
 ### Test counts of record
@@ -367,15 +367,49 @@ $ python3 -m pytest tests -q
 | Suite | Count |
 | --- | --- |
 | `tests/spec/test_semantics_truth_table.py` | 121 |
-| `tests/spec/test_domain_boundaries.py` | 74 |
+| `tests/spec/test_domain_boundaries.py` | 84 |
+| `tests/spec/test_domain_immutability.py` | 62 |
+| `tests/spec/test_event_binding.py` | 36 |
+| `tests/unit/test_models_immutability.py` | 94 |
 | `tests/research/test_qrs_regression.py` | 29 |
 | `tests/research/test_freeze_adversarial.py` | 19 |
-| **total** | **243** |
+| **total** | **445** |
 
 Progression across review rounds, so the record shows what each one added: 24 at the
 first freeze commit, 76 after the first adversarial remediation, 108 after the
 semantic-consistency commit, 169 after the exception-scoping commit, 243 after the D0
-boundary-hardening commit. Only the current figures are presented as the gate result.
+boundary-hardening commit, 299 after D0.1, 305 after the identifier-hazard follow-up, and
+445 after the D1 domain-closure commit. Only the current figures are the gate result.
+
+### D1 domain closure
+
+Seven further fail-open behaviours were independently reproduced in the conformance
+oracle and are now closed. Measured before, then after:
+
+| Probe | Before | After |
+| --- | --- | --- |
+| `RunObservation.__dict__["policy_drift"] = True` | `VERIFIED` became `FAILED` | `AttributeError`; no `__dict__` exists |
+| `ExceptionRecord.__dict__["scope"] = ...` on a caller-held record | `VERIFIED` became `FAILED` | `AttributeError`; the stored record is a deep copy |
+| `TargetDecision` subclass reporting `FIXED` while storing `STILL_PRESENT` | `VERIFIED` | `SpecDomainError` at every boundary |
+| `tuple` subclass swapping its `__iter__` after construction | `VERIFIED` became `FAILED` | verdict unchanged; an exact built-in tuple is stored |
+| one exception used for `SUPPRESSED`, `RESOURCE_DELETED` and `FILE_DELETED_OR_RENAMED` | all three `VERIFIED` | only the named event verifies; the others `FAILED` |
+| `TargetObservation.__dict__["candidate_matches"] = -1` | `FIXED` from an impossible state | `AttributeError`; `M` stays 0 |
+| `FindingLocation.__dict__["start_line"] = -100` | invalid object retained | `AttributeError`; `start_line` stays 10 |
+
+The rejection message names both sides of an event mismatch:
+
+```
+exception EX-1 authorises ['SUPPRESSED'], not RESOURCE_DELETED: approving one event
+does not approve another
+```
+
+The 3×3 event matrix is exhaustive: for each of the three eligible outcomes as the
+authorised event, each of the three as the attempted event, only the diagonal verifies.
+
+Phase D1 also lands the production package `src/iac_guard_v/` with `enums.py` and
+`models.py` under the same rules, and `tests/unit/test_models_immutability.py` applies one
+matrix to **both** the oracle and the production models, so the production code cannot
+inherit a weakness the oracle has shed.
 
 **Gate B: PASS.**
 

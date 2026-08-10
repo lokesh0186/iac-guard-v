@@ -51,6 +51,28 @@ Therefore, added to this decision:
 8. Malformed input is a usage error with exit code 2. It is never reinterpreted as a
    verdict of any kind.
 
+## Amendment, 2026-08-09 (second): frozen must mean frozen
+
+Fail-closed also has to survive the object graph. Measured before this amendment, with a
+verdict already computed:
+
+| Mutation | Effect |
+| --- | --- |
+| `RunObservation.__dict__["policy_drift"] = True` | `VERIFIED` became `FAILED` |
+| `ExceptionRecord.__dict__["scope"] = ...` on a caller-held record | `VERIFIED` became `FAILED` |
+| `TargetObservation.__dict__["candidate_matches"] = -1` | `FIXED` from an impossible state |
+| a `tuple` subclass swapping its `__iter__` | `VERIFIED` became `FAILED` |
+| a `TargetDecision` subclass reporting `FIXED` while storing `STILL_PRESENT` | reached `VERIFIED` |
+
+Added to this decision:
+
+9. Every persistent domain value is a frozen **and** slotted dataclass, so no instance
+   has a `__dict__`.
+10. Nested records, findings and decisions are reconstructed from copied values;
+    collections are rebuilt into exact built-in types and canonically ordered.
+11. Security boundaries require exact types. `isinstance` accepts behaviour-overriding
+    subclasses and is therefore not used for domain values.
+
 ## Consequences
 
 - A broken environment yields exit 3, so users see "we could not tell" rather than a

@@ -133,6 +133,13 @@ canonically sorted, and public constructors rebuild rather than alias what the c
 passed. Subclasses and lookalikes are rejected at the boundary, because `isinstance`
 would accept an override of `get`.
 
+**Public loaders construct domain types; they never accept preconstructed objects as
+evidence of trust.** Configuration and case bundles are parsed into `ExceptionRecord`,
+`GateResult`, `RequiredGates` and friends by loaders that stamp provenance themselves.
+An `ExceptionRecord` arriving from a candidate is stamped `candidate_head` whatever its
+serialised `origin` says, and it must additionally name the event it authorises before it
+can permit anything.
+
 **Malformed input is rejected at the boundary.** Configuration, case bundles, and API
 arguments are validated against their schemas before anything runs; unknown enum values,
 unknown keys, non-boolean flags, and blank identities are usage errors (exit code 2).

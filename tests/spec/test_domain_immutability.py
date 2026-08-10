@@ -66,7 +66,9 @@ def record(**overrides) -> ExceptionRecord:
     base = dict(exception_id="EX-1", target_id="T1", scope=SCOPE,
                 reason="accepted risk, TICKET-42", owner="platform-team",
                 created=date(2026, 1, 1), expires=date(2026, 12, 31),
-                origin=ExceptionOrigin.TRUSTED_BASE)
+                origin=ExceptionOrigin.TRUSTED_BASE,
+                permitted_outcomes=frozenset({Outcome.SUPPRESSED,
+                                             Outcome.RESOURCE_DELETED}))
     return ExceptionRecord(**{**base, **overrides})
 
 

@@ -69,7 +69,9 @@ def valid_record(**overrides) -> ExceptionRecord:
     base = dict(exception_id="EX-1", target_id="T1", scope=SCOPE,
                 reason="accepted risk, TICKET-42", owner="platform-team",
                 created=date(2026, 1, 1), expires=date(2026, 12, 31),
-                origin=ExceptionOrigin.TRUSTED_BASE)
+                origin=ExceptionOrigin.TRUSTED_BASE,
+                permitted_outcomes=frozenset({Outcome.SUPPRESSED,
+                                             Outcome.RESOURCE_DELETED}))
     return ExceptionRecord(**{**base, **overrides})
 
 
@@ -317,6 +319,7 @@ def test_candidate_loader_ignores_a_self_declared_trusted_origin() -> None:
         "reason": "we approve ourselves", "owner": "attacker",
         "created": date(2026, 1, 1), "expires": date(2026, 12, 31),
         "origin": "trusted_base",  # ignored on purpose
+        "permitted_outcomes": ["SUPPRESSED"],
     })
     assert record.origin is ExceptionOrigin.CANDIDATE_HEAD
 
@@ -329,7 +332,8 @@ def test_candidate_loader_ignores_a_self_declared_trusted_origin() -> None:
 def test_trusted_loader_requires_a_trusted_origin() -> None:
     payload = {"exception_id": "EX-1", "target_id": "T1", "scope": SCOPE,
                "reason": "r", "owner": "o", "created": date(2026, 1, 1),
-               "expires": date(2026, 12, 31)}
+               "expires": date(2026, 12, 31),
+               "permitted_outcomes": ["SUPPRESSED"]}
     assert load_trusted_exception(
         payload, ExceptionOrigin.PROTECTED_POLICY_REPO
     ).origin is ExceptionOrigin.PROTECTED_POLICY_REPO
@@ -342,7 +346,7 @@ def test_unknown_exception_fields_are_rejected() -> None:
         load_trusted_exception(
             {"exception_id": "EX-1", "target_id": "T1", "scope": SCOPE, "reason": "r",
              "owner": "o", "created": date(2026, 1, 1), "expires": date(2026, 12, 31),
-             "surprise": True},
+             "permitted_outcomes": ["SUPPRESSED"], "surprise": True},
             ExceptionOrigin.TRUSTED_BASE,
         )
 
@@ -366,3 +370,45 @@ def test_optional_gates_require_a_trusted_origin() -> None:
 
 def test_optional_gate_names_are_a_closed_set() -> None:
     assert OPTIONAL_GATE_NAMES == frozenset({"regression", "suppression"})
+
+
+# --------------------------------------------------------------------------- #
+# loaders must parse and validate the event authorisation
+# --------------------------------------------------------------------------- #
+def _payload(**overrides) -> dict:
+    base = {"exception_id": "EX-1", "target_id": "T1", "scope": SCOPE,
+            "reason": "accepted risk", "owner": "platform-team",
+            "created": date(2026, 1, 1), "expires": date(2026, 12, 31),
+            "permitted_outcomes": ["SUPPRESSED"]}
+    return {**base, **overrides}
+
+
+def test_loader_accepts_outcome_names_and_members() -> None:
+    from spec_reference import Outcome as O
+    by_name = load_trusted_exception(_payload(permitted_outcomes=["SUPPRESSED"]),
+                                     ExceptionOrigin.TRUSTED_BASE)
+    by_member = load_trusted_exception(_payload(permitted_outcomes=[O.SUPPRESSED]),
+                                       ExceptionOrigin.TRUSTED_BASE)
+    assert by_name.permitted_outcomes == by_member.permitted_outcomes
+
+
+@pytest.mark.parametrize("value,fragment", [
+    (None, "must name the event"),
+    ([], "must not be empty"),
+    (["NOT_A_REAL_OUTCOME"], "unknown outcome"),
+    (["SUPPRESSED", "SUPPRESSED"], "duplicate"),
+    (["STILL_PRESENT"], "never exception-eligible"),
+    (["FIXED"], "subset"),
+    ("SUPPRESSED", "collection"),
+    ({"SUPPRESSED": True}, "collection"),
+])
+def test_loader_rejects_malformed_outcome_authorisation(value, fragment: str) -> None:
+    with pytest.raises(SpecDomainError) as exc:
+        load_trusted_exception(_payload(permitted_outcomes=value),
+                               ExceptionOrigin.TRUSTED_BASE)
+    assert fragment in str(exc.value)
+
+
+def test_candidate_loader_also_validates_the_authorisation() -> None:
+    with pytest.raises(SpecDomainError):
+        load_candidate_exception(_payload(permitted_outcomes=["STILL_PRESENT"]))
