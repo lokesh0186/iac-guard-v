@@ -31,6 +31,8 @@ from spec_reference import (  # noqa: E402
     OPTIONAL_GATE_NAMES,
     ExceptionOrigin,
     ExceptionPolicy,
+    GateResult,
+    RequiredGates,
     ExceptionRecord,
     FindingLocation,
     InvalidVerificationRequest,
@@ -55,7 +57,8 @@ EVIDENCE = dict(
     evaluation_date=TODAY,
     preflight=Status.PASS,
     required_scanner_integrity=Status.PASS,
-    required_validator_states=(Status.PASS,),
+    required_gates=RequiredGates(validator_ids=("terraform_hcl_parse",)),
+    validator_results=(GateResult("terraform_hcl_parse", Status.PASS),),
     regression_policy=Status.PASS,
     suppression_policy=Status.PASS,
 )
@@ -80,7 +83,7 @@ def test_probe_a_omitted_evidence_is_an_invalid_request() -> None:
 
 @pytest.mark.parametrize("omit", ["evaluation_date", "preflight",
                                   "required_scanner_integrity",
-                                  "required_validator_states", "regression_policy",
+                                  "validator_results", "regression_policy",
                                   "suppression_policy"])
 def test_probe_a_each_required_gate_must_be_supplied(omit: str) -> None:
     evidence = {k: v for k, v in EVIDENCE.items() if k != omit}
@@ -97,11 +100,11 @@ def test_fully_supplied_evidence_verifies() -> None:
 # B-E. runtime type enforcement for statuses
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("field,value", [
-    ("required_validator_states", ("PASS",)),
-    ("required_validator_states", ("BOGUS",)),
-    ("required_validator_states", (None,)),
-    ("required_oracle_states", ("BOGUS",)),
-    ("required_oracle_states", ("PASS",)),
+    ("validator_results", ("PASS",)),
+    ("validator_results", ("BOGUS",)),
+    ("validator_results", (None,)),
+    ("oracle_results", ("BOGUS",)),
+    ("oracle_results", ("PASS",)),
     ("regression_policy", "BOGUS"),
     ("regression_policy", "PASS"),
     ("suppression_policy", "BOGUS"),

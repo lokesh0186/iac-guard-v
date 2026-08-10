@@ -178,6 +178,43 @@ The following are therefore enforced at runtime, and each failure is an invalid 
 8. **Optional gates come from a closed set** (`regression`, `suppression`) and only from
    a trusted configuration source.
 
+### 2.6.1 Identity, scope, and path are validated separately
+
+A resource address is not a filename, and using one path-shaped helper for both is how a
+placeholder scope reached an exact-match comparison. Three validators, three rules:
+
+| Kind | Examples | Rules |
+| --- | --- | --- |
+| identifier (`target_id`, `exception_id`, gate id) | `T-142`, `terraform_hcl_parse` | NFC-normalised, non-blank, no control characters or line breaks, not a reserved placeholder |
+| resource scope | `aws_s3_bucket.data`, `module.net.aws_security_group.web[0]`, `apps/v1/Deployment/prod/api` | as above, plus relative, no backslash, no drive prefix, no empty/`.`/`..` component |
+| repository path | `modules/s3/main.tf` | as resource scope, plus must name a file rather than a directory |
+
+Reserved placeholders — `unspecified`, `unspecified/scope`, `unknown`, `default`, `n/a`,
+`none`, `-`, `todo`, `tbd` and their case variants — are rejected everywhere. `target_scope`
+has **no default**: a caller that omits it gets an invalid request, because a generic
+placeholder previously matched a placeholder-scoped exception exactly and verified a
+`RESOURCE_DELETED` with no real scope.
+
+Identifiers are Unicode-normalised **before** duplicate detection, so `café` written
+composed and decomposed is one identity rather than two.
+
+### 2.6.2 Required gates are identities, not counts
+
+Trusted configuration names the required validator and oracle gate **ids**. Observed
+results must cover exactly that set:
+
+| Condition | Result |
+| --- | --- |
+| a required gate produced no result | invalid request (exit code 2) |
+| duplicate results for one gate id | invalid request |
+| a result for a gate that was not required | invalid request — a substitution cannot stand in |
+| one `PASS` where two distinct validators were required | invalid request |
+| no oracle results, and no oracle required | valid |
+| no oracle results, but an oracle required | invalid request |
+
+Counting statuses is not the same as covering the gates: two required validators are not
+satisfied by one `PASS`, and an unknown gate must never be able to fill a gap.
+
 ### 2.7 Evaluation time is trusted execution context
 
 The evaluation date is supplied by the execution context, never defaulted and never

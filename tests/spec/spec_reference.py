@@ -29,6 +29,8 @@ Fail-open behaviours removed after review, each with regression probes:
 """
 from __future__ import annotations
 
+import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import Enum
@@ -105,17 +107,97 @@ def _require_nonblank(value: Any, name: str) -> str:
     return value.strip()
 
 
-def canonical_scope(raw: Any, name: str = "scope") -> str:
-    """One documented canonical form, so scope comparison is not raw string luck."""
+#: Placeholders that must never stand in for a real identity or scope. A generic
+#: default was previously accepted as an exact exception match, so an omitted scope
+#: could authorise a deletion.
+RESERVED_PLACEHOLDERS = frozenset({
+    "unspecified", "unspecified/scope", "unknown", "unknown/scope",
+    "default", "default/scope", "n/a", "na", "none", "null", "-", "todo", "tbd",
+})
+
+_WINDOWS_DRIVE = re.compile(r"^[A-Za-z]:")
+
+
+def _reject_dangerous_characters(text: str, name: str) -> None:
+    if "\x00" in text:
+        raise SpecDomainError(f"{name} must not contain a NUL byte")
+    bad = {ch for ch in text if unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp")}
+    if bad:
+        raise SpecDomainError(
+            f"{name} must not contain control characters or line breaks: "
+            f"found {sorted(hex(ord(c)) for c in bad)}"
+        )
+
+
+def _normalise(raw: Any, name: str) -> str:
+    """NFC-normalise and strip, so duplicate checks compare like with like."""
     text = _require_nonblank(raw, name)
+    text = unicodedata.normalize("NFC", text)
+    _reject_dangerous_characters(text, name)
+    return text.strip()
+
+
+def canonical_identifier(raw: Any, name: str) -> str:
+    """A target id, exception id, or gate id.
+
+    Identifiers are not paths: slashes and dots are allowed as opaque characters, but
+    the value must be a single normalised token with no control characters, and must
+    not be a reserved placeholder.
+    """
+    text = _normalise(raw, name)
+    if text.lower() in RESERVED_PLACEHOLDERS:
+        raise SpecDomainError(
+            f"{name} must not be the placeholder {text!r}; a generic identity is not an "
+            f"identity"
+        )
+    return text
+
+
+def canonical_resource_scope(raw: Any, name: str = "scope") -> str:
+    """A target or exception scope: a resource address or object identity.
+
+    Examples: `aws_s3_bucket.data`, `module.net.aws_security_group.web[0]`,
+    `apps/v1/Deployment/prod/api`. Deliberately separate from repository paths: a
+    resource address is not a filename, and using one helper for both is how a
+    placeholder slipped through.
+    """
+    text = _normalise(raw, name)
+    if text.lower() in RESERVED_PLACEHOLDERS:
+        raise SpecDomainError(
+            f"{name} must not be the placeholder {text!r}: a deletion or suppression "
+            f"must never be authorised by an unspecified scope"
+        )
     if "\\" in text:
         raise SpecDomainError(f"{name} must not contain a backslash: {raw!r}")
     if text.startswith("/"):
         raise SpecDomainError(f"{name} must be relative, not absolute: {raw!r}")
-    parts = [p for p in text.split("/")]
-    if any(p in ("", ".", "..") for p in parts):
+    if _WINDOWS_DRIVE.match(text):
+        raise SpecDomainError(f"{name} must not be a drive-absolute path: {raw!r}")
+    parts = text.split("/")
+    if any(part in ("", ".", "..") for part in parts):
         raise SpecDomainError(f"{name} must be normalised, got {raw!r}")
     return "/".join(parts)
+
+
+def canonical_repo_path(raw: Any, name: str = "file_path") -> str:
+    """A repository-relative file path."""
+    text = _normalise(raw, name)
+    if "\\" in text:
+        raise SpecDomainError(f"{name} must use forward slashes: {raw!r}")
+    if text.startswith("/"):
+        raise SpecDomainError(f"{name} must be repository-relative, not absolute: {raw!r}")
+    if _WINDOWS_DRIVE.match(text):
+        raise SpecDomainError(f"{name} must not be a drive-absolute path: {raw!r}")
+    if text.endswith("/"):
+        raise SpecDomainError(f"{name} must name a file, not a directory: {raw!r}")
+    parts = text.split("/")
+    if any(part in ("", ".", "..") for part in parts):
+        raise SpecDomainError(f"{name} must be normalised, got {raw!r}")
+    return "/".join(parts)
+
+
+#: Retained name for continuity in the specification text; resource scopes only.
+canonical_scope = canonical_resource_scope
 
 
 # --------------------------------------------------------------------------- #
@@ -261,10 +343,11 @@ class ExceptionRecord:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "exception_id",
-                           _require_nonblank(self.exception_id, "exception_id"))
+                           canonical_identifier(self.exception_id, "exception_id"))
         object.__setattr__(self, "target_id",
-                           _require_nonblank(self.target_id, "target_id"))
-        object.__setattr__(self, "scope", canonical_scope(self.scope, "exception scope"))
+                           canonical_identifier(self.target_id, "target_id"))
+        object.__setattr__(self, "scope",
+                           canonical_resource_scope(self.scope, "exception scope"))
         object.__setattr__(self, "reason", _require_nonblank(self.reason, "reason"))
         object.__setattr__(self, "owner", _require_nonblank(self.owner, "owner"))
         _require_date(self.created, "created")
@@ -316,19 +399,29 @@ def _build(record: Mapping[str, Any], origin: ExceptionOrigin) -> ExceptionRecor
     )
 
 
+@dataclass(frozen=True, slots=True)
 class ExceptionPolicy:
     """Deeply immutable, validated set of exception records.
 
-    A frozen dataclass holding a caller's `dict` is not immutable: clearing that dict
-    changed an existing verdict from VERIFIED to FAILED. Records are copied here and
-    exposed only through a read-only mapping.
+    Two earlier attempts were not immutable enough:
+
+    * a frozen dataclass holding the caller's `dict` — clearing that dict changed an
+      existing verdict from VERIFIED to FAILED;
+    * a `__slots__` class with a `MappingProxyType` index — the *object* was not
+      frozen, so `policy._records = ()` still changed a stored verdict.
+
+    This version is a frozen slotted dataclass. Normal attribute assignment raises,
+    the record tuple is canonically sorted for deterministic serialisation, and the
+    index is built once during construction.
     """
 
-    __slots__ = ("_records", "_index")
+    records: tuple[ExceptionRecord, ...] = ()
+    index: Mapping[str, ExceptionRecord] = field(default=None, repr=False, compare=False)
 
-    def __init__(self, records: Iterable[ExceptionRecord] | Mapping[str, ExceptionRecord] = ()):
-        if isinstance(records, Mapping):
-            for key, record in records.items():
+    def __post_init__(self) -> None:
+        items = self.records
+        if isinstance(items, Mapping):
+            for key, record in items.items():
                 if not isinstance(record, ExceptionRecord):
                     raise SpecDomainError(
                         f"exception {key!r} must be an ExceptionRecord, got "
@@ -340,53 +433,73 @@ class ExceptionPolicy:
                         f"{record.exception_id!r}: an index that disagrees with its "
                         f"records is not a policy"
                     )
-            items = tuple(records.values())
+            items = tuple(items.values())
         else:
-            items = tuple(records)
-            for record in items:
-                if not isinstance(record, ExceptionRecord):
-                    raise SpecDomainError(
-                        f"expected ExceptionRecord, got {type(record).__name__}"
-                    )
-
+            items = tuple(items)
+        for record in items:
+            if type(record) is not ExceptionRecord:
+                raise SpecDomainError(
+                    f"expected ExceptionRecord, got {type(record).__name__}"
+                )
         ids = [r.exception_id for r in items]
         if len(set(ids)) != len(ids):
             raise SpecDomainError(f"duplicate exception ids: {sorted(ids)}")
-        self._records = items
-        self._index = MappingProxyType({r.exception_id: r for r in items})
+
+        # Canonical order, so two policies with the same records serialise identically.
+        ordered = tuple(sorted(items, key=lambda r: r.exception_id))
+        object.__setattr__(self, "records", ordered)
+        object.__setattr__(self, "index",
+                           MappingProxyType({r.exception_id: r for r in ordered}))
 
     def get(self, exception_id: str | None) -> ExceptionRecord | None:
-        return self._index.get(exception_id or "")
-
-    @property
-    def records(self) -> tuple[ExceptionRecord, ...]:
-        return self._records
+        return self.index.get(exception_id or "")
 
     def __len__(self) -> int:
-        return len(self._records)
-
-    def __repr__(self) -> str:  # pragma: no cover - debugging aid
-        return f"ExceptionPolicy({sorted(self._index)})"
+        return len(self.records)
 
 
-@dataclass(frozen=True)
+def coerce_exception_policy(value: Any) -> ExceptionPolicy:
+    """Always build a fresh policy; never retain a caller-owned object.
+
+    A subclass or lookalike is rejected rather than trusted: `isinstance` would accept
+    a subclass that overrides `get` or `index`.
+    """
+    if value is None:
+        return ExceptionPolicy(())
+    if type(value) is ExceptionPolicy:
+        return ExceptionPolicy(value.records)          # defensive copy
+    if isinstance(value, ExceptionPolicy):
+        raise SpecDomainError(
+            f"{type(value).__name__} is an ExceptionPolicy subclass; the public boundary "
+            f"accepts only ExceptionPolicy itself or a collection of ExceptionRecord"
+        )
+    if isinstance(value, (Mapping, tuple, list, frozenset, set)):
+        return ExceptionPolicy(value)
+    raise SpecDomainError(
+        f"exceptions must be an ExceptionPolicy or a collection of ExceptionRecord, got "
+        f"{type(value).__name__}"
+    )
+
+
+@dataclass(frozen=True, slots=True)
 class TargetDecision:
     target_id: str
     outcome: Outcome
-    target_scope: str = "unspecified/scope"
+    target_scope: str = REQUIRED          # no placeholder default, on purpose
     policy_permitted: bool = False
     exception_id: str | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "target_id",
-                           _require_nonblank(self.target_id, "target_id"))
+                           canonical_identifier(self.target_id, "target_id"))
+        _require_supplied(self.target_scope, "target_scope")
         object.__setattr__(self, "target_scope",
-                           canonical_scope(self.target_scope, "target_scope"))
+                           canonical_resource_scope(self.target_scope, "target_scope"))
         _require_enum(self.outcome, Outcome, "outcome")
         _require_bool(self.policy_permitted, "policy_permitted")
         if self.exception_id is not None:
             object.__setattr__(self, "exception_id",
-                               _require_nonblank(self.exception_id, "exception_id"))
+                               canonical_identifier(self.exception_id, "exception_id"))
         if self.policy_permitted and not self.exception_id:
             raise SpecDomainError(
                 f"target {self.target_id}: policy_permitted requires an exception_id; "
@@ -441,7 +554,7 @@ class FindingLocation:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "file_path",
-                           canonical_scope(self.file_path, "file_path"))
+                           canonical_repo_path(self.file_path, "file_path"))
         start = _require_int(self.start_line, "start_line")
         end = _require_int(self.end_line, "end_line")
         if start < 1:
@@ -462,6 +575,93 @@ def location_changed(baseline: FindingLocation, candidate: FindingLocation,
 
 
 # --------------------------------------------------------------------------- #
+# gate identities: counting PASS results is not the same as covering the
+# required gates
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True, slots=True)
+class GateResult:
+    """One named gate's typed outcome."""
+
+    gate_id: str
+    status: Status
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "gate_id",
+                           canonical_identifier(self.gate_id, "gate_id"))
+        _require_enum(self.status, Status, f"status of gate {self.gate_id!r}")
+
+
+@dataclass(frozen=True, slots=True)
+class RequiredGates:
+    """Which gates trusted configuration requires, by identity.
+
+    Statuses alone are insufficient: one `PASS` cannot satisfy two required
+    validators, and an unknown gate must not be able to stand in for a missing one.
+    """
+
+    validator_ids: tuple[str, ...] = REQUIRED
+    oracle_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _require_supplied(self.validator_ids, "required_gates.validator_ids")
+        for name in ("validator_ids", "oracle_ids"):
+            raw = getattr(self, name)
+            if not isinstance(raw, tuple):
+                raise SpecDomainError(f"required_gates.{name} must be a tuple")
+            ids = tuple(canonical_identifier(i, f"required_gates.{name} entry")
+                        for i in raw)
+            if len(set(ids)) != len(ids):
+                raise SpecDomainError(
+                    f"duplicate gate id in required_gates.{name}: {sorted(ids)}"
+                )
+            object.__setattr__(self, name, ids)
+        if not self.validator_ids:
+            raise InvalidVerificationRequest(
+                "at least one required validator gate id is needed: validity must be "
+                "established independently of the security scanner (V1)"
+            )
+
+
+def reconcile_gate_results(
+    required_ids: tuple[str, ...], observed: tuple[GateResult, ...], kind: str
+) -> tuple[Status, ...]:
+    """Return the observed statuses in required order, or raise.
+
+    Rejects a missing required gate, a duplicate result, and an unknown substituted
+    gate. An empty observation set is valid only when nothing was required.
+    """
+    if not isinstance(observed, tuple):
+        raise SpecDomainError(f"{kind} results must be a tuple")
+    for result in observed:
+        if type(result) is not GateResult:
+            raise SpecDomainError(
+                f"{kind} results must contain GateResult, got {type(result).__name__}"
+            )
+    seen = [r.gate_id for r in observed]
+    duplicates = {gate for gate in seen if seen.count(gate) > 1}
+    if duplicates:
+        raise SpecDomainError(f"duplicate {kind} gate result(s): {sorted(duplicates)}")
+    by_id = {r.gate_id: r for r in observed}
+    missing = [gate for gate in required_ids if gate not in by_id]
+    unknown = sorted(set(by_id) - set(required_ids))
+    # Both facts are reported together: a substitution shows up as one missing gate and
+    # one unrequired gate, and naming only the first hides what the caller actually did.
+    if missing or unknown:
+        parts = []
+        if missing:
+            parts.append(f"required {kind} gate(s) produced no result: {missing}")
+        if unknown:
+            parts.append(
+                f"unrequired {kind} gate result(s) supplied: {unknown}; a substituted "
+                f"gate cannot stand in for a required one"
+            )
+        raise InvalidVerificationRequest(
+            "; ".join(parts) + ". Absence of evidence is not evidence."
+        )
+    return tuple(by_id[gate].status for gate in required_ids)
+
+
+# --------------------------------------------------------------------------- #
 # §7  whole-run verdict
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
@@ -470,16 +670,20 @@ class RunObservation:
     evaluation_date: date = REQUIRED
     preflight: Status = REQUIRED
     required_scanner_integrity: Status = REQUIRED
-    required_validator_states: tuple[Status, ...] = REQUIRED
+    required_gates: RequiredGates = REQUIRED
+    validator_results: tuple[GateResult, ...] = REQUIRED
     regression_policy: Status = REQUIRED
     suppression_policy: Status = REQUIRED
-    required_oracle_states: tuple[Status, ...] = ()
+    oracle_results: tuple[GateResult, ...] = ()
     exceptions: Any = field(default_factory=ExceptionPolicy)
     coverage_decreased_on_required_scanner: bool = False
     rule_substituted_on_required_target: bool = False
     policy_drift: bool = False
     optional_gates: frozenset = field(default_factory=frozenset)
     optional_gates_origin: ExceptionOrigin = ExceptionOrigin.UNKNOWN
+    # derived during construction from required_gates + observed results
+    _validator_states: tuple[Status, ...] = field(default=(), repr=False, compare=False)
+    _oracle_states: tuple[Status, ...] = field(default=(), repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.target_decisions, tuple) or not self.target_decisions:
@@ -504,31 +708,27 @@ class RunObservation:
                      "suppression_policy"):
             _require_enum(_require_supplied(getattr(self, name), name), Status, name)
 
-        validators = _require_supplied(self.required_validator_states,
-                                       "required_validator_states")
-        if not isinstance(validators, tuple) or not validators:
-            raise InvalidVerificationRequest(
-                "at least one required validator result is needed: validity must be "
-                "established independently of the security scanner (V1), and an empty "
-                "collection would satisfy the gate vacuously"
+        gates = _require_supplied(self.required_gates, "required_gates")
+        if type(gates) is not RequiredGates:
+            raise SpecDomainError(
+                f"required_gates must be a RequiredGates, got {type(gates).__name__}"
             )
-        for state in validators:
-            _require_enum(state, Status, "required_validator_states entry")
-        if not isinstance(self.required_oracle_states, tuple):
-            raise SpecDomainError("required_oracle_states must be a tuple")
-        for state in self.required_oracle_states:
-            _require_enum(state, Status, "required_oracle_states entry")
+        observed_validators = _require_supplied(self.validator_results,
+                                               "validator_results")
+        validator_states = reconcile_gate_results(
+            gates.validator_ids, observed_validators, "validator")
+        oracle_states = reconcile_gate_results(
+            gates.oracle_ids, self.oracle_results, "oracle")
+        object.__setattr__(self, "_validator_states", validator_states)
+        object.__setattr__(self, "_oracle_states", oracle_states)
 
         for name in ("coverage_decreased_on_required_scanner",
                      "rule_substituted_on_required_target", "policy_drift"):
             _require_bool(getattr(self, name), name)
 
-        # Copy and freeze the policy so a later mutation of the caller's collection
-        # cannot change this run's verdict.
-        policy = self.exceptions
-        if not isinstance(policy, ExceptionPolicy):
-            policy = ExceptionPolicy(policy)
-        object.__setattr__(self, "exceptions", policy)
+        # Always rebuild: retaining a caller-owned ExceptionPolicy let a later
+        # mutation of that object change this run's verdict.
+        object.__setattr__(self, "exceptions", coerce_exception_policy(self.exceptions))
 
         gates = self.optional_gates
         if not isinstance(gates, (frozenset, set)):
@@ -549,6 +749,14 @@ class RunObservation:
             )
 
 
+def validator_states(run: "RunObservation") -> tuple[Status, ...]:
+    return getattr(run, "_validator_states")
+
+
+def oracle_states(run: "RunObservation") -> tuple[Status, ...]:
+    return getattr(run, "_oracle_states")
+
+
 def _policy_state_is_undecided(state: Status, gate: str, optional: frozenset) -> bool:
     if state is Status.SKIPPED and gate in optional:
         return False
@@ -560,8 +768,8 @@ def decide(run: RunObservation) -> Verdict:
     undecided = (
         run.preflight is not Status.PASS
         or run.required_scanner_integrity is not Status.PASS
-        or any(s in UNDECIDED_STATES for s in run.required_validator_states)
-        or any(s in UNDECIDED_STATES for s in run.required_oracle_states)
+        or any(s in UNDECIDED_STATES for s in validator_states(run))
+        or any(s in UNDECIDED_STATES for s in oracle_states(run))
         or any(d.outcome in INCONCLUSIVE_OUTCOMES for d in run.target_decisions)
         or run.coverage_decreased_on_required_scanner
         or run.rule_substituted_on_required_target
@@ -579,8 +787,8 @@ def decide(run: RunObservation) -> Verdict:
         and not is_permitted(d, run.exceptions, run.evaluation_date)
     ]
     failed = (
-        Status.FAIL in run.required_validator_states
-        or Status.FAIL in run.required_oracle_states
+        Status.FAIL in validator_states(run)
+        or Status.FAIL in oracle_states(run)
         or run.policy_drift
         or bool(unresolved)
         or run.regression_policy is Status.FAIL

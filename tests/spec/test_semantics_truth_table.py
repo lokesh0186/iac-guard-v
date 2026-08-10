@@ -31,6 +31,8 @@ from spec_reference import (  # noqa: E402
     PERMITTABLE_EXCEPTION_OUTCOMES,
     ExceptionOrigin,
     ExceptionPolicy,
+    GateResult,
+    RequiredGates,
     ExceptionRecord,
     FindingLocation,
     InvalidVerificationRequest,
@@ -55,7 +57,8 @@ PASSING_EVIDENCE = dict(
     evaluation_date=TODAY,
     preflight=Status.PASS,
     required_scanner_integrity=Status.PASS,
-    required_validator_states=(Status.PASS,),
+    required_gates=RequiredGates(validator_ids=("terraform_hcl_parse",)),
+    validator_results=(GateResult("terraform_hcl_parse", Status.PASS),),
     regression_policy=Status.PASS,
     suppression_policy=Status.PASS,
 )
@@ -169,7 +172,7 @@ def test_zero_targets_is_an_invalid_request() -> None:
 def test_no_required_validator_is_an_invalid_request() -> None:
     with pytest.raises(InvalidVerificationRequest):
         RunObservation(target_decisions=(fixed(),),
-                       **{**PASSING_EVIDENCE, "required_validator_states": ()})
+                       **{**PASSING_EVIDENCE, "validator_results": ()})
 
 
 def test_invalid_request_has_its_own_exit_code() -> None:
@@ -458,15 +461,18 @@ VERDICT_TABLE = [
     ("preflight failure", run_with(fixed(), preflight=Status.ERROR),
      Verdict.INCONCLUSIVE),
     ("validator says the artifact is invalid",
-     run_with(fixed(), required_validator_states=(Status.FAIL,)), Verdict.FAILED),
+     run_with(fixed(), validator_results=(GateResult("terraform_hcl_parse", Status.FAIL),)), Verdict.FAILED),
     ("validator could not run",
-     run_with(fixed(), required_validator_states=(Status.UNSUPPORTED,)),
+     run_with(fixed(), validator_results=(GateResult("terraform_hcl_parse", Status.UNSUPPORTED),)),
      Verdict.INCONCLUSIVE),
     ("oracle disproves the repair",
-     run_with(fixed(), required_oracle_states=(Status.FAIL,)), Verdict.FAILED),
+     run_with(fixed(), required_gates=RequiredGates(("terraform_hcl_parse",), ("bucket_oracle",)),
+                       oracle_results=(GateResult("bucket_oracle", Status.FAIL),)), Verdict.FAILED),
     ("oracle could not decide",
-     run_with(fixed(), required_oracle_states=(Status.ERROR,)), Verdict.INCONCLUSIVE),
-    ("oracle passes", run_with(fixed(), required_oracle_states=(Status.PASS,)),
+     run_with(fixed(), required_gates=RequiredGates(("terraform_hcl_parse",), ("bucket_oracle",)),
+                       oracle_results=(GateResult("bucket_oracle", Status.ERROR),)), Verdict.INCONCLUSIVE),
+    ("oracle passes", run_with(fixed(), required_gates=RequiredGates(("terraform_hcl_parse",), ("bucket_oracle",)),
+                       oracle_results=(GateResult("bucket_oracle", Status.PASS),)),
      Verdict.VERIFIED),
     ("coverage decreased on a required scanner",
      run_with(fixed(), coverage_decreased_on_required_scanner=True),
@@ -491,10 +497,16 @@ def test_verdict_decision_table(name: str, run: RunObservation,
                                        Status.PARTIAL, Status.INCONCLUSIVE,
                                        Status.SKIPPED])
 def test_every_undecided_gate_state_yields_inconclusive(undecided: Status) -> None:
-    assert decide(run_with(fixed(), required_validator_states=(undecided,))
-                  ) is Verdict.INCONCLUSIVE
-    assert decide(run_with(fixed(), required_oracle_states=(undecided,))
-                  ) is Verdict.INCONCLUSIVE
+    """Both a validator and an oracle in any undecided state must be INCONCLUSIVE."""
+    assert decide(run_with(
+        fixed(),
+        validator_results=(GateResult("terraform_hcl_parse", undecided),),
+    )) is Verdict.INCONCLUSIVE
+    assert decide(run_with(
+        fixed(),
+        required_gates=RequiredGates(("terraform_hcl_parse",), ("bucket_oracle",)),
+        oracle_results=(GateResult("bucket_oracle", undecided),),
+    )) is Verdict.INCONCLUSIVE
 
 
 @pytest.mark.parametrize("state,expected", [
@@ -536,7 +548,8 @@ def test_skipped_is_accepted_only_when_the_gate_is_explicitly_optional() -> None
 
 def test_undecided_dominates_definite_failure() -> None:
     assert decide(run_with(TargetDecision("T1", Outcome.STILL_PRESENT, "aws_s3_bucket.data"),
-                           required_oracle_states=(Status.ERROR,))
+                           required_gates=RequiredGates(("terraform_hcl_parse",), ("bucket_oracle",)),
+                       oracle_results=(GateResult("bucket_oracle", Status.ERROR),))
                   ) is Verdict.INCONCLUSIVE
 
 

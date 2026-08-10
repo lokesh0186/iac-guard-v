@@ -125,6 +125,14 @@ boolean is what made audit finding F6 possible, and the boolean flags in the
 specification reference model are a scenario-writing convenience that product code must
 not imitate.
 
+**Immutability must be tested, not asserted.** Two designs that looked immutable were
+not: a frozen dataclass holding the caller's `dict`, and a `__slots__` class exposing a
+`MappingProxyType` whose *object* was still assignable. Domain collections are frozen
+slotted dataclasses whose fields are set only during construction, records are
+canonically sorted, and public constructors rebuild rather than alias what the caller
+passed. Subclasses and lookalikes are rejected at the boundary, because `isinstance`
+would accept an override of `get`.
+
 **Malformed input is rejected at the boundary.** Configuration, case bundles, and API
 arguments are validated against their schemas before anything runs; unknown enum values,
 unknown keys, non-boolean flags, and blank identities are usage errors (exit code 2).

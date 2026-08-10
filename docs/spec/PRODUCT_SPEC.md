@@ -71,7 +71,9 @@ artifacts.
 | F-09a | Validate every input at the boundary: enum membership, boolean types, date types, non-blank canonical identity and scope, valid line ranges, closed optional-gate names. Malformed input is exit code 2, never `PASS` | P0 |
 | F-09b | Require explicit gate evidence: preflight, integrity, at least one validator, regression policy, suppression policy. No gate result is ever defaulted to `PASS` | P0 |
 | F-09c | Take evaluation time from the execution context, record it in the report, and treat exception windows as inclusive on both bounds | P0 |
-| F-09d | Deeply immutable domain objects: collections copied and frozen at construction so later external mutation cannot change a verdict | P0 |
+| F-09d | Deeply immutable domain objects: collections copied and frozen at construction, canonically ordered, rebuilt rather than aliased, with subclasses and lookalikes rejected, so no later external mutation can change a verdict | P0 |
+| F-09e | Separate validators for identifiers, resource scopes, and repository paths; reserved placeholders rejected; `target_scope` mandatory with no default; identifiers Unicode-normalised before duplicate detection | P0 |
+| F-09f | Required gates are named identities: observed gate results must cover exactly the required set, and missing, duplicate, or substituted gates are invalid requests | P0 |
 | F-10 | `doctor` reports detected tools, versions, support, and exact install guidance | P0 |
 | F-11 | `demo` shows verified, failed, suppressed, and inconclusive on bundled fixtures | P0 |
 | F-12 | Checkov adapter with contract fixtures for the research and product versions | P0 |
