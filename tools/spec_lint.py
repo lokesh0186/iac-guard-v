@@ -63,8 +63,31 @@ REQUIRED_SECTIONS = {
                          "Evidence hygiene"],
 }
 
-# Tokens that look like enums but are not ours.
-ALLOWLIST = {
+# Tokens that look like enum values but are not semantic enums: verifier diagnostic
+# codes, freeze/replay result labels, path variables, filenames, and abbreviations.
+# Diagnostic codes are deliberately listed rather than defined in the semantics
+# document: they describe how a tool failed, not what a verification outcome means.
+DIAGNOSTIC_CODES = {
+    "INDEX_MODE_CHANGED", "PHYSICAL_MODE_CHANGED", "SYMLINK_IN_PARENT_COMPONENT",
+    "SYMLINKED_DIRECTORY_UNDER_FROZEN_PREFIX", "UNLISTED_PHYSICAL_FILE_UNDER_FROZEN_PREFIX",
+    "PATH_ESCAPES_REPOSITORY", "NOT_A_REGULAR_FILE", "TAG_BINDING_REQUIRED",
+    "TAG_NOT_ANNOTATED", "TAG_COMMIT_MISMATCH", "TAG_ROOT_ABSENT", "TAG_ROOT_AMBIGUOUS",
+    "TAG_ROOT_MISMATCH", "TAG_TREE_PATH_NOT_IN_MANIFEST", "MANIFEST_PATH_NOT_IN_TAG_TREE",
+    "TAG_TREE_MODE_MISMATCH", "TAG_TREE_BLOB_MISMATCH", "TAG_TREE_NON_BLOB",
+    "MANIFEST_DUPLICATE_PATHS", "SNAPSHOT_BINDING_REQUIRED",
+    "EXEC_BIT_FIDELITY_UNAVAILABLE", "TAG_BINDING_SKIPPED",
+}
+
+# Recorded owner-decision states. Like diagnostic codes, these are not verification
+# outcomes, so they are listed rather than defined in the semantics document.
+DECISION_LABELS = {
+    "KEEP_UNCHANGED_PENDING_RIGHTS_CONFIRMATION",
+}
+
+# Names of the sets above, when a document refers to them by name.
+META_NAMES = {"DIAGNOSTIC_CODES", "DECISION_LABELS", "ALLOWLIST", "META_NAMES"}
+
+ALLOWLIST = DIAGNOSTIC_CODES | DECISION_LABELS | META_NAMES | {
     "MANIFEST_ROOT", "LEGACY_REPLAY_RESULT", "NO_RESULTS_STRUCTURE",
     "UNTRUSTED_VERSION_DRIFT", "PINNED_SCANNER", "SEMANTIC_MATCH", "SEMANTIC_DIFF",
     "NEEDS_INIT", "ADDED_TRACKED_FILE_UNDER_FROZEN_PREFIX",

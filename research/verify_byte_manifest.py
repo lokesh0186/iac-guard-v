@@ -263,11 +263,21 @@ def main() -> int:  # noqa: C901 - a verifier is a list of checks
                 )
             annotation = git(root, "cat-file", "tag", args.tag)
             found_roots = ROOT_IN_TAG.findall(annotation)
+            # Exactly one root, not "the right one is in there somewhere". An
+            # annotation carrying several roots is ambiguous provenance: a reader
+            # cannot tell which one the freeze claims, and a lenient parser would
+            # accept a forged root sitting beside the real one.
             if not found_roots:
                 failures.append(
                     f"TAG_ROOT_ABSENT: tag {args.tag} annotation records no MANIFEST_ROOT"
                 )
-            elif recorded_root not in found_roots:
+            elif len(found_roots) > 1:
+                failures.append(
+                    f"TAG_ROOT_AMBIGUOUS: tag {args.tag} annotation records "
+                    f"{len(found_roots)} MANIFEST_ROOT values "
+                    f"({', '.join(r[:12] + '…' for r in found_roots)}); exactly one is required"
+                )
+            elif found_roots[0] != recorded_root:
                 failures.append(
                     f"TAG_ROOT_MISMATCH: tag annotation MANIFEST_ROOT {found_roots[0]} != "
                     f"sidecar {recorded_root}"

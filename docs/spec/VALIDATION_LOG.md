@@ -22,7 +22,7 @@ right now.
 | --- | --- |
 | Frozen snapshot commit | `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5` |
 | Branch | `adoption/p1-research-and-spec` |
-| Verified at commit | `e636b4fb463dbda2bc1ced2e40347b7622553221` |
+| Verified at commit | `ce2d2a2` then the semantic-consistency commit below |
 | Python | 3.11.5 |
 | git | 2.50.1 |
 | Docker | 29.6.2 |
@@ -388,7 +388,28 @@ The linter fails on a real gap. Removing one enum definition:
 FAIL
 ```
 
-### C.1 Executable semantic truth tables
+The final Gate C run reports **zero warnings**: verifier diagnostic codes such as
+`INDEX_MODE_CHANGED` are now declared in a named `DIAGNOSTIC_CODES` set, since they
+describe how a tool failed rather than what a verification outcome means.
+
+### C.1 Semantic consistency corrections
+
+Review 1 found four places where the document and the executable reference model
+disagreed. All four are corrected, and each correction has tests:
+
+| Contradiction | Correction |
+| --- | --- |
+| V5 treated `files_parsed` or `checks_loaded` below the **baseline** as `PARTIAL`, contradicting §5.1 | V5 now compares against the independently computed eligible candidate set; `checks_loaded` only signals drift when it contradicts the locked ruleset inventory |
+| the written ordering evaluated counts before evidence sufficiency, while the model evaluated evidence first | evidence sufficiency is now documented as a prerequisite for every count-based outcome, ahead of `PARTIALLY_FIXED`, `STILL_PRESENT` and `FIXED` |
+| `LOCATION_CHANGED` was "matches `RELOCATED` but not `EXACT`", which a line-only move can never satisfy because lines are excluded from the `EXACT` key | it is now a metadata delta over matched findings: `file_path`, `start_line` or `end_line` changed (§5.2) |
+| oracle state was inside the `FIXED` predicate **and** the whole-run rule claimed a failing oracle yields `FAILED`, which is unreachable | oracles are gates, not classifiers (§4.3). Target classification uses structural and scanner evidence only; typed validator and oracle states are applied at verdict time |
+
+Validators and oracles now carry the full `Status` vocabulary. `FAIL` means the
+artifact or repair is demonstrably wrong and yields `FAILED`; `ERROR`, `TIMEOUT`,
+`UNSUPPORTED`, `PARTIAL`, `INCONCLUSIVE` and `SKIPPED` mean the check did not complete
+and yield `INCONCLUSIVE`.
+
+### C.2 Executable semantic truth tables
 
 Enum names existing is not the same as outcome predicates being coherent. The
 specification's predicates are transcribed into `tests/spec/spec_reference.py` and
@@ -396,11 +417,17 @@ exercised by `tests/spec/test_semantics_truth_table.py`:
 
 ```console
 $ python3 -m pytest tests/spec -q
-.......................................                                  [100%]
-39 passed in 0.21s
+...................................................................      [100%]
+67 passed in 0.19s
 ```
 
-Proven properties: every one of the ten target outcomes is reachable; the count
+Proven properties: every one of the ten target outcomes is reachable; insufficient
+occurrence evidence outranks the count rules for `M == 0`, `0 < M < N` and `M >= N`
+alike, while still yielding to stronger structural signals; a line-only move is
+observable as `LOCATION_CHANGED` even though the stable identity is unchanged; every
+undecided gate state yields `INCONCLUSIVE` for both validators and oracles; an
+undecided gate dominates a definite defect; target classification takes no oracle
+input, so the previously impossible test state cannot be constructed; the count
 predicates for `PARTIALLY_FIXED`, `STILL_PRESENT`, and `FIXED` are disjoint and total
 across a 5x7 grid of `(N, M)`; classification is total across all 256 combinations of
 the eight observation flags; `SUPPRESSED` and `OUT_OF_SCOPE` cannot collide; `M == 0`

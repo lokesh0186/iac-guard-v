@@ -85,13 +85,33 @@ def test_root_digest_lives_in_the_sidecar() -> None:
 
 
 def test_manifest_is_bound_to_the_freeze_tag() -> None:
-    """The sidecar root must equal the root recorded in the tag annotation."""
+    """The tag annotation must declare exactly one root, equal to the sidecar root."""
+    import re
+
     sidecar = json.loads(MANIFEST.with_suffix(".root").read_text(encoding="utf-8"))
     annotation = subprocess.run(
         ["git", "-C", str(REPO), "cat-file", "tag", "qrs-2026-replication-v1"],
         capture_output=True, text=True, check=True,
     ).stdout
-    assert f"MANIFEST_ROOT: {sidecar['manifest_root']}" in annotation
+    # Whitespace-tolerant, matching the verifier: the message aligns its columns.
+    roots = re.findall(r"MANIFEST_ROOT:\s*([0-9a-f]{64})", annotation)
+    assert len(roots) == 1, f"expected exactly one MANIFEST_ROOT, found {len(roots)}"
+    assert roots[0] == sidecar["manifest_root"]
+
+
+def test_freeze_tag_message_points_at_the_right_place() -> None:
+    """The tagged commit predates the verifier; the message must say so."""
+    annotation = subprocess.run(
+        ["git", "-C", str(REPO), "cat-file", "tag", "qrs-2026-replication-v1"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert "NOT CONTAINED IN THIS SNAPSHOT" in annotation
+    tagged_tree = subprocess.run(
+        ["git", "-C", str(REPO), "ls-tree", "-r", "--name-only",
+         "qrs-2026-replication-v1"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert "research/verify_byte_manifest.py" not in tagged_tree
 
 
 # --------------------------------------------------------------------------- #

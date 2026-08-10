@@ -98,7 +98,10 @@ Environment: `research/VALIDATED_REPLAY_ENVIRONMENT.json`.
   artifacts, each citing a source file, a line where applicable, and that file's
   SHA-256; and **10 fields explicitly `not_recorded`**.
 - `research/VALIDATED_REPLAY_ENVIRONMENT.json` — the environment that replayed the
-  data on 2026-08-09 (CPython 3.11.5, pandas 2.0.3, numpy 1.26.4, scipy 1.11.1).
+  data on 2026-08-09. The interpreter was CPython 3.11.5, and the **hash-locked replay
+  dependency closure is `numpy==1.26.4` and `scipy==1.11.1`**. The host also had pandas
+  2.0.3 and matplotlib 3.7.2 installed, but no analysis script imports them, so they
+  are recorded as present-on-host rather than as replay dependencies.
 
 `research/verify_reproduction_env.py` enforces the separation: a value that appears
 in the replay record cannot be presented as a historical fact, and no host,

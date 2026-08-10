@@ -161,7 +161,7 @@ range. A finding on a *different* resource address is a different finding; see �
 | `SUPPRESSED` | scope exists and is eligible, `M == 0`, and a suppression covering the scope appeared: inline skip annotation, ignore-file entry, scanner-config exclusion including path exclusion, baseline-suppression file, or custom-policy override |
 | `PARTIALLY_FIXED` | `N > 1` and `0 < M < N` |
 | `STILL_PRESENT` | `M >= N`, or (`N == 1` and `M == 1`) |
-| `FIXED` | `M == 0`, scope present and eligible, integrity `PASS`, no suppression covering the scope appeared, and every required oracle `PASS` |
+| `FIXED` | `M == 0`, scope present and eligible, integrity `PASS`, and no suppression covering the scope appeared. **Oracle results are deliberately not part of this predicate**; see §4.3 |
 | `INCONCLUSIVE` | none of the above can be established from the available evidence |
 
 ### 4.1 Ordering rule
@@ -175,11 +175,18 @@ OUT_OF_SCOPE
 FILE_DELETED_OR_RENAMED
 RESOURCE_DELETED
 SUPPRESSED
+INCONCLUSIVE             <- if occurrence evidence is insufficient
 PARTIALLY_FIXED          <- before STILL_PRESENT
 STILL_PRESENT
 FIXED
-INCONCLUSIVE
 ```
+
+Evidence sufficiency is a **prerequisite for every count-based outcome**. If the
+occurrence counts `N` or `M` cannot be established with confidence — a partially
+parsed file, an adapter that cannot express occurrence identity for this rule, an
+ambiguous rename — the outcome is `INCONCLUSIVE` regardless of what the counts appear
+to be. A count-based classification computed from counts we do not trust would be a
+guess wearing a label.
 
 Two properties this must satisfy, both covered by executable truth-table tests:
 
@@ -236,6 +243,24 @@ classification.
 
 ---
 
+### 4.3 Oracles are gates, not classifiers
+
+An earlier draft put "every required oracle `PASS`" inside the `FIXED` predicate and
+also asserted, at whole-run level, that a failing required oracle yields `FAILED`.
+Those cannot both hold: if the classifier refuses to emit `FIXED` when the oracle
+failed, the whole-run rule can never see the combination it claims to handle, and the
+test that exercised it was constructing an impossible state.
+
+The separation is therefore strict:
+
+- **Target outcomes** are derived from structural and scanner evidence only: scope
+  existence, eligibility, suppression, deletion, integrity, and occurrence counts.
+- **Oracle results** are typed gate results evaluated at whole-run verdict time
+  (§7), alongside validators, integrity, regression, and policy.
+
+This also keeps the project's own rule intact: classification describes what happened,
+gates decide what it means.
+
 ## 5. Regression delta classes
 
 Computed over finding **multisets**, never sets of rule IDs.
@@ -254,7 +279,7 @@ conflated:
 | Class | Definition | Default |
 | --- | --- | --- |
 | `NEW_FINDING` | candidate finding with no baseline match at `EXACT` or `RELOCATED` | fail at or above `severity_floor` |
-| `LOCATION_CHANGED` | matches at `RELOCATED` but not `EXACT`: same resource, new file or line | advisory |
+| `LOCATION_CHANGED` | a matched finding whose `file_path`, `start_line`, or `end_line` changed (§5.2) | advisory |
 | `SEVERITY_INCREASED` | same identity, higher severity | fail |
 | `SCOPE_EXPANDED` | the same rule now matches additional resource addresses | fail |
 | `RULE_SUBSTITUTED` | the same `EXACT` control now fails under a different native rule id after drift | inconclusive |
@@ -296,6 +321,33 @@ Three situations a raw count comparison confuses, now separated:
 
 Baseline and candidate file counts remain recorded as evidence because they are useful
 context. They are not the gate.
+
+### 5.2 `LOCATION_CHANGED` is a metadata delta, not a tier subtraction
+
+An earlier draft defined it as "matches at `RELOCATED` but not `EXACT`". That is
+unsatisfiable for a line-only move: line numbers are deliberately excluded from the
+`EXACT` key (§3.3), so moving a resource down ten lines still matches at `EXACT` and
+the subtraction yields nothing.
+
+Location change is therefore computed independently of the identity tier, from the
+metadata of findings that already matched:
+
+```
+identity_match    = matched at EXACT or RELOCATED
+location_changed  = identity_match AND (
+                      baseline.file_path  != candidate.file_path  OR
+                      baseline.start_line != candidate.start_line OR
+                      baseline.end_line   != candidate.end_line )
+```
+
+| Change | Signals |
+| --- | --- |
+| same resource, lines shifted | `LOCATION_CHANGED` (advisory) |
+| same resource, moved to another file | `LOCATION_CHANGED` (advisory) |
+| rule now on a **different** resource address | `RESOLVED_FINDING` on the old resource **plus** `NEW_FINDING` on the new one |
+
+Line numbers stay out of the stable fingerprint, and location drift stays observable.
+Both properties are required; neither is sacrificed to the other.
 
 ## 6. Gates
 
@@ -351,9 +403,14 @@ The gate that makes audit finding F1 impossible. Required evidence per scanner r
 3. `files_eligible > 0` and `files_discovered == 0`;
 4. `files_parsed` less than `files_discovered` without an explicit allowance;
 5. `files_failed > 0` or `checks_failed_to_execute > 0`;
-6. `files_parsed` or `checks_loaded` lower in the candidate than the baseline;
-7. version outside the supported range, or differing between baseline and candidate;
-8. timeout or termination by signal.
+6. `files_parsed` lower than the **independently computed eligible candidate set**
+   (§5.1). A raw comparison against the baseline count is explicitly *not* used: a
+   legitimate file removal lowers the candidate count without any loss of coverage;
+7. `checks_loaded` disagreeing with the locked expected ruleset inventory. A count
+   merely lower than the baseline is not sufficient — that is `RULE_OR_SCANNER_DRIFT`
+   territory only when it contradicts the lock;
+8. version outside the supported range, or differing between baseline and candidate;
+9. timeout or termination by signal.
 
 Success is never inferred from exit code alone, and failure is never inferred from
 the presence of findings.
@@ -380,25 +437,39 @@ converts a `DISAGREEMENT` into a defect claim by itself.
 Evaluated in this order, so that "we could not tell" can never be reported as either a
 pass or a real negative result:
 
+Validators and oracles carry the full `Status` vocabulary, not a boolean, because
+"the artifact is definitively invalid" and "we could not check the artifact" have
+different meanings and must not produce the same verdict.
+
 ```
 1. INCONCLUSIVE if any of:
      P0 != PASS
-     any required validator (V1) != PASS
+     any required validator  (V1) in {ERROR, TIMEOUT, UNSUPPORTED, PARTIAL, INCONCLUSIVE}
+     any required oracle     (V6) in {ERROR, TIMEOUT, UNSUPPORTED, PARTIAL, INCONCLUSIVE}
      any required scanner integrity (V5) != PASS
      any required target outcome in {SCANNER_ERROR, RULE_OR_SCANNER_DRIFT, INCONCLUSIVE}
-     COVERAGE_DECREASED on a required scanner            (candidate-internal, §5.1)
+     COVERAGE_DECREASED on a required scanner        (candidate-internal, §5.1)
      RULE_SUBSTITUTED on a required target
-     any required gate is ERROR, TIMEOUT, UNSUPPORTED, or PARTIAL
 
 2. FAILED if any of:
-     POLICY_DRIFT is present                             (a definite negative result)
+     any required validator (V1) == FAIL             (the artifact is demonstrably invalid)
+     any required oracle    (V6) == FAIL             (an independent oracle disproves the repair)
+     POLICY_DRIFT is present                         (a definite negative result)
      any required target outcome is not FIXED and is not permitted by trusted policy
      regression policy (V3) != PASS
      suppression policy != PASS
-     any required oracle (V6) != PASS
 
 3. VERIFIED otherwise
 ```
+
+| Gate result | Meaning | Verdict contribution |
+| --- | --- | --- |
+| validator `PASS` | syntax and schema hold | continue |
+| validator `FAIL` | the candidate is invalid IaC | `FAILED` |
+| validator `ERROR` / `TIMEOUT` / `UNSUPPORTED` / `PARTIAL` | validation could not complete | `INCONCLUSIVE` |
+| oracle `PASS` | independent evidence supports the repair | continue |
+| oracle `FAIL` | independent evidence contradicts the repair | `FAILED` |
+| oracle `ERROR` / `TIMEOUT` / `UNSUPPORTED` / `PARTIAL` | the oracle could not decide | `INCONCLUSIVE` |
 
 Step 1 dominating step 2 is deliberate. If a scanner crashed **and** a target is still
 present, the honest answer is `INCONCLUSIVE`: the crash means the finding set is not

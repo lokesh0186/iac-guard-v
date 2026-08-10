@@ -218,6 +218,56 @@ def test_builder_refuses_unbound_canonical_output(frozen_repo: Path) -> None:
     assert "SNAPSHOT_BINDING_REQUIRED" in proc.stdout
 
 
+# --------------------------------------------------------------------------- #
+# E. ambiguous provenance: a forged root sitting beside the real one
+# --------------------------------------------------------------------------- #
+def test_attack_e_duplicate_tag_roots_are_rejected(frozen_repo: Path) -> None:
+    """A tag annotation must declare exactly one MANIFEST_ROOT.
+
+    Accepting "the correct root appears somewhere among several" lets an attacker add a
+    root without removing the real one, leaving provenance that reads as valid to a
+    lenient parser and as contradictory to a human.
+    """
+    sidecar = json.loads(
+        (frozen_repo / "research" / "qrs2026-byte-manifest.root").read_text(encoding="utf-8")
+    )
+    real = sidecar["manifest_root"]
+    fake = "0" * 64
+    git(frozen_repo, "tag", "-d", TAG)
+    git(frozen_repo, "tag", "-a", TAG,
+        subprocess.run(["git", "-C", str(frozen_repo), "rev-parse", "HEAD"],
+                       capture_output=True, text=True, check=True).stdout.strip(),
+        "-m", f"probe\nMANIFEST_ROOT: {fake}\nMANIFEST_ROOT: {real}\n")
+
+    result = verify(frozen_repo)
+    assert result["status"] == "FAIL"
+    assert "TAG_ROOT_AMBIGUOUS" in codes(result), result["failures"]
+
+
+def test_tag_without_any_root_is_rejected(frozen_repo: Path) -> None:
+    git(frozen_repo, "tag", "-d", TAG)
+    git(frozen_repo, "tag", "-a", TAG,
+        subprocess.run(["git", "-C", str(frozen_repo), "rev-parse", "HEAD"],
+                       capture_output=True, text=True, check=True).stdout.strip(),
+        "-m", "no root recorded here")
+    result = verify(frozen_repo)
+    assert result["status"] == "FAIL"
+    assert "TAG_ROOT_ABSENT" in codes(result), result["failures"]
+
+
+def test_single_wrong_root_is_a_mismatch_not_ambiguity(frozen_repo: Path) -> None:
+    git(frozen_repo, "tag", "-d", TAG)
+    git(frozen_repo, "tag", "-a", TAG,
+        subprocess.run(["git", "-C", str(frozen_repo), "rev-parse", "HEAD"],
+                       capture_output=True, text=True, check=True).stdout.strip(),
+        "-m", f"probe\nMANIFEST_ROOT: {'1' * 64}\n")
+    result = verify(frozen_repo)
+    assert result["status"] == "FAIL"
+    failure_codes = codes(result)
+    assert "TAG_ROOT_MISMATCH" in failure_codes, result["failures"]
+    assert "TAG_ROOT_AMBIGUOUS" not in failure_codes
+
+
 def test_builder_refuses_canonical_name_for_unbound_output(frozen_repo: Path) -> None:
     proc = run(str(BUILDER), "--root", str(frozen_repo),
                "--output-dir", str(frozen_repo / "research"),

@@ -1,8 +1,9 @@
 # ADR-0011 — Hosting of `paper.pdf` in the public repository
 
-- Status: **Open — owner decision required**
+- Status: **Interim decision recorded — final choice open**
 - Date: 2026-08-09
-- Blocks: pushing the `qrs-2026-replication-v1` tag publicly; merging PR 1
+- Blocks: pushing the `qrs-2026-replication-v1` tag publicly
+- Does **not** block: merging PR 1 (interim decision below)
 - Does not block: the audit, the freeze manifest, the replay tooling, the
   specification package, or any Phase D work
 
@@ -61,8 +62,18 @@ Three questions follow, and none of them can be answered from the repository:
 
 ## Decision
 
-**Deferred to the owner.** No option is executed in Phase B. The file is left
-byte-unchanged, and the freeze tag is created locally but not pushed.
+**Interim owner decision, 2026-08-09: `KEEP_UNCHANGED_PENDING_RIGHTS_CONFIRMATION`.**
+
+- `paper.pdf` is not modified, deleted, moved, or newly packaged.
+- No history is rewritten.
+- **PR 1 may merge** on this basis, so the PDF question does not block engineering.
+- The public freeze tag **is not pushed** until redistribution rights are confirmed or
+  the repository is remediated.
+
+This records a decision state rather than resolving the underlying rights question. It
+does not resolve, and cannot resolve, distribution that has already occurred: the blob
+has been publicly reachable since 2026-07-08 under two names (see Context 5). The final
+choice among options A–D below remains open and requires answers to Q1–Q3.
 
 ## Options
 
@@ -126,11 +137,22 @@ cached views and forks.
 
 ## Owner action required
 
-1. Answer Q1 from the signed agreement; if unclear, ask the QRS 2026 proceedings
-   chair or Springer.
+1. Answer Q1 from the signed agreement; if unclear, ask the QRS 2026 proceedings chair
+   or Springer.
 2. Answer Q2 and Q3.
-3. Choose A, B, C, or D and record it here.
-4. Until then: the tag stays local and PR 1 stays unmerged.
+3. Choose A, B, C, or D and record it here, superseding the interim decision.
+4. Until then: the tag stays local. PR 1 may merge under
+   `KEEP_UNCHANGED_PENDING_RIGHTS_CONFIRMATION`.
+
+## Related: the freeze tag message
+
+Separate from the rights question, the tag's original message told readers to run
+`research/verify_byte_manifest.py`, which does not exist at the tagged
+pre-productization commit. The local tag has been recreated from
+`research/TAG_MESSAGE_REPLACEMENT.txt`, which states that verification tooling lives on
+the productization branch and is run against the tag, and which declares exactly one
+`MANIFEST_ROOT` — the verifier now rejects an annotation carrying more than one.
+The tag remains unpushed.
 
 ## Verification
 

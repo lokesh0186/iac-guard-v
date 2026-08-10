@@ -1,18 +1,44 @@
-"""Reference model of docs/spec/VERIFICATION_SEMANTICS.md §4 and §4.2.
+"""Reference model of docs/spec/VERIFICATION_SEMANTICS.md §4, §5.2, and §7.
 
 This is **not** product code and nothing in `src/` may import it. It exists so the
 specification's predicates can be executed and tested before Phase D writes the engine,
 and so Phase D has an oracle to conform to. If this model and the document disagree,
 the document is authoritative and this file is the defect.
 
-Deliberately written as a flat, readable transcription of the ordering rule rather than
-as clever code: its value is that a reader can diff it against the table in the
+Deliberately written as a flat transcription of the ordering rules rather than as
+clever code: its value is that a reader can diff it against the tables in the
 specification line by line.
+
+Two corrections applied after review:
+
+* validators and oracles carry the full `Status` vocabulary, not booleans, because
+  "definitively invalid" and "could not be checked" must not produce the same verdict;
+* oracle results are no longer part of the target-outcome predicate. Keeping them there
+  made the whole-run rule "required oracle failed ⇒ FAILED" unreachable, because the
+  classifier would never have emitted `FIXED` in the first place.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+
+
+class Status(str, Enum):
+    PASS = "PASS"
+    FAIL = "FAIL"
+    ERROR = "ERROR"
+    TIMEOUT = "TIMEOUT"
+    UNSUPPORTED = "UNSUPPORTED"
+    SKIPPED = "SKIPPED"
+    PARTIAL = "PARTIAL"
+    INCONCLUSIVE = "INCONCLUSIVE"
+
+
+#: Gate states that mean "we could not establish anything", per §7.
+UNDECIDED_STATES = frozenset(
+    {Status.ERROR, Status.TIMEOUT, Status.UNSUPPORTED, Status.PARTIAL,
+     Status.INCONCLUSIVE, Status.SKIPPED}
+)
 
 
 class Outcome(str, Enum):
@@ -34,9 +60,12 @@ class Verdict(str, Enum):
     INCONCLUSIVE = "INCONCLUSIVE"
 
 
+# --------------------------------------------------------------------------- #
+# §4  target classification: structural and scanner evidence only
+# --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
 class TargetObservation:
-    """Everything the classifier is allowed to look at, per §4."""
+    """Everything the classifier may look at. Note the absence of oracle state."""
 
     baseline_occurrences: int          # N, >= 1 by construction
     candidate_matches: int             # M, at EXACT or RELOCATED tier
@@ -46,8 +75,7 @@ class TargetObservation:
     target_file_present: bool = True
     target_resource_present: bool = True
     suppression_covering_scope_added: bool = False
-    required_oracles_pass: bool = True
-    evidence_sufficient: bool = True
+    occurrence_evidence_sufficient: bool = True
 
 
 def classify(obs: TargetObservation) -> Outcome:
@@ -64,7 +92,10 @@ def classify(obs: TargetObservation) -> Outcome:
         return Outcome.RESOURCE_DELETED
     if obs.candidate_matches == 0 and obs.suppression_covering_scope_added:
         return Outcome.SUPPRESSED
-    if not obs.evidence_sufficient:
+
+    # Evidence sufficiency gates every count-based outcome. A classification computed
+    # from counts we do not trust would be a guess wearing a label.
+    if not obs.occurrence_evidence_sufficient:
         return Outcome.INCONCLUSIVE
 
     n, m = obs.baseline_occurrences, obs.candidate_matches
@@ -72,50 +103,88 @@ def classify(obs: TargetObservation) -> Outcome:
         return Outcome.PARTIALLY_FIXED
     if m >= n or (n == 1 and m == 1):
         return Outcome.STILL_PRESENT
-    if m == 0 and obs.required_oracles_pass:
-        return Outcome.FIXED
-    return Outcome.INCONCLUSIVE
+    return Outcome.FIXED
 
 
-# Outcomes that mean "we could not establish anything", per the §4.2 table.
 INCONCLUSIVE_OUTCOMES = frozenset(
     {Outcome.SCANNER_ERROR, Outcome.RULE_OR_SCANNER_DRIFT, Outcome.INCONCLUSIVE}
 )
 PASSING_OUTCOMES = frozenset({Outcome.FIXED})
 
 
+# --------------------------------------------------------------------------- #
+# §5.2  location change is a metadata delta, not a tier subtraction
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class FindingLocation:
+    file_path: str
+    start_line: int
+    end_line: int
+
+
+def location_changed(
+    baseline: FindingLocation, candidate: FindingLocation, identity_matched: bool
+) -> bool:
+    """True when a matched finding moved.
+
+    Independent of the identity tier on purpose: line numbers are excluded from the
+    EXACT key, so a line-only move still matches EXACT and could never be detected by
+    "RELOCATED but not EXACT".
+    """
+    if not identity_matched:
+        return False
+    return (
+        baseline.file_path != candidate.file_path
+        or baseline.start_line != candidate.start_line
+        or baseline.end_line != candidate.end_line
+    )
+
+
+# --------------------------------------------------------------------------- #
+# §7  whole-run verdict, with typed gate states
+# --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
 class RunObservation:
-    """Whole-run inputs for the §4.2 / §7 decision table."""
-
     target_outcomes: tuple[Outcome, ...]
+    required_validator_states: tuple[Status, ...] = (Status.PASS,)
+    required_oracle_states: tuple[Status, ...] = ()
+    required_scanner_integrity: Status = Status.PASS
+    coverage_decreased_on_required_scanner: bool = False
+    rule_substituted_on_required_target: bool = False
     policy_drift: bool = False
-    required_validators_pass: bool = True
-    required_scanner_integrity_ok: bool = True
-    regression_policy_pass: bool = True
-    required_oracles_pass: bool = True
+    regression_policy: Status = Status.PASS
+    suppression_policy: Status = Status.PASS
+    preflight: Status = Status.PASS
     permitted_outcomes: frozenset = field(default_factory=frozenset)
 
 
 def decide(run: RunObservation) -> Verdict:
-    """Whole-run verdict, per §7. Inconclusive dominates failure."""
-    if not run.required_scanner_integrity_ok:
-        return Verdict.INCONCLUSIVE
-    if any(o in INCONCLUSIVE_OUTCOMES for o in run.target_outcomes):
-        return Verdict.INCONCLUSIVE
-    if not run.required_validators_pass:
+    """Inconclusive dominates failure: a broken run establishes nothing either way."""
+    undecided = (
+        run.preflight is not Status.PASS
+        or run.required_scanner_integrity is not Status.PASS
+        or any(s in UNDECIDED_STATES for s in run.required_validator_states)
+        or any(s in UNDECIDED_STATES for s in run.required_oracle_states)
+        or any(o in INCONCLUSIVE_OUTCOMES for o in run.target_outcomes)
+        or run.coverage_decreased_on_required_scanner
+        or run.rule_substituted_on_required_target
+    )
+    if undecided:
         return Verdict.INCONCLUSIVE
 
-    # POLICY_DRIFT is a definite negative result about the change, not missing evidence.
-    if run.policy_drift:
-        return Verdict.FAILED
     unresolved = [
         o for o in run.target_outcomes
         if o not in PASSING_OUTCOMES and o not in run.permitted_outcomes
     ]
-    if unresolved or not run.regression_policy_pass or not run.required_oracles_pass:
-        return Verdict.FAILED
-    return Verdict.VERIFIED
+    failed = (
+        Status.FAIL in run.required_validator_states
+        or Status.FAIL in run.required_oracle_states
+        or run.policy_drift
+        or bool(unresolved)
+        or run.regression_policy is not Status.PASS
+        or run.suppression_policy is not Status.PASS
+    )
+    return Verdict.FAILED if failed else Verdict.VERIFIED
 
 
 EXIT_CODES = {Verdict.VERIFIED: 0, Verdict.FAILED: 1, Verdict.INCONCLUSIVE: 3}

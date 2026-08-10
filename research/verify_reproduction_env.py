@@ -17,13 +17,14 @@ Checks performed:
   C. No host/interpreter/library fact is marked `evidenced` in the historical file.
   D. No value in the historical file was taken from the replay record.
   E. VALIDATED_REPLAY_ENVIRONMENT.json declares its own scope, records the replay
-     result, and agrees with requirements-reproduction.lock.
+     result, and agrees with research/requirements-replay.lock, whose pins are
+     parsed as requirement records and whose --hash entries are checked.
 
 Usage:
     python research/verify_reproduction_env.py \
         --original research/ORIGINAL_EXPERIMENT_METADATA.json \
         --replay   research/VALIDATED_REPLAY_ENVIRONMENT.json \
-        --lock     research/requirements-reproduction.lock
+        --lock     research/requirements-replay.lock
 """
 from __future__ import annotations
 
