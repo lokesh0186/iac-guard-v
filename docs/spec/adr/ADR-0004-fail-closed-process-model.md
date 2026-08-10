@@ -117,3 +117,34 @@ unexplained failure into a pass, which is precisely the defect being fixed.
 **Treat `INCONCLUSIVE` as failure and drop the state.** Rejected: it destroys the
 distinction between "your change is bad" and "our tooling is broken", and teams would
 learn to ignore the resulting noise.
+
+## Amendment, 2026-08-10: D2.2 hardened process model
+
+Ten additional fail-open behaviours were independently reproduced and are now closed:
+
+| Defect | Before | After |
+| --- | --- | --- |
+| A: leader exits, descendants survive (group not checked) | PASS; orphaned processes remain | ERROR/LINGERING_DESCENDANTS_TERMINATED; group killed |
+| B: combined output cap not enforced (100k retained under 65536 cap) | stdout+stderr independently capped only | combined cap enforced; total ≤ max_output_bytes |
+| C: canonical_dict returns raw argv and detail | secrets and local paths leak into reports | redact_argv and redact_detail applied; display_command shlex-quoted |
+| D: cleanup failure records boolean but status stays PASS | PASS despite failed scratch cleanup | ERROR/SCRATCH_CLEANUP_FAILED when command otherwise succeeded |
+| E: contradictory CommandResult states accepted | PASS with timed_out=True accepted | ProcessPolicyError on construction |
+| F: child inherits parent PATH | attacker's absolute dir reachable | MINIMAL_SYSTEM_PATH + trusted_helper_dirs only; parent PATH never inherited |
+| G: cwd without workspace_root accepted | arbitrary directory traversal | ProcessPolicyError: workspace_root required when cwd supplied |
+| H: resolved executable not recorded | no audit trail of which binary ran | resolved_executable in CommandResult and canonical_dict |
+| LD_PRELOAD/DYLD_*/PYTHONPATH reach child | preload injection possible | added to credential denylist; stripped before spawn |
+| sensitive option values visible in display | --token value visible in logs | redact_option_values strips values after --token, --password, etc. |
+
+Added to this decision:
+
+12. Process group termination always verifies the **group** is gone (os.killpg(pgid, 0)),
+    not just that the leader exited.
+13. Output caps enforce a combined invariant: stdout_retained + stderr_retained ≤ max_output_bytes.
+14. All report-facing output (canonical_dict, display_command) passes through redaction.
+15. Scratch cleanup failure is a typed gate: it cannot coexist with PASS.
+16. CommandResult rejects contradictory state combinations at construction time.
+17. Child PATH is constructed from a fixed minimal set plus explicit trusted_helper_dirs;
+    the parent process's PATH is never consulted.
+18. workspace_root is mandatory when cwd is supplied; if neither is supplied, the private
+    scratch directory is used as cwd.
+19. The resolved executable path is recorded for auditability.

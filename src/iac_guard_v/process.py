@@ -34,6 +34,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -47,6 +48,7 @@ from typing import Mapping, Sequence
 
 from .enums import Status
 from .models import DomainError, canonical_identifier, require_bool, require_int
+from .redaction import redact_argv, redact_detail, redact_paths, display_command
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +70,17 @@ CREDENTIAL_DENYLIST_PREFIXES: tuple[str, ...] = (
 CREDENTIAL_DENYLIST_NAMES: frozenset[str] = frozenset({
     "AWS_PROFILE", "KUBECONFIG", "DOCKER_HOST", "GITHUB_TOKEN", "GH_TOKEN",
     "TF_VAR_password", "TF_LOG_PATH", "NETRC", "CURLOPT_PROXY",
+    "LD_PRELOAD", "LD_LIBRARY_PATH", "PYTHONPATH", "PYTHONHOME",
+    "BASH_ENV", "ENV", "NODE_OPTIONS", "RUBYOPT", "PERL5LIB",
 })
+
+#: Prefixes for environment variables that must never reach a child (extended D2.2).
+ENV_DENYLIST_PREFIXES_EXTENDED: tuple[str, ...] = (
+    "DYLD_",
+)
+
+#: Fixed minimal system PATH — never inherit from parent process.
+MINIMAL_SYSTEM_PATH: str = "/usr/bin:/bin:/usr/sbin:/sbin"
 
 DEFAULT_TIMEOUT_SECONDS = 120
 DEFAULT_MAX_OUTPUT_BYTES = 25 * 1024 * 1024      # 25 MiB combined cap
@@ -119,7 +131,7 @@ def _resolve_executable(argv0: str, trusted_path: str | None = None) -> str:
 
     # Resolve from trusted PATH only
     if trusted_path is None:
-        trusted_path = "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+        trusted_path = MINIMAL_SYSTEM_PATH
 
     for entry in trusted_path.split(os.pathsep):
         if not _is_safe_path_entry(entry):
@@ -176,6 +188,7 @@ def build_child_environment(
         key for key in env
         if key in CREDENTIAL_DENYLIST_NAMES
         or key.startswith(CREDENTIAL_DENYLIST_PREFIXES)
+        or key.startswith(ENV_DENYLIST_PREFIXES_EXTENDED)
     )
     for key in denied:
         del env[key]
@@ -206,6 +219,9 @@ class CommandRequest:
     expected_exit_codes: tuple = (0,)
     isolated_tmpdir: bool = True
     trusted_path: str | None = None
+    trusted_helper_dirs: tuple = ()
+    sensitive_argument_indices: tuple = ()
+    sensitive_option_names: tuple = ()
 
     def __post_init__(self) -> None:
         set_ = object.__setattr__
@@ -322,10 +338,56 @@ class CommandRequest:
         if self.trusted_path is not None and type(self.trusted_path) is not str:
             raise ProcessPolicyError("trusted_path must be a string or None")
 
+        # D2.2 Defect G: Mandatory workspace boundary
+        # If cwd is supplied, workspace_root is REQUIRED.
+        if self.cwd is not None and self.workspace_root is None:
+            raise ProcessPolicyError(
+                "workspace_root is required when cwd is supplied. "
+                "A command cannot run in an arbitrary directory without a declared boundary."
+            )
+
+        # D2.2 Defect F: Validate trusted_helper_dirs
+        if type(self.trusted_helper_dirs) not in (tuple, list):
+            raise ProcessPolicyError("trusted_helper_dirs must be a tuple of Paths")
+        helper_dirs: list[Path] = []
+        for i, d in enumerate(self.trusted_helper_dirs):
+            if not isinstance(d, Path):
+                raise ProcessPolicyError(
+                    f"trusted_helper_dirs[{i}] must be a Path, got {type(d).__name__}"
+                )
+            resolved_d = d.resolve()
+            if not resolved_d.is_absolute():
+                raise ProcessPolicyError(
+                    f"trusted_helper_dirs[{i}] must be an absolute path: {d}"
+                )
+            # Must not be inside workspace
+            if self.workspace_root is not None:
+                ws = self.workspace_root  # already resolved
+                try:
+                    resolved_d.relative_to(ws)
+                    raise ProcessPolicyError(
+                        f"trusted_helper_dirs[{i}] ({resolved_d}) must not be inside "
+                        f"workspace_root ({ws})"
+                    )
+                except ValueError:
+                    pass  # Good - it's outside workspace
+            helper_dirs.append(resolved_d)
+        set_(self, "trusted_helper_dirs", tuple(helper_dirs))
+
+        # Validate sensitive_argument_indices
+        if type(self.sensitive_argument_indices) not in (tuple, list):
+            raise ProcessPolicyError("sensitive_argument_indices must be a tuple of ints")
+        set_(self, "sensitive_argument_indices", tuple(self.sensitive_argument_indices))
+
+        # Validate sensitive_option_names
+        if type(self.sensitive_option_names) not in (tuple, list):
+            raise ProcessPolicyError("sensitive_option_names must be a tuple of strings")
+        set_(self, "sensitive_option_names", tuple(self.sensitive_option_names))
+
     @property
     def display_command(self) -> str:
-        """For reports and logs. Never parsed, never executed."""
-        return " ".join(self.argv)
+        """For reports and logs. Redacted and shlex-quoted. Never parsed, never executed."""
+        return display_command(self.argv)
 
 
 @dataclass(frozen=True, slots=True)
@@ -352,6 +414,7 @@ class CommandResult:
     reason_code: str
     detail: str = ""
     scratch_cleanup_success: bool | None = None
+    resolved_executable: str = ""
 
     def __post_init__(self) -> None:
         set_ = object.__setattr__
@@ -420,6 +483,45 @@ class CommandResult:
             raise ProcessPolicyError(
                 f"scratch_cleanup_success must be bool or None, got {type(self.scratch_cleanup_success).__name__}"
             )
+        # Validate resolved_executable
+        if type(self.resolved_executable) is not str:
+            raise ProcessPolicyError(
+                f"resolved_executable must be str, got {type(self.resolved_executable).__name__}"
+            )
+
+        # D2.2 Defect E: Consistency validation — reject contradictory states
+        if self.status is Status.PASS:
+            if self.timed_out:
+                raise ProcessPolicyError(
+                    "contradictory state: PASS with timed_out=True"
+                )
+            if self.truncated:
+                raise ProcessPolicyError(
+                    "contradictory state: PASS with truncated=True"
+                )
+            if self.killed_signal is not None:
+                raise ProcessPolicyError(
+                    "contradictory state: PASS with killed_signal set"
+                )
+            if self.scratch_cleanup_success is False:
+                raise ProcessPolicyError(
+                    "contradictory state: PASS with scratch_cleanup_success=False"
+                )
+        if self.status is Status.TIMEOUT:
+            if not self.timed_out:
+                raise ProcessPolicyError(
+                    "contradictory state: TIMEOUT with timed_out=False"
+                )
+        if self.reason_code == "COMPLETED_WITHIN_CONTRACT":
+            if self.status is not Status.PASS:
+                raise ProcessPolicyError(
+                    "contradictory state: COMPLETED_WITHIN_CONTRACT with non-PASS status"
+                )
+        if self.reason_code == "DEADLINE_EXCEEDED":
+            if not self.timed_out:
+                raise ProcessPolicyError(
+                    "contradictory state: DEADLINE_EXCEEDED with timed_out=False"
+                )
 
     @property
     def stdout_sha256(self) -> str:
@@ -430,9 +532,28 @@ class CommandResult:
         return _sha256(self.stderr)
 
     def canonical_dict(self) -> dict:
-        """Digests, never the output itself: reports must not carry raw scanner text."""
-        return {
-            "argv": list(self.argv),
+        """Digests, never the output itself: reports must not carry raw scanner text.
+
+        D2.2: argv and detail are redacted; resolved_executable is included with
+        machine paths stripped but binary name preserved.
+        """
+        # Redact argv
+        safe_argv = list(redact_argv(self.argv))
+        # Redact detail
+        safe_detail = redact_detail(self.detail) if self.detail else ""
+        # Redact resolved_executable: strip machine path, keep binary name
+        if self.resolved_executable:
+            import os.path as osp
+            binary_name = osp.basename(self.resolved_executable)
+            safe_resolved = redact_paths(self.resolved_executable)
+            # If fully redacted, use binary name
+            if safe_resolved == "[PATH]":
+                safe_resolved = binary_name
+        else:
+            safe_resolved = ""
+
+        result = {
+            "argv": safe_argv,
             "status": self.status.value,
             "exit_code": self.exit_code,
             "duration_ms": self.duration_ms,
@@ -440,22 +561,39 @@ class CommandResult:
             "timed_out": self.timed_out,
             "killed_signal": self.killed_signal,
             "reason_code": self.reason_code,
-            "detail": self.detail,
+            "detail": safe_detail,
             "stdout_sha256": self.stdout_sha256,
             "stderr_sha256": self.stderr_sha256,
             "stdout_bytes": len(self.stdout),
             "stderr_bytes": len(self.stderr),
+            "resolved_executable": safe_resolved,
         }
+        if self.scratch_cleanup_success is not None:
+            result["scratch_cleanup_success"] = self.scratch_cleanup_success
+        return result
+
+
+def _process_group_alive(pgid: int) -> bool:
+    """Return True if the process group still has any member."""
+    if os.name != "posix":
+        return False
+    try:
+        os.killpg(pgid, 0)
+        return True
+    except (ProcessLookupError, PermissionError, OSError):
+        return False
 
 
 def _terminate_process_group(process: subprocess.Popen, pgid: int) -> int | None:
-    """Signal the whole group using saved pgid, wait, then kill.
+    """Signal the whole group using saved pgid, wait for GROUP disappearance, then kill.
 
-    Uses the saved pgid (= child pid when start_new_session=True) rather than
-    querying getpgid which can race if the child has already exited (Defect 5).
+    D2.2 fix: Always check if process group still exists. If it does:
+    1. SIGTERM the group
+    2. Wait for GROUP disappearance (not just leader)
+    3. If group remains, SIGKILL the group
+    4. Wait again
+    5. Reap the leader
     """
-    if process.poll() is not None:
-        return None
     used = signal.SIGTERM
     try:
         if os.name == "posix":
@@ -463,14 +601,28 @@ def _terminate_process_group(process: subprocess.Popen, pgid: int) -> int | None
         else:  # pragma: no cover
             process.terminate()
     except (ProcessLookupError, PermissionError, OSError):
+        # Group already gone
+        if process.poll() is None:
+            try:
+                process.terminate()
+            except (ProcessLookupError, PermissionError, OSError):
+                pass
         return None
 
+    # Wait for GROUP disappearance, not just leader
     deadline = time.monotonic() + _GRACE_SECONDS
     while time.monotonic() < deadline:
-        if process.poll() is not None:
+        if not _process_group_alive(pgid):
+            # Reap leader
+            if process.poll() is None:
+                try:
+                    process.wait(timeout=1.0)
+                except subprocess.TimeoutExpired:
+                    pass
             return int(used)
         time.sleep(0.05)
 
+    # Group still alive after grace period — SIGKILL
     used = signal.SIGKILL
     try:
         if os.name == "posix":
@@ -479,6 +631,15 @@ def _terminate_process_group(process: subprocess.Popen, pgid: int) -> int | None
             process.kill()
     except (ProcessLookupError, PermissionError, OSError):
         pass
+
+    # Wait for group disappearance after SIGKILL
+    kill_deadline = time.monotonic() + _GRACE_SECONDS
+    while time.monotonic() < kill_deadline:
+        if not _process_group_alive(pgid):
+            break
+        time.sleep(0.05)
+
+    # Reap the leader
     try:
         process.wait(timeout=_GRACE_SECONDS)
     except subprocess.TimeoutExpired:  # pragma: no cover
@@ -499,7 +660,14 @@ def run_command(request: CommandRequest) -> CommandResult:
         )
 
     # Resolve executable to absolute path (Defect 2)
-    resolved_exe = _resolve_executable(request.argv[0], request.trusted_path)
+    # Build the lookup path: minimal system + trusted_helper_dirs
+    lookup_path_entries = MINIMAL_SYSTEM_PATH.split(os.pathsep)
+    for helper_dir in request.trusted_helper_dirs:
+        entry = str(helper_dir)
+        if entry not in lookup_path_entries:
+            lookup_path_entries.append(entry)
+    lookup_path = os.pathsep.join(lookup_path_entries)
+    resolved_exe = _resolve_executable(request.argv[0], lookup_path)
     if not resolved_exe:
         return CommandResult(
             argv=request.argv, status=Status.UNSUPPORTED, exit_code=None,
@@ -541,25 +709,23 @@ def run_command(request: CommandRequest) -> CommandResult:
         os.makedirs(home_dir, mode=0o700, exist_ok=True)
         env["HOME"] = home_dir
 
-    # Build safe PATH from trusted sources only (Defect 2)
-    trusted_path = request.trusted_path
-    if trusted_path is None:
-        # Use system default safe PATH entries
-        safe_entries = []
-        for entry in os.environ.get("PATH", "").split(os.pathsep):
-            if _is_safe_path_entry(entry):
-                safe_entries.append(entry)
-        if not safe_entries:
-            safe_entries = ["/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]
-        trusted_path = os.pathsep.join(safe_entries)
-    else:
-        # Validate trusted_path entries
-        safe_entries = []
-        for entry in trusted_path.split(os.pathsep):
-            if _is_safe_path_entry(entry):
-                safe_entries.append(entry)
-        trusted_path = os.pathsep.join(safe_entries)
-    env["PATH"] = trusted_path
+    # Build safe PATH: ONLY minimal system path + trusted_helper_dirs (D2.2 Defect F)
+    # NEVER inherit from parent process PATH
+    path_entries = MINIMAL_SYSTEM_PATH.split(os.pathsep)
+    # Add trusted_helper_dirs from request
+    for helper_dir in request.trusted_helper_dirs:
+        entry = str(helper_dir)
+        # Never allow entries inside workspace
+        if request.workspace_root is not None:
+            try:
+                Path(entry).relative_to(request.workspace_root)
+                continue  # Skip entries inside workspace
+            except ValueError:
+                pass
+        if entry not in path_entries:
+            path_entries.append(entry)
+    trusted_path_str = os.pathsep.join(path_entries)
+    env["PATH"] = trusted_path_str
 
     started = time.monotonic()
     stdout_chunks: list[bytes] = []
@@ -571,13 +737,15 @@ def run_command(request: CommandRequest) -> CommandResult:
     killed_signal: int | None = None
     process: subprocess.Popen | None = None
     pgid: int = 0
+    lingering_descendants = False
+    group_cleanup_failed = False
 
     try:
         popen_kwargs: dict = {
             "stdout": subprocess.PIPE,
             "stderr": subprocess.PIPE,
             "stdin": subprocess.DEVNULL,
-            "cwd": str(request.cwd) if request.cwd else None,
+            "cwd": str(request.cwd) if request.cwd else (scratch if scratch else None),
             "env": env,
             "close_fds": True,
         }
@@ -659,19 +827,22 @@ def run_command(request: CommandRequest) -> CommandResult:
                 except subprocess.TimeoutExpired:
                     timed_out = True
 
-        # Always signal process group after completion or deadline (Defect 5)
+        # Always signal process group after completion or deadline (Defect 5 + D2.2 Defect A)
+        lingering_descendants = False
         if timed_out or truncated:
             killed_signal = _terminate_process_group(process, pgid)
         elif process.poll() is None:
             killed_signal = _terminate_process_group(process, pgid)
+        else:
+            # Leader exited — but check if the GROUP still has descendants
+            if pgid and _process_group_alive(pgid):
+                lingering_descendants = True
+                killed_signal = _terminate_process_group(process, pgid)
 
-        # Final cleanup: signal group even on normal completion to kill grandchildren
-        if process.poll() is not None and pgid:
-            try:
-                if os.name == "posix":
-                    os.killpg(pgid, signal.SIGTERM)
-            except (ProcessLookupError, PermissionError, OSError):
-                pass  # Group already gone
+        # Check group is truly gone
+        group_cleanup_failed = False
+        if pgid and _process_group_alive(pgid):
+            group_cleanup_failed = True
 
         exit_code = process.poll()
         if exit_code is None:
@@ -700,11 +871,33 @@ def run_command(request: CommandRequest) -> CommandResult:
                 )
 
     duration_ms = int((time.monotonic() - started) * 1000)
-    # Cap each stream at its own limit AND the combined limit
-    stdout_cap = min(request.max_stdout_bytes, request.max_output_bytes)
-    stderr_cap = min(request.max_stderr_bytes, request.max_output_bytes)
-    stdout = b"".join(stdout_chunks)[: stdout_cap]
-    stderr = b"".join(stderr_chunks)[: stderr_cap]
+
+    # D2.2 Defect B: Combined output cap enforcement
+    # Enforce: stdout_retained <= max_stdout_bytes AND stderr_retained <= max_stderr_bytes
+    # AND stdout_retained + stderr_retained <= max_output_bytes
+    raw_stdout = b"".join(stdout_chunks)
+    raw_stderr = b"".join(stderr_chunks)
+    # First apply per-stream caps
+    capped_stdout = raw_stdout[:request.max_stdout_bytes]
+    capped_stderr = raw_stderr[:request.max_stderr_bytes]
+    # Then apply combined cap
+    combined_cap = request.max_output_bytes
+    if len(capped_stdout) + len(capped_stderr) > combined_cap:
+        # Trim whichever stream is larger to fit combined cap
+        if len(capped_stdout) >= len(capped_stderr):
+            max_stdout_allowed = combined_cap - len(capped_stderr)
+            if max_stdout_allowed < 0:
+                max_stdout_allowed = 0
+                capped_stderr = capped_stderr[:combined_cap]
+            capped_stdout = capped_stdout[:max_stdout_allowed]
+        else:
+            max_stderr_allowed = combined_cap - len(capped_stdout)
+            if max_stderr_allowed < 0:
+                max_stderr_allowed = 0
+                capped_stdout = capped_stdout[:combined_cap]
+            capped_stderr = capped_stderr[:max_stderr_allowed]
+    stdout = capped_stdout
+    stderr = capped_stderr
 
     if timed_out:
         status, reason = Status.TIMEOUT, "DEADLINE_EXCEEDED"
@@ -714,6 +907,12 @@ def run_command(request: CommandRequest) -> CommandResult:
         detail = (f"output exceeded cap (stdout={request.max_stdout_bytes}, "
                   f"stderr={request.max_stderr_bytes}, combined={request.max_output_bytes}); "
                   f"the process group was signalled and output must not be parsed as complete")
+    elif group_cleanup_failed:
+        status, reason = Status.ERROR, "PROCESS_GROUP_CLEANUP_FAILED"
+        detail = "the process group could not be fully terminated"
+    elif lingering_descendants:
+        status, reason = Status.ERROR, "LINGERING_DESCENDANTS_TERMINATED"
+        detail = "leader exited but descendant processes were found and terminated"
     elif exit_code is None:
         status, reason = Status.ERROR, "NO_EXIT_STATUS"
         detail = "the child produced no exit status"
@@ -729,11 +928,26 @@ def run_command(request: CommandRequest) -> CommandResult:
         detail = (f"exit code {exit_code} is not in the adapter's declared contract "
                   f"{list(request.expected_exit_codes)}")
 
+    # D2.2 Defect D: Cleanup as a typed gate
+    # If scratch cleanup failed and the command otherwise succeeded, change status to ERROR
+    if scratch_cleanup_success is False:
+        if status is Status.PASS:
+            status = Status.ERROR
+            reason = "SCRATCH_CLEANUP_FAILED"
+            detail = "scratch directory cleanup failed after successful execution"
+        else:
+            # Already non-PASS — add cleanup diagnostic but keep primary status
+            if detail:
+                detail += "; additionally: scratch cleanup failed"
+            else:
+                detail = "scratch cleanup failed"
+
     return CommandResult(
         argv=request.argv, status=status, exit_code=exit_code, stdout=stdout,
         stderr=stderr, duration_ms=duration_ms, truncated=truncated,
         timed_out=timed_out, killed_signal=killed_signal, reason_code=reason,
         detail=detail, scratch_cleanup_success=scratch_cleanup_success,
+        resolved_executable=resolved_exe,
     )
 
 

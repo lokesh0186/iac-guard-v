@@ -671,3 +671,49 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 The third statement is now accurate: the model-refresh protocol is a Phase I
 deliverable and has not been written. "Prepared but not executed" will only be correct
 once Phase I actually creates it.
+
+---
+
+## Gate D2.2 — Execution Layer Hardening
+
+### Test run
+
+```console
+$ PYTHONPATH=src python3 -m pytest tests -q
+593 passed in ~57s
+```
+
+All 566 pre-existing tests continue to pass. 27 new tests in
+`tests/unit/test_process_d22.py` verify each defect fix:
+
+| Defect | Tests | Result |
+| --- | --- | --- |
+| A: Process group termination | 3 (leader exits/timeout/both ignore TERM) | PASS |
+| B: Combined output cap | 1 (50k+50k under 65536) | PASS |
+| C: Redaction in canonical_dict | 5 (token, path, detail, display_command, URLs) | PASS |
+| D: Cleanup as typed gate | 2 (monkeypatched rmtree) | PASS |
+| E: CommandResult consistency | 7 (each contradiction) | PASS |
+| F: Stop inheriting parent PATH | 4 (attacker dir, minimal, helpers, blocked vars) | PASS |
+| G: Mandatory workspace boundary | 2 (cwd rejected, scratch as default) | PASS |
+| H: Resolved executable | 3 (populated, in canonical_dict, path redacted) | PASS |
+
+### Files modified
+
+- `src/iac_guard_v/process.py` — all execution-layer fixes
+- `src/iac_guard_v/redaction.py` — option-value redaction, improved path patterns, display_command
+- `tests/unit/test_process_d22.py` — 27 acceptance probes
+- `tests/unit/test_process.py` — 2 existing tests adapted to new constraints
+- `tests/unit/test_process_d21.py` — 1 existing test adapted to new consistency rule
+- `docs/spec/ARCHITECTURE.md` — §11 D2.2 execution layer hardening
+- `docs/spec/THREAT_MODEL.md` — §7 D2.2 threat mitigations
+- `docs/spec/PRODUCT_SPEC.md` — §12 D2.2 specification
+- `docs/spec/VALIDATION_LOG.md` — this entry
+- `docs/spec/adr/ADR-0004-fail-closed-process-model.md` — D2.2 amendment
+
+### Existing test compatibility
+
+No tests were weakened, deleted, xfailed, or skipped. Three tests required minor
+adjustments to match the new security constraints:
+1. `test_display_command_is_for_reports_only` — updated assertion for shlex-quoted output
+2. `test_the_working_directory_is_honoured` — added mandatory workspace_root parameter
+3. `test_scratch_cleanup_field_exists_on_result` — uses ERROR status (PASS+cleanup=False is now rejected)

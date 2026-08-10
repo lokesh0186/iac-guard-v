@@ -144,3 +144,24 @@ Adoption: time to first successful result; install failure rate and how `doctor`
 resolves it; whether an integration survives 30 and 60 days; external issues,
 contributions, or case submissions; substantive upstream changes accepted by
 independent projects. Stars, forks, and downloads are context, not evidence.
+
+## 12. D2.2 — Execution Layer Hardening
+
+Phase D2.2 closes ten independently reproduced security defects in the process runner:
+
+1. **Process group termination**: After command completion, the runner verifies that the
+   entire process group is gone. Lingering descendants are terminated (SIGTERM→SIGKILL).
+2. **Combined output cap**: `stdout + stderr ≤ max_output_bytes` is enforced during
+   reading. Exceeding the combined cap terminates the process and reports PARTIAL.
+3. **Report redaction**: `canonical_dict()`, `display_command`, and all report-facing
+   strings have secrets, option values, and local paths stripped.
+4. **Cleanup gate**: Scratch cleanup failure changes a would-be PASS into
+   ERROR/SCRATCH_CLEANUP_FAILED.
+5. **State consistency**: CommandResult rejects contradictory fields at construction
+   (e.g., PASS with timed_out=True).
+6. **Isolated PATH**: The child gets only `/usr/bin:/bin:/usr/sbin:/sbin` plus explicitly
+   configured `trusted_helper_dirs`. Parent PATH is never inherited. Preload injection
+   variables (LD_PRELOAD, DYLD_*, PYTHONPATH, etc.) are blocked.
+7. **Mandatory workspace**: `workspace_root` is required when `cwd` is supplied.
+8. **Resolved executable audit**: The resolved binary path is recorded and included in
+   canonical output (with machine paths redacted).

@@ -249,3 +249,49 @@ No model SDK anywhere in the runtime dependency set; no telemetry; no network ca
 locked mode; no policy engine of our own beyond exceptions and floors; no attempt to
 re-implement scanner rules; and no web UI, IDE extension, or MCP server before the
 core, CLI, reports, tests, and Action are dependable.
+
+## 11. D2.2 Execution Layer Hardening
+
+Ten security defects in the execution layer were independently reproduced and closed
+in phase D2.2:
+
+### Process group lifecycle (Defect A)
+After the command completes (normally OR by timeout), the runner always verifies the
+process group is gone using `os.killpg(pgid, 0)`. If the group persists:
+1. SIGTERM → wait for group disappearance → SIGKILL → wait → reap leader.
+2. If the group cannot be eliminated: status=ERROR, reason=PROCESS_GROUP_CLEANUP_FAILED.
+3. If leader exited cleanly but descendants were found: status=ERROR,
+   reason=LINGERING_DESCENDANTS_TERMINATED.
+
+### Combined output cap (Defect B)
+The combined invariant is enforced: `stdout_retained + stderr_retained ≤ max_output_bytes`.
+When the combined cap is reached, the larger stream is trimmed first.
+
+### Redaction (Defect C)
+`canonical_dict()` calls `redact_argv` and `redact_detail`. Sensitive option values
+(after --token, --password, --secret, --api-key, --header) are fully redacted.
+POSIX absolute paths (/Users, /home, /mnt, /private, /tmp, /var) and Windows paths
+(C:\...) are redacted but URLs are preserved. `display_command` is shlex-quoted and
+redacted.
+
+### Cleanup gate (Defect D)
+If scratch cleanup fails and the command otherwise succeeded: status=ERROR,
+reason=SCRATCH_CLEANUP_FAILED. If already non-PASS, a diagnostic is appended.
+
+### Consistency (Defect E)
+`CommandResult.__post_init__` rejects: PASS+timed_out, PASS+truncated, PASS+killed_signal,
+PASS+scratch_cleanup_success=False, TIMEOUT+timed_out=False,
+COMPLETED_WITHIN_CONTRACT+non-PASS, DEADLINE_EXCEEDED+timed_out=False.
+
+### Isolated PATH (Defect F)
+Child PATH = `/usr/bin:/bin:/usr/sbin:/sbin` + `trusted_helper_dirs`. Parent PATH is
+never inherited. LD_PRELOAD, LD_LIBRARY_PATH, DYLD_*, PYTHONPATH, PYTHONHOME, BASH_ENV,
+ENV, NODE_OPTIONS, RUBYOPT, PERL5LIB are blocked.
+
+### Workspace boundary (Defect G)
+`workspace_root` is mandatory when `cwd` is supplied. If neither is supplied, the
+private scratch is used as cwd.
+
+### Resolved executable (Defect H)
+`resolved_executable` field on CommandResult. `canonical_dict` includes it with machine
+paths redacted but binary name preserved.

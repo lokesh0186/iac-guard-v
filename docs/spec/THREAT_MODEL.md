@@ -216,3 +216,34 @@ for local developer use where the operator and the author are the same person.
 Security issues are reported privately via the process in `SECURITY.md` (Phase G), not
 through public issues. A finding that IaC-Guard-V can be induced to emit `VERIFIED`
 for an unimproved artifact is treated as a vulnerability, not a bug.
+
+## 7. D2.2 Execution Layer Threat Mitigations
+
+### T2 vectors closed in D2.2
+
+| Vector | Control |
+| --- | --- |
+| Orphaned child processes holding workspace open | Process group termination verifies group death, not just leader; SIGKILL escalation |
+| LD_PRELOAD / DYLD_INSERT_LIBRARIES injection | Added to credential denylist; never reaches child |
+| PYTHONPATH / NODE_OPTIONS preload | Added to credential denylist |
+| Parent PATH pollution with attacker binary | Child PATH is fixed minimal system + explicit trusted_helper_dirs only |
+| Secrets in canonical_dict / display_command / logs | redact_argv, redact_detail, redact_option_values applied to all report-facing output |
+| Machine paths in reports revealing infrastructure | POSIX and Windows paths redacted; URLs preserved |
+| Scratch cleanup failure masking as PASS | Typed gate: cleanup failure → ERROR/SCRATCH_CLEANUP_FAILED |
+| Contradictory CommandResult states | __post_init__ rejects PASS+timed_out, PASS+truncated, etc. |
+| cwd without workspace boundary | workspace_root mandatory when cwd supplied |
+| No record of which binary executed | resolved_executable recorded and auditable |
+
+### Information disclosure mitigations (D2.2)
+
+Report-facing output is redacted through two layers:
+1. **Option-value redaction**: values after --token, --password, --secret, --api-key,
+   --header are replaced with [REDACTED] before any other processing.
+2. **Credential pattern redaction**: AWS keys, GitHub tokens, bearer tokens, API keys,
+   and long hex strings are pattern-matched and redacted.
+3. **Path redaction**: POSIX paths under /Users, /home, /mnt, /private, /tmp, /var
+   and Windows absolute paths are replaced with [PATH]. URLs (http://, https://) are
+   preserved.
+
+The `display_command` property on CommandRequest now returns a fully redacted,
+shlex.quote'd representation safe for logs and reports.

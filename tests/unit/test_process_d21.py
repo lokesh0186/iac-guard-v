@@ -412,10 +412,10 @@ class TestProbe12ScratchCleanupRecorded:
     def test_scratch_cleanup_field_exists_on_result(self) -> None:
         """CommandResult has the scratch_cleanup_success field."""
         r = CommandResult(
-            argv=("test",), status=Status.PASS,
+            argv=("test",), status=Status.ERROR,
             exit_code=0, stdout=b"", stderr=b"",
             duration_ms=0, truncated=False, timed_out=False,
-            killed_signal=None, reason_code="TEST", detail="",
+            killed_signal=None, reason_code="SCRATCH_CLEANUP_FAILED", detail="",
             scratch_cleanup_success=False,
         )
         assert r.scratch_cleanup_success is False
