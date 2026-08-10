@@ -578,8 +578,12 @@ class ExceptionPolicy:
 
     def __post_init__(self) -> None:
         items = self.records
-        if isinstance(items, Mapping):
-            for key, record in items.items():
+        # Exact built-in containers only, and one snapshot used for both validation and
+        # consumption: a custom Mapping whose items() and values() disagree could pass the
+        # key check while contributing a different record.
+        if type(items) is dict:
+            snapshot = dict(items)
+            for key, record in snapshot.items():
                 _require_exact_type(record, ExceptionRecord, f"exception {key!r}")
                 if key != record.exception_id:
                     raise SpecDomainError(
@@ -587,11 +591,17 @@ class ExceptionPolicy:
                         f"{record.exception_id!r}: an index that disagrees with its "
                         f"records is not a policy"
                     )
-            items = tuple(items.values())
-        else:
-            if isinstance(items, (str, bytes)):
-                raise SpecDomainError("records must be a collection of ExceptionRecord")
+            items = tuple(snapshot.values())
+        elif type(items) in (tuple, list, set, frozenset):
             items = tuple(items)
+        elif isinstance(items, Mapping):
+            raise SpecDomainError(
+                f"{type(items).__name__} is not an exact dict; arbitrary Mapping "
+                f"implementations are not trusted at the policy boundary because items() "
+                f"and values() can disagree"
+            )
+        else:
+            raise SpecDomainError("records must be an exact collection of ExceptionRecord")
         # Deep copy: reconstruct each record so no caller-owned object is retained.
         rebuilt = tuple(rebuild_exception_record(r) for r in items)
         ids = [r.exception_id for r in rebuilt]
@@ -624,8 +634,13 @@ def coerce_exception_policy(value: Any) -> ExceptionPolicy:
             f"{type(value).__name__} is an ExceptionPolicy subclass; the public boundary "
             f"accepts only ExceptionPolicy itself or a collection of ExceptionRecord"
         )
-    if type(value) in (tuple, list, set, frozenset, dict) or isinstance(value, Mapping):
+    if type(value) in (tuple, list, set, frozenset, dict):
         return ExceptionPolicy(value)
+    if isinstance(value, Mapping):
+        raise SpecDomainError(
+            f"{type(value).__name__} is not an exact dict; arbitrary Mapping "
+            f"implementations are not trusted at the policy boundary"
+        )
     raise SpecDomainError(
         f"exceptions must be an ExceptionPolicy or an exact collection of "
         f"ExceptionRecord, got {type(value).__name__}"

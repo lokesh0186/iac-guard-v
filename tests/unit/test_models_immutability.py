@@ -63,8 +63,11 @@ def spec_record(**overrides) -> SPEC.ExceptionRecord:
     return SPEC.ExceptionRecord(**{**base, **overrides})
 
 
+PROD_IDENTITY = PMODELS.TargetIdentity("checkov", "CKV_AWS_18", SCOPE)
+
+
 def prod_record(**overrides) -> PMODELS.ExceptionRecord:
-    base = dict(exception_id="EX-1", target_id="T1", scope=SCOPE,
+    base = dict(exception_id="EX-1", target=PROD_IDENTITY,
                 reason="accepted risk, TICKET-42", owner="platform-team",
                 created=date(2026, 1, 1), expires=date(2026, 12, 31),
                 origin=PENUMS.ExceptionOrigin.TRUSTED_BASE,
@@ -118,9 +121,10 @@ def _instances() -> list[tuple[str, object]]:
         ("prod.RequiredGates", PMODELS.RequiredGates(("g",))),
         ("prod.ExceptionRecord", prod_record()),
         ("prod.ExceptionPolicy", PMODELS.ExceptionPolicy((prod_record(),))),
-        ("prod.Target", PMODELS.Target("checkov", "CKV_AWS_18", SCOPE)),
+        ("prod.TargetIdentity", PROD_IDENTITY),
+        ("prod.Target", PMODELS.Target.of("checkov", "CKV_AWS_18", SCOPE)),
         ("prod.TargetDecision",
-         PMODELS.TargetDecision("T1", PENUMS.Outcome.FIXED, SCOPE)),
+         PMODELS.TargetDecision(PROD_IDENTITY, PENUMS.Outcome.FIXED)),
     ]
 
 
@@ -239,19 +243,42 @@ def test_probe_f_mutable_tuple_subclass_cannot_change_a_verdict() -> None:
         ShiftyTuple.swap = False
 
 
-def test_probe_i_collection_subclasses_are_not_retained() -> None:
-    class MyList(list):
-        pass
-
-    class MyDict(dict):
-        pass
-
-    run = SPEC.RunObservation(MyList([SPEC.TargetDecision("T1", SPEC.Outcome.FIXED,
-                                                          SCOPE)]),
-                              exceptions=MyDict({"EX-1": spec_record()}), **SPEC_EVIDENCE)
+def test_probe_i_exact_collections_are_copied_not_retained() -> None:
+    """Exact built-in containers are accepted and copied into exact stored types."""
+    run = SPEC.RunObservation([SPEC.TargetDecision("T1", SPEC.Outcome.FIXED, SCOPE)],
+                              exceptions={"EX-1": spec_record()}, **SPEC_EVIDENCE)
     assert type(run.target_decisions) is tuple
     assert type(run.exceptions) is SPEC.ExceptionPolicy
     assert type(run.exceptions.records) is tuple
+
+
+@pytest.mark.parametrize("factory,label", [
+    (lambda rec: type("MyDict", (dict,), {})({"EX-1": rec}), "dict subclass"),
+    (lambda rec: type("MyMapping", (dict,), {"values": lambda self: []})({"EX-1": rec}),
+     "mapping with overridden values()"),
+])
+def test_probe_i_container_subclasses_are_rejected_at_the_policy_boundary(
+    factory, label: str
+) -> None:
+    """Stronger than un-aliasing: a container whose behaviour can lie is refused.
+
+    A `Mapping` implementation can return one set of records from `items()` and a
+    different set from `values()`, so validating the keys proves nothing about what is
+    consumed. Only an exact `dict` is accepted, snapshotted once.
+    """
+    with pytest.raises(SPEC.SpecDomainError):
+        SPEC.RunObservation((SPEC.TargetDecision("T1", SPEC.Outcome.FIXED, SCOPE),),
+                            exceptions=factory(spec_record()), **SPEC_EVIDENCE)
+
+
+def test_probe_i_list_subclass_for_targets_is_still_copied() -> None:
+    """Target decisions are rebuilt, so a list subclass cannot stay aliased."""
+    class MyList(list):
+        pass
+
+    run = SPEC.RunObservation(MyList([SPEC.TargetDecision("T1", SPEC.Outcome.FIXED,
+                                                          SCOPE)]), **SPEC_EVIDENCE)
+    assert type(run.target_decisions) is tuple
 
 
 def test_probe_f_source_sequence_mutation_cannot_change_a_verdict() -> None:
@@ -321,7 +348,7 @@ def test_production_boundaries_also_reject_subclasses() -> None:
     class SneakyProdDecision(PMODELS.TargetDecision):
         __slots__ = ()
 
-    sneaky = SneakyProdDecision("T1", PENUMS.Outcome.FIXED, SCOPE)
+    sneaky = SneakyProdDecision(PROD_IDENTITY, PENUMS.Outcome.FIXED)
     with pytest.raises(PMODELS.DomainError):
         PMODELS.rebuild_target_decision(sneaky)
 

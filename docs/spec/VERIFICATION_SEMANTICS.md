@@ -229,6 +229,52 @@ results must cover exactly that set:
 Counting statuses is not the same as covering the gates: two required validators are not
 satisfied by one `PASS`, and an unknown gate must never be able to fill a gap.
 
+### 2.6.4 Target identity is structured, never a concatenated string
+
+A target is `(scanner, rule_id, scope)`. Authorisation and matching bind that **structured
+tuple**. A delimiter-concatenated form is ambiguous, and because exceptions bind to target
+identity the ambiguity is exploitable — under `f"{scanner}:{rule_id}@{scope}"` both of
+these pairs produced the same string:
+
+```
+("checkov", "RULE@X", "scope")  and  ("checkov", "RULE", "X@scope")
+("foo:bar", "baz", "scope")     and  ("foo", "bar:baz", "scope")
+```
+
+so an exception approved for one target could authorise the other. Three derived forms,
+with distinct jobs:
+
+| Form | Purpose | Authoritative? |
+| --- | --- | --- |
+| `canonical_key` | equality, ordering, authorisation | **yes** |
+| `reference` | `scanner=<v>;rule=<v>;scope=<v>` with `%`, `;`, `=` escaped; round-trips exactly | yes, losslessly |
+| `opaque_id` | `tid1:` + SHA-256 over a length-prefixed encoding, for report keys | derived |
+| `display_ref` | `scanner:rule@scope` for humans | **no**, and never parsed back |
+
+Every report retains the structured fields alongside any derived form.
+
+### 2.6.5 Scanner evidence is internally consistent
+
+A `ScannerRun` owns the provenance of its findings: every finding must carry the run's
+`scanner` and `scanner_version`. A Trivy finding inside a run claiming to be Checkov is
+self-contradictory evidence, and rewriting the finding to match would destroy the
+contradiction instead of reporting it.
+
+`occurrence_index` is what makes exact finding identity unique, so two findings sharing an
+exact key are a normalisation defect rather than a tie to be broken by caller order. Left
+unresolved, canonical output depended on the order the adapter happened to pass findings
+in. Adapters therefore assign occurrence indices after a documented canonical sort, and
+`ScannerRun` rejects duplicates.
+
+### 2.6.6 Arbitrary `Mapping` behaviour is not trusted
+
+The policy boundary accepts an exact `dict`, `tuple`, `list`, `set`, `frozenset`, or an
+`ExceptionPolicy` — nothing else. A custom `Mapping` can return one set of records from
+`items()` and a different set from `values()`, so validating keys proves nothing about
+what is consumed: a probe whose `items()` reported `EX-1` while `values()` returned a
+record with a different id built a policy containing that other record. Exact `dict` input is
+snapshotted once, and that same snapshot is both validated and consumed.
+
 ### 2.6.3 Domain objects are frozen, slotted, and reconstructed
 
 "Frozen" means there is no `__dict__` and no normal attribute assignment. Three designs

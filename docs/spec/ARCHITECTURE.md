@@ -168,13 +168,29 @@ named in trusted configuration.
 
 ## 6. Execution layer
 
-Argument arrays only, never `shell=True`. Per-call deadline; on expiry the entire
-process group is terminated and termination is confirmed. Environment is an allowlist
-(`PATH`, `HOME`, plus explicit additions); cloud, Kubernetes, and GitHub credentials
-are stripped. Output is capped (default 25 MB) and exceeding the cap yields `PARTIAL`,
-not truncated-and-parsed. Each scanner gets an isolated temporary directory with
-restrictive permissions, removed on exit. Every command, its exit code, and stdout and
-stderr digests are recorded as evidence.
+`src/iac_guard_v/process.py`. Argument arrays only, never `shell=True`, so a path, rule
+id, or config value cannot become a command. Per-call deadline; on expiry the entire
+**process group** is signalled, confirmed dead, then killed — terminating only the direct
+child leaves grandchildren holding the workspace, which a test proves by having a child
+spawn a helper that would outlive it.
+
+The environment is an allowlist (`PATH`, `HOME`, `LANG`, `LC_ALL`, `TZ`, plus explicit
+additions), and a credential denylist is applied **after** the allowlist and after any
+caller additions, so a credential cannot be re-admitted by naming it. Output is capped
+(default 25 MiB); exceeding the cap terminates the process and yields `PARTIAL` rather
+than parsing a truncated document as complete. Each call gets a private `0o700` temporary
+directory, exported as `TMPDIR` and removed afterwards.
+
+Every ending is a typed result rather than an exception: `PASS` within a declared exit
+contract, `TIMEOUT`, `PARTIAL`, `UNSUPPORTED` for a missing executable, `ERROR` for a
+signal death or an exit code outside the adapter's contract. An adapter must declare its
+expected exit codes, because success is never inferred from an exit code alone. Evidence
+records the command, exit code, duration, and SHA-256 digests of stdout and stderr — never
+the output itself, which can contain source and secrets.
+
+Filesystem paths are the one deliberate exception to the exact-type rule: `Path("x")`
+returns `PosixPath`, so `type(x) is Path` is never true. Paths use `isinstance` and are
+then resolved and checked.
 
 ## 7. Configuration and locking
 

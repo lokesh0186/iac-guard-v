@@ -359,7 +359,7 @@ passing CI gate.
 
 ```console
 $ python3 -m pytest tests -q
-445 passed
+536 passed
 ```
 
 ### Test counts of record
@@ -371,15 +371,17 @@ $ python3 -m pytest tests -q
 | `tests/spec/test_domain_immutability.py` | 62 |
 | `tests/spec/test_event_binding.py` | 36 |
 | `tests/unit/test_models_immutability.py` | 94 |
+| `tests/unit/test_domain_consistency.py` | 38 |
+| `tests/unit/test_process.py` | 46 |
 | `tests/research/test_qrs_regression.py` | 29 |
 | `tests/research/test_freeze_adversarial.py` | 19 |
-| **total** | **445** |
+| **total** | **536** |
 
 Progression across review rounds, so the record shows what each one added: 24 at the
 first freeze commit, 76 after the first adversarial remediation, 108 after the
 semantic-consistency commit, 169 after the exception-scoping commit, 243 after the D0
-boundary-hardening commit, 299 after D0.1, 305 after the identifier-hazard follow-up, and
-445 after the D1 domain-closure commit. Only the current figures are the gate result.
+boundary-hardening commit, 299 after D0.1, 305 after the identifier-hazard follow-up, 445 after the D1 domain-closure commit, and 536 after D1.1 plus the D2 process runner.
+Only the current figures are the gate result.
 
 ### D1 domain closure
 
@@ -546,6 +548,43 @@ not arrived is rejected as `not yet in force`.
 `datetime` rejected where a `date` is required, unknown exception fields, duplicate
 exception ids, non-`TargetDecision` entries, unknown optional-gate names, and optional
 gates whose optionality did not come from a trusted source.
+
+### C.3.1 D1.1 domain consistency
+
+Four further defects were reproduced against the production models and are now closed:
+
+| Probe | Before | After |
+| --- | --- | --- |
+| `Target("checkov","RULE@X","scope")` vs `("checkov","RULE","X@scope")` | same `target_id`, so one exception could authorise both | structurally distinct; the spoofed decision is rejected with `binds a different target` |
+| `Target("foo:bar","baz","scope")` vs `("foo","bar:baz","scope")` | same `target_id` | structurally distinct |
+| a Trivy finding inside a Checkov run at version 9.9 | accepted | `DomainError`; provenance is never silently rewritten |
+| two findings sharing an exact key | canonical JSON depended on input order (`["one","two"]` vs `["two","one"]`) | `DomainError`; `assign_occurrence_indices` produces identical output from either order |
+| a `Mapping` whose `items()` and `values()` disagree | built a policy containing the smuggled record | `DomainError`; only exact built-in containers are accepted, snapshotted once |
+
+Target identity now has four forms with distinct jobs: the authoritative
+`canonical_key`; a lossless `reference` grammar (`scanner=<v>;rule=<v>;scope=<v>` with
+`%`, `;` and `=` escaped) proven to round-trip under delimiter-laden values; a versioned
+`opaque_id` over a length-prefixed encoding; and a human `display_ref` that is
+deliberately ambiguous and cannot be parsed back.
+
+### C.3.2 D2 secure process runner
+
+`src/iac_guard_v/process.py` with 46 tests that run real subprocesses. Three guards were
+mutation-checked — the test suite must fail when the guard is removed:
+
+| Guard removed | Result |
+| --- | --- |
+| credential denylist | 16 failures, including `test_credential_denial_reaches_the_actual_child` |
+| process-group termination replaced by child-only `terminate()` | `test_the_whole_process_group_is_terminated_not_just_the_child` fails: a grandchild outlived the deadline |
+| truncated output classified `PASS` instead of `PARTIAL` | `test_oversized_output_is_partial_not_pass` fails |
+
+Verified behaviours include: a shell metacharacter in an argument stays data and creates
+no file; a hanging child times out as `TIMEOUT` and its grandchild does not survive; a
+`SIGKILL`ed child is `ERROR` with the signal recorded; oversized output is `PARTIAL` with
+the process group signalled; the scratch directory is `0o700` and removed; a declared
+non-zero exit code (Checkov's 1) is within contract while an undeclared one is `ERROR`; a
+missing executable is `UNSUPPORTED`; and evidence records digests rather than the child's
+output.
 
 ### C.4 Executable semantic truth tables
 Enum names existing is not the same as outcome predicates being coherent. The

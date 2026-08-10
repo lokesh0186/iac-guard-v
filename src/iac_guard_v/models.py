@@ -27,6 +27,7 @@ Statuses stay typed to the report. Nothing here reduces `ERROR`, `TIMEOUT`, `PAR
 """
 from __future__ import annotations
 
+import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass, field
@@ -371,6 +372,30 @@ class ScannerRun:
         if type(self.findings) not in (tuple, list):
             raise DomainError("findings must be a tuple of Finding")
         rebuilt = tuple(_rebuild_finding(f) for f in tuple(self.findings))
+        # A run owns the provenance of its findings. Accepting a Trivy finding inside a
+        # run claiming to be Checkov produces self-contradictory evidence, and silently
+        # rewriting the finding would destroy the contradiction rather than report it.
+        for finding in rebuilt:
+            if finding.scanner != self.scanner:
+                raise DomainError(
+                    f"finding from scanner {finding.scanner!r} cannot appear in a "
+                    f"{self.scanner!r} run"
+                )
+            if finding.scanner_version != self.scanner_version:
+                raise DomainError(
+                    f"finding from {finding.scanner} {finding.scanner_version!r} cannot "
+                    f"appear in a run of version {self.scanner_version!r}"
+                )
+        # occurrence_index exists to disambiguate repeated findings, so two findings with
+        # the same exact identity are a normalisation defect, not a tie to be broken by
+        # caller order. Left unresolved, canonical output depended on input order.
+        keys = [f.exact_key for f in rebuilt]
+        duplicates = sorted({k for k in keys if keys.count(k) > 1})
+        if duplicates:
+            raise DomainError(
+                f"duplicate exact finding identity: {duplicates}. Assign distinct "
+                f"occurrence_index values; see normalisation.assign_occurrence_indices"
+            )
         set_(self, "findings", tuple(sorted(rebuilt, key=lambda f: f.exact_key)))
         if type(self.diagnostics) not in (tuple, list):
             raise DomainError("diagnostics must be a tuple of strings")
@@ -506,8 +531,7 @@ class ExceptionRecord:
     """
 
     exception_id: str
-    target_id: str
-    scope: str
+    target: TargetIdentity
     reason: str
     owner: str
     created: date
@@ -518,8 +542,7 @@ class ExceptionRecord:
     def __post_init__(self) -> None:
         set_ = object.__setattr__
         set_(self, "exception_id", canonical_identifier(self.exception_id, "exception_id"))
-        set_(self, "target_id", canonical_identifier(self.target_id, "target_id"))
-        set_(self, "scope", canonical_resource_scope(self.scope, "exception scope"))
+        require_target_identity(self.target, "exception target")
         set_(self, "reason", safe_report_text(self.reason, "reason"))
         set_(self, "owner", canonical_principal(self.owner, "owner"))
         require_date(self.created, "created")
@@ -535,8 +558,9 @@ class ExceptionRecord:
 
     def canonical_dict(self) -> dict:
         return {
-            "exception_id": self.exception_id, "target_id": self.target_id,
-            "scope": self.scope, "reason": self.reason, "owner": self.owner,
+            "exception_id": self.exception_id,
+            "target": self.target.canonical_dict(),
+            "reason": self.reason, "owner": self.owner,
             "created": self.created.isoformat(), "expires": self.expires.isoformat(),
             "origin": self.origin.value,
             "permitted_outcomes": sorted(o.value for o in self.permitted_outcomes),
@@ -547,8 +571,10 @@ def rebuild_exception_record(record: Any) -> ExceptionRecord:
     """Reconstruct from copied values so no caller-owned object is retained."""
     require_exact_type(record, ExceptionRecord, "exception record")
     return ExceptionRecord(
-        exception_id=str(record.exception_id), target_id=str(record.target_id),
-        scope=str(record.scope), reason=str(record.reason), owner=str(record.owner),
+        exception_id=str(record.exception_id),
+        target=TargetIdentity(str(record.target.scanner), str(record.target.rule_id),
+                              str(record.target.scope)),
+        reason=str(record.reason), owner=str(record.owner),
         created=date(record.created.year, record.created.month, record.created.day),
         expires=date(record.expires.year, record.expires.month, record.expires.day),
         origin=ExceptionOrigin(record.origin.value),
@@ -565,19 +591,31 @@ class ExceptionPolicy:
 
     def __post_init__(self) -> None:
         items = self.records
-        if isinstance(items, Mapping):
-            for key, rec in items.items():
+        # Exact built-in containers only. A custom Mapping could return one set of
+        # records from items() and a different set from values(), so validating the keys
+        # proved nothing about what was consumed: a probe whose items() reported "EX-1"
+        # while values() returned a record with id "DIFFERENT" built a policy containing
+        # "DIFFERENT". A single snapshot of an exact dict removes the window entirely.
+        if type(items) is dict:
+            snapshot = dict(items)          # one snapshot, validated and consumed
+            for key, rec in snapshot.items():
                 require_exact_type(rec, ExceptionRecord, f"exception {key!r}")
                 if key != rec.exception_id:
                     raise DomainError(
                         f"exception mapping key {key!r} does not match record id "
                         f"{rec.exception_id!r}"
                     )
-            items = tuple(items.values())
+            items = tuple(snapshot.values())
         elif type(items) in (tuple, list, set, frozenset):
             items = tuple(items)
+        elif isinstance(items, Mapping):
+            raise DomainError(
+                f"{type(items).__name__} is not an exact dict; arbitrary Mapping "
+                f"implementations are not trusted at the policy boundary because "
+                f"items() and values() can disagree"
+            )
         else:
-            raise DomainError("records must be a collection of ExceptionRecord")
+            raise DomainError("records must be an exact collection of ExceptionRecord")
         rebuilt = tuple(rebuild_exception_record(r) for r in items)
         ids = [r.exception_id for r in rebuilt]
         if len(set(ids)) != len(ids):
@@ -608,63 +646,199 @@ def coerce_exception_policy(value: Any) -> ExceptionPolicy:
             f"{type(value).__name__} is an ExceptionPolicy subclass; only ExceptionPolicy "
             f"itself or a collection of ExceptionRecord is accepted"
         )
-    if type(value) in (tuple, list, set, frozenset, dict) or isinstance(value, Mapping):
+    if type(value) in (tuple, list, set, frozenset, dict):
         return ExceptionPolicy(value)
+    if isinstance(value, Mapping):
+        raise DomainError(
+            f"{type(value).__name__} is not an exact dict; arbitrary Mapping "
+            f"implementations are not trusted at the policy boundary"
+        )
     raise DomainError(
-        f"exceptions must be an ExceptionPolicy or a collection of ExceptionRecord, got "
-        f"{type(value).__name__}"
+        f"exceptions must be an ExceptionPolicy or an exact collection of "
+        f"ExceptionRecord, got {type(value).__name__}"
     )
 
 
 # --------------------------------------------------------------------------- #
 # targets
 # --------------------------------------------------------------------------- #
+_REFERENCE_ESCAPES = {"%": "%25", ";": "%3B", "=": "%3D"}
+_REFERENCE_UNESCAPES = {v: k for k, v in _REFERENCE_ESCAPES.items()}
+TARGET_REFERENCE_VERSION = "tid1"
+
+
+def _escape_reference_value(value: str) -> str:
+    out = value.replace("%", "%25")
+    return out.replace(";", "%3B").replace("=", "%3D")
+
+
+def _unescape_reference_value(value: str) -> str:
+    out = value.replace("%3B", ";").replace("%3b", ";")
+    out = out.replace("%3D", "=").replace("%3d", "=")
+    return out.replace("%25", "%")
+
+
 @dataclass(frozen=True, slots=True)
-class Target:
-    """`(scanner, rule_id, scope)` plus the baseline occurrence count."""
+class TargetIdentity:
+    """The authoritative identity of a target: `(scanner, rule_id, scope)`.
+
+    Authorisation and matching bind **this structured value**, never a
+    delimiter-concatenated string. A concatenated form is ambiguous, and the ambiguity is
+    exploitable because exceptions bind to target identity. Both of these pairs collided
+    under `f"{scanner}:{rule_id}@{scope}"`:
+
+        ("checkov", "RULE@X", "scope")  and  ("checkov", "RULE", "X@scope")
+        ("foo:bar", "baz", "scope")     and  ("foo", "bar:baz", "scope")
+
+    so an exception intended for one target could authorise a different one.
+
+    Three representations, with clearly different jobs:
+
+    * `canonical_key`  — the tuple used for equality, ordering and authorisation;
+    * `reference`      — a lossless, unambiguous, round-trippable encoding for CLI use;
+    * `display_ref`    — `scanner:rule@scope` for humans, **non-authoritative** and never
+                         parsed back;
+    * `opaque_id`      — a versioned digest over a length-prefixed encoding, for use as a
+                         report key. Length prefixes mean no delimiter can be forged.
+    """
 
     scanner: str
     rule_id: str
     scope: str
-    baseline_occurrences: int = 1
 
     def __post_init__(self) -> None:
         set_ = object.__setattr__
         set_(self, "scanner", canonical_identifier(self.scanner, "scanner"))
         set_(self, "rule_id", canonical_identifier(self.rule_id, "rule_id"))
         set_(self, "scope", canonical_resource_scope(self.scope, "scope"))
+
+    @property
+    def canonical_key(self) -> tuple:
+        """The authoritative identity. Equality and ordering use this."""
+        return (self.scanner, self.rule_id, self.scope)
+
+    @property
+    def display_ref(self) -> str:
+        """Human-readable only.
+
+        Deliberately ambiguous and deliberately never parsed: use `reference` for any
+        value that has to survive a round trip.
+        """
+        return f"{self.scanner}:{self.rule_id}@{self.scope}"
+
+    @property
+    def reference(self) -> str:
+        """Lossless, unambiguous encoding: `scanner=<v>;rule=<v>;scope=<v>`.
+
+        `%`, `;` and `=` are percent-escaped inside values, so no value can introduce a
+        field boundary.
+        """
+        return ";".join((
+            f"scanner={_escape_reference_value(self.scanner)}",
+            f"rule={_escape_reference_value(self.rule_id)}",
+            f"scope={_escape_reference_value(self.scope)}",
+        ))
+
+    @property
+    def opaque_id(self) -> str:
+        """Versioned digest over a length-prefixed encoding of the structured fields."""
+        payload = "|".join(
+            f"{len(part.encode('utf-8'))}:{part}"
+            for part in (self.scanner, self.rule_id, self.scope)
+        )
+        digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+        return f"{TARGET_REFERENCE_VERSION}:{digest}"
+
+    @classmethod
+    def parse_reference(cls, text: Any) -> "TargetIdentity":
+        """Parse the unambiguous `reference` grammar. Round-trips exactly."""
+        raw = _nonblank(text, "target reference")
+        fields_seen: dict[str, str] = {}
+        for part in raw.split(";"):
+            if "=" not in part:
+                raise DomainError(
+                    f"target reference field {part!r} is not `name=value`; the grammar is "
+                    f"scanner=<v>;rule=<v>;scope=<v>"
+                )
+            name, _, value = part.partition("=")
+            name = name.strip()
+            if name in fields_seen:
+                raise DomainError(f"duplicate field {name!r} in target reference")
+            if name not in ("scanner", "rule", "scope"):
+                raise DomainError(f"unknown field {name!r} in target reference")
+            fields_seen[name] = _unescape_reference_value(value)
+        missing = {"scanner", "rule", "scope"} - set(fields_seen)
+        if missing:
+            raise DomainError(f"target reference is missing {sorted(missing)}")
+        return cls(scanner=fields_seen["scanner"], rule_id=fields_seen["rule"],
+                   scope=fields_seen["scope"])
+
+    def canonical_dict(self) -> dict:
+        """Structured fields are retained in every report, alongside the derived forms."""
+        return {"scanner": self.scanner, "rule_id": self.rule_id, "scope": self.scope,
+                "reference": self.reference, "opaque_id": self.opaque_id,
+                "display_ref": self.display_ref}
+
+
+def require_target_identity(value: Any, name: str = "identity") -> TargetIdentity:
+    require_exact_type(value, TargetIdentity, name)
+    return value
+
+
+@dataclass(frozen=True, slots=True)
+class Target:
+    """A target: an identity plus the baseline occurrence count."""
+
+    identity: TargetIdentity
+    baseline_occurrences: int = 1
+
+    def __post_init__(self) -> None:
+        require_target_identity(self.identity)
         if require_int(self.baseline_occurrences, "baseline_occurrences") < 1:
             raise DomainError(
                 "baseline_occurrences must be >= 1: a target exists because the baseline "
                 "had at least one occurrence"
             )
 
+    @classmethod
+    def of(cls, scanner: str, rule_id: str, scope: str,
+           baseline_occurrences: int = 1) -> "Target":
+        return cls(TargetIdentity(scanner, rule_id, scope), baseline_occurrences)
+
     @property
-    def target_id(self) -> str:
-        return f"{self.scanner}:{self.rule_id}@{self.scope}"
+    def scanner(self) -> str:
+        return self.identity.scanner
+
+    @property
+    def rule_id(self) -> str:
+        return self.identity.rule_id
+
+    @property
+    def scope(self) -> str:
+        return self.identity.scope
 
     def canonical_dict(self) -> dict:
-        return {"target_id": self.target_id, "scanner": self.scanner,
-                "rule_id": self.rule_id, "scope": self.scope,
+        return {"identity": self.identity.canonical_dict(),
                 "baseline_occurrences": self.baseline_occurrences}
 
 
 @dataclass(frozen=True, slots=True)
 class TargetDecision:
-    """A classified target plus the policy decision about it."""
+    """A classified target plus the policy decision about it.
 
-    target_id: str
+    Binds `TargetIdentity`, not a string: authorisation must not depend on a
+    concatenated form that two different targets can share.
+    """
+
+    identity: TargetIdentity
     outcome: Outcome
-    target_scope: str
     policy_permitted: bool = False
     exception_id: str | None = None
     rejection_reason: str = ""
 
     def __post_init__(self) -> None:
         set_ = object.__setattr__
-        set_(self, "target_id", canonical_identifier(self.target_id, "target_id"))
-        set_(self, "target_scope",
-             canonical_resource_scope(self.target_scope, "target_scope"))
+        require_target_identity(self.identity)
         require_enum(self.outcome, Outcome, "outcome")
         require_bool(self.policy_permitted, "policy_permitted")
         if self.exception_id is not None:
@@ -672,7 +846,8 @@ class TargetDecision:
                  canonical_identifier(self.exception_id, "exception_id"))
         if self.policy_permitted and not self.exception_id:
             raise DomainError(
-                f"target {self.target_id}: policy_permitted requires an exception_id"
+                f"target {self.identity.display_ref}: policy_permitted requires an "
+                f"exception_id"
             )
         if self.rejection_reason:
             set_(self, "rejection_reason",
@@ -680,21 +855,23 @@ class TargetDecision:
 
     @property
     def canonical_key(self) -> tuple:
-        return (self.target_id, self.target_scope, self.outcome.value,
-                self.exception_id or "")
+        return (*self.identity.canonical_key, self.outcome.value, self.exception_id or "")
 
     def canonical_dict(self) -> dict:
-        return {"target_id": self.target_id, "target_scope": self.target_scope,
-                "outcome": self.outcome.value, "policy_permitted": self.policy_permitted,
+        return {"identity": self.identity.canonical_dict(),
+                "outcome": self.outcome.value,
+                "policy_permitted": self.policy_permitted,
                 "exception_id": self.exception_id or "",
                 "rejection_reason": self.rejection_reason}
 
 
 def rebuild_target_decision(decision: Any) -> TargetDecision:
     require_exact_type(decision, TargetDecision, "target decision")
+    identity = decision.identity
     return TargetDecision(
-        target_id=str(decision.target_id), outcome=Outcome(decision.outcome.value),
-        target_scope=str(decision.target_scope),
+        identity=TargetIdentity(str(identity.scanner), str(identity.rule_id),
+                                str(identity.scope)),
+        outcome=Outcome(decision.outcome.value),
         policy_permitted=bool(decision.policy_permitted),
         exception_id=None if decision.exception_id is None else str(decision.exception_id),
         rejection_reason=str(decision.rejection_reason),
@@ -716,12 +893,15 @@ def permission_rejection_reason(decision: TargetDecision, policy: ExceptionPolic
     record = policy.get(decision.exception_id)
     if record is None:
         return f"exception {decision.exception_id!r} not found in the trusted policy"
-    if record.target_id != decision.target_id:
-        return (f"exception {record.exception_id} binds target {record.target_id!r}, not "
-                f"{decision.target_id!r}")
-    if record.scope != decision.target_scope:
-        return (f"exception {record.exception_id} scope {record.scope!r} does not match "
-                f"target scope {decision.target_scope!r}")
+    if record.target.canonical_key != decision.identity.canonical_key:
+        differing = [
+            f"{field}: {getattr(record.target, field)!r} != "
+            f"{getattr(decision.identity, field)!r}"
+            for field in ("scanner", "rule_id", "scope")
+            if getattr(record.target, field) != getattr(decision.identity, field)
+        ]
+        return (f"exception {record.exception_id} binds a different target "
+                f"({'; '.join(differing)})")
     if decision.outcome not in record.permitted_outcomes:
         return (f"exception {record.exception_id} authorises "
                 f"{sorted(o.value for o in record.permitted_outcomes)}, not "
@@ -740,5 +920,5 @@ def permission_rejection_reason(decision: TargetDecision, policy: ExceptionPolic
 #: Every persistent model, for the immutability test matrix.
 PERSISTENT_MODELS: tuple = (
     FindingLocation, Finding, CoverageCounters, ScannerRun, GateResult, RequiredGates,
-    ExceptionRecord, ExceptionPolicy, Target, TargetDecision,
+    ExceptionRecord, ExceptionPolicy, TargetIdentity, Target, TargetDecision,
 )

@@ -75,6 +75,9 @@ artifacts.
 | F-09e | Separate validators for identifiers, resource scopes, and repository paths; reserved placeholders rejected; `target_scope` mandatory with no default; identifiers Unicode-normalised before duplicate detection | P0 |
 | F-09f | Required gates are named identities: observed gate results must cover exactly the required set, and missing, duplicate, or substituted gates are invalid requests | P0 |
 | F-09g | Every exception names the events it authorises (`permitted_outcomes`, no default). Approving suppression does not approve resource deletion or file renaming | P0 |
+| F-09i | Target identity is the structured `(scanner, rule_id, scope)` tuple; authorisation never binds a concatenated display string | P0 |
+| F-09j | A `ScannerRun` constrains its findings' scanner and version, and rejects duplicate exact finding identities; adapters assign occurrence indices after a documented canonical sort | P0 |
+| F-09k | The policy boundary accepts only exact built-in containers, snapshotted once | P0 |
 | F-09h | Domain objects are frozen and slotted with no `__dict__`; nested records and collections are reconstructed into exact built-in types and canonically ordered; subclasses are rejected at security boundaries | P0 |
 | F-10 | `doctor` reports detected tools, versions, support, and exact install guidance | P0 |
 | F-11 | `demo` shows verified, failed, suppressed, and inconclusive on bundled fixtures | P0 |

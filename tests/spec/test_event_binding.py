@@ -200,16 +200,17 @@ def test_event_binding_is_checked_alongside_every_other_clause() -> None:
 # the production model enforces the same binding
 # --------------------------------------------------------------------------- #
 def test_production_record_requires_and_enforces_event_binding() -> None:
+    identity = PMODELS.TargetIdentity("checkov", "CKV_AWS_18", SCOPE)
     rec = PMODELS.ExceptionRecord(
-        exception_id="EX-1", target_id="T1", scope=SCOPE, reason="accepted risk",
+        exception_id="EX-1", target=identity, reason="accepted risk",
         owner="platform-team", created=date(2026, 1, 1), expires=date(2026, 12, 31),
         origin=PENUMS.ExceptionOrigin.TRUSTED_BASE,
         permitted_outcomes=frozenset({PENUMS.Outcome.SUPPRESSED}),
     )
     policy = PMODELS.ExceptionPolicy((rec,))
-    wrong = PMODELS.TargetDecision("T1", PENUMS.Outcome.RESOURCE_DELETED, SCOPE, True,
+    wrong = PMODELS.TargetDecision(identity, PENUMS.Outcome.RESOURCE_DELETED, True,
                                    "EX-1")
-    right = PMODELS.TargetDecision("T1", PENUMS.Outcome.SUPPRESSED, SCOPE, True, "EX-1")
+    right = PMODELS.TargetDecision(identity, PENUMS.Outcome.SUPPRESSED, True, "EX-1")
     assert "not RESOURCE_DELETED" in PMODELS.permission_rejection_reason(wrong, policy,
                                                                         TODAY)
     assert PMODELS.permission_rejection_reason(right, policy, TODAY) is None
@@ -218,7 +219,9 @@ def test_production_record_requires_and_enforces_event_binding() -> None:
 def test_production_record_rejects_never_permittable_authorisation() -> None:
     with pytest.raises(PMODELS.DomainError):
         PMODELS.ExceptionRecord(
-            exception_id="EX-1", target_id="T1", scope=SCOPE, reason="r", owner="o",
+            exception_id="EX-1",
+            target=PMODELS.TargetIdentity("checkov", "CKV_AWS_18", SCOPE),
+            reason="r", owner="o",
             created=date(2026, 1, 1), expires=date(2026, 12, 31),
             origin=PENUMS.ExceptionOrigin.TRUSTED_BASE,
             permitted_outcomes=frozenset({PENUMS.Outcome.STILL_PRESENT}),
