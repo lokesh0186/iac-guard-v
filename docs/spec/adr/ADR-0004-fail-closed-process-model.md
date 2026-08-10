@@ -26,6 +26,31 @@ empty scope returns a summary-only object with **no `results` key** and exit cod
 5. Success is never inferred from an exit code, and failure is never inferred from the
    presence of findings.
 
+## Amendment, 2026-08-09: malformed and omitted input
+
+Fail-closed has to cover the input boundary too, not only scanner behaviour. Measured in
+the specification reference model before this amendment:
+
+| Input | Result |
+| --- | --- |
+| no gate evidence supplied at all | `VERIFIED` |
+| `required_validator_states=("PASS",)` as a string | `VERIFIED` |
+| `required_validator_states=("BOGUS",)` | `VERIFIED` |
+| `regression_policy="BOGUS"` | `VERIFIED` |
+| `scanner_integrity_ok="false"` | classified as if integrity held |
+
+The mechanism is the same in each case: an unknown value is neither in the undecided set
+nor equal to `FAIL`, so it falls through the checks into the pass branch. Type
+annotations do not prevent this, because they are not runtime validation.
+
+Therefore, added to this decision:
+
+6. Required gate evidence is supplied explicitly and never defaulted to `PASS`.
+7. Statuses and outcomes must be enum members, structural flags must be booleans, dates
+   must be dates, identities and scopes must be non-blank and canonical.
+8. Malformed input is a usage error with exit code 2. It is never reinterpreted as a
+   verdict of any kind.
+
 ## Consequences
 
 - A broken environment yields exit 3, so users see "we could not tell" rather than a

@@ -29,6 +29,8 @@ from spec_reference import (  # noqa: E402
     INVALID_REQUEST_EXIT_CODE,
     NEVER_PERMITTABLE_OUTCOMES,
     PERMITTABLE_EXCEPTION_OUTCOMES,
+    ExceptionOrigin,
+    ExceptionPolicy,
     ExceptionRecord,
     FindingLocation,
     InvalidVerificationRequest,
@@ -47,13 +49,25 @@ from spec_reference import (  # noqa: E402
 
 TODAY = date(2026, 8, 9)
 
+#: Explicit gate evidence. There is no default: a run that supplies none is an invalid
+#: request, so every table row states what was actually observed.
+PASSING_EVIDENCE = dict(
+    evaluation_date=TODAY,
+    preflight=Status.PASS,
+    required_scanner_integrity=Status.PASS,
+    required_validator_states=(Status.PASS,),
+    regression_policy=Status.PASS,
+    suppression_policy=Status.PASS,
+)
 
-def fixed(target_id: str = "T1") -> TargetDecision:
-    return TargetDecision(target_id=target_id, outcome=Outcome.FIXED)
+
+def fixed(target_id: str = "T1", scope: str = "aws_s3_bucket.data") -> TargetDecision:
+    return TargetDecision(target_id=target_id, outcome=Outcome.FIXED, target_scope=scope)
 
 
 def run_with(*decisions: TargetDecision, **kwargs) -> RunObservation:
-    return RunObservation(target_decisions=decisions or (fixed(),), **kwargs)
+    evidence = {**PASSING_EVIDENCE, **kwargs}
+    return RunObservation(target_decisions=decisions or (fixed(),), **evidence)
 
 
 # --------------------------------------------------------------------------- #
@@ -149,12 +163,13 @@ def test_boolean_counts_are_rejected() -> None:
 
 def test_zero_targets_is_an_invalid_request() -> None:
     with pytest.raises(InvalidVerificationRequest):
-        RunObservation(target_decisions=())
+        RunObservation(target_decisions=(), **PASSING_EVIDENCE)
 
 
 def test_no_required_validator_is_an_invalid_request() -> None:
     with pytest.raises(InvalidVerificationRequest):
-        RunObservation(target_decisions=(fixed(),), required_validator_states=())
+        RunObservation(target_decisions=(fixed(),),
+                       **{**PASSING_EVIDENCE, "required_validator_states": ()})
 
 
 def test_invalid_request_has_its_own_exit_code() -> None:
@@ -164,12 +179,13 @@ def test_invalid_request_has_its_own_exit_code() -> None:
 
 def test_duplicate_target_ids_are_rejected() -> None:
     with pytest.raises(SpecDomainError):
-        RunObservation(target_decisions=(fixed("T1"), fixed("T1")))
+        RunObservation(target_decisions=(fixed("T1"), fixed("T1")), **PASSING_EVIDENCE)
 
 
 def test_permission_without_an_exception_id_is_rejected() -> None:
     with pytest.raises(SpecDomainError):
-        TargetDecision(target_id="T1", outcome=Outcome.SUPPRESSED, policy_permitted=True)
+        TargetDecision(target_id="T1", outcome=Outcome.SUPPRESSED,
+                       target_scope="aws_s3_bucket.data", policy_permitted=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -266,15 +282,16 @@ def test_oracle_state_is_not_an_input_to_classification() -> None:
 # --------------------------------------------------------------------------- #
 # exceptions bind to one target, and only for a closed outcome set
 # --------------------------------------------------------------------------- #
-def approved(target_id: str, outcome: Outcome, scope: str = "s3.data",
-             exception_id: str = "EX-1") -> tuple[TargetDecision, dict]:
+def approved(target_id: str, outcome: Outcome, scope: str = "aws_s3_bucket.data",
+             exception_id: str = "EX-1") -> tuple[TargetDecision, ExceptionPolicy]:
     decision = TargetDecision(target_id=target_id, outcome=outcome, target_scope=scope,
                               policy_permitted=True, exception_id=exception_id)
     record = ExceptionRecord(exception_id=exception_id, target_id=target_id, scope=scope,
                              reason="accepted risk, tracked in TICKET-42",
-                             owner="platform-team", expires=date(2026, 12, 31),
-                             origin="trusted_base")
-    return decision, {exception_id: record}
+                             owner="platform-team", created=date(2026, 1, 1),
+                             expires=date(2026, 12, 31),
+                             origin=ExceptionOrigin.TRUSTED_BASE)
+    return decision, ExceptionPolicy((record,))
 
 
 def test_the_permittable_and_never_permittable_sets_are_disjoint_and_complete() -> None:
@@ -337,33 +354,41 @@ def test_two_deletions_with_one_target_scoped_exception_fail() -> None:
     ("missing", "not found"),
     ("other_target", "binds target"),
     ("scope", "scope"),
-    ("head_origin", "originates in the evaluated change"),
-    ("untrusted_origin", "is not trusted"),
-    ("no_reason", "no reason"),
-    ("no_owner", "no owner"),
+    ("head_origin", "not trusted"),
+    ("untrusted_origin", "not"),
+    ("no_reason", "non-blank"),
+    ("no_owner", "non-blank"),
     ("expired", "expired"),
 ])
 def test_defective_exceptions_do_not_permit(mutation: str, expected_fragment: str) -> None:
     decision, exceptions = approved("T1", Outcome.SUPPRESSED)
-    record = exceptions["EX-1"]
+    base = dict(exception_id="EX-1", target_id="T1", scope="aws_s3_bucket.data",
+                reason="accepted risk", owner="platform-team",
+                created=date(2026, 1, 1), expires=date(2026, 12, 31),
+                origin=ExceptionOrigin.TRUSTED_BASE)
     if mutation == "missing":
-        exceptions = {}
+        exceptions = ExceptionPolicy(())
     elif mutation == "other_target":
-        exceptions = {"EX-1": ExceptionRecord(**{**record.__dict__, "target_id": "T-OTHER"})}
+        exceptions = ExceptionPolicy((ExceptionRecord(**{**base, "target_id": "T-OTHER"}),))
     elif mutation == "scope":
-        exceptions = {"EX-1": ExceptionRecord(**{**record.__dict__, "scope": "other.scope"})}
+        exceptions = ExceptionPolicy((ExceptionRecord(**{**base, "scope": "other/scope"}),))
     elif mutation == "head_origin":
-        exceptions = {"EX-1": ExceptionRecord(**{**record.__dict__,
-                                                "origin": "candidate_head"})}
+        exceptions = ExceptionPolicy((ExceptionRecord(
+            **{**base, "origin": ExceptionOrigin.CANDIDATE_HEAD}),))
     elif mutation == "untrusted_origin":
-        exceptions = {"EX-1": ExceptionRecord(**{**record.__dict__, "origin": "random"})}
+        exceptions = ExceptionPolicy((ExceptionRecord(
+            **{**base, "origin": ExceptionOrigin.UNKNOWN}),))
     elif mutation == "no_reason":
-        exceptions = {"EX-1": ExceptionRecord(**{**record.__dict__, "reason": "  "})}
+        with pytest.raises(SpecDomainError):
+            ExceptionRecord(**{**base, "reason": "  "})
+        return
     elif mutation == "no_owner":
-        exceptions = {"EX-1": ExceptionRecord(**{**record.__dict__, "owner": ""})}
+        with pytest.raises(SpecDomainError):
+            ExceptionRecord(**{**base, "owner": ""})
+        return
     elif mutation == "expired":
-        exceptions = {"EX-1": ExceptionRecord(**{**record.__dict__,
-                                                "expires": date(2026, 1, 1)})}
+        exceptions = ExceptionPolicy((ExceptionRecord(
+            **{**base, "expires": date(2026, 1, 1)}),))
 
     reason = permission_rejection_reason(decision, exceptions, TODAY)
     assert reason is not None, mutation
@@ -411,24 +436,24 @@ def _deleted_approved() -> RunObservation:
 
 VERDICT_TABLE = [
     ("all targets fixed", run_with(fixed("T1"), fixed("T2")), Verdict.VERIFIED),
-    ("defect remains", run_with(TargetDecision("T1", Outcome.STILL_PRESENT)),
+    ("defect remains", run_with(TargetDecision("T1", Outcome.STILL_PRESENT, "aws_s3_bucket.data")),
      Verdict.FAILED),
-    ("partially fixed", run_with(TargetDecision("T1", Outcome.PARTIALLY_FIXED)),
+    ("partially fixed", run_with(TargetDecision("T1", Outcome.PARTIALLY_FIXED, "aws_s3_bucket.data")),
      Verdict.FAILED),
-    ("evasion by suppression", run_with(TargetDecision("T1", Outcome.SUPPRESSED)),
+    ("evasion by suppression", run_with(TargetDecision("T1", Outcome.SUPPRESSED, "aws_s3_bucket.data")),
      Verdict.FAILED),
     ("resource deleted, not permitted",
-     run_with(TargetDecision("T1", Outcome.RESOURCE_DELETED)), Verdict.FAILED),
+     run_with(TargetDecision("T1", Outcome.RESOURCE_DELETED, "aws_s3_bucket.data")), Verdict.FAILED),
     ("resource deleted, target-scoped exception", _deleted_approved(), Verdict.VERIFIED),
     ("policy drift", run_with(fixed(), policy_drift=True), Verdict.FAILED),
-    ("scanner error", run_with(TargetDecision("T1", Outcome.SCANNER_ERROR)),
+    ("scanner error", run_with(TargetDecision("T1", Outcome.SCANNER_ERROR, "aws_s3_bucket.data")),
      Verdict.INCONCLUSIVE),
-    ("ruleset drift", run_with(TargetDecision("T1", Outcome.RULE_OR_SCANNER_DRIFT)),
+    ("ruleset drift", run_with(TargetDecision("T1", Outcome.RULE_OR_SCANNER_DRIFT, "aws_s3_bucket.data")),
      Verdict.INCONCLUSIVE),
-    ("inconclusive target", run_with(TargetDecision("T1", Outcome.INCONCLUSIVE)),
+    ("inconclusive target", run_with(TargetDecision("T1", Outcome.INCONCLUSIVE, "aws_s3_bucket.data")),
      Verdict.INCONCLUSIVE),
     ("integrity failure outranks a real defect",
-     run_with(TargetDecision("T1", Outcome.STILL_PRESENT),
+     run_with(TargetDecision("T1", Outcome.STILL_PRESENT, "aws_s3_bucket.data"),
               required_scanner_integrity=Status.ERROR), Verdict.INCONCLUSIVE),
     ("preflight failure", run_with(fixed(), preflight=Status.ERROR),
      Verdict.INCONCLUSIVE),
@@ -504,11 +529,13 @@ def test_skipped_is_accepted_only_when_the_gate_is_explicitly_optional() -> None
     assert decide(run_with(fixed(), regression_policy=Status.SKIPPED)
                   ) is Verdict.INCONCLUSIVE
     assert decide(run_with(fixed(), regression_policy=Status.SKIPPED,
-                           optional_gates=frozenset({"regression"}))) is Verdict.VERIFIED
+                           optional_gates=frozenset({"regression"}),
+                           optional_gates_origin=ExceptionOrigin.TRUSTED_BASE)
+                  ) is Verdict.VERIFIED
 
 
 def test_undecided_dominates_definite_failure() -> None:
-    assert decide(run_with(TargetDecision("T1", Outcome.STILL_PRESENT),
+    assert decide(run_with(TargetDecision("T1", Outcome.STILL_PRESENT, "aws_s3_bucket.data"),
                            required_oracle_states=(Status.ERROR,))
                   ) is Verdict.INCONCLUSIVE
 
@@ -516,7 +543,7 @@ def test_undecided_dominates_definite_failure() -> None:
 def test_operational_failure_never_reports_verified_or_failed() -> None:
     for outcome in (Outcome.SCANNER_ERROR, Outcome.RULE_OR_SCANNER_DRIFT,
                     Outcome.INCONCLUSIVE):
-        assert decide(run_with(TargetDecision("T1", outcome))) is Verdict.INCONCLUSIVE
+        assert decide(run_with(TargetDecision("T1", outcome, "aws_s3_bucket.data"))) is Verdict.INCONCLUSIVE
 
 
 def test_exit_codes_match_the_specification() -> None:

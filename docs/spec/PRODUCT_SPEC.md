@@ -68,6 +68,10 @@ artifacts.
 | F-07 | Load policy and exceptions from a trusted source, never from the candidate | P0 |
 | F-08 | Emit a versioned canonical JSON report plus a human console report | P0 |
 | F-09 | Exit 0/1/2/3/4 per semantics §9 | P0 |
+| F-09a | Validate every input at the boundary: enum membership, boolean types, date types, non-blank canonical identity and scope, valid line ranges, closed optional-gate names. Malformed input is exit code 2, never `PASS` | P0 |
+| F-09b | Require explicit gate evidence: preflight, integrity, at least one validator, regression policy, suppression policy. No gate result is ever defaulted to `PASS` | P0 |
+| F-09c | Take evaluation time from the execution context, record it in the report, and treat exception windows as inclusive on both bounds | P0 |
+| F-09d | Deeply immutable domain objects: collections copied and frozen at construction so later external mutation cannot change a verdict | P0 |
 | F-10 | `doctor` reports detected tools, versions, support, and exact install guidance | P0 |
 | F-11 | `demo` shows verified, failed, suppressed, and inconclusive on bundled fixtures | P0 |
 | F-12 | Checkov adapter with contract fixtures for the research and product versions | P0 |
@@ -93,7 +97,7 @@ artifacts.
 | N-02 | No network access required for verification; `--network=none` proven in CI |
 | N-03 | No telemetry, ever; no opt-out needed because there is nothing to opt out of |
 | N-04 | No cloud credential required or inherited |
-| N-05 | Fail closed: no error path may yield `VERIFIED` |
+| N-05 | Fail closed: no error path, and no malformed or omitted input, may yield `VERIFIED` |
 | N-06 | Core install small; scanners are external binaries or bundled images, not Python deps |
 | N-07 | Python 3.10–3.13 for the thin CLI; the replay environment is pinned separately |
 | N-08 | Research data excluded from wheel and sdist, enforced by a packaging test |

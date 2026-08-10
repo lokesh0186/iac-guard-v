@@ -359,22 +359,23 @@ passing CI gate.
 
 ```console
 $ python3 -m pytest tests -q
-169 passed
+243 passed
 ```
 
 ### Test counts of record
 
 | Suite | Count |
 | --- | --- |
-| `tests/spec` (specification truth tables and domain probes) | 121 |
+| `tests/spec/test_semantics_truth_table.py` | 121 |
+| `tests/spec/test_domain_boundaries.py` | 74 |
 | `tests/research/test_qrs_regression.py` | 29 |
 | `tests/research/test_freeze_adversarial.py` | 19 |
-| **total** | **169** |
+| **total** | **243** |
 
-Progression, so the record shows what each review round added: 24 at the first freeze
-commit, 76 after the first adversarial remediation, 108 after the semantic-consistency
-commit, 169 after the domain-hardening commit. Earlier totals in this log have been
-replaced; only the current figures are presented as the gate result.
+Progression across review rounds, so the record shows what each one added: 24 at the
+first freeze commit, 76 after the first adversarial remediation, 108 after the
+semantic-consistency commit, 169 after the exception-scoping commit, 243 after the D0
+boundary-hardening commit. Only the current figures are presented as the gate result.
 
 **Gate B: PASS.**
 
@@ -476,8 +477,43 @@ E  assert not ['scripts/stray.pyo', 'scripts/__pycache__/analyze_part1.cpython-3
 FAILED tests/research/test_qrs_regression.py::test_replay_workspace_copy_rejects_artifacts_that_exist
 ```
 
-### C.3 Executable semantic truth tables
+### C.3 D0 boundary hardening: malformed and omitted input
 
+Review probes of the conformance oracle found a further fail-open class: Python
+annotations are not runtime validation, so an unknown value is neither in the undecided
+set nor equal to `FAIL` and falls through to the pass branch. Measured before, then
+after, using the review's A–L labels:
+
+| Probe | Before | After |
+| --- | --- | --- |
+| A no gate evidence supplied | `VERIFIED` | `InvalidVerificationRequest`, naming the missing field |
+| B `required_validator_states=("PASS",)` | `VERIFIED` | `SpecDomainError`: must be a `Status` member |
+| C `required_validator_states=("BOGUS",)` | `VERIFIED` | `SpecDomainError` |
+| D `required_oracle_states=("BOGUS",)` | `VERIFIED` | `SpecDomainError` |
+| E `regression_policy="BOGUS"` | `VERIFIED` | `SpecDomainError` |
+| F `scanner_integrity_ok="false"` | classified as if integrity held (a non-empty string is truthy) | `SpecDomainError` |
+| F2 `scanner_integrity_ok=1` | `SCANNER_ERROR` by accident of falsiness | `SpecDomainError` |
+| G blank `target_id` | accepted | `SpecDomainError` |
+| H blank exception scope | accepted | `SpecDomainError` |
+| I mapping key `EX-1` pointing at a record whose id is something else | `VERIFIED` | `SpecDomainError`: key does not match record id |
+| J default `evaluation_date` of 2026-08-09 | expired records stayed valid indefinitely | required input; a 2026-12-31 record is `expired` when evaluated on 2028-01-01 |
+| K clearing the caller's exception dict | verdict changed `VERIFIED` → `FAILED` | verdict unchanged; the policy is copied and frozen |
+| L `FindingLocation("main.tf", 5, 2)` | accepted | `SpecDomainError` |
+
+Trusted provenance is now stamped by the loader rather than read from the record. A
+payload declaring `origin: trusted_base` while being read from the candidate is stamped
+`candidate_head`, and the resulting permission is rejected with `origin
+'candidate_head' is not trusted; a self-granted approval is not an approval`.
+
+Exception windows are inclusive on both bounds, and a record whose `created` date has
+not arrived is rejected as `not yet in force`.
+
+`tests/spec/test_domain_boundaries.py` holds 74 probes covering each row above plus
+`datetime` rejected where a `date` is required, unknown exception fields, duplicate
+exception ids, non-`TargetDecision` entries, unknown optional-gate names, and optional
+gates whose optionality did not come from a trusted source.
+
+### C.4 Executable semantic truth tables
 Enum names existing is not the same as outcome predicates being coherent. The
 specification's predicates are transcribed into `tests/spec/spec_reference.py` and
 exercised by `tests/spec/test_semantics_truth_table.py`:

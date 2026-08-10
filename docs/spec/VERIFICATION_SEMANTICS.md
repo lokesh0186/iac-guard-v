@@ -92,7 +92,10 @@ MUST:
 ### 2.4 Exception records
 
 An exception suppresses a *policy decision*, never an *event*. Each record requires a
-stable `id`, `scope`, `reason`, `owner`, `created`, and `expires`.
+stable `id`, `target_id`, `scope`, `reason`, `owner`, `created`, and `expires`, and its
+trust `origin` is **stamped by the loader that read it** — never taken from a field
+inside the record. A record that declares `origin: trusted_base` while being read from
+the candidate is stamped `candidate_head`.
 
 - An expired exception is `FAIL`, not ignored.
 - An exception appearing or broadening in the candidate is `POLICY_DRIFT`.
@@ -143,6 +146,48 @@ Failing any clause leaves the target unresolved, and the report records the spec
 rejection reason rather than silently ignoring the claim.
 
 ---
+
+### 2.6 Input validity: malformed input is an invalid request, never `PASS`
+
+Type annotations are documentation, not validation. An unknown status string is neither
+in the undecided set nor equal to `FAIL`, so a permissive implementation lets it fall
+through to `VERIFIED`. Measured in the reference model before this rule existed:
+`required_validator_states=("BOGUS",)` produced `VERIFIED`, and
+`scanner_integrity_ok="false"` was read as "integrity held", because a non-empty string
+is truthy.
+
+The following are therefore enforced at runtime, and each failure is an invalid request
+(exit code 2) rather than a verdict:
+
+1. **Required evidence is explicit.** Preflight, required scanner integrity, at least
+   one required validator result, the regression-policy result, and the
+   suppression-policy result must all be supplied by the caller. None of them defaults
+   to `PASS`. Absence of evidence is not evidence.
+2. **Statuses and outcomes are enum members**, not strings that happen to spell one.
+3. **Structural flags are booleans**, not `"false"`, `0`, or `1`.
+4. **Dates are dates**, not strings or datetimes.
+5. **Identity and scope are non-blank and canonical.** Scope comparison uses the
+   documented canonical form: trimmed, relative, forward-slash separated, with no
+   empty, `.`, or `..` component.
+6. **Line ranges are valid**: `start_line >= 1` and `end_line >= start_line`, over a
+   canonical repository-relative path.
+7. **Collections are validated and frozen at construction.** An exception index whose
+   key disagrees with its record's `exception_id` is rejected, duplicate ids are
+   rejected, and the collection is copied so that mutating the caller's structure
+   cannot change an existing verdict.
+8. **Optional gates come from a closed set** (`regression`, `suppression`) and only from
+   a trusted configuration source.
+
+### 2.7 Evaluation time is trusted execution context
+
+The evaluation date is supplied by the execution context, never defaulted and never
+read from the evaluated repository. A hardcoded default silently keeps expired
+exceptions valid: a record expiring 2026-12-31 remained in force in 2028 because the
+model defaulted to 2026-08-09.
+
+An exception is in force when `created <= evaluation_date <= expires`; both bounds are
+**inclusive**. The evaluation date and timezone are recorded in the report so a reader
+can tell which day the decision was made on.
 
 ## 3. Finding identity
 

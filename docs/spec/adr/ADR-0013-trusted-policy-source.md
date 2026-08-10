@@ -39,6 +39,23 @@ living in the trusted source, optionally strengthened by a configured
 In local `repair` mode the working tree may supply configuration, because the operator
 and the author are the same person and there is no privilege boundary to cross.
 
+## Amendment, 2026-08-09: provenance is stamped, not declared
+
+Loading a record that contains `origin: trusted_base` and believing it reproduces the
+original defect one level down: the candidate would be describing its own
+trustworthiness. Trust is therefore a property of the **loader**, not of the record:
+
+- `load_trusted_exception(payload, origin)` stamps an origin the caller establishes by
+  having read the bytes from a trusted place, and rejects an untrusted origin outright;
+- `load_candidate_exception(payload)` always stamps `candidate_head`, discarding any
+  `origin` field in the payload;
+- the evaluation date comes from the execution context, never from repository
+  configuration, so a candidate cannot extend its own exception window.
+
+Exception records also carry `created` as well as `expires`, and a record is in force
+only when `created <= evaluation_date <= expires`, inclusive on both bounds. A record
+whose window has not opened yet is rejected with `not yet in force`.
+
 ## Consequences
 
 - A legitimate policy change takes two steps: merge the policy, then the change that

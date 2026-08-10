@@ -111,6 +111,25 @@ Every model carries a schema version. Reports sort scanners, files, findings, de
 gates, and diagnostics by documented stable keys so that two identical runs produce
 byte-equal output (semantics §10).
 
+**Deep immutability is a requirement, not a decoration.** A frozen dataclass holding a
+caller's `dict` is not immutable: in the reference model, clearing that dictionary after
+construction changed an existing verdict from `VERIFIED` to `FAILED`. Every collection
+inside a domain object is copied and frozen at construction — tuples of records plus a
+read-only index — so a verdict depends only on what was observed when the object was
+built.
+
+**Statuses stay typed all the way to the report.** `ScannerRun`, `GateResult`, validator
+results, and integrity results carry the full `Status` value through report generation.
+Collapsing `ERROR`, `TIMEOUT`, `PARTIAL`, `UNSUPPORTED`, and `INCONCLUSIVE` into one
+boolean is what made audit finding F6 possible, and the boolean flags in the
+specification reference model are a scenario-writing convenience that product code must
+not imitate.
+
+**Malformed input is rejected at the boundary.** Configuration, case bundles, and API
+arguments are validated against their schemas before anything runs; unknown enum values,
+unknown keys, non-boolean flags, and blank identities are usage errors (exit code 2).
+Nothing malformed is ever reinterpreted as `PASS`.
+
 ## 5. Adapter boundary
 
 ```python
