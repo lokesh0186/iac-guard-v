@@ -224,12 +224,27 @@ def test_control_characters_are_rejected_everywhere(bad: str) -> None:
 
 
 @pytest.mark.parametrize("bad", ["C:/x/y", "c:\\x\\y", "/etc/passwd", "a//b", "../up",
-                                 "./here", ""])
-def test_absolute_and_traversal_forms_are_rejected(bad: str) -> None:
-    with pytest.raises(SpecDomainError):
-        canonical_resource_scope(bad, "scope")
-    with pytest.raises(SpecDomainError):
-        canonical_repo_path(bad, "path")
+                                 "./here", "", "..", "a/./b"])
+def test_absolute_and_traversal_forms_are_rejected_in_every_validator(bad: str) -> None:
+    """Identifiers included: an id is interpolated into messages, filenames and report
+    keys, so a traversal-shaped id is a hazard even though an id is not a path. My own
+    verification of this commit found identifiers accepting `C:/x` and `../up`."""
+    for validator, kind in ((canonical_identifier, "id"),
+                            (canonical_resource_scope, "scope"),
+                            (canonical_repo_path, "path")):
+        with pytest.raises(SpecDomainError):
+            validator(bad, kind)
+
+
+@pytest.mark.parametrize("good", [
+    "checkov:CKV_AWS_18@aws_s3_bucket.example",
+    "terraform_hcl_parse",
+    "EX-1",
+    "kics:query-id.v2",
+])
+def test_structured_identifiers_remain_valid(good: str) -> None:
+    """Tightening identifiers must not break legitimate structured ids."""
+    assert canonical_identifier(good, "id") == good
 
 
 def test_repo_paths_and_resource_scopes_are_validated_separately() -> None:

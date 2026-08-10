@@ -140,9 +140,10 @@ def _normalise(raw: Any, name: str) -> str:
 def canonical_identifier(raw: Any, name: str) -> str:
     """A target id, exception id, or gate id.
 
-    Identifiers are not paths: slashes and dots are allowed as opaque characters, but
-    the value must be a single normalised token with no control characters, and must
-    not be a reserved placeholder.
+    Identifiers are not paths, but they must not *look* like dangerous paths either: an
+    id is frequently interpolated into a message, a filename, or a report key, so
+    traversal and absolute forms are rejected here as well. Structured ids such as
+    `checkov:CKV_AWS_18@aws_s3_bucket.example` remain valid.
     """
     text = _normalise(raw, name)
     if text.lower() in RESERVED_PLACEHOLDERS:
@@ -150,6 +151,20 @@ def canonical_identifier(raw: Any, name: str) -> str:
             f"{name} must not be the placeholder {text!r}; a generic identity is not an "
             f"identity"
         )
+    if "\\" in text:
+        raise SpecDomainError(f"{name} must not contain a backslash: {raw!r}")
+    if text.startswith("/"):
+        raise SpecDomainError(f"{name} must not be an absolute path: {raw!r}")
+    if _WINDOWS_DRIVE.match(text):
+        raise SpecDomainError(f"{name} must not be a drive-absolute path: {raw!r}")
+    if "/" in text:
+        parts = text.split("/")
+        if any(part in ("", ".", "..") for part in parts):
+            raise SpecDomainError(
+                f"{name} must not contain traversal or empty components: {raw!r}"
+            )
+    if text in (".", ".."):
+        raise SpecDomainError(f"{name} must not be a traversal component: {raw!r}")
     return text
 
 
