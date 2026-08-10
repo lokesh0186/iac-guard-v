@@ -78,6 +78,10 @@ artifacts.
 | F-09i | Target identity is the structured `(scanner, rule_id, scope)` tuple; authorisation never binds a concatenated display string | P0 |
 | F-09j | A `ScannerRun` constrains its findings' scanner and version, and rejects duplicate exact finding identities; adapters assign occurrence indices after a documented canonical sort | P0 |
 | F-09k | The policy boundary accepts only exact built-in containers, snapshotted once | P0 |
+| F-10 | Process runner provides isolated HOME/TMPDIR/XDG (no real home credential exposure), absolute executable resolution (no PATH=. injection), bounded stdout AND stderr, wall-clock deadline enforcement even after streams close, process-group termination (no surviving descendants), and scratch cleanup diagnostics | P0 |
+| F-11 | Report-facing command text is redacted: credential-shaped values, authorisation tokens, and machine-specific paths never enter canonical report data | P0 |
+| F-12 | Working directory must resolve inside a declared workspace root without symlink-component escapes; traversal and outside-root cwd are rejected | P0 |
+| F-13 | Process execution objects (CommandRequest, CommandResult) are frozen, slotted, and runtime-validated: environment names/values checked before spawn, no raw ValueError escapes, no caller-owned mutable dicts retained | P0 |
 | F-09h | Domain objects are frozen and slotted with no `__dict__`; nested records and collections are reconstructed into exact built-in types and canonically ordered; subclasses are rejected at security boundaries | P0 |
 | F-10 | `doctor` reports detected tools, versions, support, and exact install guidance | P0 |
 | F-11 | `demo` shows verified, failed, suppressed, and inconclusive on bundled fixtures | P0 |

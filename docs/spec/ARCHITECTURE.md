@@ -192,6 +192,25 @@ Filesystem paths are the one deliberate exception to the exact-type rule: `Path(
 returns `PosixPath`, so `type(x) is Path` is never true. Paths use `isinstance` and are
 then resolved and checked.
 
+**The host process runner is not a sandbox.** It reduces default credential discovery by
+providing an isolated `HOME`, `TMPDIR`, and `XDG_*` hierarchy under a per-command private
+scratch root, strips credential-shaped environment variables, resolves executables to
+absolute paths from trusted configuration rather than an attacker-controlled `PATH`, and
+bounds both stdout and stderr so a hostile child cannot exhaust memory. But it cannot
+prevent a child from reading arbitrary absolute host paths, and it cannot enforce network
+denial or resource limits without kernel support.
+
+**Native execution is explicitly reduced isolation.** The later container layer
+(`--network=none`, `--read-only`, `--cap-drop=ALL`, `--security-opt=no-new-privileges`,
+`--pids-limit`, `--memory`, `--cpus`, `--user`, `--tmpfs`) is what supplies mount,
+network, and resource-limit isolation. Default hostile-PR execution requires the hardened
+container mode; host-native execution is appropriate only for local developer use where
+the operator is also the author.
+
+D2 includes `process.py` (the secure runner), `redaction.py` (credential/token/path
+scrubbing for report-facing output), and workspace-root confinement (cwd must resolve
+inside a declared root without symlink escapes).
+
 ## 7. Configuration and locking
 
 `.iac-guard.yml` validated against `schemas/config-v1.schema.json` before anything

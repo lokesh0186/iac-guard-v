@@ -567,6 +567,25 @@ Target identity now has four forms with distinct jobs: the authoritative
 `opaque_id` over a length-prefixed encoding; and a human `display_ref` that is
 deliberately ambiguous and cannot be parsed back.
 
+### C.3.3 D2.1 secure-runner closure
+
+Nine defects independently reproduced against `584eb3a` are closed. Measured before and
+after:
+
+| # | Defect | Before | After |
+| --- | --- | --- | --- |
+| 1 | HOME exposes `~/.aws/credentials` | child HOME = real HOME | child HOME = private scratch |
+| 2 | PATH="." fake executable | PASS, ran "FAKE" | `ProcessPolicyError: cannot override protected 'PATH'` |
+| 3 | 1 MiB stderr, 64 KiB cap | PASS, 1,048,576 bytes | PARTIAL, 65,536 bytes |
+| 4 | closed streams + sleep, timeout=1 | ERROR after 3.07s | TIMEOUT after 1.06s |
+| 5 | leader exits, grandchild survives | grandchild wrote marker | marker never appears; group killed |
+| 6 | mutable env_extra | mutation succeeded | `TypeError` (MappingProxyType frozen) |
+| 7 | `BAD=KEY` / NUL value | raw `ValueError` | `ProcessPolicyError` |
+| 8 | malformed CommandResult | accepted | `ProcessPolicyError` |
+| 9 | no redaction | absent | `redaction.py` with credential/token/path redaction |
+
+30 new acceptance probes in `tests/unit/test_process_d21.py`. Suite total: 566.
+
 ### C.3.2 D2 secure process runner
 
 `src/iac_guard_v/process.py` with 46 tests that run real subprocesses. Three guards were

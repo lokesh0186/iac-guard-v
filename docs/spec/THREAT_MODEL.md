@@ -176,6 +176,22 @@ A native pip execution mode exists, is labelled `reduced-isolation`, is document
 unsuitable for hostile pull-request content, and is **never** selected automatically:
 when Docker is unavailable the Action fails closed with exit 3.
 
+## 5.1 Process runner is not a sandbox
+
+The host process runner provides defence in depth — isolated HOME, environment stripping,
+absolute executable resolution, output bounding, process-group lifecycle — but it is
+**not** a filesystem sandbox. A malicious scanner binary or policy script that runs on the
+host can still:
+
+- read arbitrary absolute paths (e.g. `/etc/shadow`, `~/.kube/config`);
+- read files anywhere in the workspace, not just the scan root;
+- open network connections (prevented only by the container layer);
+- exhaust CPU, file descriptors, or disk (prevented only by cgroups/ulimits).
+
+The correct isolation boundary for hostile pull-request content is the hardened container
+mode. Native execution is labeled `reduced-isolation` and is documented as suitable only
+for local developer use where the operator and the author are the same person.
+
 ## 6. Residual risks accepted
 
 1. **A scanner false negative remains a false negative.** IaC-Guard-V verifies that a

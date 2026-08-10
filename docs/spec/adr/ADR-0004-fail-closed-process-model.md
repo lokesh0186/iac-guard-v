@@ -73,6 +73,31 @@ Added to this decision:
 11. Security boundaries require exact types. `isinstance` accepts behaviour-overriding
     subclasses and is therefore not used for domain values.
 
+## Amendment, 2026-08-10: D2.1 secure-runner closure
+
+Nine further fail-open behaviours were independently reproduced in the process runner and
+are now closed, each with a before/after probe:
+
+| Defect | Before | After |
+| --- | --- | --- |
+| child inherits real HOME and reads `~/.aws/credentials` | credential file readable | private HOME under scratch; no real home exposure |
+| PATH="." + untrusted cwd executes fake `checkov` | ran the fake binary | `ProcessPolicyError`: cannot override protected `PATH` |
+| 1 MiB stderr under 64 KiB cap | PASS with all 1 MiB retained | PARTIAL; stderr bounded to configured cap |
+| closed streams + sleep bypasses deadline | returned after ~3.9s as ERROR | TIMEOUT at the configured 1s deadline |
+| leader os._exit(0), grandchild survives | grandchild wrote its marker | process GROUP killed; marker never appears |
+| mutable env_extra after construction | mutation changed child output | `TypeError` (frozen MappingProxyType) |
+| `BAD=KEY` environment name | raw `ValueError` from Popen | `ProcessPolicyError` before spawn |
+| NUL in environment value | raw `ValueError` from Popen | `ProcessPolicyError` before spawn |
+| malformed CommandResult constructed | accepted without validation | `ProcessPolicyError` |
+
+Additionally: `redaction.py` strips credentials, tokens and local paths from report-facing
+output; workspace-root confinement rejects cwd outside a declared root or through symlink
+escapes; scratch cleanup success/failure is recorded rather than silently ignored.
+
+The host process runner is explicitly NOT a sandbox. It reduces credential discovery and
+bounds resource usage, but cannot prevent arbitrary host-filesystem reads. Full isolation
+requires the container mode.
+
 ## Consequences
 
 - A broken environment yields exit 3, so users see "we could not tell" rather than a
