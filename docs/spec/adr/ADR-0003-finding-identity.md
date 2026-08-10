@@ -30,8 +30,12 @@ scanner's native fingerprint.
 
 ## Consequences
 
-- Comparison is a multiset operation, so `MOVED_FINDING` and `PARTIALLY_FIXED` become
-  expressible, and both are default failures.
+- Comparison is a multiset operation, so `LOCATION_CHANGED` and `PARTIALLY_FIXED`
+  become expressible. `PARTIALLY_FIXED` fails by default; `LOCATION_CHANGED` is
+  advisory, because a resource moving between files is a refactor, not a regression.
+- A rule that disappears from resource A and appears on resource B is two findings, not
+  one relocation: `RESOLVED_FINDING` on A plus `NEW_FINDING` on B. Only the resource
+  address decides, which is precisely what tiering buys.
 - Golden tests are needed for line drift, temp-root renaming, duplicates,
   multi-document YAML, and file moves.
 - A fingerprint algorithm change is a visible, versioned event rather than a silent

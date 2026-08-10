@@ -1,0 +1,23 @@
+Frozen QRS 2026 replication snapshot
+
+Pre-productization HEAD of the QRS 2026 replication artifact.
+
+Frozen files:      4842
+MANIFEST_ROOT:     a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+Scanner of record: checkov 3.2.517
+Runs:              630 (70 items x 3 models x 3 methods)
+
+VERIFICATION TOOLING IS NOT CONTAINED IN THIS SNAPSHOT.
+This tag points at the pre-productization commit, which predates
+research/verify_byte_manifest.py. Run the verifier from the productization branch
+against this tag:
+
+    git checkout <PR-1 or main commit containing research/verify_byte_manifest.py>
+    python research/verify_byte_manifest.py \
+      --manifest research/qrs2026-byte-manifest.jsonl \
+      --root . --tag qrs-2026-replication-v1 \
+      --expect-entries 4842 --strict
+
+The MANIFEST_ROOT above is part of the freeze: the verifier compares it against the
+manifest sidecar, so a manifest regenerated over changed research data fails even if
+its recorded snapshot commit is preserved by hand.

@@ -6,7 +6,7 @@ how much of it can be re-derived offline.
 | Field | Value |
 | --- | --- |
 | Snapshot commit | `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5` |
-| Snapshot tag | `qrs-2026-replication-v1` (annotated) |
+| Snapshot tag | `qrs-2026-replication-v1` (annotated, unsigned, local only) |
 | Frozen files | 4,842 |
 | `MANIFEST_ROOT` | `a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3` |
 | Manifest | `research/qrs2026-byte-manifest.jsonl` + `.root` sidecar |
@@ -34,8 +34,15 @@ byte size, absence of symlinks, absence of unlisted files under frozen prefixes,
 ```bash
 python research/verify_byte_manifest.py \
   --manifest research/qrs2026-byte-manifest.jsonl \
-  --root . --expect-entries 4842 --strict
+  --root . --tag qrs-2026-replication-v1 \
+  --expect-entries 4842 --strict
 ```
+
+`--tag` is mandatory. Without it the tool refuses to run, because a manifest that is
+not bound to the tag can be regenerated over changed data and still verify against
+itself. Tag binding checks the tag object type, its peeled commit, the
+`MANIFEST_ROOT` recorded in the tag annotation, and every path, mode, and blob id in
+`git ls-tree -r` for the tag.
 
 **Semantic reproduction.** `research/replay_from_frozen_runs.py` rebuilds
 `results/tables/all_runs.csv` from the 630 frozen run records and re-runs the three
@@ -54,14 +61,34 @@ that is the manifest's job.
 ## Verified results of the 2026-08-09 replay
 
 ```
-frozen run records:      630/630
-committed rows matched:  630/630
-field comparisons:       10080/10080 equal        (630 rows × 16 columns)
-attempt blobs parsed:    759 via ast.literal_eval, 0 failures
-verdict consistency:     0 failures
-derived tables:          7/7 SEMANTIC_MATCH, 0/7 byte-identical
-figures:                 not regenerated (no frozen script calls savefig)
+frozen run records:          630/630
+committed rows matched:      630/630, 0 unmatched, 0 duplicate keys
+field comparisons:           10080/10080 equal      (630 rows x 16 columns)
+
+stored verification values:
+  attempts_total:            762
+  verification_dicts:        759
+  verification_repr_strings: 0     <- ast.literal_eval is a compatibility path and
+                                      is NOT exercised by this artifact
+  verification_missing:      3
+  parse failures:            0
+
+final verdicts:
+  checked:                   627
+  unavailable:               3     (final attempt error 'empty_extraction')
+  mismatches:                0
+
+derived tables:              7/7 SEMANTIC_MATCH, 0/7 byte-identical
+figures:                     not regenerated (no frozen script calls savefig)
 ```
+
+The three unavailable final verdicts are
+`BM-0276_claude-opus-4.6_verify_loop.json`,
+`BM-0276_claude-sonnet-4.6_verify_loop.json`, and
+`BM-0279_claude-sonnet-4.6_verify_loop.json`. In each, the last verify-loop attempt
+recorded `error: empty_extraction` and produced no verification object; all three
+records carry `overall_verified_fix = false`. They are reported as unavailable
+evidence, not silently skipped.
 
 Environment: `research/VALIDATED_REPLAY_ENVIRONMENT.json`.
 
@@ -117,9 +144,27 @@ python research/verify_reproduction_env.py \
   --replay   research/VALIDATED_REPLAY_ENVIRONMENT.json
 ```
 
-Pinned environment: `research/requirements-reproduction.lock` (exact versions;
-artifact hash pinning is a deferred networked step, stated in the file itself) and
-`research/Dockerfile.reproduction`.
+Pinned environment:
+
+- `research/requirements-replay.lock` — hash-pinned and transitively complete for the
+  replay: `numpy==1.26.4` and `scipy==1.11.1`, each with a `--hash=sha256`, resolved
+  inside the target image because wheel selection is platform-specific. Install with
+  `pip install --require-hashes --no-deps -r research/requirements-replay.lock`.
+- `research/requirements-checkov-3.2.517.lock` — separate, for re-executing the
+  scanner rather than replaying results. Version-pinned only; hash pinning of
+  Checkov's large dependency tree is deferred to the Phase E integration workflow and
+  is stated as such in the file.
+- `research/Dockerfile.reproduction` — base image pinned by digest
+  `python:3.11.5-slim-bookworm@sha256:edaf703dce209d774af3ff768fc92b1e3b60261e7602126276f9ceb0e3a96874`.
+
+The dependency set was derived by AST import analysis of the frozen analysis scripts,
+not from `requirements.txt`: they import only `numpy` and `scipy` beyond the standard
+library. `pandas` and `matplotlib` appear in `requirements.txt` but are imported by no
+analysis script, so they are not replay dependencies and are absent from the lock.
+
+Verified: the replay runs to completion inside that container with
+`--network=none --read-only --cap-drop=ALL --user $(id -u):$(id -g)` and a tmpfs for
+`/tmp`, producing the same 630/630, 10080/10080, and 7/7 results as the host.
 
 ## Re-executing the original experiment
 
@@ -163,5 +208,5 @@ for general use (audit F1–F4, plus F6), so it is quarantined:
 ```
 NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
-MODEL_REFRESH_PROTOCOL_PREPARED_BUT_NOT_EXECUTED
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```

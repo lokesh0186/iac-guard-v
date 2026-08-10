@@ -101,11 +101,32 @@ def main() -> int:
         "--frozen-snapshot-commit",
         default=None,
         help=(
-            "the pre-productization commit the freeze represents. If given, the "
-            "frozen scope must be identical between it and the build tree."
+            "REQUIRED for canonical output. The pre-productization commit the freeze "
+            "represents; the frozen scope must be identical between it and the build tree."
+        ),
+    )
+    ap.add_argument(
+        "--unbound-development-output",
+        default=None,
+        help=(
+            "development only: write an unbound manifest to this non-canonical filename "
+            "stem instead of the canonical one. Cannot be combined with canonical output."
         ),
     )
     args = ap.parse_args()
+
+    # An unbound manifest must never be able to become the canonical one: that is the
+    # artifact the freeze tag is bound to, and a manifest with no snapshot binding can
+    # be regenerated over changed research data.
+    if not args.frozen_snapshot_commit and not args.unbound_development_output:
+        print("FAIL: SNAPSHOT_BINDING_REQUIRED: pass --frozen-snapshot-commit <sha> to "
+              "write the canonical manifest, or --unbound-development-output <stem> to "
+              "write a non-canonical development copy.")
+        return 1
+    if args.frozen_snapshot_commit and args.unbound_development_output:
+        print("FAIL: pass either --frozen-snapshot-commit or "
+              "--unbound-development-output, not both.")
+        return 1
 
     root = args.root.resolve()
     entries = tracked_frozen_entries(root)
@@ -155,8 +176,16 @@ def main() -> int:
             return 1
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = args.output_dir / MANIFEST_NAME
-    root_path = args.output_dir / ROOT_NAME
+    if args.unbound_development_output:
+        stem = args.unbound_development_output
+        if stem in (MANIFEST_NAME, ROOT_NAME, "qrs2026-byte-manifest"):
+            print("FAIL: refusing to write an unbound manifest under the canonical name")
+            return 1
+        manifest_path = args.output_dir / f"{stem}.jsonl"
+        root_path = args.output_dir / f"{stem}.root"
+    else:
+        manifest_path = args.output_dir / MANIFEST_NAME
+        root_path = args.output_dir / ROOT_NAME
 
     # Written with explicit "\n" so the manifest itself is byte-stable.
     with manifest_path.open("w", encoding="utf-8", newline="\n") as fh:
@@ -166,7 +195,7 @@ def main() -> int:
     sidecar = {
         "record_type": ROOT_RECORD_TYPE,
         "algorithm": ALGORITHM,
-        "manifest_file": MANIFEST_NAME,
+        "manifest_file": manifest_path.name,
         "entry_count": len(lines),
         "manifest_root": root_digest,
         "built_from_commit": commit,

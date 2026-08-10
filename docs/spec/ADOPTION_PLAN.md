@@ -40,8 +40,10 @@ verified, failed, suppressed, inconclusive — on bundled fixtures.
 
 1. A candidate that adds `#checkov:skip` passes a naive rule-disappearance check and is
    rejected here as `SUPPRESSED`.
-2. A finding that moves from resource A to resource B looks resolved to a rule-ID set
-   comparison and is reported here as `MOVED_FINDING`.
+2. A finding that moves from resource A to resource B looks like nothing happened to a
+   rule-ID set comparison, because the rule id is present before and after. Here it is
+   two facts: `RESOLVED_FINDING` on the old resource and `NEW_FINDING` on the new one,
+   and the new finding fails the gate.
 3. A scanner that produces no output looks clean to the old harness — including with
    current Checkov, where an empty scope returns a summary-only object and exit 0 — and
    is `SCANNER_ERROR`, exit 3, here.

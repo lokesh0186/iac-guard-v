@@ -45,6 +45,7 @@ def run(*args: str, cwd: Path = REPO) -> subprocess.CompletedProcess[str]:
 @pytest.fixture(scope="module")
 def manifest_result() -> dict:
     proc = run(str(VERIFIER), "--manifest", str(MANIFEST), "--root", str(REPO),
+               "--tag", "qrs-2026-replication-v1",
                "--expect-entries", str(EXPECTED_ENTRIES), "--strict", "--json")
     assert proc.returncode in (0, 1), proc.stderr
     return json.loads(proc.stdout)
@@ -83,6 +84,16 @@ def test_root_digest_lives_in_the_sidecar() -> None:
     assert sidecar["frozen_snapshot_commit"] == "7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5"
 
 
+def test_manifest_is_bound_to_the_freeze_tag() -> None:
+    """The sidecar root must equal the root recorded in the tag annotation."""
+    sidecar = json.loads(MANIFEST.with_suffix(".root").read_text(encoding="utf-8"))
+    annotation = subprocess.run(
+        ["git", "-C", str(REPO), "cat-file", "tag", "qrs-2026-replication-v1"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert f"MANIFEST_ROOT: {sidecar['manifest_root']}" in annotation
+
+
 # --------------------------------------------------------------------------- #
 # the verifier must actually fail on tampering (synthetic repo, no real data)
 # --------------------------------------------------------------------------- #
@@ -101,7 +112,10 @@ def synthetic_repo(tmp_path: Path) -> Path:
         ["git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", "init"],
     ):
         subprocess.run(cmd, cwd=repo, check=True, capture_output=True)
-    proc = run(str(BUILDER), "--root", str(repo), "--output-dir", str(repo / "research"))
+    head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"],
+                          capture_output=True, text=True, check=True).stdout.strip()
+    proc = run(str(BUILDER), "--root", str(repo), "--output-dir", str(repo / "research"),
+               "--frozen-snapshot-commit", head)
     assert proc.returncode == 0, proc.stdout + proc.stderr
     return repo
 
@@ -109,7 +123,8 @@ def synthetic_repo(tmp_path: Path) -> Path:
 def verify_synthetic(repo: Path, entries: int = 3) -> dict:
     proc = run(str(VERIFIER), "--manifest",
                str(repo / "research" / "qrs2026-byte-manifest.jsonl"),
-               "--root", str(repo), "--expect-entries", str(entries), "--strict", "--json")
+               "--root", str(repo), "--allow-unbound",
+               "--expect-entries", str(entries), "--strict", "--json")
     return json.loads(proc.stdout)
 
 
@@ -130,7 +145,7 @@ def test_mutable_file_change_does_not_trip_the_freeze(synthetic_repo: Path) -> N
         (lambda r: (r / "scripts" / "a.py").write_text("print('tampered')\n"),
          "SHA256_CHANGED"),
         (lambda r: (r / "scripts" / "b.py").write_text("new file\n"),
-         "ADDED_UNTRACKED_FILE_UNDER_FROZEN_PREFIX"),
+         "UNLISTED_PHYSICAL_FILE_UNDER_FROZEN_PREFIX"),
         (lambda r: (r / "runs" / "r.json").unlink(),
          "MISSING_FILE"),
     ],
@@ -180,11 +195,37 @@ def test_all_runs_reconstructs_exactly(replay_result: dict) -> None:
     assert rec["unmatched_rows"] == []
 
 
-def test_frozen_verification_blobs_parse_without_eval(replay_result: dict) -> None:
+def test_stored_verification_values_are_reported_accurately(replay_result: dict) -> None:
+    """The counts must describe what the data actually contains."""
     rec = replay_result["reconstruction"]
-    assert rec["attempts_parsed"] > 0
-    assert rec["attempt_parse_failures"] == []
-    assert rec["verdict_consistency_failures"] == []
+    assert rec["attempts_total"] == 762
+    assert rec["verification_dicts"] == 759
+    assert rec["verification_repr_strings"] == 0, (
+        "this artifact stores JSON objects; ast.literal_eval is not exercised"
+    )
+    assert rec["verification_missing"] == 3
+    assert rec["verification_parse_failures"] == []
+    assert rec["final_verdicts_checked"] == 627
+    assert len(rec["final_verdicts_unavailable"]) == 3
+    assert all(u["expected"] for u in rec["final_verdicts_unavailable"])
+    assert all(u["final_attempt_error"] == "empty_extraction"
+               for u in rec["final_verdicts_unavailable"])
+    assert rec["final_verdict_mismatches"] == []
+    assert rec["target_rule_inconsistencies"] == []
+
+
+def test_replay_rejects_duplicate_and_missing_data(replay_result: dict) -> None:
+    rec = replay_result["reconstruction"]
+    assert rec["duplicate_csv_keys"] == []
+    assert rec["duplicate_run_keys"] == []
+    assert rec["missing_json_fields"] == []
+
+
+def test_replay_workspace_excludes_build_artifacts(replay_result: dict) -> None:
+    rep = replay_result["reproduction"]
+    assert rep["copy_method"] in ("git-ls-files", "filesystem-walk-with-exclusions")
+    assert all("__pycache__" not in a and not a.endswith(".pyc")
+               for a in rep["excluded_artifacts"]) or rep["excluded_artifacts"]
 
 
 def test_replay_tooling_never_uses_eval() -> None:

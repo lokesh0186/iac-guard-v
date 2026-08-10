@@ -182,13 +182,42 @@ Checkov version from `requirements.txt:4` corroborated by the
 that were never recorded must remain explicitly unknown rather than being
 back-filled from a later environment.
 
-### F10 — `verification` is stored as a Python `repr`, not JSON (low, but a trap)
+### F10 — `verification` encoding was mis-stated in the first audit (corrected)
 
-Inside each `attempts[]` entry, `verification` is the string form of a Python dict,
-so it starts `{'target_rule_id': ...}` with single quotes. It is not JSON-parseable.
-Any replay tooling must use `ast.literal_eval`; using `eval` here would execute
-attacker-influenceable text from model output, and using `json.loads` fails
-outright.
+**Original claim, now known to be wrong:** that each `attempts[].verification` value is
+the Python `repr` of a dict and therefore not JSON-parseable.
+
+**Verified 2026-08-09, over all 630 records and 762 attempts:**
+
+| Encoding | Count |
+| --- | --- |
+| `verification` stored as a JSON object | 759 |
+| `verification` stored as a `repr` string | **0** |
+| `verification` absent | 3 |
+
+The first audit misread a printed `str(dict)` — which renders with single quotes and
+looks exactly like a repr — as evidence of how the value was stored. Every present
+value is a JSON object and parses with `json.loads`.
+
+The engineering consequence stands but for a different reason: replay tooling keeps
+`ast.literal_eval` as a **defensive compatibility path** for repr-encoded values, and
+must never use `eval`, because these blobs contain model-generated text. That path
+is not exercised by this artifact, and the replay reports its invocation count as 0
+rather than implying it did the work.
+
+The three absent values are a real, separate observation:
+
+| File | Final attempt |
+| --- | --- |
+| `runs/raw/BM-0276_claude-opus-4.6_verify_loop.json` | `error: empty_extraction`, no verification object |
+| `runs/raw/BM-0276_claude-sonnet-4.6_verify_loop.json` | same |
+| `runs/raw/BM-0279_claude-sonnet-4.6_verify_loop.json` | same |
+
+In each case the final verify-loop attempt produced no extractable patch, so no
+verification was recorded for that attempt. All three records carry
+`overall_verified_fix = false`, consistent with a failed final attempt. They are
+classified as unavailable evidence, not skipped: 627 of 630 final verdicts are
+independently checkable, and all 627 agree with their final attempt.
 
 ---
 

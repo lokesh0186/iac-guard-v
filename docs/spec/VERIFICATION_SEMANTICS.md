@@ -139,43 +139,100 @@ A finding is not a rule ID. That representation is audit finding F3.
 
 ## 4. Target outcomes
 
-Exactly one value per target instance. Only `FIXED` can contribute to `VERIFIED`.
+Exactly one value per target. Only `FIXED` can contribute to `VERIFIED`.
 
-| Outcome | Decision rule |
+For one target `(scanner, rule_id, scope)` define:
+
+```
+N = baseline occurrence count for the target        (N >= 1 by construction)
+M = candidate occurrence count matching the target at EXACT or RELOCATED tier
+```
+
+`RELOCATED` means the **same resource address** with a changed file path or line
+range. A finding on a *different* resource address is a different finding; see §5.
+
+| Outcome | Predicate |
 | --- | --- |
-| `FIXED` | Target scope present in candidate; scanner integrity `PASS` for the required scanner; no suppression added in scope; no `EXACT`-tier finding for the target; required oracles `PASS` |
-| `STILL_PRESENT` | An `EXACT` or `RELOCATED` finding for the target remains |
-| `PARTIALLY_FIXED` | Target had N>1 occurrences; at least one remains |
-| `SUPPRESSED` | The finding is absent and a suppression covering its scope appeared: inline skip, ignore file entry, config exclusion, path exclusion, baseline file, or custom-policy override |
-| `RESOURCE_DELETED` | The resource address named by the target does not exist in the candidate |
-| `FILE_DELETED_OR_RENAMED` | The target file is absent, and no rename mapping preserves scope |
-| `OUT_OF_SCOPE` | The target artifact is no longer selected: framework changed, extension changed, path excluded, or generated-file marker added |
-| `RULE_OR_SCANNER_DRIFT` | Scanner version, ruleset, check bundle, or rule ID differs between baseline and candidate runs |
-| `SCANNER_ERROR` | The scanner did not produce a trustworthy result for the candidate (§6) |
-| `INCONCLUSIVE` | Evidence cannot separate the above |
+| `SCANNER_ERROR` | the required scanner did not produce a trustworthy result for the candidate (§6 V5) |
+| `RULE_OR_SCANNER_DRIFT` | scanner version, ruleset, check bundle, or rule id differs between the baseline and candidate runs |
+| `OUT_OF_SCOPE` | the target artifact ceased to be **structurally** eligible: artifact kind, framework, file extension, or generated-file marker changed so that no configured scanner selects it |
+| `FILE_DELETED_OR_RENAMED` | the target file is absent and no rename mapping preserves scope |
+| `RESOURCE_DELETED` | the target file exists and is eligible, but the target resource address does not exist in the candidate |
+| `SUPPRESSED` | scope exists and is eligible, `M == 0`, and a suppression covering the scope appeared: inline skip annotation, ignore-file entry, scanner-config exclusion including path exclusion, baseline-suppression file, or custom-policy override |
+| `PARTIALLY_FIXED` | `N > 1` and `0 < M < N` |
+| `STILL_PRESENT` | `M >= N`, or (`N == 1` and `M == 1`) |
+| `FIXED` | `M == 0`, scope present and eligible, integrity `PASS`, no suppression covering the scope appeared, and every required oracle `PASS` |
+| `INCONCLUSIVE` | none of the above can be established from the available evidence |
 
 ### 4.1 Ordering rule
 
-Evaluate in this order and stop at the first match: `SCANNER_ERROR` →
-`RULE_OR_SCANNER_DRIFT` → `OUT_OF_SCOPE` → `FILE_DELETED_OR_RENAMED` →
-`RESOURCE_DELETED` → `SUPPRESSED` → `STILL_PRESENT` → `PARTIALLY_FIXED` → `FIXED` →
-`INCONCLUSIVE`. Absence of a finding is never sufficient on its own; this ordering is
-what prevents audit findings F1 and F4 from recurring.
+Evaluate in this order and stop at the first match:
 
-### 4.2 Classification is not policy
+```
+SCANNER_ERROR
+RULE_OR_SCANNER_DRIFT
+OUT_OF_SCOPE
+FILE_DELETED_OR_RENAMED
+RESOURCE_DELETED
+SUPPRESSED
+PARTIALLY_FIXED          <- before STILL_PRESENT
+STILL_PRESENT
+FIXED
+INCONCLUSIVE
+```
 
-The classifier emits the outcome. A separate policy layer decides pass or fail. A
-deployment may legitimately allow `RESOURCE_DELETED` (deleting the offending bucket
-is a real remediation) or an approved `SUPPRESSED`. Defaults:
+Two properties this must satisfy, both covered by executable truth-table tests:
 
-| Outcome | Default decision |
+- **Reachability.** Every outcome is produced by at least one scenario. An earlier
+  draft evaluated `STILL_PRESENT` first and defined it as "a finding remains", which
+  made `PARTIALLY_FIXED` unreachable, because a partially fixed target always has a
+  remaining finding. The count predicates above are disjoint, so the order affects
+  efficiency only, not classification.
+- **Disjointness.** `SUPPRESSED` and `OUT_OF_SCOPE` no longer overlap. Path exclusion
+  through scanner configuration is a **suppression**: the artifact is still
+  structurally eligible and a configuration change hid it. `OUT_OF_SCOPE` is reserved
+  for the artifact itself ceasing to be eligible. A candidate-authored configuration
+  or ignore-file change additionally emits `POLICY_DRIFT` (§2.3), so the two signals
+  stack rather than compete.
+
+Absence of a finding is never sufficient on its own: `M == 0` holds for `SUPPRESSED`,
+`RESOURCE_DELETED`, `OUT_OF_SCOPE`, and `FIXED`, and only the last passes. That is
+what stops audit findings F1 and F4 from recurring.
+
+### 4.2 Classification is not policy, and not every failure is `FAILED`
+
+The classifier emits the outcome. A separate policy layer decides the consequence, and
+the consequence is not always "fail": some outcomes mean the verifier could not
+establish anything, which is `INCONCLUSIVE`, not a negative result about the change.
+
+| Outcome | Meaning | Default decision | Contributes to |
+| --- | --- | --- | --- |
+| `FIXED` | the target was repaired | pass | `VERIFIED` |
+| `STILL_PRESENT` | the defect remains | fail | `FAILED` |
+| `PARTIALLY_FIXED` | some occurrences remain | fail | `FAILED` |
+| `SUPPRESSED` | the finding was hidden, not fixed | fail | `FAILED` |
+| `RESOURCE_DELETED` | the resource is gone | fail unless `allow_resource_deletion` | `FAILED` |
+| `FILE_DELETED_OR_RENAMED` | the file is gone | fail unless policy permits | `FAILED` |
+| `OUT_OF_SCOPE` | the artifact left scanner selection | fail | `FAILED` |
+| `RULE_OR_SCANNER_DRIFT` | the comparison is not valid | inconclusive | `INCONCLUSIVE` |
+| `SCANNER_ERROR` | the scan is not trustworthy | inconclusive | `INCONCLUSIVE` |
+| `INCONCLUSIVE` | evidence does not decide | inconclusive | `INCONCLUSIVE` |
+
+The whole-run decision table, which §7 formalises:
+
+| Condition | Overall |
 | --- | --- |
-| `FIXED` | pass |
-| everything else | fail |
+| a defect remains, or the candidate evaded verification | `FAILED` |
+| the candidate modified protected policy or configuration | `FAILED` with `POLICY_DRIFT` |
+| a scanner crashed, timed out, returned partial data, or could not cover the input | `INCONCLUSIVE` |
+| ruleset or version drift makes the comparison invalid | `INCONCLUSIVE` |
+| trusted policy permits an event | per policy; the event stays reported |
+| every required gate proves the fix and no regression | `VERIFIED` |
 
 `allow_resource_deletion` and `allow_suppression` exist, default `false`, and when
-enabled require an exception record per §2.4. A permitted outcome stays visible in
-the report with `policy_permitted: true`.
+enabled require an exception record per §2.4. A permitted outcome remains visible in
+the report with `policy_permitted: true`; permission changes the decision, never the
+classification.
 
 ---
 
@@ -183,24 +240,62 @@ the report with `policy_permitted: true`.
 
 Computed over finding **multisets**, never sets of rule IDs.
 
-| Class | Definition |
+A finding's resource address is part of its identity. Two cases an earlier draft
+conflated:
+
+- **Same resource, different file or line.** The same finding, in a new location. This
+  is `LOCATION_CHANGED` and is **advisory by default**: reformatting, moving a resource
+  between files, or inserting lines above it are ordinary refactors, not security
+  regressions.
+- **Rule disappears from resource A and appears on resource B.** Two different
+  findings, reported as `RESOLVED_FINDING` on A **plus** `NEW_FINDING` on B. Not a
+  relocation, because the resource address changed.
+
+| Class | Definition | Default |
+| --- | --- | --- |
+| `NEW_FINDING` | candidate finding with no baseline match at `EXACT` or `RELOCATED` | fail at or above `severity_floor` |
+| `LOCATION_CHANGED` | matches at `RELOCATED` but not `EXACT`: same resource, new file or line | advisory |
+| `SEVERITY_INCREASED` | same identity, higher severity | fail |
+| `SCOPE_EXPANDED` | the same rule now matches additional resource addresses | fail |
+| `RULE_SUBSTITUTED` | the same `EXACT` control now fails under a different native rule id after drift | inconclusive |
+| `SUPPRESSION_ADDED` | new or broadened scanner-native suppression | fail |
+| `COVERAGE_DECREASED` | see §5.1 | inconclusive |
+| `DIAGNOSTIC_ADDED` | new parser or validator diagnostic | advisory, unless it indicates an unparsed eligible file |
+| `DESTRUCTIVE_CHANGE` | resource deletion or replacement, when plan data is supplied | fail unless permitted |
+| `POLICY_DRIFT` | §2.3 | fail |
+| `RESOLVED_FINDING` | a baseline finding is absent in the candidate and not explained by suppression, deletion, or scope loss | positive |
+
+Default gate: no `NEW_FINDING` at or above `severity_floor`, no `SEVERITY_INCREASED`,
+no `SCOPE_EXPANDED`, no `SUPPRESSION_ADDED`, no `POLICY_DRIFT`. `LOCATION_CHANGED` is
+reported and does not fail unless trusted policy sets
+`regressions.fail_on_location_change: true`.
+
+### 5.1 Coverage is measured against the candidate's own eligible set
+
+An earlier draft compared the candidate's parsed-file count against the **baseline**
+count. That misclassifies a legitimate deletion: removing one Terraform file lowers the
+candidate count with no loss of scanner coverage.
+
+Coverage is therefore evaluated within the candidate:
+
+```
+eligible_candidate = files the independent artifact-kind detector says the scanner
+                     should select, computed without the scanner
+parsed_candidate   = files the scanner reports it actually parsed
+
+COVERAGE_DECREASED iff parsed_candidate < eligible_candidate
+```
+
+Three situations a raw count comparison confuses, now separated:
+
+| Situation | Signal |
 | --- | --- |
-| `NEW_FINDING` | Candidate finding with no baseline match at `EXACT` or `RELOCATED` |
-| `MOVED_FINDING` | Matches at `RELOCATED` but not `EXACT`; reported as a regression, not as resolved-plus-new |
-| `SEVERITY_INCREASED` | Same identity, higher severity |
-| `SCOPE_EXPANDED` | Same rule now matches additional resource addresses |
-| `RULE_SUBSTITUTED` | Same `EXACT` control now failing under a different native rule id after drift |
-| `SUPPRESSION_ADDED` | New or broadened scanner-native suppression |
-| `COVERAGE_DECREASED` | Fewer eligible, discovered, or parsed files, or fewer loaded checks |
-| `DIAGNOSTIC_ADDED` | New parser or validator diagnostic |
-| `DESTRUCTIVE_CHANGE` | Resource deletion or replacement, when plan data is supplied |
-| `POLICY_DRIFT` | §2.3 |
-| `RESOLVED_FINDING` | Baseline finding absent in candidate and not explained by suppression, deletion, or scope loss; recorded as a positive delta |
+| the scanner failed to parse an eligible candidate file | `COVERAGE_DECREASED` then `PARTIAL` then `INCONCLUSIVE` |
+| the candidate changed scanner selection or configuration | `POLICY_DRIFT` then `FAILED` |
+| the candidate legitimately removed a file or resource | `FILE_DELETED_OR_RENAMED` or `RESOURCE_DELETED`, then policy decides |
 
-Default gate: no `NEW_FINDING` at or above `severity_floor`, no `MOVED_FINDING`, no
-`SUPPRESSION_ADDED`, no `COVERAGE_DECREASED`, no `POLICY_DRIFT`.
-
----
+Baseline and candidate file counts remain recorded as evidence because they are useful
+context. They are not the gate.
 
 ## 6. Gates
 
@@ -282,26 +377,36 @@ converts a `DISAGREEMENT` into a defect claim by itself.
 
 ## 7. Verdict
 
+Evaluated in this order, so that "we could not tell" can never be reported as either a
+pass or a real negative result:
+
 ```
-VERIFIED  iff  P0 == PASS
-          and  every required validator (V1) == PASS
-          and  every required scanner integrity (V5) == PASS
-          and  every required target outcome == FIXED
-          and  regression policy (V3) == PASS
-          and  suppression and POLICY_DRIFT policy (§2) == PASS
-          and  every required oracle (V6) == PASS
+1. INCONCLUSIVE if any of:
+     P0 != PASS
+     any required validator (V1) != PASS
+     any required scanner integrity (V5) != PASS
+     any required target outcome in {SCANNER_ERROR, RULE_OR_SCANNER_DRIFT, INCONCLUSIVE}
+     COVERAGE_DECREASED on a required scanner            (candidate-internal, §5.1)
+     RULE_SUBSTITUTED on a required target
+     any required gate is ERROR, TIMEOUT, UNSUPPORTED, or PARTIAL
 
-FAILED       iff not VERIFIED and every required gate reached a decision
-             (that is, at least one PASS/FAIL criterion evaluated to FAIL and no
-              required gate is ERROR/TIMEOUT/UNSUPPORTED/PARTIAL/INCONCLUSIVE)
+2. FAILED if any of:
+     POLICY_DRIFT is present                             (a definite negative result)
+     any required target outcome is not FIXED and is not permitted by trusted policy
+     regression policy (V3) != PASS
+     suppression policy != PASS
+     any required oracle (V6) != PASS
 
-INCONCLUSIVE otherwise
+3. VERIFIED otherwise
 ```
 
-Any `ERROR`, `TIMEOUT`, `UNSUPPORTED` required tool, `PARTIAL` scan,
-`COVERAGE_DECREASED` on a required scanner, or `INCONCLUSIVE` required gate yields
-`INCONCLUSIVE` — never `VERIFIED`, and never a silent `FAILED` that hides a broken
-run.
+Step 1 dominating step 2 is deliberate. If a scanner crashed **and** a target is still
+present, the honest answer is `INCONCLUSIVE`: the crash means the finding set is not
+trustworthy, so the apparent defect is not established evidence either.
+
+`POLICY_DRIFT` sits in step 2 rather than step 1 because it is not missing evidence.
+The candidate demonstrably attempted to alter the rules governing its own evaluation,
+which is a conclusion, not an absence of one.
 
 ---
 

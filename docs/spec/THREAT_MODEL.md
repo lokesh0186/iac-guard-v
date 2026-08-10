@@ -44,7 +44,7 @@ govern its own evaluation.
 | Make the scanner produce nothing | V5 treats empty or unparseable output as `ERROR`; exit 3 (semantics §6) |
 | Add a suppression | `SUPPRESSED` outcome plus `SUPPRESSION_ADDED` delta; fail by default |
 | Delete the offending resource or file | `RESOURCE_DELETED`, `FILE_DELETED_OR_RENAMED` |
-| Move the finding to another resource | `RELOCATED` tier ⇒ `MOVED_FINDING` regression |
+| Move the offending configuration to another resource | different resource address, so `RESOLVED_FINDING` on the old plus `NEW_FINDING` on the new; the new finding fails the gate |
 | Rename or re-extension the file so it is not scanned | `OUT_OF_SCOPE` plus `COVERAGE_DECREASED` |
 | Edit `.iac-guard.yml` or scanner config in the PR | `POLICY_DRIFT`; trusted config used; head version ignored |
 | Forge an exception record granting itself approval | exceptions load only from the trusted source; `owner` is not proof; optional `approval_binding` |

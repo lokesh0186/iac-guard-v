@@ -1,0 +1,27 @@
+# Checkov compatibility lock — for RE-EXECUTING the scanner, not for replaying results.
+#
+# Replaying the QRS 2026 tables does not invoke Checkov: the frozen run records already
+# contain every verification outcome, and research/replay_from_frozen_runs.py recomputes
+# the tables from them. This lock exists only for someone who wants to re-run the
+# scanner itself against the benchmark.
+#
+# Version evidence, independent of this file:
+#   requirements.txt:4                       checkov==3.2.517
+#   scanners/outputs/baseline/*.json         "checkov_version": "3.2.517" in all 70
+#
+# HASH PINNING STATUS: version-pinned, not hash-pinned.
+#   Checkov 3.2.517 resolves to a large transitive dependency tree. Hash-pinning it is
+#   possible and is a networked resolution step, not a model call:
+#     docker run --rm --platform linux/amd64 \
+#       python:3.11.5-slim-bookworm@sha256:edaf703dce209d774af3ff768fc92b1e3b60261e7602126276f9ceb0e3a96874 \
+#       sh -c 'pip download --no-cache-dir -d /tmp/d checkov==3.2.517 && cd /tmp/d && sha256sum *'
+#   It is deliberately deferred rather than half-done: this lock is off the replay path,
+#   and a partially hash-pinned file invites the assumption that it is complete.
+#   Deferred to the Phase E integration workflow, where the pinned Checkov image is
+#   built and tested.
+#
+# The local development machine has Checkov 3.3.0 installed, which is NOT this version.
+# research/compat/legacy_verify.py refuses to run on that drift unless an explicitly
+# untrusted inspection run is requested.
+
+checkov==3.2.517

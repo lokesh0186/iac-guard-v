@@ -53,6 +53,33 @@ deliberately excluded so ordinary documentation work cannot trip the freeze.
 - Adding a legitimate research file later requires regenerating the manifest, which is
   an explicit, reviewable act.
 
+## Amendments after adversarial review, 2026-08-09
+
+Four attacks defeated the first implementation, and none was caught by its own tests.
+They are now permanent regression tests in `tests/research/test_freeze_adversarial.py`:
+
+| Attack | Why it worked | Correction |
+| --- | --- | --- |
+| `chmod +x` on a frozen file with no `git add` | mode was read from `git ls-files -s`, which reports the index, not the filesystem | physical `lstat` executable bit compared against the recorded git mode |
+| git-ignored `scripts/__pycache__/evil.pyc` | untracked files came from `git ls-files --others --exclude-standard`, which omits ignored files | the physical filesystem under every frozen prefix is walked, ignored files included |
+| a frozen directory replaced by a symlink to an identical outside copy | only the final path component was tested for being a symlink | every parent component is tested; symlinked frozen directories fail; resolved paths must stay inside the repository |
+| edit a frozen file, regenerate the manifest, hand-preserve `frozen_snapshot_commit` | nothing bound the manifest to the tag, so the freeze could be moved onto changed data | `--tag` is mandatory: tag type, peeled commit, the `MANIFEST_ROOT` in the tag annotation, and every path, mode, and blob id from `git ls-tree -r` are all checked |
+
+Two further consequences of the fourth item:
+
+- The builder now requires `--frozen-snapshot-commit` to write the canonical manifest.
+  An unbound build is still possible for development, but only under a non-canonical
+  filename, so it cannot quietly become the artifact the tag is bound to.
+- The freeze tag's annotation records `MANIFEST_ROOT`, which makes the tag itself part
+  of the verification chain rather than a label.
+
+**Open owner action.** The existing local tag's message tells the reader to run
+`research/verify_byte_manifest.py`, but that file does not exist at the tagged
+pre-productization commit. A corrected message is prepared in
+`research/TAG_MESSAGE_REPLACEMENT.txt` and states plainly that the tooling lives on the
+productization branch and is run against the tag. The tag has **not** been replaced or
+pushed; retagging is an owner decision, taken together with ADR-0011.
+
 ## Alternatives considered
 
 **One `.sha256` manifest with `shasum -c`.** Rejected: demonstrated not to work with the
