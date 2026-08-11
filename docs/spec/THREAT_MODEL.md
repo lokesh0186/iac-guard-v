@@ -50,6 +50,8 @@ govern its own evaluation.
 | Forge an exception record granting itself approval | exceptions load only from the trusted source; `owner` is not proof; optional `approval_binding` |
 | Downgrade the scanner version | V5 version contract; `RULE_OR_SCANNER_DRIFT` |
 | Shrink the scanned set | independently eligible files/resources reconciled against per-evaluation path/resource evidence |
+| Omit one resource while preserving file-level output | independent expected-resource inventory and separate resource coverage; missing/unexpected/count-mismatched resources cannot pass |
+| Emit the same target as both passed and failed | evaluation-identity contradiction is a typed scanner error |
 
 ### T2 — Execute code on the runner
 
@@ -85,7 +87,9 @@ govern its own evaluation.
 | --- | --- |
 | Pathological HCL/YAML causing hangs | per-scan deadline; process-group termination on timeout |
 | Enormous output | output size cap (default 25 MB) with `PARTIAL` classification |
-| Zip bombs, deep trees, huge repos | file count and byte budgets; `PARTIAL` when exceeded |
+| Oversized eligible source set | trusted file-count, per-file-byte, and total-byte limits checked before spawn; descriptor bytes are streamed rather than accumulated |
+| Deep scanner JSON | recursion/depth failure is typed malformed output, never a raw adapter exception |
+| Zip bombs, deep trees, huge repos | independent detector budgets plus scanner-input limits; over-budget requests fail before execution |
 | Fork bombs from a scanner | `--pids-limit`, `--memory`, `--cpus` on the container path |
 | Orphan processes | kill the whole process group, then verify termination |
 

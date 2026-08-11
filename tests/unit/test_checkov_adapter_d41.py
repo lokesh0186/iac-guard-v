@@ -215,15 +215,14 @@ def test_inline_skip_is_typed_evaluation_and_never_affirmative_pass(
 def test_rule_and_resource_seen_separately_do_not_prove_target_evaluation(
     tmp_path: Path,
 ) -> None:
-    run = normalize(
-        request(tmp_path),
-        evidence_document(
+    payload = evidence_document(
             passed=(
                 evaluation("PASSED", rule_id="CKV_AWS_18", resource="aws_s3_bucket.other"),
                 evaluation("PASSED", rule_id="CKV_AWS_19", resource="aws_s3_bucket.bad"),
             )
-        ),
     )
+    payload["summary"]["resource_count"] = 2
+    run = normalize(request(tmp_path), payload)
     evaluator = getattr(__import__(
         "iac_guard_v.adapters.checkov", fromlist=["evaluate_checkov_target"]
     ), "evaluate_checkov_target")

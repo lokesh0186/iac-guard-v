@@ -33,13 +33,16 @@ from ..models import (
     BoundInputFile,
     CheckEvaluation,
     DomainError,
+    ExpectedResource,
     Finding,
     FindingLocation,
+    ResourceCoverage,
     ScannerRun,
     canonical_identifier,
     canonical_repo_path,
     canonical_resource_scope,
     require_int,
+    require_trusted_scanner_run,
     safe_report_text,
 )
 from ..normalisation import assign_occurrence_indices
@@ -229,7 +232,14 @@ def _file_type(relative: str) -> str:
     raise DomainError("eligible Checkov file has an unsupported artifact type")
 
 
-def _read_bound_file(path: Path, relative: str) -> tuple[bytes, CheckovEligibleFileEvidence]:
+def _stream_bound_file(
+    path: Path,
+    relative: str,
+    *,
+    max_bytes: int,
+    destination_descriptor: int | None = None,
+) -> CheckovEligibleFileEvidence:
+    """Hash a no-follow descriptor and optionally copy those exact bounded bytes."""
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags)
@@ -237,22 +247,29 @@ def _read_bound_file(path: Path, relative: str) -> tuple[bytes, CheckovEligibleF
             metadata = os.fstat(descriptor)
             if not stat.S_ISREG(metadata.st_mode):
                 raise DomainError("eligible file must be a no-follow regular file")
-            chunks: list[bytes] = []
+            digest = hashlib.sha256()
+            size = 0
             while True:
                 chunk = os.read(descriptor, 64 * 1024)
                 if not chunk:
                     break
-                chunks.append(chunk)
+                size += len(chunk)
+                if size > max_bytes:
+                    raise DomainError(AdapterReason.INPUT_FILE_BYTES_EXCEEDED.value)
+                digest.update(chunk)
+                if destination_descriptor is not None:
+                    offset = 0
+                    while offset < len(chunk):
+                        offset += os.write(destination_descriptor, chunk[offset:])
         finally:
             os.close(descriptor)
     except OSError as exc:
         raise DomainError("eligible file cannot be opened with no-follow safeguards") from exc
-    data = b"".join(chunks)
-    return data, CheckovEligibleFileEvidence(
+    return CheckovEligibleFileEvidence(
         relative,
         _file_type(relative),
-        len(data),
-        hashlib.sha256(data).hexdigest(),
+        size,
+        digest.hexdigest(),
         metadata.st_dev,
         metadata.st_ino,
     )
@@ -320,8 +337,12 @@ class CheckovScanRequest:
     expected_scanner_environment_sha256: str
     expected_policy_inventory_sha256: str
     kubernetes_identities: tuple = ()
+    expected_resources: tuple = ()
     timeout_seconds: int = 120
     max_output_bytes: int = 25 * 1024 * 1024
+    max_eligible_files: int = 10_000
+    max_file_bytes: int = 10 * 1024 * 1024
+    max_total_eligible_bytes: int = 100 * 1024 * 1024
     _executable_identity: _FilesystemIdentity = field(init=False, repr=False, compare=False)
     _scan_root_identity: _FilesystemIdentity = field(init=False, repr=False, compare=False)
     _eligible_identities: tuple = field(init=False, repr=False, compare=False)
@@ -371,17 +392,33 @@ class CheckovScanRequest:
             raise DomainError(f"unsupported Checkov frameworks: {sorted(unsupported)}")
         if type(self.files_eligible) is not tuple:
             raise DomainError("files_eligible must be an exact tuple")
+        if require_int(self.max_eligible_files, "max_eligible_files") <= 0:
+            raise DomainError("max_eligible_files must be > 0")
+        if require_int(self.max_file_bytes, "max_file_bytes") <= 0:
+            raise DomainError("max_file_bytes must be > 0")
+        if require_int(self.max_total_eligible_bytes, "max_total_eligible_bytes") <= 0:
+            raise DomainError("max_total_eligible_bytes must be > 0")
+        if len(self.files_eligible) > self.max_eligible_files:
+            raise DomainError(AdapterReason.INPUT_FILE_COUNT_EXCEEDED.value)
         eligible: list[str] = []
         eligible_identities: list[_FilesystemIdentity] = []
         eligible_evidence: list[CheckovEligibleFileEvidence] = []
+        eligible_total = 0
         for item in self.files_eligible:
             relative = canonical_repo_path(item, "eligible file")
             identity = _identity(scan_root / relative, "eligible file", directory=False)
             if not _within(identity.resolved, scan_root):
                 raise DomainError("eligible file must be a regular file inside scan_root")
-            _, evidence = _read_bound_file(scan_root / relative, relative)
+            evidence = _stream_bound_file(
+                scan_root / relative,
+                relative,
+                max_bytes=self.max_file_bytes,
+            )
             if (identity.device, identity.inode) != (evidence.device, evidence.inode):
                 raise DomainError("eligible file changed while binding request bytes")
+            eligible_total += evidence.size
+            if eligible_total > self.max_total_eligible_bytes:
+                raise DomainError(AdapterReason.INPUT_TOTAL_BYTES_EXCEEDED.value)
             eligible.append(relative)
             eligible_identities.append(identity)
             eligible_evidence.append(evidence)
@@ -410,6 +447,48 @@ class CheckovScanRequest:
         identity_keys = [(item.file_path, item.checkov_resource) for item in identities]
         if len(identity_keys) != len(set(identity_keys)):
             raise DomainError("Kubernetes identity map contains duplicate keys")
+        if type(self.expected_resources) is not tuple:
+            raise DomainError("expected_resources must be an exact tuple")
+        expected_resources: list[ExpectedResource] = []
+        kubernetes_lookup = {
+            (item.file_path, item.checkov_resource): item.canonical_address
+            for item in identities
+        }
+        for item in self.expected_resources:
+            if type(item) is not ExpectedResource:
+                raise DomainError("expected_resources must contain exact ExpectedResource records")
+            rebuilt = ExpectedResource(
+                item.file_path,
+                item.resource_address,
+                item.artifact_kind,
+                item.scanner_native_lookup,
+            )
+            if rebuilt.file_path not in eligible:
+                raise DomainError("expected resource must name an eligible file")
+            if rebuilt.artifact_kind is ArtifactKind.KUBERNETES_YAML:
+                key = (rebuilt.file_path, rebuilt.scanner_native_lookup)
+                if kubernetes_lookup.get(key) != rebuilt.resource_address:
+                    raise DomainError(
+                        "Kubernetes expected resource must match independent identity mapping"
+                    )
+                if "kubernetes" not in frameworks:
+                    raise DomainError("Kubernetes expected resource requires its framework")
+            elif rebuilt.artifact_kind is ArtifactKind.TERRAFORM_HCL:
+                if rebuilt.scanner_native_lookup != rebuilt.resource_address:
+                    raise DomainError(
+                        "Terraform expected resource native lookup must equal its address"
+                    )
+                if "terraform" not in frameworks:
+                    raise DomainError("Terraform expected resource requires its framework")
+            else:
+                raise DomainError("Checkov expected resource has unsupported artifact kind")
+            expected_resources.append(rebuilt)
+        expected_keys = [
+            (item.file_path, item.resource_address, item.artifact_kind.value)
+            for item in expected_resources
+        ]
+        if len(expected_keys) != len(set(expected_keys)):
+            raise DomainError("expected resource inventory contains duplicates")
         if require_int(self.timeout_seconds, "timeout_seconds") <= 0:
             raise DomainError("timeout_seconds must be > 0")
         if require_int(self.max_output_bytes, "max_output_bytes") <= 0:
@@ -440,11 +519,16 @@ class CheckovScanRequest:
             "kubernetes_identities",
             tuple(sorted(identities, key=lambda item: (item.file_path, item.checkov_resource))),
         )
+        object.__setattr__(
+            self,
+            "expected_resources",
+            tuple(sorted(expected_resources, key=lambda item: item.canonical_key)),
+        )
 
 
 def _invocation_config_digest(request: CheckovScanRequest) -> str:
     payload = {
-        "adapter": "checkov-d4.1",
+        "adapter": "checkov-d4.2",
         "compact": True,
         "download_external_modules": False,
         "frameworks": list(request.frameworks),
@@ -452,6 +536,9 @@ def _invocation_config_digest(request: CheckovScanRequest) -> str:
         "quiet": False,
         "skip_download": True,
         "skip_results_upload": True,
+        "max_eligible_files": request.max_eligible_files,
+        "max_file_bytes": request.max_file_bytes,
+        "max_total_eligible_bytes": request.max_total_eligible_bytes,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
@@ -465,16 +552,35 @@ def _reason_run(
     process: CommandResult | None = None,
     version: str | None = None,
     coverage: CoverageCounters | None = None,
+    resource_coverage: ResourceCoverage | None = None,
     diagnostics: tuple[str, ...] = (),
     raw_output: bytes | None = None,
     evaluations: tuple = (),
 ) -> ScannerRun:
     diagnostic_values = (reason.value, *diagnostics)
+    ruleset_integrity = Status.PASS
+    if reason in {
+        AdapterReason.POLICY_INVENTORY_MISMATCH,
+        AdapterReason.SCANNER_ENVIRONMENT_MISMATCH,
+    }:
+        ruleset_integrity = Status.FAIL
+    elif reason in {
+        AdapterReason.VERSION_MISMATCH,
+        AdapterReason.UNSUPPORTED_VERSION,
+        AdapterReason.VERSION_PROBE_FAILED,
+    }:
+        ruleset_integrity = Status.INCONCLUSIVE
+    expected_count = len(request.expected_resources)
     return ScannerRun._from_adapter(
         scanner="checkov",
         scanner_version=version or request.expected_version,
         status=status,
         coverage=coverage or CoverageCounters(files_eligible=len(request.files_eligible)),
+        resource_coverage=resource_coverage
+        or ResourceCoverage(
+            resources_expected=expected_count,
+            expected_resources_missing=expected_count,
+        ),
         exit_code=(process.exit_code if process and process.exit_code is not None else -1),
         stdout_sha256=(process.stdout_sha256 if process else ""),
         stderr_sha256=(process.stderr_sha256 if process else ""),
@@ -490,7 +596,7 @@ def _reason_run(
         ),
         policy_inventory_digest=request._distribution_identity.policy_inventory_digest,
         invocation_config_digest=_invocation_config_digest(request),
-        ruleset_integrity=Status.PASS,
+        ruleset_integrity=ruleset_integrity,
         evaluations=evaluations,
         input_files=request.eligible_file_evidence,
         duration_ms=(process.duration_ms if process else 0),
@@ -688,6 +794,8 @@ def _decode_documents(raw_output: bytes) -> list[dict]:
             return result
 
         payload = json.loads(decoded, object_pairs_hook=strict_object)
+    except RecursionError as exc:
+        raise DomainError(AdapterReason.MALFORMED_JSON.value) from exc
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise DomainError(AdapterReason.MALFORMED_JSON.value) from exc
     if type(payload) is dict:
@@ -790,6 +898,14 @@ def _normalize(
                         _finding(check, check_type, request, version, True, native_scan_root)
                     )
 
+    evaluation_claims: dict[tuple, set[tuple[str, str]]] = {}
+    for item in evaluations:
+        evaluation_claims.setdefault(item.evaluation_identity_key, set()).add(
+            (item.native_result.value, item.source_bucket)
+        )
+    if any(len(claims) > 1 for claims in evaluation_claims.values()):
+        raise DomainError(AdapterReason.CONTRADICTORY_EVALUATION_EVIDENCE.value)
+
     passed = sum(_strict_int(item, "passed", "summary") for item in summaries)
     failed_count = sum(_strict_int(item, "failed", "summary") for item in summaries)
     skipped_count = sum(_strict_int(item, "skipped", "summary") for item in summaries)
@@ -804,10 +920,20 @@ def _normalize(
     missing_files = sorted(set(request.files_eligible) - observed_files)
     observed_resources = {(item.file_path, item.resource_address) for item in evaluations}
     expected_resources = {
-        (item.file_path, item.canonical_address)
-        for item in request.kubernetes_identities
+        (item.file_path, item.resource_address) for item in request.expected_resources
     }
     missing_resources = sorted(expected_resources - observed_resources)
+    unexpected_resources = sorted(observed_resources - expected_resources)
+    if resource_count < len(observed_resources):
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    resource_coverage = ResourceCoverage(
+        resources_expected=len(expected_resources),
+        resources_observed=len(observed_resources),
+        expected_resources_observed=len(expected_resources & observed_resources),
+        expected_resources_missing=len(missing_resources),
+        unexpected_resources_observed=len(unexpected_resources),
+        summary_resources_reported=resource_count,
+    )
     coverage = CoverageCounters(
         files_eligible=eligible_count,
         files_discovered=len(observed_files),
@@ -824,17 +950,19 @@ def _normalize(
             process=process,
             version=probed_version,
             coverage=coverage,
+            resource_coverage=resource_coverage,
             raw_output=raw_output,
             evaluations=tuple(evaluations),
         )
     if missing_results:
         return _reason_run(
             request,
-            AdapterReason.NO_RESULTS_STRUCTURE,
-            status=Status.PASS,
+            AdapterReason.EMPTY_ELIGIBLE_SCOPE,
+            status=Status.SKIPPED,
             process=process,
             version=probed_version,
             coverage=coverage,
+            resource_coverage=resource_coverage,
             raw_output=raw_output,
             evaluations=tuple(evaluations),
         )
@@ -845,6 +973,7 @@ def _normalize(
             process=process,
             version=probed_version,
             coverage=coverage,
+            resource_coverage=resource_coverage,
             raw_output=raw_output,
         )
     if eligible_count and resource_count == 0:
@@ -854,6 +983,7 @@ def _normalize(
             process=process,
             version=probed_version,
             coverage=coverage,
+            resource_coverage=resource_coverage,
             raw_output=raw_output,
         )
     partial_diagnostics: list[str] = []
@@ -864,12 +994,23 @@ def _normalize(
     if unknown_buckets:
         partial_diagnostics.append(AdapterReason.UNKNOWN_RESULT_BUCKET.value)
         partial_diagnostics.extend(f"unknown result bucket: {item}" for item in sorted(unknown_buckets))
-    if missing_files or missing_resources:
+    if eligible_count and not expected_resources:
+        partial_diagnostics.append(AdapterReason.RESOURCE_INVENTORY_MISSING.value)
+    if expected_resources and resource_count != len(expected_resources):
+        partial_diagnostics.append(AdapterReason.RESOURCE_COUNT_MISMATCH.value)
+        partial_diagnostics.append(
+            f"summary resource count: {resource_count}; expected: {len(expected_resources)}"
+        )
+    if missing_files or missing_resources or unexpected_resources:
         partial_diagnostics.append(AdapterReason.COVERAGE_MISMATCH.value)
         partial_diagnostics.extend(f"missing evaluation file: {item}" for item in missing_files)
         partial_diagnostics.extend(
             f"missing evaluation resource: {path}@{resource}"
             for path, resource in missing_resources
+        )
+        partial_diagnostics.extend(
+            f"unexpected evaluation resource: {path}@{resource}"
+            for path, resource in unexpected_resources
         )
     status = Status.PARTIAL if partial_diagnostics else Status.PASS
     diagnostics = tuple(partial_diagnostics or [AdapterReason.COMPLETED.value])
@@ -879,6 +1020,7 @@ def _normalize(
         status=status,
         findings=assign_occurrence_indices(raw_findings),
         coverage=coverage,
+        resource_coverage=resource_coverage,
         exit_code=process.exit_code if process.exit_code is not None else -1,
         stdout_sha256=process.stdout_sha256,
         stderr_sha256=process.stderr_sha256,
@@ -907,6 +1049,7 @@ def evaluate_checkov_target(
     """Return only affirmative native target evidence; absence stays inconclusive."""
     if type(run) is not ScannerRun or run.scanner != "checkov":
         raise DomainError("target evaluation requires an exact Checkov ScannerRun")
+    require_trusted_scanner_run(run)
     rule = canonical_identifier(rule_id, "target rule_id")
     resource = canonical_resource_scope(resource_address, "target resource_address")
     path = canonical_repo_path(file_path, "target file_path") if file_path is not None else None
@@ -1080,7 +1223,11 @@ class CheckovAdapter:
             )
             if current != expected or not _within(current.resolved, request.scan_root):
                 raise DomainError(AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value)
-            _, current_evidence = _read_bound_file(request.scan_root / relative, relative)
+            current_evidence = _stream_bound_file(
+                request.scan_root / relative,
+                relative,
+                max_bytes=request.max_file_bytes,
+            )
             if current_evidence != bound:
                 raise DomainError(AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value)
 
@@ -1128,24 +1275,29 @@ class CheckovAdapter:
             target = destination / relative
             target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             try:
-                data, current = _read_bound_file(source, relative)
-                if current != bound:
-                    raise DomainError(
-                        AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value
-                    )
                 flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
                 descriptor = os.open(target, flags, 0o600)
                 try:
-                    offset = 0
-                    while offset < len(data):
-                        offset += os.write(descriptor, data[offset:])
+                    current = _stream_bound_file(
+                        source,
+                        relative,
+                        max_bytes=request.max_file_bytes,
+                        destination_descriptor=descriptor,
+                    )
+                    if current != bound:
+                        raise DomainError(
+                            AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value
+                        )
                     os.fsync(descriptor)
                 finally:
                     os.close(descriptor)
-                copied, copied_evidence = _read_bound_file(target, relative)
+                copied_evidence = _stream_bound_file(
+                    target,
+                    relative,
+                    max_bytes=request.max_file_bytes,
+                )
                 if (
-                    copied != data
-                    or copied_evidence.size != bound.size
+                    copied_evidence.size != bound.size
                     or copied_evidence.sha256 != bound.sha256
                 ):
                     raise DomainError("private scan-view digest verification failed")
@@ -1155,6 +1307,12 @@ class CheckovAdapter:
     def scan(self, request: CheckovScanRequest) -> ScannerRun:
         if type(request) is not CheckovScanRequest:
             raise DomainError("request must be an exact CheckovScanRequest")
+        if not request.files_eligible:
+            return _reason_run(
+                request,
+                AdapterReason.EMPTY_ELIGIBLE_SCOPE,
+                status=Status.SKIPPED,
+            )
         try:
             self._revalidate_inputs(request)
         except (DomainError, OSError) as exc:
@@ -1317,4 +1475,5 @@ __all__ = [
     "CheckovTargetEvidence",
     "checkov_distribution_identity",
     "evaluate_checkov_target",
+    "require_trusted_checkov_target_evidence",
 ]

@@ -43,7 +43,7 @@ specification may use these words in a normative sentence without pointing here.
 | `ERROR` | Operation did not complete (crash, malformed output, unreadable input) | no |
 | `TIMEOUT` | Operation exceeded its deadline and was terminated | no |
 | `UNSUPPORTED` | The tool cannot handle this artifact kind or version | no |
-| `SKIPPED` | Not run by explicit configuration; must name the configuration key | no |
+| `SKIPPED` | Not run by explicit configuration or because the independent eligible scope is empty; must name the typed reason | no |
 | `PARTIAL` | Ran but did not cover everything it was asked to cover | no |
 | `INCONCLUSIVE` | Ran, covered its input, and the evidence does not decide the question | no |
 
@@ -97,7 +97,18 @@ integrity or completeness condition.
 Only `AFFIRMATIVE_TARGET_PASS` carries `Status.PASS`. Absence and unknown/suppressed
 native evidence remain non-pass target evidence.
 
-### 1.5 `Verdict` — the outcome of a whole verification
+### 1.5 D4.2 adapter evidence reasons
+
+`RESOURCE_INVENTORY_MISSING` `RESOURCE_COUNT_MISMATCH`
+`CONTRADICTORY_EVALUATION_EVIDENCE` `EMPTY_ELIGIBLE_SCOPE`
+`INPUT_FILE_COUNT_EXCEEDED` `INPUT_FILE_BYTES_EXCEEDED`
+`INPUT_TOTAL_BYTES_EXCEEDED`
+
+These are closed adapter reasons for absent/mismatched independent resource evidence,
+contradictory native claims, independently empty scope, and trusted scanner-input
+budgets. Their status mappings are specified under V5.
+
+### 1.6 `Verdict` — the outcome of a whole verification
 
 `VERIFIED` `FAILED` `INCONCLUSIVE`
 
@@ -746,9 +757,12 @@ Kubernetes `resource_address` comes from the independent canonical identity map;
 Checkov's abbreviated `Kind.namespace.name` string does not establish `apiVersion`.
 
 Eligible files are byte-bound at request construction and copied from no-follow opened
-descriptors. Coverage is derived from native evaluation paths/resources. A summary count
-cannot prove that a particular eligible file, rule, or resource was evaluated. The
-machine scan omits `--quiet` so passed and skipped records remain available.
+descriptors under trusted file-count, per-file-byte, and total-byte limits. Portable
+input evidence is path/type/size/SHA-256; device/inode are private runtime checks.
+Coverage is derived from native evaluation paths/resources and reconciled separately
+against independently expected files and resources. A summary count cannot prove that a
+particular eligible file, rule, or resource was evaluated. The machine scan omits
+`--quiet` so passed and skipped records remain available.
 
 Process stdout/stderr hashes and the bounded raw-JSON hash are separate evidence. A
 missing, empty, malformed, truncated, symlinked, over-cap, or multiply produced JSON
@@ -761,6 +775,21 @@ closed: `passed_checks -> PASSED`, `failed_checks -> FAILED`,
 `skipped_checks -> SKIPPED`, and supported unknown records -> `UNKNOWN`. A contradiction
 is `ERROR/INVALID_RESULTS_STRUCTURE`; an unrecognized future bucket is
 `PARTIAL/UNKNOWN_RESULT_BUCKET`, never silently discarded.
+
+The expected resource inventory contains file, canonical address, artifact kind, and
+native lookup identity. A nonempty scan without it cannot pass. Missing or unexpected
+resources are coverage loss; `summary.resource_count` below distinct observed resources
+is invalid structure, while disagreement with independent expected cardinality is
+partial resource-count mismatch. Evaluation identity excludes native result and bucket;
+incompatible claims for the same identity are
+`ERROR/CONTRADICTORY_EVALUATION_EVIDENCE`. An independently empty eligible scope is
+`SKIPPED/EMPTY_ELIGIBLE_SCOPE`, never `PASS/NO_RESULTS_STRUCTURE`, and cannot establish
+`FIXED`.
+
+Ruleset integrity is independent of overall scanner status. Policy/environment digest
+mismatch is integrity `FAIL`; version uncertainty is integrity `INCONCLUSIVE`. Output or
+process failure may retain integrity `PASS` only after the inventories were independently
+proven for that request.
 
 The closed adapter-reason family is: `COMPLETED`, `PROCESS_ERROR`, `EMPTY_OUTPUT`,
 `MALFORMED_JSON`, `TRUNCATED_OUTPUT`, `UNEXPECTED_TOP_LEVEL`,

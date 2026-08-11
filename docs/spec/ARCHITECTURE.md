@@ -371,10 +371,12 @@ contains no Trivy implementation.
 
 The trusted Checkov request pins the resolved launcher digest, installed environment and
 policy-inventory digests, supported version, framework set, independently eligible
-paths, and—for Kubernetes—the canonical object identities established outside Checkov.
-Every eligible file is bound by relative path, type, size, SHA-256, and secondary
-device/inode evidence. Immediately before execution, the adapter revalidates all of
-these identities and writes the exact descriptor-read bytes to the private view.
+paths/resources, and—for Kubernetes—the canonical object identities established outside
+Checkov. Expected resources bind file, canonical address, artifact kind, and native
+lookup identity. Every eligible file is portably bound by relative path, type, size, and
+SHA-256; device/inode remain private runtime checks. Immediately before execution, the
+adapter revalidates all identities and streams the bounded descriptor bytes to the
+private view.
 
 Checkov discovers `.checkov.yml` in the directory passed with `-d` even when an explicit
 config file and private process cwd are used. The adapter therefore builds a private
@@ -390,3 +392,7 @@ Coverage comes from observed evaluation paths/resources, not the eligible count.
 machine invocation omits `--quiet`, because target absence is not proof: only an
 affirmative native pass can support resolution. Reports separate launcher, installed
 environment, policy inventory, invocation/config, process-output, and raw-JSON digests.
+File and resource coverage have distinct typed counters. Missing/unexpected resources,
+resource-count disagreement, absent independent inventory, or contradictory evaluation
+claims cannot pass. Empty independent scope is skipped. Trusted input count/byte limits
+are part of invocation identity and enforced through streaming preparation.

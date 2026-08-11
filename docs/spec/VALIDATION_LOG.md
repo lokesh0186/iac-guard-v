@@ -1358,3 +1358,99 @@ NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
+
+---
+
+## Gate D4.2 — Resource coverage and evidence-consistency closure
+
+D4.2 started from standalone D3.2 commit
+`c8f814d8c6fd3d85dea06ac316c7d8d7eafa1a70`. The named D4 specifications,
+ADRs, request/model boundaries, normalizer, scan-view preparation, and all existing
+adapter tests were reread before modification. D5/D6 were not started.
+
+Literal failing-before evidence on the D3.2 parent:
+
+```text
+summary resource_count=2, observed resources=1 -> PASS ('COMPLETED',)
+summary resource_count=1, observed resources=2 -> PASS ('COMPLETED',)
+same evaluation PASSED+FAILED -> PASS ('COMPLETED',)
+policy inventory mismatch -> ERROR ('POLICY_INVENTORY_MISMATCH',) ruleset_integrity PASS
+portable input keys -> ['device', 'file_path', 'file_type', 'inode', 'sha256', 'size']
+empty eligible scope -> PASS ('NO_RESULTS_STRUCTURE',)
+deep JSON -> raw RecursionError
+focused regression -> 7 failed
+```
+
+Literal passing-after evidence:
+
+```text
+summary resource_count=2, observed resources=1 -> PARTIAL ('RESOURCE_COUNT_MISMATCH', ...)
+summary resource_count=1, observed resources=2 -> ERROR ('INVALID_RESULTS_STRUCTURE',)
+same evaluation PASSED+FAILED -> ERROR ('CONTRADICTORY_EVALUATION_EVIDENCE',)
+missing expected resource -> PARTIAL ('COVERAGE_MISMATCH', ...)
+unexpected observed resource -> PARTIAL ('COVERAGE_MISMATCH', ...)
+nonempty scan without expected inventory -> PARTIAL ('RESOURCE_INVENTORY_MISSING', ...)
+policy inventory mismatch -> ERROR ('POLICY_INVENTORY_MISMATCH',) ruleset_integrity FAIL
+scanner environment mismatch -> ERROR ('SCANNER_ENVIRONMENT_MISMATCH',) ruleset_integrity FAIL
+version mismatch -> ERROR ('VERSION_MISMATCH',) ruleset_integrity INCONCLUSIVE
+portable input keys -> ['file_path', 'file_type', 'sha256', 'size']
+different runtime device/inode canonical equality -> True
+empty eligible scope -> SKIPPED ('EMPTY_ELIGIBLE_SCOPE',) spawn calls 0
+file-count cap -> INPUT_FILE_COUNT_EXCEEDED before spawn
+per-file cap -> INPUT_FILE_BYTES_EXCEEDED before spawn
+total cap -> INPUT_TOTAL_BYTES_EXCEEDED before spawn
+deep JSON -> ERROR ('MALFORMED_JSON',)
+```
+
+Scan-view preparation now streams bounded no-follow descriptor bytes directly to the
+private view and verifies the copied digest; it does not join an unbounded eligible file
+in memory. Input limits are included in `invocation_config_digest`. File and resource
+coverage remain separate typed evidence.
+
+Executable gates:
+
+```console
+$ COVERAGE_FILE=/private/tmp/iacgv-d42.coverage PYTHONPATH=src:tests/unit \
+    pytest tests/unit/test_checkov_adapter.py tests/unit/test_checkov_adapter_d41.py \
+    tests/unit/test_checkov_adapter_d42.py --cov=iac_guard_v.adapters.base \
+    --cov=iac_guard_v.adapters.checkov --cov-report=term-missing \
+    --cov-fail-under=90 -q
+103 passed in 1.71s
+src/iac_guard_v/adapters/base.py         64      0   100%
+src/iac_guard_v/adapters/checkov.py     807     84    90%
+TOTAL                                   871     84    90%
+Required test coverage of 90% reached. Total coverage: 90.36%
+
+$ PYTHONPATH=src pytest tests/integration/test_checkov_integration.py -q
+5 passed in 81.74s (0:01:21)
+
+$ PYTHONPATH=src:tests/unit pytest tests -q
+866 passed in 151.06s (0:02:31)
+
+$ python3 tools/spec_lint.py docs/spec/
+documents inspected:  23
+enum values defined:  97
+PASS
+```
+
+Research gates:
+
+```text
+manifest files checked: 4842/4842
+MANIFEST_ROOT computed: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+MANIFEST_ROOT recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+manifest result: PASS
+frozen run records: 630/630
+field comparisons: 10080/10080 equal
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff: empty
+```
+
+No benchmark inference, model-provider call, Trivy implementation, or model refresh was
+performed.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```

@@ -65,3 +65,11 @@ tree and a digest over installed `checks/`/`policies/` files; both are recompute
 spawn. The invocation/config digest is a fourth identity. Summary evaluation count was
 renamed `evaluations_reported` and is never used as a rule-inventory lock, because the
 same ruleset produces different counts on one and two resources.
+
+## Amendment, 2026-08-11: integrity status and bounded invocation identity
+
+Policy or installed-environment mismatch maps to ruleset-integrity `FAIL`; unsupported,
+mismatched, or unprobed version evidence maps to `INCONCLUSIVE`. Trusted scanner input
+count, per-file-byte, and total-byte limits join framework and offline flags in the
+invocation/config digest, so changing a resource budget changes recorded execution
+identity.

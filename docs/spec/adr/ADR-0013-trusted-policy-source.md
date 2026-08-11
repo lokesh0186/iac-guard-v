@@ -116,3 +116,11 @@ hashes the installed policy inventory independently of the launcher. No-follow r
 copy-digest verification detect in-place replacement even when device/inode remain
 unchanged. These checks reduce but do not eliminate TOCTOU exposure; native execution is
 still not a sandbox.
+
+## Amendment, 2026-08-11: trusted independent resource inventory
+
+The expected resource inventory is trusted detector/parser output, not scanner output
+and not a candidate-authored precomputed verdict. It binds canonical file, resource,
+artifact kind, and the native lookup key used to reconcile Checkov. Policy/environment
+digest mismatch fails ruleset integrity even when the overall execution already ended in
+`ERROR`; status fields cannot contradict the integrity diagnostic.

@@ -17,8 +17,8 @@ from iac_guard_v.adapters.checkov import (
     CheckovScanRequest,
     checkov_distribution_identity,
 )
-from iac_guard_v.enums import Status
-from iac_guard_v.models import DomainError
+from iac_guard_v.enums import ArtifactKind, Status
+from iac_guard_v.models import DomainError, ExpectedResource
 from iac_guard_v.process import CommandResult, ProcessReason
 
 
@@ -54,17 +54,38 @@ def request(tmp_path: Path, *, frameworks: tuple = ("terraform",), **overrides) 
     executable.chmod(0o755)
     policy.write_text("RULES = (\"CKV_AWS_18\",)\n")
     distribution = checkov_distribution_identity(executable, "3.3.0")
+    final_eligible = tuple(overrides.get("files_eligible", tuple(eligible)))
+    expected_resources = []
+    if "main.tf" in final_eligible:
+        expected_resources.append(
+            ExpectedResource(
+                "main.tf",
+                "aws_s3_bucket.bad",
+                ArtifactKind.TERRAFORM_HCL,
+                "aws_s3_bucket.bad",
+            )
+        )
+    if "pod.yaml" in final_eligible:
+        expected_resources.append(
+            ExpectedResource(
+                "pod.yaml",
+                "v1/Pod/default/demo",
+                ArtifactKind.KUBERNETES_YAML,
+                "Pod.default.demo",
+            )
+        )
     values = {
         "executable": executable,
         "scan_root": scan_root,
         "workspace_root": scan_root,
         "frameworks": frameworks,
-        "files_eligible": tuple(eligible),
+        "files_eligible": final_eligible,
         "expected_version": "3.3.0",
         "expected_executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
         "expected_scanner_environment_sha256": distribution.scanner_environment_digest,
         "expected_policy_inventory_sha256": distribution.policy_inventory_digest,
         "kubernetes_identities": tuple(identities),
+        "expected_resources": tuple(expected_resources),
     }
     values.update(overrides)
     return CheckovScanRequest(**values)
@@ -250,8 +271,8 @@ def test_summary_only_is_non_error_only_for_an_independently_empty_scope(tmp_pat
         expected_policy_inventory_sha256=template.expected_policy_inventory_sha256,
     )
     run = normalize(req, document(include_results=False, resource_count=0, passed=0))
-    assert run.status is Status.PASS
-    assert run.diagnostics == (AdapterReason.NO_RESULTS_STRUCTURE.value,)
+    assert run.status is Status.SKIPPED
+    assert run.diagnostics == (AdapterReason.EMPTY_ELIGIBLE_SCOPE.value,)
 
 
 def test_multiple_framework_documents_are_all_parsed(tmp_path: Path) -> None:
@@ -409,21 +430,8 @@ def test_repeated_native_occurrences_are_preserved_by_evaluated_key_evidence(
 
 
 def test_kubernetes_result_requires_independent_canonical_identity(tmp_path: Path) -> None:
-    req = request(tmp_path, frameworks=("kubernetes",), kubernetes_identities=())
-    payload = document(
-        framework="kubernetes",
-        failed=[
-            check(
-                path="pod.yaml",
-                resource="Pod.default.demo",
-                check_id="CKV_K8S_20",
-            )
-        ],
-    )
-    run = normalize(req, payload)
-    assert run.status is Status.ERROR
-    assert run.findings == ()
-    assert run.diagnostics == (AdapterReason.MISSING_RESOURCE_IDENTITY.value,)
+    with pytest.raises(DomainError, match="independent identity mapping"):
+        request(tmp_path, frameworks=("kubernetes",), kubernetes_identities=())
 
 
 def test_finding_path_outside_eligible_set_is_not_accepted(tmp_path: Path) -> None:

@@ -268,8 +268,49 @@ class BoundInputFile:
             "file_type": self.file_type,
             "size": self.size,
             "sha256": self.sha256,
-            "device": self.device,
-            "inode": self.inode,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ExpectedResource:
+    """Independent resource inventory supplied before scanner execution."""
+
+    file_path: str
+    resource_address: str
+    artifact_kind: ArtifactKind
+    scanner_native_lookup: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        object.__setattr__(
+            self,
+            "resource_address",
+            canonical_resource_scope(self.resource_address, "resource address"),
+        )
+        require_enum(self.artifact_kind, ArtifactKind, "artifact_kind")
+        object.__setattr__(
+            self,
+            "scanner_native_lookup",
+            canonical_resource_scope(
+                self.scanner_native_lookup, "scanner native resource lookup"
+            ),
+        )
+
+    @property
+    def canonical_key(self) -> tuple:
+        return (
+            self.file_path,
+            self.resource_address,
+            self.artifact_kind.value,
+            self.scanner_native_lookup,
+        )
+
+    def canonical_dict(self) -> dict:
+        return {
+            "file_path": self.file_path,
+            "resource_address": self.resource_address,
+            "artifact_kind": self.artifact_kind.value,
+            "scanner_native_lookup": self.scanner_native_lookup,
         }
 
 
@@ -457,6 +498,18 @@ class CheckEvaluation:
             self.source_bucket,
         )
 
+    @property
+    def evaluation_identity_key(self) -> tuple:
+        """Identity used to detect incompatible native evaluation claims."""
+        return (
+            self.scanner,
+            self.scanner_version,
+            self.rule_id,
+            self.file_path,
+            self.resource_address,
+            self.evaluated_keys,
+        )
+
     def canonical_dict(self) -> dict:
         return {
             "scanner": self.scanner,
@@ -512,6 +565,52 @@ class CoverageCounters:
 
 
 @dataclass(frozen=True, slots=True)
+class ResourceCoverage:
+    """Resource coverage kept separate from file/evaluation counters."""
+
+    resources_expected: int = 0
+    resources_observed: int = 0
+    expected_resources_observed: int = 0
+    expected_resources_missing: int = 0
+    unexpected_resources_observed: int = 0
+    summary_resources_reported: int = 0
+
+    def __post_init__(self) -> None:
+        names = (
+            "resources_expected",
+            "resources_observed",
+            "expected_resources_observed",
+            "expected_resources_missing",
+            "unexpected_resources_observed",
+            "summary_resources_reported",
+        )
+        for name in names:
+            if require_int(getattr(self, name), name) < 0:
+                raise DomainError(f"{name} must be >= 0")
+        if self.resources_expected != (
+            self.expected_resources_observed + self.expected_resources_missing
+        ):
+            raise DomainError("expected resource coverage counters are inconsistent")
+        if self.resources_observed != (
+            self.expected_resources_observed + self.unexpected_resources_observed
+        ):
+            raise DomainError("observed resource coverage counters are inconsistent")
+
+    def canonical_dict(self) -> dict:
+        return {
+            name: getattr(self, name)
+            for name in (
+                "resources_expected",
+                "resources_observed",
+                "expected_resources_observed",
+                "expected_resources_missing",
+                "unexpected_resources_observed",
+                "summary_resources_reported",
+            )
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class ScannerRun:
     """One scanner execution. Carries a `Status`, never a boolean, and no verdict."""
 
@@ -520,6 +619,7 @@ class ScannerRun:
     status: Status
     findings: tuple = ()
     coverage: CoverageCounters = field(default_factory=CoverageCounters)
+    resource_coverage: ResourceCoverage = field(default_factory=ResourceCoverage)
     exit_code: int = 0
     stdout_sha256: str = ""
     stderr_sha256: str = ""
@@ -547,6 +647,7 @@ class ScannerRun:
         require_enum(self.status, Status, "status")
         require_enum(self.ruleset_integrity, Status, "ruleset_integrity")
         require_exact_type(self.coverage, CoverageCounters, "coverage")
+        require_exact_type(self.resource_coverage, ResourceCoverage, "resource_coverage")
         require_int(self.exit_code, "exit_code")
         if require_int(self.duration_ms, "duration_ms") < 0:
             raise DomainError("duration_ms must be >= 0")
@@ -684,6 +785,7 @@ class ScannerRun:
             "invocation_config_digest": self.invocation_config_digest,
             "ruleset_integrity": self.ruleset_integrity.value,
             "coverage": self.coverage.canonical_dict(),
+            "resource_coverage": self.resource_coverage.canonical_dict(),
             "findings": [f.canonical_dict() for f in self.findings],
             "evaluations": [item.canonical_dict() for item in self.evaluations],
             "input_files": [item.canonical_dict() for item in self.input_files],
@@ -1199,7 +1301,8 @@ def permission_rejection_reason(decision: TargetDecision, policy: ExceptionPolic
 
 #: Every persistent model, for the immutability test matrix.
 PERSISTENT_MODELS: tuple = (
-    FindingLocation, BoundInputFile, Finding, CheckEvaluation, CoverageCounters,
+    FindingLocation, BoundInputFile, ExpectedResource, Finding, CheckEvaluation,
+    CoverageCounters, ResourceCoverage,
     ScannerRun, GateResult, RequiredGates,
     ExceptionRecord, ExceptionPolicy, TargetIdentity, Target, TargetDecision,
 )

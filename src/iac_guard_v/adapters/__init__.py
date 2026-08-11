@@ -11,6 +11,7 @@ from .checkov import (
     CheckovTargetEvidence,
     checkov_distribution_identity,
     evaluate_checkov_target,
+    require_trusted_checkov_target_evidence,
 )
 
 __all__ = [
@@ -25,4 +26,5 @@ __all__ = [
     "ScannerContract",
     "checkov_distribution_identity",
     "evaluate_checkov_target",
+    "require_trusted_checkov_target_evidence",
 ]

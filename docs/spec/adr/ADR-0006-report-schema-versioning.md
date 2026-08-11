@@ -42,3 +42,11 @@ requires, so the primary signal would live in vendor extensions.
 
 **Per-format renderers reading engine state directly.** Rejected: that is how formats
 drift apart.
+
+## Amendment, 2026-08-11: portable input and resource coverage evidence
+
+D4.2 defines portable scanner-input identity as path, artifact type, size, and SHA-256.
+Device and inode remain private runtime race checks and do not serialize. Scanner reports
+also carry `resource_coverage` separately from file/evaluation counters. These are
+pre-release schema corrections: host filesystem allocation must not make otherwise
+identical canonical reports differ.

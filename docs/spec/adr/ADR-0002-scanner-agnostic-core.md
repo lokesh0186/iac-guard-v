@@ -62,3 +62,12 @@ target evidence no longer disappears into aggregate summary counts. A target abs
 failed findings remains inconclusive unless its exact rule/resource evaluation is
 affirmatively passed. Coverage is derived from evaluation paths/resources rather than
 invented from the requested eligible count.
+
+## Amendment, 2026-08-11: independent resource coverage
+
+File eligibility alone cannot establish resource coverage. Scanner requests now receive
+scanner-neutral `ExpectedResource` records from the independent detector/parser and
+report typed resource counters separately from file counters. Adapters map native lookup
+identity to canonical resource identity, retain every native evaluation category, and
+fail or become partial on missing, unexpected, count-inconsistent, or contradictory
+resource evidence. An empty independent scope is `SKIPPED`, not scanner success.

@@ -28,18 +28,19 @@ the independent eligible-file detector. Relative paths are preserved. Candidate
 `.checkov.yml` / `.checkov.yaml`, custom-check directories, and unrelated repository
 content are not copied and therefore cannot govern the run. An explicit adapter-owned
 config is still passed because Checkov rejects an empty config document. Each request
-binds canonical relative path, artifact type, size, SHA-256, and secondary device/inode
-evidence. The view is built by opening each source with no-follow safeguards, hashing the
-bytes read from that descriptor, writing those exact bytes, and verifying the copy
-digest. Any difference is `INPUT_CHANGED_DURING_SCAN_PREPARATION`. It is a scanner input
-view, not a native-execution sandbox.
+binds canonical relative path, artifact type, size, and SHA-256 as portable evidence.
+Device/inode remain private runtime race checks and never enter canonical report JSON.
+The view is built by opening each source with no-follow safeguards, streaming and hashing
+bytes from that descriptor directly into the bounded private copy, and verifying the
+copy digest. Any difference is `INPUT_CHANGED_DURING_SCAN_PREPARATION`. It is a scanner
+input view, not a native-execution sandbox.
 
 ### 1.1 Output shapes the adapter must handle
 
 | Shape | Trigger | Required classification |
 | --- | --- | --- |
 | Object with `check_type`, `results`, `summary` | normal single-framework run (verified) | parse normally |
-| **Summary-only object with no `results` and no `check_type`** | nothing eligible was scanned (verified, see 1.2) | `NO_RESULTS_STRUCTURE` → `ERROR` if `files_eligible > 0` |
+| **Summary-only object with no `results` and no `check_type`** | nothing eligible was scanned (verified, see 1.2) | `EMPTY_ELIGIBLE_SCOPE` → `SKIPPED` only when the independent eligible set is empty; otherwise `NO_RESULTS_STRUCTURE` → `ERROR` |
 | List of objects | multiple frameworks in one run | parse each element; never silently take `[0]` |
 | Empty stdout | crash, kill, or misdirected output | `ERROR` |
 | Non-JSON prefix or suffix around JSON | log lines leaking into stdout | prefer `--output-file-path`; if stdout must be used, `ERROR` on parse failure rather than salvaging |
@@ -103,6 +104,18 @@ occurrence indices are assigned.
 `summary.checkov_version` differing from the probe is `ERROR`: the binary that
 reported is not the binary that was probed.
 
+The request also carries immutable independently expected resources: relative file,
+canonical resource address, artifact kind, and scanner-native lookup identity where
+needed. File and resource coverage are separate. `summary.resource_count` below the
+number of distinct observed resources is `INVALID_RESULTS_STRUCTURE`; disagreement with
+the independent inventory is `RESOURCE_COUNT_MISMATCH`; missing or unexpected resources
+are `COVERAGE_MISMATCH`. A nonempty eligible scan without an independent resource
+inventory is `RESOURCE_INVENTORY_MISSING` and cannot pass.
+
+Evaluation identity excludes result and bucket: scanner, version, rule, file, resource,
+and ordered evaluated keys. Incompatible claims for that identity are
+`CONTRADICTORY_EVALUATION_EVIDENCE` and `ERROR`.
+
 The trusted request separately pins the strictly resolved launcher digest, an installed
 distribution-tree digest excluding policy files, and the installed Checkov
 `checks/`/`policies/` inventory digest. All are recomputed immediately before use. The
@@ -132,6 +145,17 @@ D4.1 adds `INPUT_CHANGED_DURING_SCAN_PREPARATION`,
 `UNKNOWN_RESULT_BUCKET`, `AGGREGATE_ONLY_EVIDENCE`,
 `SCANNER_ENVIRONMENT_MISMATCH`, and `POLICY_INVENTORY_MISMATCH`. Duplicate JSON object
 keys at any nesting depth are `INVALID_RESULTS_STRUCTURE`.
+
+D4.2 adds `RESOURCE_INVENTORY_MISSING`, `RESOURCE_COUNT_MISMATCH`,
+`CONTRADICTORY_EVALUATION_EVIDENCE`, `EMPTY_ELIGIBLE_SCOPE`,
+`INPUT_FILE_COUNT_EXCEEDED`, `INPUT_FILE_BYTES_EXCEEDED`, and
+`INPUT_TOTAL_BYTES_EXCEEDED`. Input count, per-file bytes, and total bytes are trusted
+request limits included in `invocation_config_digest` and enforced before spawn.
+
+`ruleset_integrity` is reason-mapped: policy or installed-environment mismatch is
+`FAIL`; version mismatch, unsupported version, or failed version probe is
+`INCONCLUSIVE`. Ordinary output failures retain `PASS` inventory evidence only because
+the installed environment and policy inventories were independently revalidated.
 
 ### 1.6 Affirmative target evidence
 

@@ -13,6 +13,7 @@ from iac_guard_v.adapters.checkov import (
     evaluate_checkov_target,
 )
 from iac_guard_v.enums import ArtifactKind, CheckEvaluationResult, CheckTargetReason, Status
+from iac_guard_v.models import ExpectedResource
 
 
 def _checkov() -> Path:
@@ -51,6 +52,14 @@ def test_pinned_checkov_330_terraform_contract(tmp_path: Path) -> None:
             expected_executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
             expected_scanner_environment_sha256=distribution.scanner_environment_digest,
             expected_policy_inventory_sha256=distribution.policy_inventory_digest,
+            expected_resources=(
+                ExpectedResource(
+                    "main.tf",
+                    "aws_security_group.bad",
+                    ArtifactKind.TERRAFORM_HCL,
+                    "aws_security_group.bad",
+                ),
+            ),
         )
     )
     assert run.status is Status.PASS
@@ -105,6 +114,14 @@ def test_pinned_checkov_330_kubernetes_contract(tmp_path: Path) -> None:
                     "pod.yaml", "Pod.default.demo", "v1", "Pod", "default", "demo"
                 ),
             ),
+            expected_resources=(
+                ExpectedResource(
+                    "pod.yaml",
+                    "v1/Pod/default/demo",
+                    ArtifactKind.KUBERNETES_YAML,
+                    "Pod.default.demo",
+                ),
+            ),
         )
     )
     assert run.status is Status.PASS
@@ -148,6 +165,14 @@ def test_pinned_checkov_330_inline_skip_is_retained(tmp_path: Path) -> None:
             expected_executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
             expected_scanner_environment_sha256=distribution.scanner_environment_digest,
             expected_policy_inventory_sha256=distribution.policy_inventory_digest,
+            expected_resources=(
+                ExpectedResource(
+                    "main.tf",
+                    "aws_security_group.bad",
+                    ArtifactKind.TERRAFORM_HCL,
+                    "aws_security_group.bad",
+                ),
+            ),
         )
     )
     skipped = [
@@ -181,6 +206,14 @@ def test_pinned_checkov_330_missing_file_evaluation_is_partial(tmp_path: Path) -
             expected_executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
             expected_scanner_environment_sha256=distribution.scanner_environment_digest,
             expected_policy_inventory_sha256=distribution.policy_inventory_digest,
+            expected_resources=(
+                ExpectedResource(
+                    "main.tf",
+                    "aws_s3_bucket.data",
+                    ArtifactKind.TERRAFORM_HCL,
+                    "aws_s3_bucket.data",
+                ),
+            ),
         )
     )
     assert run.status is Status.PARTIAL
@@ -205,6 +238,14 @@ def test_pinned_checkov_330_in_place_rewrite_is_rejected(tmp_path: Path) -> None
         expected_executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
         expected_scanner_environment_sha256=distribution.scanner_environment_digest,
         expected_policy_inventory_sha256=distribution.policy_inventory_digest,
+        expected_resources=(
+            ExpectedResource(
+                "main.tf",
+                "aws_s3_bucket.data",
+                ArtifactKind.TERRAFORM_HCL,
+                "aws_s3_bucket.data",
+            ),
+        ),
     )
     inode = source.stat().st_ino
     source.write_text('resource "aws_s3_bucket" "changed" {}\n')
