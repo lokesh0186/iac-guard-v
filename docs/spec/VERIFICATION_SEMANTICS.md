@@ -155,6 +155,10 @@ stable `id`, `target_id`, `scope`, `reason`, `owner`, `created`, `expires`, and
 inside the record. A record that declares `origin: trusted_base` while being read from
 the candidate is stamped `candidate_head`.
 
+The closed `ExceptionOrigin` values are `OPERATOR`, `PROTECTED_POLICY_REPO`,
+`TRUSTED_BASE`, `CANDIDATE_HEAD`, and `UNKNOWN`. The first three are loader-trusted;
+`CANDIDATE_HEAD` and `UNKNOWN` can never authorise an event.
+
 - An expired exception is `FAIL`, not ignored.
 - An exception appearing or broadening in the candidate is `POLICY_DRIFT`.
 - An `owner` string is not proof of approval. Approval is established only by the
@@ -927,16 +931,37 @@ which is a conclusion, not an absence of one.
 ### 7.1 D6 executable policy boundary
 
 The policy request accepts only a D5 `VerificationResult` carrying private engine
-factory provenance. It does not accept serialized scanner runs, deltas, target outcomes,
-or decisions as a substitute. The evaluation date is exact `date` execution context.
-Exception records are copied into an immutable policy before evaluation, and optional
-gate names are accepted only from the closed set `regression`, `suppression` with trusted
-configuration provenance.
+factory provenance and a `TrustedPolicyBundle` carrying private production-loader
+provenance. It does not accept serialized scanner runs, deltas, target outcomes,
+decisions, raw `ExceptionRecord`, collections of records, caller-created
+`ExceptionPolicy`, candidate-policy parses, evaluation dates, optional gates, or origin
+enums as a substitute.
+
+The base-commit, protected-policy-repository, and operator loaders read or receive bytes
+through their trusted execution channel and stamp origin independently of any serialized
+`origin` field. Candidate loading always stamps `CANDIDATE_HEAD` and cannot create a
+trusted bundle. Bounded file loaders use no-follow regular-file descriptors. Policy JSON
+is strict: duplicate keys, excessive nesting, unknown fields, malformed dates, duplicate
+outcomes, and unknown gate names are rejected. Optional gate names come from the same
+trusted document as the exceptions.
+
+The evaluation date is captured from a trusted timezone-aware execution clock, converted
+to UTC, and stored with timezone and provenance. Repository/config/JSON input has no
+evaluation-time field. Policy evidence retains trusted source identity and origin,
+trusted digest, candidate presence and digest when present, concrete differing governed paths, and the loader
+source of each applied exception.
 
 For each engine target classification, D6 derives a fresh decision. A permission exists
 only when one record matches the structured scanner/rule/scope identity, names that exact
 exception-eligible outcome, has trusted loader-stamped origin, and satisfies
 `created <= evaluation_date <= expires`. The event remains unchanged and visible.
+
+Suppression detector operation and suppression policy disposition are separate. A real
+`FAILED -> SKIPPED` target flow emits `SUPPRESSED`; an active exact loader-attested
+exception may make that event policy-permitted and the otherwise complete result
+`VERIFIED`. Candidate, expired, not-yet-active, wrong-event, and wrong-target records do
+not. Loader-observed governed-policy drift is decisive even if an upstream caller digest
+claimed equality.
 
 The three-step table above is implemented in the written order. `ERROR`, `TIMEOUT`,
 `UNSUPPORTED`, `SKIPPED`, `PARTIAL`, and `INCONCLUSIVE` on a required operational gate

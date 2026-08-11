@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -41,7 +41,7 @@ from iac_guard_v.models import (
     Target,
     TargetIdentity,
 )
-from iac_guard_v.policy import PolicyRequest, evaluate_policy
+from iac_guard_v.policy import PolicyRequest, evaluate_policy, load_operator_policy
 
 from test_engine import IDENTITY, _executable, _gate, _scan_request
 from test_checkov_adapter import request as adapter_request
@@ -146,7 +146,32 @@ def execute(monkeypatch, baseline_request, candidate_request, baseline_run, cand
 
 
 def verdict(result, exceptions=None):
-    return evaluate_policy(PolicyRequest(result, NOW, exceptions=exceptions))
+    if exceptions is None:
+        policy = ExceptionPolicy(())
+    elif type(exceptions) is ExceptionPolicy:
+        policy = exceptions
+    else:
+        policy = ExceptionPolicy(exceptions)
+    records = [{
+        "exception_id": record.exception_id,
+        "target": {
+            "scanner": record.target.scanner,
+            "rule_id": record.target.rule_id,
+            "scope": record.target.scope,
+        },
+        "reason": record.reason,
+        "owner": record.owner,
+        "created": record.created.isoformat(),
+        "expires": record.expires.isoformat(),
+        "origin": record.origin.value,
+        "permitted_outcomes": sorted(item.value for item in record.permitted_outcomes),
+    } for record in policy.records]
+    bundle = load_operator_policy(
+        {"exceptions": records, "optional_gates": []},
+        source_identity="operator-test-fixture",
+        _clock=lambda: datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc),
+    )
+    return evaluate_policy(PolicyRequest(result, bundle))
 
 
 def requests(tmp_path: Path):

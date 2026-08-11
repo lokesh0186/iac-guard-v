@@ -1,7 +1,7 @@
 """D6 policy truth table, exception binding, and provenance boundary."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -26,6 +26,8 @@ from iac_guard_v.policy import (
     PolicyRequest,
     PolicyResult,
     evaluate_policy,
+    load_candidate_policy,
+    load_operator_policy,
     require_trusted_policy_result,
 )
 from test_engine import (
@@ -42,6 +44,10 @@ from iac_guard_v.models import RequiredGates, Target
 
 
 TODAY = date(2026, 8, 11)
+
+
+def _clock() -> datetime:
+    return datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc)
 
 
 @pytest.fixture
@@ -138,10 +144,49 @@ def _record(
     )
 
 
-def _verdict(run, *, exceptions=None, **kwargs):
-    return evaluate_policy(
-        PolicyRequest(run, TODAY, exceptions=exceptions, **kwargs)
+def _policy_payload(*, exceptions=None, optional_gates=frozenset()) -> dict:
+    if exceptions is None:
+        policy = ExceptionPolicy(())
+    elif type(exceptions) is ExceptionPolicy:
+        policy = exceptions
+    else:
+        policy = ExceptionPolicy(exceptions)
+    records = [
+        {
+            "exception_id": record.exception_id,
+            "target": {
+                "scanner": record.target.scanner,
+                "rule_id": record.target.rule_id,
+                "scope": record.target.scope,
+            },
+            "reason": record.reason,
+            "owner": record.owner,
+            "created": record.created.isoformat(),
+            "expires": record.expires.isoformat(),
+            "origin": record.origin.value,
+            "permitted_outcomes": sorted(item.value for item in record.permitted_outcomes),
+        }
+        for record in policy.records
+    ]
+    return {
+        "exceptions": records,
+        "optional_gates": sorted(optional_gates),
+    }
+
+
+def _bundle(*, exceptions=None, optional_gates=frozenset(), candidate_payload=None):
+    return load_operator_policy(
+        _policy_payload(exceptions=exceptions, optional_gates=optional_gates),
+        candidate_payload=candidate_payload,
+        source_identity="operator-test-fixture",
+        _clock=_clock,
     )
+
+
+def _verdict(run, *, exceptions=None, optional_gates=frozenset()):
+    return evaluate_policy(PolicyRequest(
+        run, _bundle(exceptions=exceptions, optional_gates=optional_gates)
+    ))
 
 
 def test_clean_affirmative_evidence_is_verified(verified_engine) -> None:
@@ -199,17 +244,26 @@ def test_exception_for_suppression_does_not_authorize_deletion(verified_engine) 
 
 
 @pytest.mark.parametrize("record", [
-    _record(Outcome.SUPPRESSED, origin=ExceptionOrigin.CANDIDATE_HEAD),
     _record(Outcome.SUPPRESSED, expires=date(2026, 8, 10)),
     _record(Outcome.SUPPRESSED, created=date(2026, 8, 12)),
 ])
-def test_untrusted_or_out_of_window_exception_cannot_permit(verified_engine, record) -> None:
+def test_out_of_window_exception_cannot_permit(verified_engine, record) -> None:
     result = _verdict(
         _outcome(verified_engine, Outcome.SUPPRESSED),
         exceptions=ExceptionPolicy((record,)),
     )
     assert result.verdict is Verdict.FAILED
     assert result.decisions[0].rejection_reason
+
+
+def test_candidate_policy_cannot_be_used_as_trusted_bundle(verified_engine) -> None:
+    payload = _policy_payload(exceptions=(
+        _record(Outcome.SUPPRESSED, origin=ExceptionOrigin.CANDIDATE_HEAD),
+    ))
+    candidate = load_candidate_policy(payload)
+    assert candidate.records[0].origin is ExceptionOrigin.CANDIDATE_HEAD
+    with pytest.raises(DomainError, match="TrustedPolicyBundle"):
+        PolicyRequest(_outcome(verified_engine, Outcome.SUPPRESSED), candidate)
 
 
 @pytest.mark.parametrize(("status", "expected"), [
@@ -271,7 +325,6 @@ def test_trusted_optional_skipped_gate_may_continue(verified_engine) -> None:
     result = _verdict(
         run,
         optional_gates=frozenset({"regression"}),
-        optional_gates_origin=ExceptionOrigin.TRUSTED_BASE,
     )
     assert result.verdict is Verdict.VERIFIED
 
@@ -314,22 +367,18 @@ def test_policy_output_is_canonical_and_input_order_independent(verified_engine)
 
 
 def test_policy_boundary_rejects_invalid_optional_gate_provenance(verified_engine) -> None:
-    with pytest.raises(DomainError, match="protected"):
-        PolicyRequest(
-            verified_engine,
-            TODAY,
-            optional_gates=frozenset({"regression"}),
-            optional_gates_origin=ExceptionOrigin.CANDIDATE_HEAD,
-        )
+    candidate = load_candidate_policy({"exceptions": [], "optional_gates": ["regression"]})
+    with pytest.raises(DomainError, match="TrustedPolicyBundle"):
+        PolicyRequest(verified_engine, candidate)
     with pytest.raises(DomainError, match="unknown"):
-        PolicyRequest(verified_engine, TODAY, optional_gates=frozenset({"other"}))
+        _bundle(optional_gates=frozenset({"other"}))
 
 
 def test_caller_cannot_construct_authoritative_policy_result() -> None:
-    with pytest.raises(DomainError, match="trusted policy"):
+    with pytest.raises(DomainError, match="policy evidence"):
         PolicyResult(
             Verdict.FAILED,
             1,
             (TargetDecision(IDENTITY, Outcome.STILL_PRESENT),),
-            TODAY,
+            object(),
         )

@@ -289,16 +289,27 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 
 ## 17. D6 — Policy and verdict
 
-1. The policy request requires a factory-proven D5 result. A caller cannot inject
-   precomputed target or delta evidence into a verdict.
-2. Exceptions are defensively rebuilt and may permit only the exact structured target
-   and exact eligible outcome named by a trusted record whose inclusive date window is
-   in force. Permission is derived by the policy layer, never believed from input.
-3. Every classification stays visible. Permission changes its consequence and records
+1. The policy request requires a factory-proven D5 result and an immutable
+   `TrustedPolicyBundle` carrying private loader provenance. It rejects raw records,
+   record collections, caller-created `ExceptionPolicy`, candidate-policy parses,
+   caller evaluation dates, and caller gate optionality.
+2. Base-commit, protected-policy-repository, and operator loaders stamp origin from the
+   selected source rather than a serialized `origin` field. Candidate loading always
+   stamps `CANDIDATE_HEAD` and can never create an authoritative bundle.
+3. Exceptions may permit only the exact structured target and exact eligible outcome
+   named by an in-force loader-stamped record. The inclusive evaluation date is captured
+   from a trusted timezone-aware execution clock, and optional gates come from the same
+   trusted policy document. Permission is derived by the policy layer, never believed
+   from input.
+4. Every classification stays visible. Permission changes its consequence and records
    the exception id; it never rewrites the event to `FIXED`.
-4. Operational uncertainty, incomplete evidence, required-scanner coverage loss, and
+5. Operational uncertainty, incomplete evidence, required-scanner coverage loss, and
    rule substitution produce `INCONCLUSIVE` before definite-negative evaluation.
    Validator/oracle failure, policy drift, unresolved targets, and regression or
    suppression failure then produce `FAILED`; otherwise the result is `VERIFIED`.
-5. Verdicts and exit codes are closed and inseparable: `VERIFIED/0`, `FAILED/1`, and
+6. Policy evidence records trusted source identity and origin, trusted digest, candidate
+   presence state and digest when present, differing governed paths, UTC evaluation-time provenance, and the exact
+   loader source for every applied exception. Candidate policy drift is decisive even
+   if a caller-supplied upstream digest claimed equality.
+7. Verdicts and exit codes are closed and inseparable: `VERIFIED/0`, `FAILED/1`, and
    `INCONCLUSIVE/3`. Usage and internal error exits are outside `PolicyResult`.

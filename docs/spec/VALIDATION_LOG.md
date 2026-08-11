@@ -847,6 +847,55 @@ reduces TOCTOU exposure without claiming native execution is a sandbox. Final su
 specification, research-freeze, replay, and frozen-diff values are recorded at the D5.1
 commit gate.
 
+## D6.1 — Loader-attested policy and integrated exceptions (2026-08-11)
+
+The old production boundary was exercised before modification. Literal results were:
+
+```text
+self-constructed ExceptionRecord(origin=TRUSTED_BASE): PolicyRequest accepted
+self-declared RESOURCE_DELETED exception: policy_permitted true / VERIFIED
+PolicyRequest fields controlled by caller: evaluation_date, exceptions,
+  optional_gates, optional_gates_origin
+production loader functions present: none
+new D6.1 boundary probes: 4 failed
+real D5 suppression flow before D5.1:
+  target SUPPRESSED; policy_permitted true; suppression gate FAIL; verdict FAILED
+```
+
+After D6.1:
+
+```text
+PolicyRequest fields: verification, policy_bundle
+raw ExceptionRecord/ExceptionPolicy/candidate policy: rejected as TrustedPolicyBundle
+serialized origin=trusted_base through candidate loader: CANDIDATE_HEAD
+base/protected-repository/operator loaders: loader-stamped trusted origin
+evaluation date: UTC trusted_execution_clock; no request/payload date field
+optional gates: loaded only from the trusted policy document
+real D5 SUPPRESSED event + active exact trusted exception: VERIFIED
+candidate/expired/not-yet-active/wrong-event/wrong-target: not permitted
+loader-observed policy drift: FAILED with source, both digests, and governed path
+applied exception: id plus exact loader source retained
+strict policy JSON: duplicate keys, excessive depth, malformed shape rejected
+focused D6 integration tests: 124 passed
+policy branch coverage: 91.33%
+Python 3.11 non-integration: 1018 passed in 60.62s
+Python 3.12 clean warning-as-error import: PASS
+Python 3.12 non-integration: 1018 passed in 62.03s
+Python 3.10 local leg: BLOCKED (interpreter not installed)
+Python 3.13 local leg: BLOCKED (interpreter not installed)
+CI matrix retained: 3.10, 3.11, 3.12, 3.13
+spec_lint: 23 documents, 102 enum values, PASS, zero warnings
+manifest: 4842/4842 PASS
+MANIFEST_ROOT computed/recorded:
+  a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+replay: 630/630; 10080/10080 fields equal; 0 final-verdict mismatches
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff against qrs-2026-replication-v1: empty
+```
+
+Final full-suite, specification, research-freeze, replay, and frozen-scope values are
+recorded at the D6.1 commit gate.
+
 ---
 
 ## Gate D3.2 — Conservative occurrence ambiguity and multi-domain matching

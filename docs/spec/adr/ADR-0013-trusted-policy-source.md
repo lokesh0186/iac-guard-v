@@ -132,3 +132,23 @@ protected exception collection and creates a fresh decision only after proving e
 structured target identity, exact event authorisation, trusted loader-stamped origin,
 and the inclusive execution-date window. The original event remains in the result.
 Caller-authored engine, target, or delta evidence cannot reach this decision boundary.
+
+## Amendment, 2026-08-11: production loader attestation
+
+The loader convention is now executable production code. `PolicyRequest` accepts only a
+private-loader-attested `TrustedPolicyBundle`, never a raw record, record collection,
+caller-created policy, candidate parse, evaluation date, optional-gate set, or origin
+enum. Base-commit, protected-policy-repository, and operator loaders stamp provenance;
+candidate loading always stamps `CANDIDATE_HEAD`. Serialized `origin` is ignored.
+
+The bundle binds trusted source identity/origin, trusted policy digest, candidate
+presence/digest evidence, differing governed paths, protected optionality, and a UTC date captured from
+the trusted execution clock. Policy reports preserve those facts and the exact loader
+source for each applied exception. File loaders use bounded no-follow reads and strict
+duplicate-free, depth-bounded JSON. This is an application trust boundary: arbitrary
+Python code already executing inside the verifier remains trusted and can call internal
+hooks, so the future public API must expose neither loader selection nor those hooks.
+
+Target suppression is an event, not a detector failure. A completed detector reports
+operational success while D6 applies the exact protected exception. Unrelated
+`SUPPRESSION_ADDED` evidence remains a regression and is not waived by that target event.

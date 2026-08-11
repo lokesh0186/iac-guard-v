@@ -443,16 +443,31 @@ cannot emit a verdict.
 ## 16. D6 policy layer
 
 `policy.py` is the only layer that constructs `Verdict`. Its request requires a
-factory-proven D5 `VerificationResult`, a trusted execution date, a defensively rebuilt
-exception policy, and—when used—closed optional-gate names stamped with trusted
-configuration provenance. It cannot accept caller-authored target outcomes, deltas, or
-scanner evidence in place of the engine result.
+factory-proven D5 `VerificationResult` and a private-loader-attested
+`TrustedPolicyBundle`. It has no fields for a caller evaluation date, raw exception
+record or policy, optional gates, optional-gate origin, target outcomes, deltas, or
+scanner evidence.
+
+Base-commit, protected-policy-repository, and operator loaders bind the trusted policy
+bytes, stamp source origin independently of serialized claims, capture the current UTC
+date from a trusted execution clock, and load optionality from that same protected
+document. Candidate loading always stamps `CANDIDATE_HEAD` and returns no trusted
+bundle. The bundle records source identity, trusted digest, candidate state/digest, and
+exact differing governed paths. File loaders use bounded no-follow regular-file reads and strict JSON
+with duplicate-key and nesting controls.
 
 The policy layer independently rebuilds decisions from engine classifications. It finds
-an exact structured target, event-specific, trusted, in-force exception; permission is
+an exact structured target, event-specific, loader-stamped, in-force exception; permission is
 never copied from a caller-authored decision. A permitted event remains in the result
 with its outcome and exception id. Missing, wrong-event, wrong-target, untrusted,
 not-yet-valid, and expired records remain visible as unpermitted decisions.
+
+The report retains the trusted source identity/origin, trusted digest, candidate
+presence/digest evidence, differing
+governed paths, UTC evaluation-time evidence, and the exact source of each applied
+exception. Loader-observed policy drift is a definite failure even when an earlier
+caller-supplied digest claimed stability. A completed suppression detector does not fail
+merely because it emitted `SUPPRESSED`; D6 applies the exact event-specific disposition.
 
 The section-7 order is executable: any operational uncertainty dominates a definite
 negative result and yields `INCONCLUSIVE`; validators/oracles that affirmatively fail,

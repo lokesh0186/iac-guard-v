@@ -38,6 +38,9 @@ jobs:
       - name: Enforce D5 engine coverage
         run: |
           PYTHONPATH=src python -m pytest tests/unit/test_engine.py tests/unit/test_engine_d51.py --cov=iac_guard_v.engine --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
+      - name: Enforce D6 policy coverage
+        run: |
+          PYTHONPATH=src python -m pytest tests/unit/test_policy.py tests/unit/test_policy_d61.py tests/unit/test_engine_d51.py --cov=iac_guard_v.policy --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
 
   pinned-checkov-330:
     runs-on: ubuntu-latest

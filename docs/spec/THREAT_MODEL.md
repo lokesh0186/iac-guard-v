@@ -55,6 +55,9 @@ govern its own evaluation.
 | Hide drift by changing only the scanner launcher or invocation configuration | D5 compares launcher, environment, policy-inventory, and invocation/config digests as one execution identity |
 | Turn unknown severity or incomplete occurrence-pass evidence into a pass | typed D5 uncertainty; neither condition can reach `FIXED` or a passing regression gate |
 | Delete an unrelated resource while repairing the named target | canonical baseline/candidate resource inventory comparison emits `DESTRUCTIVE_CHANGE` and fails regression |
+| Declare `origin: trusted_base` inside candidate policy | serialized origin is ignored; only a private loader-attested bundle can enter `PolicyRequest`, and candidate loading stamps `CANDIDATE_HEAD` |
+| Backdate evaluation or declare a gate optional in candidate input | UTC date is captured by the trusted execution clock; optionality is loaded only from the protected policy document |
+| Hide candidate policy edits behind caller-supplied equal digests | D6 retains the trusted digest, candidate presence/digest evidence, and differing governed paths and treats loader-observed drift as decisive |
 | Emit the same target as both passed and failed | evaluation-identity contradiction is a typed scanner error |
 
 ### T2 — Execute code on the runner
