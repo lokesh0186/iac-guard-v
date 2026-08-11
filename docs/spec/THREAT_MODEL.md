@@ -49,7 +49,7 @@ govern its own evaluation.
 | Edit `.iac-guard.yml` or scanner config in the PR | `POLICY_DRIFT`; trusted config used; head version ignored |
 | Forge an exception record granting itself approval | exceptions load only from the trusted source; `owner` is not proof; optional `approval_binding` |
 | Downgrade the scanner version | V5 version contract; `RULE_OR_SCANNER_DRIFT` |
-| Shrink the scanned set | `files_parsed`/`checks_loaded` regression check |
+| Shrink the scanned set | independently eligible files/resources reconciled against per-evaluation path/resource evidence |
 
 ### T2 — Execute code on the runner
 
@@ -279,13 +279,15 @@ values merged from candidate `.checkov.yml`. D4 therefore scans an adapter-owned
 containing only independently eligible IaC files. A live mutation probe proves a
 candidate `skip-check` is inert in that view.
 
-The adapter pins both the version and resolved native-launcher SHA-256, revalidates path
+The adapter pins the version, resolved native-launcher SHA-256, installed environment
+digest, and policy-inventory digest. It byte-binds each eligible input, revalidates all
 identities immediately before use, disables policy/module downloads and result uploads,
-and accepts only a bounded nonsymlink JSON output file. Checkov suppressions are retained
-as findings with `suppressed=True`; they do not disappear into an empty result.
+and accepts only a bounded nonsymlink JSON output file with strict duplicate-key parsing.
+Passed, failed, skipped, and unknown evaluations are retained. Checkov suppressions stay
+typed and target absence never becomes affirmative pass evidence.
 
-Residual risk remains explicit: the native launcher digest does not bind an entire
-Python environment, the private view is not a kernel sandbox, and Checkov itself remains
-trusted executable code. Hostile pull-request evaluation still requires the digest-bound
-hardened container. A current 3.2.517 native integration is not claimed merely because
-the frozen research output has that version.
+Residual risk remains explicit: tree hashing and path revalidation reduce TOCTOU exposure
+but are not atomic sandbox boundaries; the private view is not a kernel sandbox, and
+Checkov remains trusted executable code. Hostile pull-request evaluation still requires
+the digest-bound hardened container. A current 3.2.517 native integration is not claimed
+merely because the frozen research output has that version.

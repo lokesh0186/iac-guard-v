@@ -18,7 +18,7 @@ against a pinned image before the adapter is declared supported.
 | Research pin | **3.2.517** — `requirements.txt:4`, corroborated by `checkov_version` inside all 70 frozen baseline outputs |
 | Product version under test | **3.3.0** (installed here) |
 | Version probe | `checkov --version` → bare version on the last stdout line (verified: `3.3.0`) |
-| Invocation | `checkov -d <private-eligible-file-view> --framework <fw> --output json --quiet --compact --output-file-path <private-dir> --config-file <adapter-config> --skip-download --download-external-modules false --skip-results-upload` |
+| Invocation | `checkov -d <private-eligible-file-view> --framework <fw> --output json --compact --output-file-path <private-dir> --config-file <adapter-config> --skip-download --download-external-modules false --skip-results-upload` |
 | Frameworks validated | `terraform`, `kubernetes` (the two used by the frozen baselines) |
 | External Python checks | **disabled by default**; enabling requires a trusted-source opt-in (threat model T2) |
 | External module download | disabled |
@@ -27,9 +27,12 @@ The scan directory is an adapter-owned private view containing only paths suppli
 the independent eligible-file detector. Relative paths are preserved. Candidate
 `.checkov.yml` / `.checkov.yaml`, custom-check directories, and unrelated repository
 content are not copied and therefore cannot govern the run. An explicit adapter-owned
-config is still passed because Checkov rejects an empty config document. This snapshot
-also prevents a candidate file from changing after the adapter's final identity check
-but before Checkov reads it. It is a scanner input view, not a native-execution sandbox.
+config is still passed because Checkov rejects an empty config document. Each request
+binds canonical relative path, artifact type, size, SHA-256, and secondary device/inode
+evidence. The view is built by opening each source with no-follow safeguards, hashing the
+bytes read from that descriptor, writing those exact bytes, and verifying the copy
+digest. Any difference is `INPUT_CHANGED_DURING_SCAN_PREPARATION`. It is a scanner input
+view, not a native-execution sandbox.
 
 ### 1.1 Output shapes the adapter must handle
 
@@ -71,15 +74,18 @@ reconciliation before any target may be classified `FIXED`.
 
 ### 1.3 Normalised fields
 
-From `results.failed_checks[]`: `check_id`, `check_name`, `severity` (may be absent on
-open source), `resource`, `file_path`, `file_line_range`, `guideline`,
-`bc_check_id`, and the native fingerprint fields when present.
+From `results.passed_checks[]`, `failed_checks[]`, `skipped_checks[]`, and supported
+`unknown_checks[]`: `check_id`, `check_name`, `severity` (may be absent on open source),
+`resource`, `file_path`, `file_line_range`, `check_result.result`, ordered
+`evaluated_keys`, and native fingerprint fields when present. Bucket and native result
+must agree. Every record becomes a typed `CheckEvaluation`; failed and skipped records
+also become findings.
 From `summary`: `passed`, `failed`, `skipped`, `parsing_errors`, `resource_count`,
 `checkov_version` (verified present in both 3.2.517 and 3.3.0).
 
 When Checkov supplies no native fingerprint, the adapter retains occurrence evidence by
 hashing its ordered `check_result.evaluated_keys` string array as
-`checkov-eval-v1:<sha256>`. This remains separate from `iacgv1`; it exists so two checks
+`checkov-eval-v1:<sha256>`. This remains separate from `iacgv2`; it exists so two checks
 against different indexed keys on one resource do not collapse before deterministic
 occurrence indices are assigned.
 
@@ -88,19 +94,21 @@ occurrence indices are assigned.
 | Evidence | Source |
 | --- | --- |
 | `tool_version` | `--version` probe, cross-checked against `summary.checkov_version` |
-| `files_parsed` / `parse_errors` | `summary.parsing_errors`, per-file diagnostics |
-| `checks_loaded` | `summary.passed + failed + skipped` reconciliation |
+| `files_discovered` / `files_parsed` | distinct eligible paths carried by native evaluation records; never assigned from the eligible count |
+| `parse_errors` | `summary.parsing_errors` plus its result bucket when present |
+| `evaluations_reported` | `summary.passed + failed + skipped`, plus represented unknown evaluations; never a ruleset inventory |
 | `resource_count` | `summary.resource_count` |
 | suppressions | `results.skipped_checks[]`, detected independently of result disappearance |
 
 `summary.checkov_version` differing from the probe is `ERROR`: the binary that
 reported is not the binary that was probed.
 
-The trusted request also pins the SHA-256 of the strictly resolved native launcher.
-That digest is checked at construction and again immediately before probe/spawn, then
-recorded as `executable_or_image_digest`. For a native Python console script this binds
-the launcher, not its entire environment; hardened container mode must bind the complete
-image digest.
+The trusted request separately pins the strictly resolved launcher digest, an installed
+distribution-tree digest excluding policy files, and the installed Checkov
+`checks/`/`policies/` inventory digest. All are recomputed immediately before use. The
+report records sanitized resolved launcher path, `launcher_digest`,
+`scanner_environment_digest`, `policy_inventory_digest`, and deterministic
+`invocation_config_digest`. Evaluation count is never used as policy identity.
 
 Raw JSON written through `--output-file-path` is accepted only as one nonsymlink regular
 `.json` file, read with no-follow semantics under the configured byte cap. Its digest is
@@ -115,9 +123,24 @@ failed.
 `DEADLINE_EXCEEDED`, `KILLED_PROCESS`, `PARTIAL_SCAN`, `ZERO_FILES_DISCOVERED`,
 `UNSUPPORTED_VERSION`, `VERSION_MISMATCH`, `VERSION_PROBE_FAILED`,
 `NO_RESULTS_STRUCTURE`, `INVALID_RESULTS_STRUCTURE`, `COVERAGE_MISMATCH`,
-`CHECK_INVENTORY_MISMATCH`, `FRAMEWORK_MISMATCH`, `MISSING_RESOURCE_IDENTITY`,
+`FRAMEWORK_MISMATCH`, `MISSING_RESOURCE_IDENTITY`,
 `RAW_OUTPUT_MISSING`, and `OUTPUT_CLEANUP_FAILED` are the complete D4 adapter-reason
 family. Unknown scanner conditions are never accepted as a clean run.
+
+D4.1 adds `INPUT_CHANGED_DURING_SCAN_PREPARATION`,
+`SCAN_VIEW_PREPARATION_FAILED`, `OUTPUT_DIRECTORY_INTEGRITY_FAILED`,
+`UNKNOWN_RESULT_BUCKET`, `AGGREGATE_ONLY_EVIDENCE`,
+`SCANNER_ENVIRONMENT_MISMATCH`, and `POLICY_INVENTORY_MISMATCH`. Duplicate JSON object
+keys at any nesting depth are `INVALID_RESULTS_STRUCTURE`.
+
+### 1.6 Affirmative target evidence
+
+The machine JSON scan does not use `--quiet`, because quiet output omits positive and
+skip records. A target is affirmed only by a `PASSED` evaluation for that exact rule,
+resource, and optional file. `FAILED` is failure evidence. `SKIPPED`, `UNKNOWN`, target
+absence, resource absence, rule absence, and aggregate-only counts are typed non-pass
+target evidence and later force `INCONCLUSIVE`; absence from `failed_checks` is never a
+fix predicate.
 
 ---
 
@@ -226,7 +249,7 @@ container path; the support matrix below records that honestly.
 
 | Tool | Version(s) | Contract fixtures | Pinned integration test | Status |
 | --- | --- | --- | --- | --- |
-| Checkov | 3.2.517 (research), 3.3.0 (product) | **PASS, D4** for both versions | **PASS, D4** for installed 3.3.0 Terraform + Kubernetes; 3.2.517 executable re-run remains Phase E | product 3.3.0 supported; research 3.2.517 has a frozen-shape contract fixture and offline replay, but is not claimed as a current native integration |
+| Checkov | 3.2.517 (research), 3.3.0 (product) | **PASS, D4.1** for both versions | **PASS, D4.1**: five installed 3.3.0 tests cover Terraform/Kubernetes affirmative pass, inline skip, missing-file coverage, byte replacement, and inert candidate config; 3.2.517 executable re-run remains Phase E | product 3.3.0 supported; research 3.2.517 has a frozen-shape contract fixture and offline replay, but is not claimed as a current native integration |
 | KICS | pinned image, version TBD | Phase E | Phase E | documented from official schema; **not yet verified locally** |
 | Trivy | 0.71.1 + pinned bundle | Phase E | Phase E | output shape verified 2026-08-09; bundle pinning outstanding |
 | terraform validate | TBD | Phase E | Phase E | not installed locally |

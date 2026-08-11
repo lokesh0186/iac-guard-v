@@ -56,3 +56,12 @@ This does not pretend that hashing a Python console script binds its full depend
 environment. Product Checkov 3.3.0 has a pinned live integration job. Research 3.2.517
 has a D4 parser fixture and frozen replay evidence, while its current executable/image
 integration remains Phase E and is not labelled supported native execution.
+
+## Amendment, 2026-08-10: D4.1 distribution and policy identity
+
+The launcher script is no longer presented as binding the installed scanner. The trusted
+request separately pins a manifest digest over the installed non-policy distribution
+tree and a digest over installed `checks/`/`policies/` files; both are recomputed before
+spawn. The invocation/config digest is a fourth identity. Summary evaluation count was
+renamed `evaluations_reported` and is never used as a rule-inventory lock, because the
+same ruleset produces different counts on one and two resources.

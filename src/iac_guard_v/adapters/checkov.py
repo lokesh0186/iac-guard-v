@@ -16,7 +16,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..enums import ArtifactKind, Severity, Status
+from ..enums import (
+    ArtifactKind,
+    CheckEvaluationResult,
+    CheckTargetReason,
+    Severity,
+    Status,
+)
 from ..fingerprints import (
     canonicalize_kubernetes_identity,
     canonicalize_scan_path,
@@ -24,13 +30,17 @@ from ..fingerprints import (
 )
 from ..models import (
     CoverageCounters,
+    BoundInputFile,
+    CheckEvaluation,
     DomainError,
     Finding,
     FindingLocation,
     ScannerRun,
     canonical_identifier,
     canonical_repo_path,
+    canonical_resource_scope,
     require_int,
+    safe_report_text,
 )
 from ..normalisation import assign_occurrence_indices
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
@@ -51,6 +61,110 @@ class _FilesystemIdentity:
     resolved: Path
     device: int
     inode: int
+
+
+CheckovEligibleFileEvidence = BoundInputFile
+
+
+@dataclass(frozen=True, slots=True)
+class CheckovDistributionIdentity:
+    """Installed environment and policy inventory derived independently of scan data."""
+
+    scanner_environment_digest: str
+    policy_inventory_digest: str
+    source: str
+
+    def __post_init__(self) -> None:
+        for name in ("scanner_environment_digest", "policy_inventory_digest"):
+            value = getattr(self, name)
+            if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
+                raise DomainError(f"{name} must be a lowercase SHA-256")
+        object.__setattr__(self, "source", canonical_identifier(self.source, "distribution source"))
+
+
+@dataclass(frozen=True, slots=True)
+class CheckovTargetEvidence:
+    status: Status
+    reason: CheckTargetReason
+    evaluations: tuple
+
+    def __post_init__(self) -> None:
+        if type(self.status) is not Status:
+            raise DomainError("target evidence status must be an exact Status")
+        if type(self.reason) is not CheckTargetReason:
+            raise DomainError("target evidence reason must be an exact CheckTargetReason")
+        if type(self.evaluations) is not tuple:
+            raise DomainError("target evaluations must be an exact tuple")
+        for item in self.evaluations:
+            if type(item) is not CheckEvaluation:
+                raise DomainError("target evaluations must contain CheckEvaluation")
+
+
+def _sha256_manifest(files: list[tuple[str, Path]]) -> str:
+    digest = hashlib.sha256()
+    for relative, path in sorted(files):
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(path.stat().st_size).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
+def checkov_distribution_identity(
+    executable: Path, expected_version: str
+) -> CheckovDistributionIdentity:
+    """Hash the installed distribution tree and its policy/check inventory."""
+    resolved = executable.resolve(strict=True)
+    try:
+        first_line = resolved.read_bytes().splitlines()[0].decode("utf-8", errors="strict")
+    except (OSError, UnicodeDecodeError, IndexError) as exc:
+        raise DomainError("Checkov launcher cannot identify its distribution") from exc
+    candidates: list[Path] = []
+    if first_line.startswith("#!"):
+        interpreter = Path(first_line[2:].strip().split()[0])
+        if interpreter.is_absolute():
+            candidates.append(interpreter.parent.parent)
+    candidates.append(resolved.parent.parent)
+    installation_root: Path | None = None
+    checkov_roots: list[Path] = []
+    for candidate in candidates:
+        roots = sorted(candidate.glob("lib/python*/site-packages/checkov"))
+        if roots:
+            installation_root = candidate.resolve(strict=True)
+            checkov_roots = roots
+            break
+    if installation_root is None:
+        raise DomainError("Checkov installed distribution manifest cannot be established")
+    environment_files: list[tuple[str, Path]] = []
+    policy_files: list[tuple[str, Path]] = []
+    for path in sorted(installation_root.rglob("*")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        resolved_path = path.resolve(strict=True)
+        relative = resolved_path.relative_to(installation_root).as_posix()
+        environment_files.append((relative, resolved_path))
+    for root in checkov_roots:
+        for path in sorted(root.rglob("*")):
+            if path.is_symlink() or not path.is_file():
+                continue
+            resolved_path = path.resolve(strict=True)
+            relative = resolved_path.relative_to(installation_root).as_posix()
+            if "/checks/" in f"/{relative}" or "/policies/" in f"/{relative}":
+                policy_files.append((relative, resolved_path))
+    if not environment_files or not policy_files:
+        raise DomainError("Checkov distribution or policy inventory is empty")
+    policy_paths = {relative for relative, _ in policy_files}
+    environment_without_policy = [
+        item for item in environment_files if item[0] not in policy_paths
+    ]
+    if not environment_without_policy:
+        raise DomainError("Checkov non-policy environment inventory is empty")
+    return CheckovDistributionIdentity(
+        _sha256_manifest(environment_without_policy),
+        _sha256_manifest(policy_files),
+        f"installed-tree-{expected_version}",
+    )
 
 
 def _identity(path: Path, label: str, *, directory: bool) -> _FilesystemIdentity:
@@ -75,6 +189,44 @@ def _file_sha256(path: Path) -> str:
     except OSError as exc:
         raise DomainError("Checkov executable cannot be hashed") from exc
     return digest.hexdigest()
+
+
+def _file_type(relative: str) -> str:
+    suffix = Path(relative).suffix.lower()
+    if suffix == ".tf":
+        return ArtifactKind.TERRAFORM_HCL.value
+    if suffix in (".yaml", ".yml"):
+        return ArtifactKind.KUBERNETES_YAML.value
+    raise DomainError("eligible Checkov file has an unsupported artifact type")
+
+
+def _read_bound_file(path: Path, relative: str) -> tuple[bytes, CheckovEligibleFileEvidence]:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+        try:
+            metadata = os.fstat(descriptor)
+            if not stat.S_ISREG(metadata.st_mode):
+                raise DomainError("eligible file must be a no-follow regular file")
+            chunks: list[bytes] = []
+            while True:
+                chunk = os.read(descriptor, 64 * 1024)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+        finally:
+            os.close(descriptor)
+    except OSError as exc:
+        raise DomainError("eligible file cannot be opened with no-follow safeguards") from exc
+    data = b"".join(chunks)
+    return data, CheckovEligibleFileEvidence(
+        relative,
+        _file_type(relative),
+        len(data),
+        hashlib.sha256(data).hexdigest(),
+        metadata.st_dev,
+        metadata.st_ino,
+    )
 
 
 def _safe_directory(path: Path, label: str) -> Path:
@@ -136,7 +288,8 @@ class CheckovScanRequest:
     files_eligible: tuple
     expected_version: str
     expected_executable_sha256: str
-    expected_checks_loaded: int | None = None
+    expected_scanner_environment_sha256: str
+    expected_policy_inventory_sha256: str
     kubernetes_identities: tuple = ()
     timeout_seconds: int = 120
     max_output_bytes: int = 25 * 1024 * 1024
@@ -144,6 +297,10 @@ class CheckovScanRequest:
     _scan_root_identity: _FilesystemIdentity = field(init=False, repr=False, compare=False)
     _eligible_identities: tuple = field(init=False, repr=False, compare=False)
     _executable_sha256: str = field(init=False, repr=False, compare=False)
+    _distribution_identity: CheckovDistributionIdentity = field(
+        init=False, repr=False, compare=False
+    )
+    eligible_file_evidence: tuple = field(init=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.executable, Path):
@@ -166,6 +323,13 @@ class CheckovScanRequest:
             or self.expected_executable_sha256 != executable_sha256
         ):
             raise DomainError("Checkov executable digest does not match trusted configuration")
+        distribution_identity = checkov_distribution_identity(executable, self.expected_version)
+        if self.expected_scanner_environment_sha256 != (
+            distribution_identity.scanner_environment_digest
+        ):
+            raise DomainError("Checkov scanner environment digest does not match trusted configuration")
+        if self.expected_policy_inventory_sha256 != distribution_identity.policy_inventory_digest:
+            raise DomainError("Checkov policy inventory digest does not match trusted configuration")
         if type(self.frameworks) is not tuple or not self.frameworks:
             raise DomainError("frameworks must be a nonempty exact tuple")
         frameworks = tuple(
@@ -180,21 +344,23 @@ class CheckovScanRequest:
             raise DomainError("files_eligible must be an exact tuple")
         eligible: list[str] = []
         eligible_identities: list[_FilesystemIdentity] = []
+        eligible_evidence: list[CheckovEligibleFileEvidence] = []
         for item in self.files_eligible:
             relative = canonical_repo_path(item, "eligible file")
             identity = _identity(scan_root / relative, "eligible file", directory=False)
             if not _within(identity.resolved, scan_root):
                 raise DomainError("eligible file must be a regular file inside scan_root")
+            _, evidence = _read_bound_file(scan_root / relative, relative)
+            if (identity.device, identity.inode) != (evidence.device, evidence.inode):
+                raise DomainError("eligible file changed while binding request bytes")
             eligible.append(relative)
             eligible_identities.append(identity)
+            eligible_evidence.append(evidence)
         if len(eligible) != len(set(eligible)):
             raise DomainError("files_eligible must not contain duplicates")
         version = canonical_identifier(self.expected_version, "expected Checkov version")
         if version not in CHECKOV_CONTRACT.supported_versions:
             raise DomainError("expected Checkov version is outside the supported contract")
-        if self.expected_checks_loaded is not None:
-            if require_int(self.expected_checks_loaded, "expected_checks_loaded") < 0:
-                raise DomainError("expected_checks_loaded must be >= 0")
         if type(self.kubernetes_identities) is not tuple:
             raise DomainError("kubernetes_identities must be an exact tuple")
         identities: list[CheckovKubernetesIdentity] = []
@@ -227,17 +393,39 @@ class CheckovScanRequest:
         identity_by_path = dict(zip(eligible, eligible_identities))
         object.__setattr__(self, "_executable_identity", executable_identity)
         object.__setattr__(self, "_executable_sha256", executable_sha256)
+        object.__setattr__(self, "_distribution_identity", distribution_identity)
         object.__setattr__(self, "_scan_root_identity", scan_root_identity)
         object.__setattr__(
             self,
             "_eligible_identities",
             tuple(identity_by_path[path] for path in sorted(eligible)),
         )
+        evidence_by_path = {item.file_path: item for item in eligible_evidence}
+        object.__setattr__(
+            self,
+            "eligible_file_evidence",
+            tuple(evidence_by_path[path] for path in sorted(eligible)),
+        )
         object.__setattr__(
             self,
             "kubernetes_identities",
             tuple(sorted(identities, key=lambda item: (item.file_path, item.checkov_resource))),
         )
+
+
+def _invocation_config_digest(request: CheckovScanRequest) -> str:
+    payload = {
+        "adapter": "checkov-d4.1",
+        "compact": True,
+        "download_external_modules": False,
+        "frameworks": list(request.frameworks),
+        "output": "json",
+        "quiet": False,
+        "skip_download": True,
+        "skip_results_upload": True,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _reason_run(
@@ -250,6 +438,7 @@ def _reason_run(
     coverage: CoverageCounters | None = None,
     diagnostics: tuple[str, ...] = (),
     raw_output: bytes | None = None,
+    evaluations: tuple = (),
 ) -> ScannerRun:
     diagnostic_values = (reason.value, *diagnostics)
     return ScannerRun(
@@ -265,7 +454,16 @@ def _reason_run(
             if type(raw_output) is bytes
             else ""
         ),
-        executable_or_image_digest=request._executable_sha256,
+        resolved_launcher_path=str(request.executable),
+        launcher_digest=request._executable_sha256,
+        scanner_environment_digest=(
+            request._distribution_identity.scanner_environment_digest
+        ),
+        policy_inventory_digest=request._distribution_identity.policy_inventory_digest,
+        invocation_config_digest=_invocation_config_digest(request),
+        ruleset_integrity=Status.PASS,
+        evaluations=evaluations,
+        input_files=request.eligible_file_evidence,
         duration_ms=(process.duration_ms if process else 0),
         diagnostics=diagnostic_values,
     )
@@ -352,6 +550,68 @@ def _native_fingerprint(check: dict) -> str:
     return f"checkov-eval-v1:{hashlib.sha256(payload).hexdigest()}"
 
 
+def _evaluated_keys(check: dict) -> tuple[str, ...]:
+    result = check.get("check_result")
+    if type(result) is not dict:
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    raw = result.get("evaluated_keys", [])
+    if type(raw) is not list or any(type(item) is not str for item in raw):
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    return tuple(safe_report_text(item, "Checkov evaluated key") for item in raw)
+
+
+def _resource_evidence(
+    check: dict,
+    check_type: str,
+    request: CheckovScanRequest,
+    native_scan_root: Path,
+) -> tuple[str, str, ArtifactKind]:
+    resource = canonical_identifier(check.get("resource"), "Checkov resource")
+    file_path = _path_from_check(check, native_scan_root)
+    if file_path not in request.files_eligible:
+        raise DomainError("Checkov reported a path outside the independently eligible set")
+    if check_type == "terraform":
+        return file_path, canonicalize_terraform_address(resource), ArtifactKind.TERRAFORM_HCL
+    identities = {
+        (item.file_path, item.checkov_resource): item.canonical_address
+        for item in request.kubernetes_identities
+    }
+    try:
+        address = identities[(file_path, resource)]
+    except KeyError as exc:
+        raise DomainError(AdapterReason.MISSING_RESOURCE_IDENTITY.value) from exc
+    return file_path, address, ArtifactKind.KUBERNETES_YAML
+
+
+def _evaluation(
+    check: dict,
+    check_type: str,
+    request: CheckovScanRequest,
+    version: str,
+    source_bucket: str,
+    expected_result: CheckEvaluationResult,
+    native_scan_root: Path,
+) -> CheckEvaluation:
+    if type(check) is not dict:
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    check_result = check.get("check_result")
+    if type(check_result) is not dict or check_result.get("result") != expected_result.value:
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    file_path, resource_address, _ = _resource_evidence(
+        check, check_type, request, native_scan_root
+    )
+    return CheckEvaluation(
+        scanner="checkov",
+        scanner_version=version,
+        rule_id=canonical_identifier(check.get("check_id"), "Checkov check_id"),
+        resource_address=resource_address,
+        file_path=file_path,
+        native_result=expected_result,
+        evaluated_keys=_evaluated_keys(check),
+        source_bucket=source_bucket,
+    )
+
+
 def _finding(
     check: dict,
     check_type: str,
@@ -363,23 +623,9 @@ def _finding(
     if type(check) is not dict:
         raise DomainError("Checkov findings must be JSON objects")
     rule_id = canonical_identifier(check.get("check_id"), "Checkov check_id")
-    resource = canonical_identifier(check.get("resource"), "Checkov resource")
-    file_path = _path_from_check(check, native_scan_root)
-    if file_path not in request.files_eligible:
-        raise DomainError("Checkov reported a path outside the independently eligible set")
-    if check_type == "terraform":
-        resource_address = canonicalize_terraform_address(resource)
-        artifact_kind = ArtifactKind.TERRAFORM_HCL
-    else:
-        identities = {
-            (item.file_path, item.checkov_resource): item.canonical_address
-            for item in request.kubernetes_identities
-        }
-        try:
-            resource_address = identities[(file_path, resource)]
-        except KeyError as exc:
-            raise DomainError(AdapterReason.MISSING_RESOURCE_IDENTITY.value) from exc
-        artifact_kind = ArtifactKind.KUBERNETES_YAML
+    file_path, resource_address, artifact_kind = _resource_evidence(
+        check, check_type, request, native_scan_root
+    )
     start, end = _line_range(check)
     rule_name_raw = check.get("check_name")
     rule_name = redact_detail(rule_name_raw) if type(rule_name_raw) is str else ""
@@ -404,7 +650,15 @@ def _decode_documents(raw_output: bytes) -> list[dict]:
         raise DomainError(AdapterReason.EMPTY_OUTPUT.value)
     try:
         decoded = raw_output.decode("utf-8", errors="strict")
-        payload = json.loads(decoded)
+        def strict_object(pairs):
+            result = {}
+            for key, value in pairs:
+                if key in result:
+                    raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+                result[key] = value
+            return result
+
+        payload = json.loads(decoded, object_pairs_hook=strict_object)
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise DomainError(AdapterReason.MALFORMED_JSON.value) from exc
     if type(payload) is dict:
@@ -424,7 +678,10 @@ def _normalize(
     documents = _decode_documents(raw_output)
     summaries: list[dict] = []
     raw_findings: list[Finding] = []
+    evaluations: list[CheckEvaluation] = []
     missing_results = False
+    aggregate_only = False
+    unknown_buckets: set[str] = set()
     seen_frameworks: set[str] = set()
     for document in documents:
         summary = document.get("summary")
@@ -450,39 +707,84 @@ def _normalize(
         if check_type in seen_frameworks:
             raise DomainError("Checkov returned duplicate framework documents")
         seen_frameworks.add(check_type)
-        failed = results.get("failed_checks")
-        skipped = results.get("skipped_checks", [])
-        if type(failed) is not list or type(skipped) is not list:
+        known_buckets = {
+            "passed_checks": ("passed", CheckEvaluationResult.PASSED),
+            "failed_checks": ("failed", CheckEvaluationResult.FAILED),
+            "skipped_checks": ("skipped", CheckEvaluationResult.SKIPPED),
+            "unknown_checks": (None, CheckEvaluationResult.UNKNOWN),
+        }
+        parsing_items = results.get("parsing_errors", [])
+        if type(parsing_items) is not list:
             raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
-        if _strict_int(summary, "failed", "summary") != len(failed):
-            raise DomainError("Checkov summary.failed does not match failed_checks")
-        if _strict_int(summary, "skipped", "summary") != len(skipped):
-            raise DomainError("Checkov summary.skipped does not match skipped_checks")
-        for check in failed:
-            raw_findings.append(
-                _finding(check, check_type, request, version, False, native_scan_root)
+        if "parsing_errors" in results and (
+            _strict_int(summary, "parsing_errors", "summary") != len(parsing_items)
+        ):
+            raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+        unknown_buckets.update(
+            set(results) - set(known_buckets) - {"parsing_errors"}
+        )
+        for bucket, (summary_key, native_result) in known_buckets.items():
+            raw_items = results.get(bucket)
+            expected_count = (
+                _strict_int(summary, summary_key, "summary")
+                if summary_key is not None
+                else None
             )
-        for check in skipped:
-            raw_findings.append(
-                _finding(check, check_type, request, version, True, native_scan_root)
-            )
+            if raw_items is None:
+                if expected_count:
+                    aggregate_only = True
+                items: list = []
+            elif type(raw_items) is list:
+                items = raw_items
+            else:
+                raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+            if expected_count is not None and raw_items is not None and expected_count != len(items):
+                raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+            for check in items:
+                evaluations.append(
+                    _evaluation(
+                        check,
+                        check_type,
+                        request,
+                        version,
+                        bucket,
+                        native_result,
+                        native_scan_root,
+                    )
+                )
+                if native_result is CheckEvaluationResult.FAILED:
+                    raw_findings.append(
+                        _finding(check, check_type, request, version, False, native_scan_root)
+                    )
+                elif native_result is CheckEvaluationResult.SKIPPED:
+                    raw_findings.append(
+                        _finding(check, check_type, request, version, True, native_scan_root)
+                    )
 
     passed = sum(_strict_int(item, "passed", "summary") for item in summaries)
     failed_count = sum(_strict_int(item, "failed", "summary") for item in summaries)
     skipped_count = sum(_strict_int(item, "skipped", "summary") for item in summaries)
     parse_errors = sum(_strict_int(item, "parsing_errors", "summary") for item in summaries)
     resource_count = sum(_strict_int(item, "resource_count", "summary") for item in summaries)
-    checks_loaded = passed + failed_count + skipped_count
+    evaluations_reported = passed + failed_count + skipped_count + sum(
+        item.native_result is CheckEvaluationResult.UNKNOWN for item in evaluations
+    )
     eligible_count = len(request.files_eligible)
     failed_files = min(eligible_count, parse_errors)
-    parsed_files = max(0, eligible_count - failed_files)
-    discovered_files = eligible_count if not missing_results else 0
+    observed_files = {item.file_path for item in evaluations}
+    missing_files = sorted(set(request.files_eligible) - observed_files)
+    observed_resources = {(item.file_path, item.resource_address) for item in evaluations}
+    expected_resources = {
+        (item.file_path, item.canonical_address)
+        for item in request.kubernetes_identities
+    }
+    missing_resources = sorted(expected_resources - observed_resources)
     coverage = CoverageCounters(
         files_eligible=eligible_count,
-        files_discovered=discovered_files,
-        files_parsed=parsed_files if not missing_results else 0,
+        files_discovered=len(observed_files),
+        files_parsed=len(observed_files),
         files_failed=failed_files,
-        checks_loaded=checks_loaded,
+        evaluations_reported=evaluations_reported,
         checks_failed_to_execute=0,
         parse_errors=parse_errors,
     )
@@ -494,6 +796,7 @@ def _normalize(
             version=probed_version,
             coverage=coverage,
             raw_output=raw_output,
+            evaluations=tuple(evaluations),
         )
     if missing_results:
         return _reason_run(
@@ -504,6 +807,7 @@ def _normalize(
             version=probed_version,
             coverage=coverage,
             raw_output=raw_output,
+            evaluations=tuple(evaluations),
         )
     if seen_frameworks != set(request.frameworks):
         return _reason_run(
@@ -523,17 +827,23 @@ def _normalize(
             coverage=coverage,
             raw_output=raw_output,
         )
-    if request.expected_checks_loaded is not None and checks_loaded != request.expected_checks_loaded:
-        return _reason_run(
-            request,
-            AdapterReason.CHECK_INVENTORY_MISMATCH,
-            process=process,
-            version=probed_version,
-            coverage=coverage,
-            raw_output=raw_output,
+    partial_diagnostics: list[str] = []
+    if parse_errors:
+        partial_diagnostics.append(AdapterReason.PARTIAL_SCAN.value)
+    if aggregate_only:
+        partial_diagnostics.append(AdapterReason.AGGREGATE_ONLY_EVIDENCE.value)
+    if unknown_buckets:
+        partial_diagnostics.append(AdapterReason.UNKNOWN_RESULT_BUCKET.value)
+        partial_diagnostics.extend(f"unknown result bucket: {item}" for item in sorted(unknown_buckets))
+    if missing_files or missing_resources:
+        partial_diagnostics.append(AdapterReason.COVERAGE_MISMATCH.value)
+        partial_diagnostics.extend(f"missing evaluation file: {item}" for item in missing_files)
+        partial_diagnostics.extend(
+            f"missing evaluation resource: {path}@{resource}"
+            for path, resource in missing_resources
         )
-    status = Status.PARTIAL if parse_errors else Status.PASS
-    reason = AdapterReason.PARTIAL_SCAN if parse_errors else AdapterReason.COMPLETED
+    status = Status.PARTIAL if partial_diagnostics else Status.PASS
+    diagnostics = tuple(partial_diagnostics or [AdapterReason.COMPLETED.value])
     return ScannerRun(
         scanner="checkov",
         scanner_version=probed_version,
@@ -544,9 +854,81 @@ def _normalize(
         stdout_sha256=process.stdout_sha256,
         stderr_sha256=process.stderr_sha256,
         raw_output_sha256=hashlib.sha256(raw_output).hexdigest(),
-        executable_or_image_digest=request._executable_sha256,
+        resolved_launcher_path=str(request.executable),
+        launcher_digest=request._executable_sha256,
+        scanner_environment_digest=(
+            request._distribution_identity.scanner_environment_digest
+        ),
+        policy_inventory_digest=request._distribution_identity.policy_inventory_digest,
+        invocation_config_digest=_invocation_config_digest(request),
+        ruleset_integrity=Status.PASS,
+        evaluations=tuple(evaluations),
+        input_files=request.eligible_file_evidence,
         duration_ms=process.duration_ms,
-        diagnostics=(reason.value,),
+        diagnostics=diagnostics,
+    )
+
+
+def evaluate_checkov_target(
+    run: ScannerRun,
+    rule_id: str,
+    resource_address: str,
+    file_path: str | None = None,
+) -> CheckovTargetEvidence:
+    """Return only affirmative native target evidence; absence stays inconclusive."""
+    if type(run) is not ScannerRun or run.scanner != "checkov":
+        raise DomainError("target evaluation requires an exact Checkov ScannerRun")
+    rule = canonical_identifier(rule_id, "target rule_id")
+    resource = canonical_resource_scope(resource_address, "target resource_address")
+    path = canonical_repo_path(file_path, "target file_path") if file_path is not None else None
+    scoped = tuple(
+        item
+        for item in run.evaluations
+        if item.rule_id == rule
+        and item.resource_address == resource
+        and (path is None or item.file_path == path)
+    )
+    results = {item.native_result for item in scoped}
+    if CheckEvaluationResult.FAILED in results:
+        return CheckovTargetEvidence(Status.FAIL, CheckTargetReason.TARGET_FAILED, scoped)
+    if CheckEvaluationResult.SKIPPED in results:
+        return CheckovTargetEvidence(
+            Status.INCONCLUSIVE, CheckTargetReason.TARGET_SUPPRESSED, scoped
+        )
+    if CheckEvaluationResult.UNKNOWN in results:
+        return CheckovTargetEvidence(
+            Status.INCONCLUSIVE,
+            CheckTargetReason.TARGET_EVALUATION_UNKNOWN,
+            scoped,
+        )
+    if CheckEvaluationResult.PASSED in results:
+        if run.status is not Status.PASS or run.ruleset_integrity is not Status.PASS:
+            return CheckovTargetEvidence(
+                Status.INCONCLUSIVE, CheckTargetReason.SCANNER_RUN_NOT_PASS, scoped
+            )
+        return CheckovTargetEvidence(
+            Status.PASS, CheckTargetReason.AFFIRMATIVE_TARGET_PASS, scoped
+        )
+    if run.coverage.evaluations_reported > len(run.evaluations):
+        return CheckovTargetEvidence(
+            Status.INCONCLUSIVE, CheckTargetReason.AGGREGATE_ONLY_EVIDENCE, ()
+        )
+    resources = {
+        (item.file_path, item.resource_address) for item in run.evaluations
+    }
+    if not any(
+        item_resource == resource and (path is None or item_path == path)
+        for item_path, item_resource in resources
+    ):
+        return CheckovTargetEvidence(
+            Status.INCONCLUSIVE, CheckTargetReason.RESOURCE_NOT_OBSERVED, ()
+        )
+    if not any(item.rule_id == rule for item in run.evaluations):
+        return CheckovTargetEvidence(
+            Status.INCONCLUSIVE, CheckTargetReason.RULE_NOT_OBSERVED, ()
+        )
+    return CheckovTargetEvidence(
+        Status.INCONCLUSIVE, CheckTargetReason.TARGET_NOT_EVALUATED, ()
     )
 
 
@@ -642,16 +1024,36 @@ class CheckovAdapter:
             raise DomainError("Checkov executable changed after request validation")
         if _file_sha256(current_executable.resolved) != request._executable_sha256:
             raise DomainError("Checkov executable digest changed after request validation")
+        current_distribution = checkov_distribution_identity(
+            current_executable.resolved, request.expected_version
+        )
+        if (
+            current_distribution.scanner_environment_digest
+            != request._distribution_identity.scanner_environment_digest
+        ):
+            raise DomainError(AdapterReason.SCANNER_ENVIRONMENT_MISMATCH.value)
+        if (
+            current_distribution.policy_inventory_digest
+            != request._distribution_identity.policy_inventory_digest
+        ):
+            raise DomainError(AdapterReason.POLICY_INVENTORY_MISMATCH.value)
         if current_root != request._scan_root_identity:
             raise DomainError("scan_root changed after request validation")
         if not _within(current_root.resolved, request.workspace_root):
             raise DomainError("scan_root no longer resolves inside workspace_root")
-        for relative, expected in zip(request.files_eligible, request._eligible_identities):
+        for relative, expected, bound in zip(
+            request.files_eligible,
+            request._eligible_identities,
+            request.eligible_file_evidence,
+        ):
             current = _identity(
                 request.scan_root / relative, "eligible file", directory=False
             )
             if current != expected or not _within(current.resolved, request.scan_root):
-                raise DomainError("eligible file changed after request validation")
+                raise DomainError(AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value)
+            _, current_evidence = _read_bound_file(request.scan_root / relative, relative)
+            if current_evidence != bound:
+                raise DomainError(AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value)
 
     @staticmethod
     def _read_raw_output(path: Path, cap: int) -> bytes:
@@ -688,150 +1090,175 @@ class CheckovAdapter:
     def _build_scan_view(request: CheckovScanRequest, destination: Path) -> None:
         destination.mkdir(mode=0o700)
         governed_names = {".checkov.yml", ".checkov.yaml"}
-        for relative, expected in zip(request.files_eligible, request._eligible_identities):
+        for relative, bound in zip(
+            request.files_eligible, request.eligible_file_evidence
+        ):
             if Path(relative).name in governed_names:
                 raise DomainError("candidate Checkov configuration cannot be an eligible artifact")
             source = request.scan_root / relative
             target = destination / relative
             target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
             try:
-                descriptor = os.open(source, flags)
-                try:
-                    metadata = os.fstat(descriptor)
-                    current = _FilesystemIdentity(
-                        source.resolve(strict=True), metadata.st_dev, metadata.st_ino
+                data, current = _read_bound_file(source, relative)
+                if current != bound:
+                    raise DomainError(
+                        AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value
                     )
-                    if current != expected or not stat.S_ISREG(metadata.st_mode):
-                        raise DomainError("eligible file changed while building scan view")
-                    with os.fdopen(os.dup(descriptor), "rb") as input_stream:
-                        with target.open("xb") as output_stream:
-                            shutil.copyfileobj(input_stream, output_stream, 64 * 1024)
+                flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+                descriptor = os.open(target, flags, 0o600)
+                try:
+                    offset = 0
+                    while offset < len(data):
+                        offset += os.write(descriptor, data[offset:])
+                    os.fsync(descriptor)
                 finally:
                     os.close(descriptor)
+                copied, copied_evidence = _read_bound_file(target, relative)
+                if (
+                    copied != data
+                    or copied_evidence.size != bound.size
+                    or copied_evidence.sha256 != bound.sha256
+                ):
+                    raise DomainError("private scan-view digest verification failed")
             except OSError as exc:
-                raise DomainError("eligible file could not be copied into private scan view") from exc
+                raise DomainError(AdapterReason.SCAN_VIEW_PREPARATION_FAILED.value) from exc
 
     def scan(self, request: CheckovScanRequest) -> ScannerRun:
         if type(request) is not CheckovScanRequest:
             raise DomainError("request must be an exact CheckovScanRequest")
-        self._revalidate_inputs(request)
-        probed_version, probe = self._probe(request)
-        if probed_version != request.expected_version:
-            reason = (
-                AdapterReason.VERSION_PROBE_FAILED
-                if probed_version is None
-                else AdapterReason.UNSUPPORTED_VERSION
-                if probed_version not in CHECKOV_CONTRACT.supported_versions
-                else AdapterReason.VERSION_MISMATCH
+        try:
+            self._revalidate_inputs(request)
+        except (DomainError, OSError) as exc:
+            value = str(exc)
+            reason = next(
+                (item for item in AdapterReason if item.value == value),
+                AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION,
             )
-            return _reason_run(
-                request,
-                reason,
-                status=Status.ERROR,
-                process=probe,
-            )
-
-        output_dir = Path(tempfile.mkdtemp(prefix="iacgv-checkov-output-"))
+            return _reason_run(request, reason)
+        try:
+            output_dir = Path(tempfile.mkdtemp(prefix="iacgv-checkov-output-"))
+            output_identity = _identity(output_dir, "Checkov output directory", directory=True)
+        except (DomainError, OSError):
+            return _reason_run(request, AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED)
         raw_output: bytes | None = None
         process: CommandResult | None = None
-        process_failure: ScannerRun | None = None
+        terminal_run: ScannerRun | None = None
         raw_reason: AdapterReason | None = None
         normalized_run: ScannerRun | None = None
         cleanup_failed = False
+        probed_version: str | None = None
+        preparation_complete = False
         try:
             self._revalidate_inputs(request)
             safe_config = output_dir / "iacgv-checkov.yml"
-            # Configargparse rejects an empty YAML document. This single inert setting
-            # creates a mapping while the argument array remains the authoritative
-            # contract. Most importantly, it prevents discovery of candidate config.
-            safe_config.write_text("quiet: true\n", encoding="utf-8")
+            safe_config.write_text("quiet: false\n", encoding="utf-8")
             scan_view = output_dir / "scan"
             self._build_scan_view(request, scan_view)
-            argv = (
-                str(request.executable),
-                "-d",
-                str(scan_view),
-                "--framework",
-                *request.frameworks,
-                "--output",
-                "json",
-                "--quiet",
-                "--compact",
-                "--output-file-path",
-                str(output_dir),
-                "--config-file",
-                str(safe_config),
-                "--skip-download",
-                "--download-external-modules",
-                "false",
-                "--skip-results-upload",
-            )
-            process = run_command(
-                CommandRequest(
-                    argv=argv,
-                    expected_exit_codes=CHECKOV_CONTRACT.expected_exit_codes,
-                    workspace_root=request.workspace_root,
-                    timeout_seconds=request.timeout_seconds,
-                    max_output_bytes=request.max_output_bytes,
-                    max_stdout_bytes=request.max_output_bytes,
-                    max_stderr_bytes=request.max_output_bytes,
+            preparation_complete = True
+            probed_version, probe = self._probe(request)
+            process = probe
+            if probed_version != request.expected_version:
+                reason = (
+                    AdapterReason.VERSION_PROBE_FAILED
+                    if probed_version is None
+                    else AdapterReason.UNSUPPORTED_VERSION
+                    if probed_version not in CHECKOV_CONTRACT.supported_versions
+                    else AdapterReason.VERSION_MISMATCH
                 )
-            )
-            failure = _process_failure(request, process)
-            if failure is not None:
-                process_failure = failure
+                terminal_run = _reason_run(request, reason, process=probe)
             else:
-                candidates = sorted(
-                    item for item in output_dir.iterdir() if item.suffix == ".json"
+                self._revalidate_inputs(request)
+                argv = (
+                    str(request.executable),
+                    "-d",
+                    str(scan_view),
+                    "--framework",
+                    *request.frameworks,
+                    "--output",
+                    "json",
+                    "--compact",
+                    "--output-file-path",
+                    str(output_dir),
+                    "--config-file",
+                    str(safe_config),
+                    "--skip-download",
+                    "--download-external-modules",
+                    "false",
+                    "--skip-results-upload",
                 )
-                if len(candidates) == 1:
-                    try:
-                        raw_output = self._read_raw_output(
-                            candidates[0], request.max_output_bytes
+                process = run_command(
+                    CommandRequest(
+                        argv=argv,
+                        expected_exit_codes=CHECKOV_CONTRACT.expected_exit_codes,
+                        workspace_root=request.workspace_root,
+                        timeout_seconds=request.timeout_seconds,
+                        max_output_bytes=request.max_output_bytes,
+                        max_stdout_bytes=request.max_output_bytes,
+                        max_stderr_bytes=request.max_output_bytes,
+                    )
+                )
+                failure = _process_failure(request, process)
+                if failure is not None:
+                    terminal_run = failure
+                else:
+                    if _identity(
+                        output_dir, "Checkov output directory", directory=True
+                    ) != output_identity:
+                        raise DomainError(
+                            AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value
                         )
-                    except DomainError as exc:
-                        raw_reason = next(
-                            (item for item in AdapterReason if item.value == str(exc)),
-                            AdapterReason.RAW_OUTPUT_MISSING,
-                        )
-                if raw_output is not None:
-                    try:
-                        normalized_run = _normalize(
-                            raw_output,
-                            request,
-                            process,
-                            probed_version,
-                            scan_view,
-                        )
-                    except DomainError as exc:
-                        value = str(exc)
-                        raw_reason = next(
-                            (item for item in AdapterReason if item.value == value),
-                            AdapterReason.INVALID_RESULTS_STRUCTURE,
-                        )
+                    candidates = sorted(
+                        item for item in output_dir.iterdir() if item.suffix == ".json"
+                    )
+                    if len(candidates) != 1:
+                        raw_reason = AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED
+                    else:
+                        try:
+                            raw_output = self._read_raw_output(
+                                candidates[0], request.max_output_bytes
+                            )
+                            normalized_run = _normalize(
+                                raw_output,
+                                request,
+                                process,
+                                probed_version,
+                                scan_view,
+                            )
+                        except DomainError as exc:
+                            value = str(exc)
+                            raw_reason = next(
+                                (item for item in AdapterReason if item.value == value),
+                                AdapterReason.INVALID_RESULTS_STRUCTURE,
+                            )
+        except (DomainError, OSError) as exc:
+            value = str(exc)
+            raw_reason = next(
+                (item for item in AdapterReason if item.value == value),
+                AdapterReason.SCAN_VIEW_PREPARATION_FAILED
+                if not preparation_complete
+                else AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED,
+            )
         finally:
             try:
                 shutil.rmtree(output_dir)
             except OSError:
                 cleanup_failed = True
-        assert process is not None
         if cleanup_failed:
             return _reason_run(
                 request,
                 AdapterReason.OUTPUT_CLEANUP_FAILED,
                 process=process,
-                version=probed_version,
+                version=probed_version or request.expected_version,
                 raw_output=raw_output,
             )
-        if process_failure is not None:
-            return process_failure
+        if terminal_run is not None:
+            return terminal_run
         if raw_reason is not None:
             return _reason_run(
                 request,
                 raw_reason,
                 process=process,
-                version=probed_version,
+                version=probed_version or request.expected_version,
                 raw_output=raw_output,
             )
         if normalized_run is not None:
@@ -854,6 +1281,11 @@ class CheckovAdapter:
 __all__ = [
     "CHECKOV_CONTRACT",
     "CheckovAdapter",
+    "CheckovDistributionIdentity",
+    "CheckovEligibleFileEvidence",
     "CheckovKubernetesIdentity",
     "CheckovScanRequest",
+    "CheckovTargetEvidence",
+    "checkov_distribution_identity",
+    "evaluate_checkov_target",
 ]

@@ -84,7 +84,20 @@ This is the only D3.1 matching-uncertainty reason. It means two or more occurren
 pairings remain equally supported after native, location, and unique constrained
 matching. It must later map to the target outcome `INCONCLUSIVE`, never `FIXED`.
 
-### 1.4 `Verdict` — the outcome of a whole verification
+### 1.4 Checkov evaluation evidence
+
+`CheckEvaluationResult` is `PASSED`, `FAILED`, `SKIPPED`, or `UNKNOWN`.
+
+`CheckTargetReason` is `AFFIRMATIVE_TARGET_PASS`, `TARGET_FAILED`,
+`TARGET_SUPPRESSED`, `TARGET_EVALUATION_UNKNOWN`, `TARGET_NOT_EVALUATED`,
+`RESOURCE_NOT_OBSERVED`, `RULE_NOT_OBSERVED`, or `AGGREGATE_ONLY_EVIDENCE`.
+`SCANNER_RUN_NOT_PASS` records that a native pass exists but its enclosing run failed an
+integrity or completeness condition.
+
+Only `AFFIRMATIVE_TARGET_PASS` carries `Status.PASS`. Absence and unknown/suppressed
+native evidence remain non-pass target evidence.
+
+### 1.5 `Verdict` — the outcome of a whole verification
 
 `VERIFIED` `FAILED` `INCONCLUSIVE`
 
@@ -418,7 +431,7 @@ range. A finding on a *different* resource address is a different finding; see �
 | `SUPPRESSED` | scope exists and is eligible, `M == 0`, and a suppression covering the scope appeared: inline skip annotation, ignore-file entry, scanner-config exclusion including path exclusion, baseline-suppression file, or custom-policy override |
 | `PARTIALLY_FIXED` | `N > 1` and `0 < M < N` |
 | `STILL_PRESENT` | `M >= N`, or (`N == 1` and `M == 1`) |
-| `FIXED` | `M == 0`, scope present and eligible, integrity `PASS`, and no suppression covering the scope appeared. **Oracle results are deliberately not part of this predicate**; see §4.3 |
+| `FIXED` | `M == 0`, scope present and eligible, integrity `PASS`, no suppression covering the scope appeared, and the target rule/resource has an affirmative native `PASSED` evaluation (or a separately required independent target oracle). **Whole-run oracle results are deliberately not part of this predicate**; see §4.3 |
 | `INCONCLUSIVE` | none of the above can be established from the available evidence |
 
 ### 4.1 Ordering rule
@@ -444,6 +457,11 @@ parsed file, an adapter that cannot express occurrence identity for this rule, a
 ambiguous rename — the outcome is `INCONCLUSIVE` regardless of what the counts appear
 to be. A count-based classification computed from counts we do not trust would be a
 guess wearing a label.
+
+Target absence from failed findings is not affirmative evidence. If the rule, resource,
+or target evaluation is absent; only summary counts exist; or the native target result is
+`UNKNOWN` or `SKIPPED`, the target is `INCONCLUSIVE` (or `SUPPRESSED` when its complete
+predicate is independently established), never `FIXED`.
 
 Two properties this must satisfy, both covered by executable truth-table tests:
 
@@ -677,9 +695,12 @@ highlighted, even when every scanner passes.
 ### V5 — Scanner execution integrity
 
 The gate that makes audit finding F1 impossible. Required evidence per scanner run:
-`tool_version`, `executable_or_image_digest`, `exit_code`, `stdout_sha256`,
-`stderr_sha256`, `duration_ms`, `files_eligible`, `files_discovered`, `files_parsed`,
-`files_failed`, `checks_loaded`, `checks_failed_to_execute`, `parse_errors`.
+`tool_version`, sanitized resolved launcher path, `launcher_digest`,
+`scanner_environment_digest`, `policy_inventory_digest`,
+`invocation_config_digest`, `exit_code`, `stdout_sha256`, `stderr_sha256`, `duration_ms`,
+`files_eligible`, `files_discovered`, `files_parsed`, `files_failed`,
+`evaluations_reported`, `checks_failed_to_execute`, `parse_errors`, byte-bound input-file
+evidence, and per-rule/resource `CheckEvaluation` records.
 
 `ERROR` or `PARTIAL` — never `PASS` — when any of the following holds:
 
@@ -691,9 +712,9 @@ The gate that makes audit finding F1 impossible. Required evidence per scanner r
 6. `files_parsed` lower than the **independently computed eligible candidate set**
    (§5.1). A raw comparison against the baseline count is explicitly *not* used: a
    legitimate file removal lowers the candidate count without any loss of coverage;
-7. `checks_loaded` disagreeing with the locked expected ruleset inventory. A count
-   merely lower than the baseline is not sufficient — that is `RULE_OR_SCANNER_DRIFT`
-   territory only when it contradicts the lock;
+7. scanner environment or policy inventory digest disagreeing with trusted
+   configuration. `evaluations_reported` varies with resource count and is never a
+   ruleset lock;
 8. version outside the supported range, or differing between baseline and candidate;
 9. timeout or termination by signal.
 
@@ -713,19 +734,35 @@ independently eligible files. Candidate configuration and custom checks are not 
 Kubernetes `resource_address` comes from the independent canonical identity map;
 Checkov's abbreviated `Kind.namespace.name` string does not establish `apiVersion`.
 
+Eligible files are byte-bound at request construction and copied from no-follow opened
+descriptors. Coverage is derived from native evaluation paths/resources. A summary count
+cannot prove that a particular eligible file, rule, or resource was evaluated. The
+machine scan omits `--quiet` so passed and skipped records remain available.
+
 Process stdout/stderr hashes and the bounded raw-JSON hash are separate evidence. A
 missing, empty, malformed, truncated, symlinked, over-cap, or multiply produced JSON
 output; summary/results contradiction; parse error; version/digest mismatch; output-view
 cleanup failure; or eligible input with no affirmative results/resource evidence cannot
 be `PASS`.
 
+JSON parsing rejects duplicate object keys at every nesting level. Result buckets are
+closed: `passed_checks -> PASSED`, `failed_checks -> FAILED`,
+`skipped_checks -> SKIPPED`, and supported unknown records -> `UNKNOWN`. A contradiction
+is `ERROR/INVALID_RESULTS_STRUCTURE`; an unrecognized future bucket is
+`PARTIAL/UNKNOWN_RESULT_BUCKET`, never silently discarded.
+
 The closed adapter-reason family is: `COMPLETED`, `PROCESS_ERROR`, `EMPTY_OUTPUT`,
 `MALFORMED_JSON`, `TRUNCATED_OUTPUT`, `UNEXPECTED_TOP_LEVEL`,
 `EXIT_CODE_OUTSIDE_CONTRACT`, `DEADLINE_EXCEEDED`, `KILLED_PROCESS`, `PARTIAL_SCAN`,
 `ZERO_FILES_DISCOVERED`, `UNSUPPORTED_VERSION`, `VERSION_MISMATCH`,
 `VERSION_PROBE_FAILED`, `NO_RESULTS_STRUCTURE`, `INVALID_RESULTS_STRUCTURE`,
-`COVERAGE_MISMATCH`, `CHECK_INVENTORY_MISMATCH`, `FRAMEWORK_MISMATCH`,
+`COVERAGE_MISMATCH`, `FRAMEWORK_MISMATCH`,
 `MISSING_RESOURCE_IDENTITY`, `RAW_OUTPUT_MISSING`, and `OUTPUT_CLEANUP_FAILED`.
+
+Additional D4.1 reasons are `INPUT_CHANGED_DURING_SCAN_PREPARATION`,
+`SCAN_VIEW_PREPARATION_FAILED`, `OUTPUT_DIRECTORY_INTEGRITY_FAILED`,
+`UNKNOWN_RESULT_BUCKET`, `AGGREGATE_ONLY_EVIDENCE`,
+`SCANNER_ENVIRONMENT_MISMATCH`, and `POLICY_INVENTORY_MISMATCH`.
 
 ### V6 — Independent oracle
 

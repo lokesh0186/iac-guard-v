@@ -1170,3 +1170,108 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 - `tests/integration/test_checkov_integration.py`
 - `tests/unit/test_checkov_adapter.py`
 - `tools/spec_lint.py`
+
+---
+
+## Gate D4.1 — Affirmative Checkov evidence and coverage closure
+
+D4.1 started only after standalone D3.1 commit
+`f3f0581b88ced473f5e1a6d9f017c15b06c83fd7`. Checkov contracts, V5, target
+semantics, architecture, threat model, adapter ADRs, implementation, fixtures, and live
+tests were reread before modification. D5/D6 were not started.
+
+Literal failing-before values on the D3.1 parent:
+
+```text
+race inode retained True view bytes CHANGED-IN-PLACE
+two files one evidence PASS 2 2 ('COMPLETED',)
+aggregate target absence PASS findings 0 checks_loaded 7
+failed bucket PASSED native PASS ('COMPLETED',)
+duplicate results malicious-first PASS ('COMPLETED',) findings 0
+same ruleset eval count 1 PASS eval count 2 ERROR ('CHECK_INVENTORY_MISMATCH',)
+machine scan argv contained --quiet: True
+report identity represented launcher only as executable_or_image_digest
+```
+
+The dedicated permanent D4.1 suite initially produced `16 failed in 0.23s`. Its
+failures covered byte replacement, absent byte bindings, invented file coverage,
+aggregate-only pass, missing positive evaluations, target absence/unknown states,
+suppression evidence, bucket contradictions, duplicate keys, unknown buckets, false
+ruleset inventory terminology, collapsed identities, quiet output, and untyped scan-view
+failure.
+
+Literal passing-after values:
+
+```text
+race ERROR ('INPUT_CHANGED_DURING_SCAN_PREPARATION',) inode retained True spawn calls 0
+coverage PARTIAL 1 2 ('COVERAGE_MISMATCH', 'missing evaluation file: other.tf')
+aggregate PARTIAL 7 0 ('AGGREGATE_ONLY_EVIDENCE', 'COVERAGE_MISMATCH', 'missing evaluation file: main.tf')
+bucket contradiction ERROR ('INVALID_RESULTS_STRUCTURE',)
+duplicate keys ERROR ('INVALID_RESULTS_STRUCTURE',)
+same policy PASS 1 PASS 2 True
+affirmative PASS AFFIRMATIVE_TARGET_PASS
+absent INCONCLUSIVE RESOURCE_NOT_OBSERVED
+unknown INCONCLUSIVE TARGET_EVALUATION_UNKNOWN
+machine scan argv contained --quiet: False
+```
+
+The request now records each input's path/type/size/SHA-256 and secondary device/inode,
+and the final `ScannerRun` retains those records. Checkov results retain native passed,
+failed, skipped, and supported unknown evaluations. Installed non-policy environment and
+policy/check tree manifests are hashed separately from the launcher and invocation.
+
+Focused unit and coverage evidence:
+
+```console
+$ PYTHONPATH=src:tests/unit pytest tests/unit/test_checkov_adapter.py \
+    tests/unit/test_checkov_adapter_d41.py \
+    --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov \
+    --cov-report=term-missing --cov-fail-under=90 -q
+84 passed in 1.02s
+src/iac_guard_v/adapters/base.py         57      0   100%
+src/iac_guard_v/adapters/checkov.py     721     68    91%
+TOTAL                                   778     68    91%
+Required test coverage of 90% reached. Total coverage: 91.26%
+
+$ PYTHONPATH=src pytest tests/integration/test_checkov_integration.py -q
+5 passed in 57.35s
+
+$ PYTHONPATH=src:tests/unit pytest tests -q
+834 passed in 141.76s (0:02:21)
+
+$ python tools/spec_lint.py docs/spec/
+documents inspected:  23
+enum values defined:  90
+PASS
+```
+
+The five live Checkov 3.3.0 tests cover Terraform affirmative pass plus absent
+rule/resource target evidence, Kubernetes affirmative pass, inline suppression, two
+eligible files with one lacking native evaluation, in-place byte replacement, and inert
+candidate `.checkov.yml`. The 3.2.517 parser fixture remains; no native 3.2.517
+integration is claimed.
+
+Research and freeze gates:
+
+```text
+manifest files checked: 4842/4842
+MANIFEST_ROOT computed: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+MANIFEST_ROOT recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+manifest result: PASS
+frozen run records: 630/630
+field comparisons: 10080/10080 equal
+final verdict mismatches: 0
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff: empty
+tag type: tag
+tag commit: 7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5
+```
+
+No benchmark inference, model-provider call, Trivy implementation, D5/D6 work, or model
+refresh was performed.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```

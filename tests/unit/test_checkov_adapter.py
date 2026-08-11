@@ -12,8 +12,10 @@ from iac_guard_v.adapters.base import AdapterReason, ScannerContract
 from iac_guard_v.adapters.checkov import (
     CHECKOV_CONTRACT,
     CheckovAdapter,
+    CheckovDistributionIdentity,
     CheckovKubernetesIdentity,
     CheckovScanRequest,
+    checkov_distribution_identity,
 )
 from iac_guard_v.enums import Status
 from iac_guard_v.models import DomainError
@@ -36,14 +38,32 @@ def request(tmp_path: Path, *, frameworks: tuple = ("terraform",), **overrides) 
                 "pod.yaml", "Pod.default.demo", "v1", "Pod", "default", "demo"
             )
         )
+    trusted_root = tmp_path / "trusted-checkov"
+    executable = trusted_root / "bin" / "checkov"
+    interpreter = trusted_root / "libexec" / "bin" / "python"
+    policy = (
+        trusted_root
+        / "libexec/lib/python3.11/site-packages/checkov/terraform/checks/resource/test.py"
+    )
+    interpreter.parent.mkdir(parents=True, exist_ok=True)
+    executable.parent.mkdir(parents=True, exist_ok=True)
+    policy.parent.mkdir(parents=True, exist_ok=True)
+    interpreter.write_text("#!/bin/sh\nexit 0\n")
+    interpreter.chmod(0o755)
+    executable.write_text(f"#!{interpreter}\n")
+    executable.chmod(0o755)
+    policy.write_text("RULES = (\"CKV_AWS_18\",)\n")
+    distribution = checkov_distribution_identity(executable, "3.3.0")
     values = {
-        "executable": Path("/bin/sh"),
+        "executable": executable,
         "scan_root": scan_root,
-        "workspace_root": tmp_path,
+        "workspace_root": scan_root,
         "frameworks": frameworks,
         "files_eligible": tuple(eligible),
         "expected_version": "3.3.0",
-        "expected_executable_sha256": hashlib.sha256(Path("/bin/sh").read_bytes()).hexdigest(),
+        "expected_executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
+        "expected_scanner_environment_sha256": distribution.scanner_environment_digest,
+        "expected_policy_inventory_sha256": distribution.policy_inventory_digest,
         "kubernetes_identities": tuple(identities),
     }
     values.update(overrides)
@@ -113,6 +133,20 @@ def document(
 ) -> dict:
     failed = [] if failed is None else failed
     skipped = [] if skipped is None else skipped
+    failed = [dict(item, check_result=dict(item["check_result"], result="FAILED")) for item in failed]
+    skipped = [dict(item, check_result=dict(item["check_result"], result="SKIPPED")) for item in skipped]
+    default_path = "pod.yaml" if framework == "kubernetes" else "main.tf"
+    default_resource = "Pod.default.demo" if framework == "kubernetes" else "aws_s3_bucket.bad"
+    passed_checks = []
+    for index in range(passed):
+        item = check(
+            path=default_path,
+            resource=default_resource,
+            check_id=f"CKV_PASS_{index}",
+        )
+        item["check_result"]["result"] = "PASSED"
+        item["check_result"]["evaluated_keys"] = [f"pass/{index}"]
+        passed_checks.append(item)
     value = {
         "check_type": framework,
         "summary": {
@@ -125,7 +159,11 @@ def document(
         },
     }
     if include_results:
-        value["results"] = {"failed_checks": failed, "skipped_checks": skipped}
+        value["results"] = {
+            "passed_checks": passed_checks,
+            "failed_checks": failed,
+            "skipped_checks": skipped,
+        }
     return value
 
 
@@ -175,11 +213,11 @@ def test_normal_object_with_findings_is_normalized_and_fingerprinted(tmp_path: P
     assert finding.resource_address == "aws_s3_bucket.bad"
     assert finding.location.file_path == "main.tf"
     assert finding.iacgv_fingerprint.startswith("iacgv2:")
-    assert run.coverage.checks_loaded == 3
+    assert run.coverage.evaluations_reported == 3
     assert run.exit_code == 0
     assert run.stdout_sha256 == process().stdout_sha256
     assert run.raw_output_sha256 != run.stdout_sha256
-    assert run.executable_or_image_digest == req.expected_executable_sha256
+    assert run.launcher_digest == req.expected_executable_sha256
 
 
 def test_valid_zero_findings_with_affirmative_results_is_pass(tmp_path: Path) -> None:
@@ -197,16 +235,19 @@ def test_summary_only_is_error_when_independent_detector_found_eligible_file(tmp
 
 
 def test_summary_only_is_non_error_only_for_an_independently_empty_scope(tmp_path: Path) -> None:
-    scan_root = tmp_path / "repo"
-    scan_root.mkdir()
+    template = request(tmp_path)
+    scan_root = template.scan_root
+    (scan_root / "main.tf").unlink()
     req = CheckovScanRequest(
-        executable=Path("/bin/sh"),
+        executable=template.executable,
         scan_root=scan_root,
-        workspace_root=tmp_path,
+        workspace_root=scan_root,
         frameworks=("terraform",),
         files_eligible=(),
         expected_version="3.3.0",
-        expected_executable_sha256=hashlib.sha256(Path("/bin/sh").read_bytes()).hexdigest(),
+        expected_executable_sha256=template.expected_executable_sha256,
+        expected_scanner_environment_sha256=template.expected_scanner_environment_sha256,
+        expected_policy_inventory_sha256=template.expected_policy_inventory_sha256,
     )
     run = normalize(req, document(include_results=False, resource_count=0, passed=0))
     assert run.status is Status.PASS
@@ -338,11 +379,13 @@ def test_summary_version_must_match_probe_and_trusted_expectation(tmp_path: Path
     assert run.diagnostics == (AdapterReason.VERSION_MISMATCH.value,)
 
 
-def test_check_inventory_mismatch_is_error(tmp_path: Path) -> None:
-    req = request(tmp_path, expected_checks_loaded=999)
-    run = normalize(req, document(passed=2))
-    assert run.status is Status.ERROR
-    assert run.diagnostics == (AdapterReason.CHECK_INVENTORY_MISMATCH.value,)
+def test_evaluation_count_is_not_a_check_inventory_lock(tmp_path: Path) -> None:
+    req = request(tmp_path)
+    one = normalize(req, document(passed=1))
+    two = normalize(req, document(passed=2))
+    assert one.policy_inventory_digest == two.policy_inventory_digest
+    assert one.coverage.evaluations_reported == 1
+    assert two.coverage.evaluations_reported == 2
 
 
 def test_skipped_checks_become_suppression_evidence(tmp_path: Path) -> None:
@@ -350,7 +393,7 @@ def test_skipped_checks_become_suppression_evidence(tmp_path: Path) -> None:
     assert run.status is Status.PASS
     assert len(run.findings) == 1
     assert run.findings[0].suppressed is True
-    assert run.coverage.checks_loaded == 1
+    assert run.coverage.evaluations_reported == 1
 
 
 def test_repeated_native_occurrences_are_preserved_by_evaluated_key_evidence(
@@ -392,11 +435,16 @@ def test_finding_path_outside_eligible_set_is_not_accepted(tmp_path: Path) -> No
 
 
 def test_request_rejects_candidate_executable_and_untrusted_framework(tmp_path: Path) -> None:
-    fake = tmp_path / "checkov"
+    template = request(tmp_path)
+    fake = template.scan_root / "checkov"
     fake.write_text("#!/bin/sh\nexit 0\n")
     fake.chmod(0o755)
     with pytest.raises(DomainError, match="must not resolve inside"):
-        request(tmp_path, executable=fake)
+        request(
+            tmp_path,
+            executable=fake,
+            expected_executable_sha256=hashlib.sha256(fake.read_bytes()).hexdigest(),
+        )
     with pytest.raises(DomainError, match="unsupported Checkov frameworks"):
         request(tmp_path, frameworks=("trivy",))
     with pytest.raises(DomainError, match="digest does not match"):
@@ -575,8 +623,9 @@ def test_scan_root_symlink_replacement_is_rejected_before_any_spawn(
     monkeypatch.setattr(
         "iac_guard_v.adapters.checkov.run_command", lambda command: calls.append(command)
     )
-    with pytest.raises(DomainError, match="scan_root changed"):
-        CheckovAdapter().scan(req)
+    run = CheckovAdapter().scan(req)
+    assert run.status is Status.ERROR
+    assert run.diagnostics == (AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value,)
     assert calls == []
 
 
@@ -593,8 +642,9 @@ def test_eligible_file_replacement_is_rejected_before_any_spawn(
     monkeypatch.setattr(
         "iac_guard_v.adapters.checkov.run_command", lambda command: calls.append(command)
     )
-    with pytest.raises(DomainError, match="eligible file changed"):
-        CheckovAdapter().scan(req)
+    run = CheckovAdapter().scan(req)
+    assert run.status is Status.ERROR
+    assert run.diagnostics == (AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value,)
     assert calls == []
 
 
@@ -612,8 +662,8 @@ def test_contract_inputs_reject_subclass_and_boolean_integer_mutations(tmp_path:
 
     with pytest.raises(DomainError, match="exact tuple"):
         request(tmp_path, files_eligible=SneakyTuple(("main.tf",)))
-    with pytest.raises(DomainError, match="must be an int"):
-        request(tmp_path, expected_checks_loaded=True)
+    with pytest.raises(DomainError, match="environment digest"):
+        request(tmp_path, expected_scanner_environment_sha256="0" * 64)
 
 
 @pytest.mark.parametrize(
@@ -640,8 +690,6 @@ def test_request_validation_mutations(tmp_path: Path) -> None:
         request(tmp_path, files_eligible=("main.tf", "main.tf"))
     with pytest.raises(DomainError, match="outside the supported"):
         request(tmp_path, expected_version="3.3.1")
-    with pytest.raises(DomainError, match=">= 0"):
-        request(tmp_path, expected_checks_loaded=-1)
     with pytest.raises(DomainError, match="exact tuple"):
         request(tmp_path, kubernetes_identities=[])
     with pytest.raises(DomainError, match="must be > 0"):

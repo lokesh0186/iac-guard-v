@@ -361,11 +361,12 @@ D5. Different resource addresses never relocate.
 `adapters/checkov.py` is the only module that interprets Checkov JSON. D4 deliberately
 contains no Trivy implementation.
 
-The trusted Checkov request pins the resolved launcher digest, supported version,
-framework set, independently eligible paths, optional locked check inventory, and—for
-Kubernetes—the canonical object identities established outside Checkov. Immediately
-before execution, the adapter revalidates the executable, scan root, and every eligible
-file by resolved path/device/inode and rechecks the executable digest.
+The trusted Checkov request pins the resolved launcher digest, installed environment and
+policy-inventory digests, supported version, framework set, independently eligible
+paths, and—for Kubernetes—the canonical object identities established outside Checkov.
+Every eligible file is bound by relative path, type, size, SHA-256, and secondary
+device/inode evidence. Immediately before execution, the adapter revalidates all of
+these identities and writes the exact descriptor-read bytes to the private view.
 
 Checkov discovers `.checkov.yml` in the directory passed with `-d` even when an explicit
 config file and private process cwd are used. The adapter therefore builds a private
@@ -374,10 +375,10 @@ custom checks, and unrelated content. It supplies an adapter-owned config, disab
 downloads/uploads, and uses the D2 process runner. The view narrows policy injection and
 read races; native execution remains reduced isolation.
 
-Normalization handles object and multi-framework-list shapes, requires affirmative
-results when eligible files exist, reconciles summaries and suppressions, cross-checks
-summary/probe/trusted versions, and records process stdout/stderr plus a distinct bounded
-raw-JSON digest. Ordered Checkov `evaluated_keys` are retained as a versioned native
-occurrence fingerprint when Checkov provides no native fingerprint. Any malformed,
-truncated, incomplete, unsupported, mismatched, or
-cleanup-uncertain run remains non-`PASS`.
+Normalization uses strict duplicate-key JSON parsing and retains passed, failed, skipped,
+and supported unknown records as typed `CheckEvaluation` evidence. Bucket/result
+contradictions are errors; unknown future buckets and aggregate-only counts are partial.
+Coverage comes from observed evaluation paths/resources, not the eligible count. The
+machine invocation omits `--quiet`, because target absence is not proof: only an
+affirmative native pass can support resolution. Reports separate launcher, installed
+environment, policy inventory, invocation/config, process-output, and raw-JSON digests.

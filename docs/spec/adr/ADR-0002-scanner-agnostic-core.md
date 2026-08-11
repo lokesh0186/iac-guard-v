@@ -53,3 +53,12 @@ The adapter's scan directory is a private snapshot of independently eligible fil
 This is necessary because Checkov discovers configuration under `-d` even when a trusted
 `--config-file` is also present. It also makes the adapter boundary concrete: native
 scanner structures and implicit configuration discovery cannot leak into the core.
+
+## Amendment, 2026-08-10: affirmative evaluation evidence
+
+`ScannerRun` now carries scanner-neutral `CheckEvaluation` records for native passed,
+failed, skipped, and unknown results. Checkov is still the only D4 adapter, but positive
+target evidence no longer disappears into aggregate summary counts. A target absent from
+failed findings remains inconclusive unless its exact rule/resource evaluation is
+affirmatively passed. Coverage is derived from evaluation paths/resources rather than
+invented from the requested eligible count.

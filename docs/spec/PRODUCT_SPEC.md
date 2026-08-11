@@ -230,3 +230,12 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    version from Checkov's abbreviated resource string.
 8. Raw JSON is bounded and no-follow read, and has a digest distinct from process stdout.
    Adapter base and Checkov modules maintain at least 90% executable test coverage.
+9. Eligible files are bound by canonical path, type, size, SHA-256, and secondary
+   device/inode evidence; changed bytes or scan-view copy uncertainty are typed errors.
+10. Passed, failed, skipped, and unknown native evaluations are retained per
+    rule/resource/file. Missing file/resource evaluation, aggregate-only evidence, and
+    target absence cannot return `PASS` or establish `FIXED`.
+11. Strict JSON rejects duplicate keys at every depth and enforces bucket/native-result
+    consistency. Unknown result buckets remain visible as `PARTIAL`.
+12. Evaluation count is `evaluations_reported`, never ruleset identity. Launcher,
+    scanner environment, policy inventory, and invocation/config digests are distinct.

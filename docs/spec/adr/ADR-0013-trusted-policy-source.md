@@ -110,3 +110,9 @@ eligible IaC files, preserving their relative paths, and scans that view. Candid
 Checkov configuration and custom-check sources are never copied or accepted as request
 inputs. With the same mutation, both known findings remain present. This is the concrete
 adapter enforcement of this ADR, not merely a loader convention.
+
+D4.1 additionally binds the exact eligible-file bytes before scan-view preparation and
+hashes the installed policy inventory independently of the launcher. No-follow reads and
+copy-digest verification detect in-place replacement even when device/inode remain
+unchanged. These checks reduce but do not eliminate TOCTOU exposure; native execution is
+still not a sandbox.

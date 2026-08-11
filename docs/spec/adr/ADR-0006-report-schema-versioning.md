@@ -37,7 +37,7 @@ selected. Ordering keys are documented.
 ## Alternatives considered
 
 **SARIF as the internal model.** Rejected: it cannot carry the completeness counters
-(`files_parsed`, `checks_loaded`, `queries_failed_to_execute`) that the integrity gate
+(`files_parsed`, `evaluations_reported`, `queries_failed_to_execute`) that the integrity gate
 requires, so the primary signal would live in vendor extensions.
 
 **Per-format renderers reading engine state directly.** Rejected: that is how formats

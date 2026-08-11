@@ -88,6 +88,29 @@ class MatchingReason(str, Enum):
     MATCHING_INCONCLUSIVE = "MATCHING_INCONCLUSIVE"
 
 
+class CheckEvaluationResult(str, Enum):
+    """Native per-target result retained from a scanner result bucket."""
+
+    PASSED = "PASSED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+    UNKNOWN = "UNKNOWN"
+
+
+class CheckTargetReason(str, Enum):
+    """Why Checkov evidence did or did not affirm one target."""
+
+    AFFIRMATIVE_TARGET_PASS = "AFFIRMATIVE_TARGET_PASS"
+    TARGET_FAILED = "TARGET_FAILED"
+    TARGET_SUPPRESSED = "TARGET_SUPPRESSED"
+    TARGET_EVALUATION_UNKNOWN = "TARGET_EVALUATION_UNKNOWN"
+    TARGET_NOT_EVALUATED = "TARGET_NOT_EVALUATED"
+    RESOURCE_NOT_OBSERVED = "RESOURCE_NOT_OBSERVED"
+    RULE_NOT_OBSERVED = "RULE_NOT_OBSERVED"
+    AGGREGATE_ONLY_EVIDENCE = "AGGREGATE_ONLY_EVIDENCE"
+    SCANNER_RUN_NOT_PASS = "SCANNER_RUN_NOT_PASS"
+
+
 class ArtifactKind(str, Enum):
     TERRAFORM_HCL = "terraform_hcl"
     TERRAFORM_PLAN_JSON = "terraform_plan_json"

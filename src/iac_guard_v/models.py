@@ -41,6 +41,7 @@ from .enums import (
     PERMITTABLE_EXCEPTION_OUTCOMES,
     TRUSTED_EXCEPTION_ORIGINS,
     ArtifactKind,
+    CheckEvaluationResult,
     ExceptionOrigin,
     IdentityTier,
     Outcome,
@@ -235,6 +236,41 @@ class FindingLocation:
 
 
 @dataclass(frozen=True, slots=True)
+class BoundInputFile:
+    """Canonical byte identity for one independently eligible scanner input."""
+
+    file_path: str
+    file_type: str
+    size: int
+    sha256: str
+    device: int
+    inode: int
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        object.__setattr__(self, "file_type", canonical_identifier(self.file_type, "file type"))
+        for name in ("size", "device", "inode"):
+            if require_int(getattr(self, name), name) < 0:
+                raise DomainError(f"{name} must be >= 0")
+        if not re.fullmatch(r"[0-9a-f]{64}", self.sha256):
+            raise DomainError("input file sha256 must be a lowercase SHA-256")
+
+    @property
+    def canonical_key(self) -> tuple:
+        return (self.file_path, self.file_type, self.size, self.sha256)
+
+    def canonical_dict(self) -> dict:
+        return {
+            "file_path": self.file_path,
+            "file_type": self.file_type,
+            "size": self.size,
+            "sha256": self.sha256,
+            "device": self.device,
+            "inode": self.inode,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class Finding:
     """A normalised finding. Identity is never the rule id alone (semantics §3)."""
 
@@ -361,6 +397,76 @@ class Finding:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class CheckEvaluation:
+    """One scanner-native rule/resource evaluation, including positive evidence."""
+
+    scanner: str
+    scanner_version: str
+    rule_id: str
+    resource_address: str
+    file_path: str
+    native_result: CheckEvaluationResult
+    evaluated_keys: tuple = ()
+    source_bucket: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "scanner", canonical_identifier(self.scanner, "scanner"))
+        object.__setattr__(
+            self,
+            "scanner_version",
+            canonical_identifier(self.scanner_version, "scanner_version"),
+        )
+        object.__setattr__(self, "rule_id", canonical_identifier(self.rule_id, "rule_id"))
+        object.__setattr__(
+            self,
+            "resource_address",
+            canonical_resource_scope(self.resource_address, "resource_address"),
+        )
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path, "file_path"))
+        require_enum(self.native_result, CheckEvaluationResult, "native_result")
+        if type(self.evaluated_keys) is not tuple:
+            raise DomainError("evaluated_keys must be an exact tuple")
+        object.__setattr__(
+            self,
+            "evaluated_keys",
+            tuple(
+                safe_report_text(item, "evaluated key", MAX_MESSAGE_LENGTH)
+                for item in self.evaluated_keys
+            ),
+        )
+        object.__setattr__(
+            self,
+            "source_bucket",
+            canonical_identifier(self.source_bucket, "source_bucket"),
+        )
+
+    @property
+    def canonical_key(self) -> tuple:
+        return (
+            self.scanner,
+            self.scanner_version,
+            self.file_path,
+            self.resource_address,
+            self.rule_id,
+            self.native_result.value,
+            self.evaluated_keys,
+            self.source_bucket,
+        )
+
+    def canonical_dict(self) -> dict:
+        return {
+            "scanner": self.scanner,
+            "scanner_version": self.scanner_version,
+            "rule_id": self.rule_id,
+            "resource_address": self.resource_address,
+            "file_path": self.file_path,
+            "native_result": self.native_result.value,
+            "evaluated_keys": list(self.evaluated_keys),
+            "source_bucket": self.source_bucket,
+        }
+
+
 def _rebuild_finding(finding: Any) -> Finding:
     require_exact_type(finding, Finding, "finding")
     loc = finding.location
@@ -386,20 +492,20 @@ class CoverageCounters:
     files_discovered: int = 0
     files_parsed: int = 0
     files_failed: int = 0
-    checks_loaded: int = 0
+    evaluations_reported: int = 0
     checks_failed_to_execute: int = 0
     parse_errors: int = 0
 
     def __post_init__(self) -> None:
         for name in ("files_eligible", "files_discovered", "files_parsed", "files_failed",
-                     "checks_loaded", "checks_failed_to_execute", "parse_errors"):
+                     "evaluations_reported", "checks_failed_to_execute", "parse_errors"):
             if require_int(getattr(self, name), name) < 0:
                 raise DomainError(f"{name} must be >= 0")
 
     def canonical_dict(self) -> dict:
         return {name: getattr(self, name) for name in (
             "files_eligible", "files_discovered", "files_parsed", "files_failed",
-            "checks_loaded", "checks_failed_to_execute", "parse_errors")}
+            "evaluations_reported", "checks_failed_to_execute", "parse_errors")}
 
 
 @dataclass(frozen=True, slots=True)
@@ -415,7 +521,14 @@ class ScannerRun:
     stdout_sha256: str = ""
     stderr_sha256: str = ""
     raw_output_sha256: str = ""
-    executable_or_image_digest: str = ""
+    resolved_launcher_path: str = ""
+    launcher_digest: str = ""
+    scanner_environment_digest: str = ""
+    policy_inventory_digest: str = ""
+    invocation_config_digest: str = ""
+    ruleset_integrity: Status = Status.INCONCLUSIVE
+    evaluations: tuple = ()
+    input_files: tuple = ()
     duration_ms: int = 0
     diagnostics: tuple = ()
 
@@ -425,6 +538,7 @@ class ScannerRun:
         set_(self, "scanner_version",
              canonical_identifier(self.scanner_version, "scanner_version"))
         require_enum(self.status, Status, "status")
+        require_enum(self.ruleset_integrity, Status, "ruleset_integrity")
         require_exact_type(self.coverage, CoverageCounters, "coverage")
         require_int(self.exit_code, "exit_code")
         if require_int(self.duration_ms, "duration_ms") < 0:
@@ -458,6 +572,50 @@ class ScannerRun:
                 "cannot manufacture identity"
             )
         set_(self, "findings", tuple(sorted(rebuilt, key=lambda f: f.canonical_order_key)))
+        if type(self.evaluations) is not tuple:
+            raise DomainError("evaluations must be an exact tuple")
+        rebuilt_evaluations = []
+        for evaluation in self.evaluations:
+            require_exact_type(evaluation, CheckEvaluation, "evaluation")
+            rebuilt_evaluation = CheckEvaluation(
+                evaluation.scanner,
+                evaluation.scanner_version,
+                evaluation.rule_id,
+                evaluation.resource_address,
+                evaluation.file_path,
+                evaluation.native_result,
+                evaluation.evaluated_keys,
+                evaluation.source_bucket,
+            )
+            if (
+                rebuilt_evaluation.scanner != self.scanner
+                or rebuilt_evaluation.scanner_version != self.scanner_version
+            ):
+                raise DomainError("evaluation provenance must match its ScannerRun")
+            rebuilt_evaluations.append(rebuilt_evaluation)
+        evaluation_keys = [item.canonical_key for item in rebuilt_evaluations]
+        if len(evaluation_keys) != len(set(evaluation_keys)):
+            raise DomainError("duplicate scanner evaluation evidence")
+        set_(self, "evaluations", tuple(sorted(rebuilt_evaluations, key=lambda item: item.canonical_key)))
+        if type(self.input_files) is not tuple:
+            raise DomainError("input_files must be an exact tuple")
+        rebuilt_inputs = []
+        for item in self.input_files:
+            require_exact_type(item, BoundInputFile, "input file evidence")
+            rebuilt_inputs.append(
+                BoundInputFile(
+                    item.file_path,
+                    item.file_type,
+                    item.size,
+                    item.sha256,
+                    item.device,
+                    item.inode,
+                )
+            )
+        input_paths = [item.file_path for item in rebuilt_inputs]
+        if len(input_paths) != len(set(input_paths)):
+            raise DomainError("duplicate input file evidence path")
+        set_(self, "input_files", tuple(sorted(rebuilt_inputs, key=lambda item: item.canonical_key)))
         if type(self.diagnostics) not in (tuple, list):
             raise DomainError("diagnostics must be a tuple of strings")
         set_(self, "diagnostics",
@@ -467,11 +625,36 @@ class ScannerRun:
             "stdout_sha256",
             "stderr_sha256",
             "raw_output_sha256",
-            "executable_or_image_digest",
+            "launcher_digest",
+            "scanner_environment_digest",
+            "policy_inventory_digest",
+            "invocation_config_digest",
         ):
             value = getattr(self, name)
             if value and not re.fullmatch(r"[0-9a-f]{64}", value):
                 raise DomainError(f"{name} must be a lowercase hex SHA-256 or empty")
+        identity_values = (
+            self.launcher_digest,
+            self.scanner_environment_digest,
+            self.policy_inventory_digest,
+            self.invocation_config_digest,
+        )
+        if any(identity_values) and not all(identity_values):
+            raise DomainError("scanner identity evidence must include all four digests")
+        if (
+            self.status is Status.PASS
+            and any(identity_values)
+            and self.ruleset_integrity is not Status.PASS
+        ):
+            raise DomainError("PASS scanner evidence requires PASS ruleset integrity")
+        if self.resolved_launcher_path:
+            from .redaction import redact_detail
+
+            set_(
+                self,
+                "resolved_launcher_path",
+                redact_detail(self.resolved_launcher_path),
+            )
 
     def canonical_dict(self) -> dict:
         return {
@@ -480,9 +663,16 @@ class ScannerRun:
             "duration_ms": self.duration_ms,
             "stdout_sha256": self.stdout_sha256, "stderr_sha256": self.stderr_sha256,
             "raw_output_sha256": self.raw_output_sha256,
-            "executable_or_image_digest": self.executable_or_image_digest,
+            "resolved_launcher_path": self.resolved_launcher_path,
+            "launcher_digest": self.launcher_digest,
+            "scanner_environment_digest": self.scanner_environment_digest,
+            "policy_inventory_digest": self.policy_inventory_digest,
+            "invocation_config_digest": self.invocation_config_digest,
+            "ruleset_integrity": self.ruleset_integrity.value,
             "coverage": self.coverage.canonical_dict(),
             "findings": [f.canonical_dict() for f in self.findings],
+            "evaluations": [item.canonical_dict() for item in self.evaluations],
+            "input_files": [item.canonical_dict() for item in self.input_files],
             "diagnostics": list(self.diagnostics),
         }
 
@@ -987,6 +1177,7 @@ def permission_rejection_reason(decision: TargetDecision, policy: ExceptionPolic
 
 #: Every persistent model, for the immutability test matrix.
 PERSISTENT_MODELS: tuple = (
-    FindingLocation, Finding, CoverageCounters, ScannerRun, GateResult, RequiredGates,
+    FindingLocation, BoundInputFile, Finding, CheckEvaluation, CoverageCounters,
+    ScannerRun, GateResult, RequiredGates,
     ExceptionRecord, ExceptionPolicy, TargetIdentity, Target, TargetDecision,
 )
