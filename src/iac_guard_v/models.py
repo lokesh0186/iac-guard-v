@@ -700,6 +700,9 @@ class ScannerRun:
     scanner_environment_digest: str = ""
     policy_inventory_digest: str = ""
     invocation_config_digest: str = ""
+    installed_distribution_digest: str = ""
+    dependency_lock_digest: str = ""
+    custom_check_digest: str = ""
     ruleset_integrity: Status = Status.INCONCLUSIVE
     evaluations: tuple = ()
     input_files: tuple = ()
@@ -809,6 +812,9 @@ class ScannerRun:
             "scanner_environment_digest",
             "policy_inventory_digest",
             "invocation_config_digest",
+            "installed_distribution_digest",
+            "dependency_lock_digest",
+            "custom_check_digest",
         ):
             value = getattr(self, name)
             if value and not re.fullmatch(r"[0-9a-f]{64}", value):
@@ -821,6 +827,16 @@ class ScannerRun:
         )
         if any(identity_values) and not all(identity_values):
             raise DomainError("scanner identity evidence must include all four digests")
+        supplemental_identity = (
+            self.installed_distribution_digest,
+            self.dependency_lock_digest,
+            self.custom_check_digest,
+        )
+        if any(supplemental_identity) and not all(supplemental_identity):
+            raise DomainError(
+                "scanner distribution identity must include distribution, dependency, "
+                "and custom-check digests"
+            )
         if (
             self.status is Status.PASS
             and any(identity_values)
@@ -855,6 +871,9 @@ class ScannerRun:
             "scanner_environment_digest": self.scanner_environment_digest,
             "policy_inventory_digest": self.policy_inventory_digest,
             "invocation_config_digest": self.invocation_config_digest,
+            "installed_distribution_digest": self.installed_distribution_digest,
+            "dependency_lock_digest": self.dependency_lock_digest,
+            "custom_check_digest": self.custom_check_digest,
             "ruleset_integrity": self.ruleset_integrity.value,
             "coverage": self.coverage.canonical_dict(),
             "resource_coverage": self.resource_coverage.canonical_dict(),

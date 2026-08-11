@@ -334,3 +334,11 @@ the severity floor, framework/gate set, scanner locks, limits, governed digests,
 implementation. These are factory-stamped in `TrustedVerificationConfigBundle`, and
 governed files are hashed by path. Target authority includes file/artifact/native
 identity so two modules sharing a Terraform address cannot share deletion permission.
+
+D4.6 rejects symlinks in the installed Checkov package/check/policy inventory instead
+of silently omitting mutable policy content. Launcher, installed distribution,
+dependency/runtime lock, policy inventory, custom-check state, and invocation contract
+remain distinct identities. Kubernetes-only alias/tag restrictions apply only after
+root identity is established, so ordinary workflow, OpenAPI, and CloudFormation YAML
+with aliases, custom tags, or nested `kind` fields remains visible non-Kubernetes
+evidence; unsafe Kubernetes roots and unsupported nested complete identities fail closed.

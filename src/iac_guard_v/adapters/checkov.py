@@ -76,9 +76,16 @@ class CheckovDistributionIdentity:
     scanner_environment_digest: str
     policy_inventory_digest: str
     source: str
+    installed_distribution_digest: str = ""
+    dependency_lock_digest: str = ""
+    custom_check_digest: str = ""
 
     def __post_init__(self) -> None:
-        for name in ("scanner_environment_digest", "policy_inventory_digest"):
+        for name in (
+            "scanner_environment_digest", "policy_inventory_digest",
+            "installed_distribution_digest", "dependency_lock_digest",
+            "custom_check_digest",
+        ):
             value = getattr(self, name)
             if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
                 raise DomainError(f"{name} must be a lowercase SHA-256")
@@ -143,6 +150,39 @@ def _sha256_manifest(files: list[tuple[str, Path]]) -> str:
     return digest.hexdigest()
 
 
+def _manifest_digest(records: list[tuple[str, bytes]]) -> str:
+    digest = hashlib.sha256()
+    for relative, payload in sorted(records):
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(str(len(payload)).encode("ascii"))
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(payload).digest())
+    return digest.hexdigest()
+
+
+def _inventory_regular_files(root: Path, installation_root: Path) -> list[tuple[str, Path]]:
+    """Inventory one installed package without accepting mutable indirections."""
+    result: list[tuple[str, Path]] = []
+    for path in sorted(root.rglob("*")):
+        relative_to_package = path.relative_to(root)
+        if "__pycache__" in relative_to_package.parts or path.suffix == ".pyc":
+            continue
+        try:
+            metadata = path.lstat()
+        except OSError as exc:
+            raise DomainError("Checkov distribution entry could not be inspected") from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise DomainError("Checkov distribution and policy trees must not contain symlinks")
+        if stat.S_ISDIR(metadata.st_mode):
+            continue
+        if not stat.S_ISREG(metadata.st_mode):
+            raise DomainError("Checkov distribution contains a non-regular entry")
+        relative = path.relative_to(installation_root).as_posix()
+        result.append((relative, path))
+    return result
+
+
 def checkov_distribution_identity(
     executable: Path, expected_version: str
 ) -> CheckovDistributionIdentity:
@@ -168,34 +208,65 @@ def checkov_distribution_identity(
             break
     if installation_root is None:
         raise DomainError("Checkov installed distribution manifest cannot be established")
-    environment_files: list[tuple[str, Path]] = []
+    package_files: list[tuple[str, Path]] = []
     policy_files: list[tuple[str, Path]] = []
-    for path in sorted(installation_root.rglob("*")):
-        if path.is_symlink() or not path.is_file():
-            continue
-        resolved_path = path.resolve(strict=True)
-        relative = resolved_path.relative_to(installation_root).as_posix()
-        environment_files.append((relative, resolved_path))
     for root in checkov_roots:
-        for path in sorted(root.rglob("*")):
-            if path.is_symlink() or not path.is_file():
-                continue
-            resolved_path = path.resolve(strict=True)
-            relative = resolved_path.relative_to(installation_root).as_posix()
+        root_files = _inventory_regular_files(root, installation_root)
+        package_files.extend(root_files)
+        for relative, resolved_path in root_files:
             if "/checks/" in f"/{relative}" or "/policies/" in f"/{relative}":
                 policy_files.append((relative, resolved_path))
-    if not environment_files or not policy_files:
+    if not package_files or not policy_files:
         raise DomainError("Checkov distribution or policy inventory is empty")
-    policy_paths = {relative for relative, _ in policy_files}
-    environment_without_policy = [
-        item for item in environment_files if item[0] not in policy_paths
+    policy_paths = {relative for relative, _path in policy_files}
+    package_without_policy = [
+        item for item in package_files if item[0] not in policy_paths
     ]
-    if not environment_without_policy:
-        raise DomainError("Checkov non-policy environment inventory is empty")
+    distribution_digest = _sha256_manifest(package_files)
+    policy_digest = _sha256_manifest(policy_files)
+    lock_records: list[tuple[str, bytes]] = []
+    site_packages = checkov_roots[0].parent
+    for metadata in sorted(site_packages.glob("*.dist-info")):
+        if metadata.is_symlink():
+            raise DomainError("Checkov dependency metadata must not be symlinked")
+        for name in ("RECORD", "METADATA", "WHEEL", "direct_url.json"):
+            path = metadata / name
+            if not path.exists():
+                continue
+            if path.is_symlink() or not path.is_file():
+                raise DomainError("Checkov dependency metadata must be regular files")
+            lock_records.append((path.relative_to(site_packages).as_posix(), path.read_bytes()))
+    interpreter_path = None
+    if first_line.startswith("#!"):
+        candidate = Path(first_line[2:].strip().split()[0])
+        if candidate.is_absolute():
+            interpreter_path = candidate
+    if interpreter_path is not None:
+        try:
+            metadata = interpreter_path.lstat()
+        except OSError as exc:
+            raise DomainError("Checkov interpreter identity cannot be inspected") from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise DomainError("Checkov interpreter must not be a symlink")
+        if not stat.S_ISREG(metadata.st_mode):
+            raise DomainError("Checkov interpreter must be a regular file")
+        lock_records.append(("runtime/interpreter", interpreter_path.read_bytes()))
+    if not lock_records:
+        lock_records.append(("distribution-metadata", b"unavailable"))
+    dependency_digest = _manifest_digest(lock_records)
+    custom_check_digest = _manifest_digest([("custom-checks", b"disabled")])
+    environment_digest = _manifest_digest([
+        ("non-policy-package", bytes.fromhex(_sha256_manifest(package_without_policy))),
+        ("dependency-lock", bytes.fromhex(dependency_digest)),
+        ("custom-checks", bytes.fromhex(custom_check_digest)),
+    ])
     return CheckovDistributionIdentity(
-        _sha256_manifest(environment_without_policy),
-        _sha256_manifest(policy_files),
-        f"installed-tree-{expected_version}",
+        environment_digest,
+        policy_digest,
+        f"installed-manifest-v2-{expected_version}",
+        distribution_digest,
+        dependency_digest,
+        custom_check_digest,
     )
 
 
@@ -532,7 +603,7 @@ class CheckovScanRequest:
 
 def _invocation_config_digest(request: CheckovScanRequest) -> str:
     payload = {
-        "adapter": "checkov-d4.2",
+        "adapter": "checkov-adapter-contract-v3",
         "compact": True,
         "download_external_modules": False,
         "frameworks": list(request.frameworks),
@@ -600,6 +671,11 @@ def _reason_run(
         ),
         policy_inventory_digest=request._distribution_identity.policy_inventory_digest,
         invocation_config_digest=_invocation_config_digest(request),
+        installed_distribution_digest=(
+            request._distribution_identity.installed_distribution_digest
+        ),
+        dependency_lock_digest=request._distribution_identity.dependency_lock_digest,
+        custom_check_digest=request._distribution_identity.custom_check_digest,
         ruleset_integrity=ruleset_integrity,
         evaluations=evaluations,
         input_files=request.eligible_file_evidence,
@@ -1097,6 +1173,11 @@ def _normalize(
         ),
         policy_inventory_digest=request._distribution_identity.policy_inventory_digest,
         invocation_config_digest=_invocation_config_digest(request),
+        installed_distribution_digest=(
+            request._distribution_identity.installed_distribution_digest
+        ),
+        dependency_lock_digest=request._distribution_identity.dependency_lock_digest,
+        custom_check_digest=request._distribution_identity.custom_check_digest,
         ruleset_integrity=Status.PASS,
         evaluations=tuple(evaluations),
         input_files=request.eligible_file_evidence,

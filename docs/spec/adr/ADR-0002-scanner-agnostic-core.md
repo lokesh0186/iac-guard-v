@@ -82,3 +82,10 @@ CloudFormation YAML remains visible but non-Kubernetes. Strict JSON classificati
 a digest-bound classification. Duplicate keys, Kubernetes custom tags, aliases,
 excessive structure, incomplete identity, malformed bytes, and unsupported `.tf.json`
 fail closed.
+
+## Amendment, 2026-08-11: mixed-repository classification
+
+D4.6 applies Kubernetes-only tag and alias restrictions only after bounded root identity
+inspection. Workflow, OpenAPI, and CloudFormation YAML with anchors, domain tags, or
+nested `kind` fields remains classified non-Kubernetes evidence. Unsupported nested
+complete Kubernetes identity and unsafe Kubernetes roots still fail closed.

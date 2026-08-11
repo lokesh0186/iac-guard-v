@@ -517,3 +517,20 @@ Generic JSON is strict, duplicate-free, depth-bounded, and expands Kubernetes `L
 items. `.tf.json` remains explicitly unsupported. `TrustedScanPlan` records the digest,
 syntax, classification, and resource set of every inspected supported-extension file,
 including non-Kubernetes YAML/JSON that is not copied to the scan view.
+
+## 18. D4.6 scanner installation and mixed-repository closure
+
+The Checkov adapter rejects symlinks anywhere under the installed `checkov` package,
+including checks and policies, instead of silently omitting them from an asserted-complete
+identity. Mutable bytecode caches are excluded. Reports separate launcher, installed
+distribution, dependency-lock/runtime, built-in policy, disabled custom-check, and
+invocation-contract digests. The invocation contract is named
+`checkov-adapter-contract-v3`; parser, coverage, policy-input, artifact, invocation, or
+normalisation changes require a version increment.
+
+YAML classification is two-stage. A bounded syntax-node pass checks structure and
+duplicate keys but applies Kubernetes-only tag and alias restrictions only to a root
+document carrying Kubernetes identity. Ordinary workflow, OpenAPI, and CloudFormation
+documents therefore remain classified evidence even when they use aliases, custom tags,
+or nested fields named `kind`. Nested complete Kubernetes identity outside a supported
+root shape and unsafe Kubernetes roots still fail closed.

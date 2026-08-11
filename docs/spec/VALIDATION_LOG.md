@@ -792,6 +792,36 @@ engine branch coverage -> 90.36% (103 passed)
 
 ---
 
+## Gate D4.6 — Scanner environment and mixed-repository classification (2026-08-11)
+
+Parent: `26cc75a0b10eb2a7c0878cd6b6d8d8f73da34696`. D4.6 did not alter the
+frozen QRS scope and did not begin D5.4, D6.4, D7, D9, or Phase E.
+
+Literal failing-before evidence:
+
+```text
+OLD_SYMLINK_ENV_UNCHANGED True
+OLD_SYMLINK_POLICY_UNCHANGED True
+OLD_ADAPTER_LABEL_IN_SOURCE True
+OLD_YAML alias DomainError Kubernetes YAML aliases are unsupported
+OLD_YAML nested_kind DomainError unsupported Kubernetes YAML document shape
+```
+
+Passing-after properties:
+
+```text
+external package/check/policy symlink -> DomainError before identity acceptance
+installed distribution / dependency lock / policy / custom checks -> distinct digests
+bytecode cache addition -> distribution identity unchanged
+adapter contract -> checkov-adapter-contract-v3
+ordinary alias/custom-tag/nested-kind YAML -> NON_KUBERNETES_YAML
+root Kubernetes alias or unsupported nested complete identity -> typed failure
+focused D4 regression set -> 146 passed
+```
+
+No benchmark inference, model-provider call, model refresh, tag/branch push, release,
+or external publication occurred.
+
 ## Gate D5.3 — Role-bound configuration and closed gate registry (2026-08-11)
 
 Parent: `d8f1ec29fe05d5c466cc942a6ac3af1d980795c6`. Literal archived-parent

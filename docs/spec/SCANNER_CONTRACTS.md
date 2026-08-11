@@ -323,3 +323,20 @@ scanned. `.tf.json` remains the explicit Terraform-JSON error and is never reint
 as Kubernetes. Every inspected `.tf`, `.yaml`, `.yml`, and relevant `.json` file has a
 digest-bound classification record even when it is non-Kubernetes and therefore absent
 from the private Checkov view.
+
+## 8. Checkov adapter contract v3 (D4.6)
+
+`checkov-adapter-contract-v3` changes whenever invocation flags, supported parser or
+artifact semantics, coverage reconciliation, policy inputs, or output normalisation
+change. Identity fields are deliberately separate: resolved launcher digest, installed
+Checkov package manifest digest, dependency/runtime lock digest (wheel metadata where
+available), built-in policy inventory digest, custom-check digest, combined environment
+digest, and invocation-config digest. `__pycache__` and `.pyc` are excluded. A symlink or
+non-regular entry under the installed Checkov package, checks, or policies is rejected;
+it is never silently skipped.
+
+The YAML classifier first performs bounded syntax-preserving root inspection. Aliases,
+anchors, domain tags, and nested `kind` fields in clearly non-Kubernetes documents do
+not trigger Kubernetes-only restrictions. Root Kubernetes identity and unsupported
+nested complete identity remain fail-closed. Every inspected supported-extension file
+continues to retain its digest-bound `ArtifactClassification`.

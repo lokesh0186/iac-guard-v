@@ -148,6 +148,7 @@ ALLOWLIST = DIAGNOSTIC_CODES | DECISION_LABELS | META_NAMES | {
     "LICENSE", "NOTICE", "BASE", "HEAD", "ID", "AVD", "MisconfSummary",
     "SIGKILL", "SIGTERM", "TMPDIR", "TZ", "LANG", "LC_ALL",
     "ESRCH", "EPERM",
+    "NON_KUBERNETES_YAML", "NON_KUBERNETES_JSON",
     "ACCEPTED", "REJECTED",
     "P0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "F1", "F2", "F3", "F4", "F5",
     "F6", "F12", "N", "A", "B", "C", "D", "E", "T1", "T2", "T3", "T4", "T5", "T6",

@@ -1126,3 +1126,16 @@ and required-gate configuration catalog. Candidate-only files are `POLICY_DRIFT`
 It binds scanner version, artifact kind, file, rule, resource, evaluated keys, and any
 native fingerprint. Multiple occurrences close only by exact token-set coverage or a
 complete independent oracle.
+
+## 15. D4.6 installed identity and mixed-repository YAML
+
+The adapter contract identifier is `checkov-adapter-contract-v3`. Scanner evidence
+separately records launcher, installed distribution, dependency/runtime lock, built-in
+policy, custom-check, combined environment, and invocation digests. Installed Checkov
+package/check/policy symlinks are invalid rather than excluded from the manifest;
+bytecode caches are excluded deterministically.
+
+Root-level syntax evidence decides whether Kubernetes semantics apply. Ordinary YAML
+may use anchors, aliases, custom domain tags, or nested `kind` fields and remains
+`NON_KUBERNETES_YAML`. A root Kubernetes object using unsafe syntax, or a complete
+Kubernetes identity embedded in an unsupported root shape, remains a typed failure.

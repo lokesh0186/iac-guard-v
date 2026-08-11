@@ -346,3 +346,9 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 13. `.iac-guard.json` and the complete protected scanner/ignore/custom-check/oracle/
     catalog/severity/exception/gate catalog participate in path-specific policy drift.
     Positive and failed Checkov evidence share one context-bound occurrence token.
+14. Checkov execution identity separately binds launcher bytes, the installed package
+    manifest, dependency/runtime lock evidence, built-in policy inventory, custom-check
+    state, and `checkov-adapter-contract-v3`. Installed Checkov package/policy symlinks
+    are rejected. Kubernetes classification applies strict Kubernetes semantics only
+    after root identity evidence; clearly non-Kubernetes aliases, custom tags, and
+    nested `kind` properties remain visible non-Kubernetes classifications.

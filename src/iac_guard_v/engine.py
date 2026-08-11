@@ -926,25 +926,28 @@ def _validate_yaml_node(node: Node) -> None:
             _validate_yaml_node(value)
 
 
-def _yaml_node_has_identity(node: Node) -> bool:
+def _yaml_root_has_identity(node: Node) -> bool:
+    if not isinstance(node, MappingNode):
+        return False
+    keys = {
+        key.value for key, _value in node.value if isinstance(key, ScalarNode)
+    }
+    return bool(keys & {"apiVersion", "kind"})
+
+
+def _yaml_nested_complete_identity(node: Node) -> bool:
     if isinstance(node, MappingNode):
         keys = {
             key.value for key, _value in node.value if isinstance(key, ScalarNode)
         }
-        if keys & {"apiVersion", "kind"}:
+        if {"apiVersion", "kind"} <= keys:
             return True
-        return any(_yaml_node_has_identity(value) for _key, value in node.value)
+        return any(
+            _yaml_nested_complete_identity(value) for _key, value in node.value
+        )
     if isinstance(node, SequenceNode):
-        return any(_yaml_node_has_identity(value) for value in node.value)
+        return any(_yaml_nested_complete_identity(value) for value in node.value)
     return False
-
-
-def _yaml_root_has_identity(node: Node) -> bool:
-    return isinstance(node, MappingNode) and any(
-        isinstance(key, ScalarNode)
-        and key.value in {"apiVersion", "kind"}
-        for key, _value in node.value
-    )
 
 
 def _bounded_yaml_documents(content: bytes) -> tuple:
@@ -953,11 +956,13 @@ def _bounded_yaml_documents(content: bytes) -> tuple:
         text = content.decode("utf-8", errors="strict")
     except UnicodeDecodeError as exc:
         raise DomainError("Kubernetes YAML must be UTF-8") from exc
-    depth = nodes = 0
+    depth = nodes = aliases = 0
     try:
         for event in yaml.parse(text, Loader=yaml.BaseLoader):
             if isinstance(event, AliasEvent):
-                raise DomainError("Kubernetes YAML aliases are unsupported")
+                aliases += 1
+                if aliases > _MAX_YAML_NODES:
+                    raise DomainError("YAML alias limit exceeded")
             if isinstance(event, (MappingStartEvent, SequenceStartEvent)):
                 depth += 1
                 nodes += 1
@@ -979,10 +984,12 @@ def _bounded_yaml_documents(content: bytes) -> tuple:
         if node is None:
             continue
         _validate_yaml_node(node)
-        if not _yaml_node_has_identity(node):
-            continue
         if not _yaml_root_has_identity(node):
-            raise DomainError("unsupported Kubernetes YAML document shape")
+            if _yaml_nested_complete_identity(node):
+                raise DomainError("unsupported Kubernetes YAML document shape")
+            continue
+        if aliases:
+            raise DomainError("Kubernetes YAML aliases are unsupported")
         stack = [node]
         while stack:
             current = stack.pop()

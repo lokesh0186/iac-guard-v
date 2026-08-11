@@ -80,3 +80,12 @@ identity.
 discovery participates in P0 evidence. Their major ranges are bounded; widening either
 requires the accepted/rejected syntax fixtures to pass across the supported Python
 matrix.
+
+## Amendment, 2026-08-11: installed distribution identity
+
+D4.6 replaces the stale phase label with `checkov-adapter-contract-v3` and separately
+binds launcher, installed package manifest, dependency/runtime metadata, built-in policy,
+custom-check state, and invocation configuration. Installed Checkov package/check/policy
+symlinks are rejected; mutable bytecode caches are excluded. Contract-affecting parser,
+coverage, artifact, policy-input, invocation, or normalisation changes increment the
+adapter contract version.
