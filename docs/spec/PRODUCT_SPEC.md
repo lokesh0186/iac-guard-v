@@ -358,3 +358,8 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
     result construction; late additions/removals/changes/type or symlink replacements
     are `SNAPSHOT_CHANGED_DURING_VERIFICATION`, never `VERIFIED`. Canonical identities
     use repository/snapshot/subpath evidence and exclude local absolute roots.
+16. Protected PR policy is accepted only when the candidate checkout is the exact clean
+    authorized Git commit and D6's candidate snapshot/subpath equals D5's sealed evidence.
+    Candidate policy comes from that Git tree. Monorepo prefixes apply symmetrically to
+    base and candidate paths; governed directories have typed entries and bounded
+    recursive digests, so symlink replacements are never treated as absent.

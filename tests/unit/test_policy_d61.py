@@ -59,6 +59,7 @@ def _git_policy_source(
 def _base_context(
     source: POLICY.TrustedGitSource,
     when: datetime = datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc),
+    candidate_commit: str | None = None,
 ) -> POLICY.TrustedExecutionContext:
     return POLICY.TrustedExecutionContext(
         ExecutionMode.PR_BASE,
@@ -66,13 +67,14 @@ def _base_context(
         POLICY._portable_repository_identity(source.repository_root),
         source.commit_sha,
         source.candidate_root,
-        source.commit_sha,
+        candidate_commit or source.commit_sha,
         None, "", "",
         source.governed_paths,
         "a" * 64,
         "protected_test_context",
         when,
         "private_test_clock",
+        ".", "b" * 64,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
 
@@ -102,6 +104,7 @@ def _protected_context(source: POLICY.TrustedGitSource) -> POLICY.TrustedExecuti
         "protected_repository_test_context",
         datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc),
         "private_test_clock",
+        ".", "b" * 64,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
 
@@ -113,6 +116,7 @@ def _operator_context(config, when=None) -> POLICY.TrustedExecutionContext:
         config.policy_source_authorization.context_identity,
         when or datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc),
         "private_test_clock",
+        ".", config.candidate_source_snapshot_sha256,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
 
@@ -204,12 +208,10 @@ def test_base_loader_binds_bytes_source_and_governed_path(tmp_path) -> None:
     (repository / "config/policy.json").write_text(
         json.dumps({**payload, "optional_gates": ["regression"]}), encoding="utf-8"
     )
-    drift = POLICY.load_base_commit_policy(
-        _base_context(source), governed_path="config/policy.json"
-    )
-    assert drift.policy_drift is True
-    assert drift.differing_governed_paths == ("config/policy.json",)
-    assert drift.trusted_policy_sha256 != drift.candidate_policy_sha256
+    with pytest.raises(Exception, match="checkout differs"):
+        POLICY.load_base_commit_policy(
+            _base_context(source), governed_path="config/policy.json"
+        )
 
 
 def test_missing_candidate_policy_is_visible_drift(tmp_path) -> None:
@@ -347,7 +349,7 @@ def test_file_loader_rejects_duplicate_keys_depth_and_symlink(tmp_path) -> None:
     real.write_text(json.dumps(_policy_payload()), encoding="utf-8")
     (repository / ".iac-guard.json").unlink()
     (repository / ".iac-guard.json").symlink_to(real)
-    with pytest.raises(Exception, match="no-follow"):
+    with pytest.raises(Exception, match="checkout differs"):
         POLICY.load_base_commit_policy(_base_context(linked_source))
 
 
@@ -444,6 +446,11 @@ def test_candidate_policy_path_and_source_type_are_typed(tmp_path, verified_engi
         ({"differing_governed_paths": []}, "exact tuple"),
         ({"candidate_policy_state": "present", "candidate_policy_sha256": "f" * 64}, "contradict"),
         ({"evaluation_timezone": "local"}, "timezone"),
+        ({"candidate_snapshot_sha256": "bad"}, "snapshot digest"),
+        ({"candidate_tree_sha": "bad"}, "tree identity"),
+        ({"candidate_tree_sha": "a" * 40}, "cannot claim a Git candidate tree"),
+        ({"repository_relative_candidate_prefix": "services/a"}, "cannot claim a Git candidate tree"),
+        ({"execution_mode": ExecutionMode.PR_BASE}, "exact candidate tree"),
     ],
 )
 def test_trusted_bundle_invariant_mutations_are_rejected(changes, message, verified_engine) -> None:

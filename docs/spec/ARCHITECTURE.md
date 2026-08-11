@@ -552,3 +552,21 @@ snapshot evidence use portable repository/snapshot/subpath identities, not local
 absolute paths. The result retains both complete role snapshots. Gate implementation
 identity hashes the dispatcher, parser/classifier helpers, contract version, and parser
 dependency versions rather than one dispatcher function.
+
+## 20. D6.4 candidate-tree and governed-directory attestation
+
+Protected policy evaluation now binds the mutable candidate checkout to the authorized
+Git candidate before context creation and revalidates it immediately before loading
+policy. The checkout must have the authorized `HEAD`, no staged or unstaged changes, no
+untracked input, and no ignored supported or governed input. Candidate policy and
+governed bytes are then read from the authorized candidate Git object, not the live
+working tree. The policy bundle's candidate snapshot digest and repository-relative
+prefix must equal D5's sealed candidate snapshot.
+
+`repository_relative_candidate_prefix` is explicit for monorepos and prefixes both base
+and candidate object reads. Governed Git entries are typed as absent, regular file, real
+directory, symlink, or other. Directory identity binds a bounded deterministic recursive
+manifest; a symlinked governed directory remains visible drift rather than disappearing.
+Canonical policy evidence records portable repository, commit/tree, prefix, governed
+digest, configuration, and sealed-snapshot identities; absolute checkout paths remain
+runtime-only.

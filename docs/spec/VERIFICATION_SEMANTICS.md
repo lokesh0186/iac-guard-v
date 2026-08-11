@@ -1159,3 +1159,19 @@ configuration and report identities omit absolute roots and retain both role sna
 identities, all artifact classifications, resources, governed records, and gate
 implementation evidence. Gate identity covers parser/classifier helpers and dependency
 versions, not only the dispatcher.
+
+## 17. D6.4 candidate-tree equivalence
+
+For protected Git modes, `candidate_root` is valid only while its `HEAD` equals the
+authorized candidate commit and its index/worktree contains no staged, unstaged,
+untracked, or ignored supported/governed input. This condition is checked when the
+trusted execution context is created and again immediately before policy loading.
+Candidate policy/governed bytes are read from the candidate Git object. A bundle is
+usable only when its candidate snapshot digest and repository-relative prefix equal the
+sealed D5 candidate evidence.
+
+Monorepo verification carries one repository-relative prefix into both base and
+candidate Git-object names. Governed paths retain typed absent/file/directory/symlink/
+other evidence. A real governed directory is a bounded deterministic recursive manifest;
+a symlink or type replacement is drift and cannot collapse to no evidence. Canonical
+source identity excludes absolute filesystem roots.

@@ -91,6 +91,11 @@ def _replace_engine(run: VerificationResult, **changes) -> VerificationResult:
                 if not field_name.startswith("_")
             }
             snapshot_values["config_sha256"] = config.config_sha256
+            snapshot_values["snapshot_sha256"] = (
+                config.baseline_source_snapshot_sha256
+                if name == "baseline_snapshot"
+                else config.candidate_source_snapshot_sha256
+            )
             values[name] = ENGINE.SealedVerificationSnapshot(
                 **snapshot_values,
                 _trusted_context=ENGINE._TRUSTED_SCAN_PLAN_CONTEXT,

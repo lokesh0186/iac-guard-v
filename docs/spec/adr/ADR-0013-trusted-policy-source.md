@@ -218,3 +218,14 @@ validators, oracles, target/resource observation, metrics, drift detection, and 
 evidence refer to that snapshot. A final source-state comparison makes any late
 supported/governed mutation typed uncertainty rather than allowing evidence from two
 candidate states to produce `VERIFIED`.
+
+## Amendment, 2026-08-11: the authorized candidate is a tree, not a label
+
+D6.4 rejects a protected context unless the checked-out repository is the authorized
+candidate commit with no staged, unstaged, untracked, or ignored supported/governed
+inputs. Loaders revalidate that condition and obtain candidate policy bytes from the Git
+tree. The policy bundle must match D5's sealed candidate snapshot and monorepo-relative
+prefix. Governed directories are typed and recursively digested under count/byte limits;
+symlink entries are explicit drift. Portable canonical source evidence uses repository
+object, commit/tree, prefix, governed, configuration, and snapshot identities rather
+than local absolute paths.

@@ -82,6 +82,7 @@ def _pr_context(config, repository: Path, base: str, candidate: str, when=None):
         repository, candidate, None, "", "", (".iac-guard.json",),
         config.config_sha256, config.policy_source_authorization.context_identity,
         when or datetime.now(timezone.utc), "protected_workflow_utc_clock",
+        candidate_snapshot_sha256=config.candidate_source_snapshot_sha256,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
 
@@ -137,6 +138,7 @@ def test_policy_bundle_from_unrelated_repository_is_rejected(
         repo_b, candidate_b, None, "", "", (".iac-guard.json",),
         config.config_sha256, "shared_context", datetime.now(timezone.utc),
         "protected_workflow_utc_clock",
+        candidate_snapshot_sha256=config.candidate_source_snapshot_sha256,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
     foreign_bundle = POLICY.load_base_commit_policy(foreign)
@@ -208,16 +210,16 @@ def test_candidate_policy_parent_symlink_is_rejected(
         verified_engine.verification_config, repository, base, candidate,
         "symlink_context"
     )
-    context = POLICY.TrustedExecutionContext(
-        ExecutionMode.PR_BASE, repository,
-        POLICY._portable_repository_identity(repository), base,
-        repository, candidate, None, "", "", ("policy/iac.json",),
-        config.config_sha256, "symlink_context", datetime.now(timezone.utc),
-        "protected_workflow_utc_clock",
-        _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
-    )
-    with pytest.raises(Exception, match="symlinked parent"):
-        POLICY.load_base_commit_policy(context, governed_path="policy/iac.json")
+    with pytest.raises(Exception, match="checkout differs"):
+        POLICY.TrustedExecutionContext(
+            ExecutionMode.PR_BASE, repository,
+            POLICY._portable_repository_identity(repository), base,
+            repository, candidate, None, "", "", ("policy/iac.json",),
+            config.config_sha256, "symlink_context", datetime.now(timezone.utc),
+            "protected_workflow_utc_clock",
+            candidate_snapshot_sha256=config.candidate_source_snapshot_sha256,
+            _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
+        )
 
 
 @pytest.mark.parametrize(
@@ -262,6 +264,7 @@ def test_protected_context_and_repository_loader_are_executable(tmp_path: Path) 
         protected, POLICY._portable_repository_identity(protected), protected_base,
         (".iac-guard.json",), "a" * 64, "protected_repo_context",
         datetime.now(timezone.utc), "protected_workflow_utc_clock",
+        candidate_snapshot_sha256="b" * 64,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
     bundle = POLICY.load_protected_policy_repository(context)
@@ -285,6 +288,7 @@ def test_protected_execution_context_role_mutations(tmp_path: Path) -> None:
         governed_paths=(".iac-guard.json",), verification_config_sha256="a" * 64,
         context_identity="role_mutation", evaluated_at=datetime.now(timezone.utc),
         clock_source="protected_clock",
+        candidate_snapshot_sha256="b" * 64,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
     mutations = (
@@ -330,6 +334,7 @@ def test_operator_loader_rejects_pr_context(tmp_path: Path) -> None:
         POLICY._portable_repository_identity(repository), base,
         repository, candidate, None, "", "", (".iac-guard.json",),
         "a" * 64, "pr_context", datetime.now(timezone.utc), "protected_clock",
+        candidate_snapshot_sha256="b" * 64,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
     with pytest.raises(Exception, match="explicit operator"):
@@ -364,6 +369,7 @@ def test_protected_repository_context_rejects_role_confusion(tmp_path: Path) -> 
         governed_paths=(".iac-guard.json",), verification_config_sha256="a" * 64,
         context_identity="protected_context", evaluated_at=datetime.now(timezone.utc),
         clock_source="protected_clock",
+        candidate_snapshot_sha256="b" * 64,
         _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
     for changes in (

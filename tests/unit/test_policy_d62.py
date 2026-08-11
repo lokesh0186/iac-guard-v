@@ -113,6 +113,9 @@ def test_git_base_loader_reads_committed_object_not_candidate_bytes(
         )["exceptions"],
     }
     (repo / ".iac-guard.json").write_text(json.dumps(candidate), encoding="utf-8")
+    _git(repo, "add", ".iac-guard.json")
+    _git(repo, "commit", "-q", "-m", "candidate policy")
+    candidate_sha = _git(repo, "rev-parse", "HEAD")
     source = POLICY.attest_git_source(
         repo,
         base_sha,
@@ -120,7 +123,8 @@ def test_git_base_loader_reads_committed_object_not_candidate_bytes(
         (".iac-guard.json",),
     )
     bundle = POLICY.load_base_commit_policy(
-        _base_context(source), governed_path=".iac-guard.json"
+        _base_context(source, candidate_commit=candidate_sha),
+        governed_path=".iac-guard.json"
     )
     assert bundle.source_origin is ExceptionOrigin.TRUSTED_BASE
     assert bundle.source_commit == base_sha
@@ -158,13 +162,18 @@ def test_git_bundle_retains_path_by_path_governed_policy_evidence(
     _git(repo, "commit", "-q", "-m", "governed policy")
     base_commit = _git(repo, "rev-parse", "HEAD")
     governed.write_text('{"severity_floor":"CRITICAL"}', encoding="utf-8")
+    _git(repo, "add", "config/severity-policy.json")
+    _git(repo, "commit", "-q", "-m", "candidate governed policy")
+    candidate_commit = _git(repo, "rev-parse", "HEAD")
     source = POLICY.attest_git_source(
         repo,
         base_commit,
         repo,
         (".iac-guard.json", "config/severity-policy.json"),
     )
-    bundle = POLICY.load_base_commit_policy(_base_context(source))
+    bundle = POLICY.load_base_commit_policy(
+        _base_context(source, candidate_commit=candidate_commit)
+    )
     assert bundle.policy_drift is True
     assert bundle.differing_governed_paths == ("config/severity-policy.json",)
     by_path = {
@@ -269,10 +278,15 @@ def test_candidate_only_governed_file_is_added_policy_drift(tmp_path: Path) -> N
     repo, base_commit, _payload = git_policy_repository(tmp_path)
     added = repo / ".checkov.yml"
     added.write_text("skip-check: CKV_X\n", encoding="utf-8")
+    _git(repo, "add", ".checkov.yml")
+    _git(repo, "commit", "-q", "-m", "candidate governed addition")
+    candidate_commit = _git(repo, "rev-parse", "HEAD")
     source = POLICY.attest_git_source(
         repo, base_commit, repo, (".iac-guard.json", ".checkov.yml")
     )
-    bundle = POLICY.load_base_commit_policy(_base_context(source))
+    bundle = POLICY.load_base_commit_policy(
+        _base_context(source, candidate_commit=candidate_commit)
+    )
     assert bundle.differing_governed_paths == (".checkov.yml",)
     checkov = next(
         item for item in bundle.governed_config_evidence

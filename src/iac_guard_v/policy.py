@@ -14,8 +14,10 @@ from pathlib import Path
 
 from .engine import (
     GovernedConfigEvidence,
+    GovernedPathRecord,
     TrustedVerificationConfigBundle,
     VerificationResult,
+    _governed_file,
     require_trusted_verification_result,
 )
 from .enums import (
@@ -149,6 +151,57 @@ def _portable_repository_identity(repository: Path) -> str:
     return "git_repo_v1_" + hashlib.sha256(payload).hexdigest()
 
 
+def _candidate_checkout_tree(
+    repository: Path,
+    candidate_root: Path,
+    candidate_commit: str,
+    prefix: str,
+) -> str:
+    """Prove that a checked-out candidate is the exact authorized Git tree."""
+    head = _resolve_git_commit(repository, "HEAD")
+    if head != candidate_commit:
+        raise DomainError("candidate checkout HEAD does not equal authorized commit")
+    if candidate_root.resolve(strict=True) != (
+        repository if prefix == "." else repository / prefix
+    ).resolve(strict=True):
+        raise DomainError("candidate repository-relative prefix does not match its root")
+    dirty = _git_command(
+        repository,
+        ("status", "--porcelain=v1", "--untracked-files=all"),
+    )
+    if dirty:
+        raise DomainError("candidate checkout differs from authorized commit")
+    ignored = _git_command(
+        repository,
+        ("ls-files", "-z", "--others", "--ignored", "--exclude-standard"),
+    )
+    for raw_path in (item for item in ignored.split(b"\x00") if item):
+        try:
+            relative = raw_path.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise DomainError("ignored candidate path is not valid UTF-8") from exc
+        path = Path(relative)
+        supported = (
+            path.suffix.lower() in {".tf", ".yaml", ".yml", ".json"}
+            or path.name.lower().endswith(".tf.json")
+        )
+        if supported or _governed_file(path, relative):
+            raise DomainError(
+                "candidate checkout contains ignored supported or governed input"
+            )
+    tree_object = (
+        f"{candidate_commit}^{{tree}}"
+        if prefix == "."
+        else f"{candidate_commit}:{prefix}"
+    )
+    tree_sha = _git_command(
+        repository, ("rev-parse", "--verify", "--end-of-options", tree_object)
+    ).decode("ascii", errors="strict").strip()
+    if not _GIT_SHA.fullmatch(tree_sha):
+        raise DomainError("candidate repository subtree identity is malformed")
+    return tree_sha
+
+
 @dataclass(frozen=True, slots=True)
 class TrustedExecutionContext:
     """Protected runtime roles, source authorization, and UTC clock evidence."""
@@ -167,14 +220,21 @@ class TrustedExecutionContext:
     context_identity: str
     evaluated_at: datetime
     clock_source: str
+    repository_relative_candidate_prefix: str = "."
+    candidate_snapshot_sha256: str = ""
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+    candidate_tree_sha: str = field(init=False, default="")
 
     def __post_init__(self, _trusted_context: object) -> None:
         require_enum(self.mode, ExecutionMode, "execution mode")
         if not isinstance(self.candidate_root, Path):
             raise DomainError("candidate root must be pathlib.Path")
         object.__setattr__(self, "candidate_root", self.candidate_root.resolve(strict=True))
+        prefix = self.repository_relative_candidate_prefix
+        if prefix != ".":
+            prefix = canonical_repo_path(prefix, "candidate repository-relative prefix")
+        object.__setattr__(self, "repository_relative_candidate_prefix", prefix)
         paths = tuple(sorted(canonical_repo_path(item) for item in self.governed_paths))
         if type(self.governed_paths) is not tuple or not paths or len(paths) != len(set(paths)):
             raise DomainError("execution governed paths must be a nonempty unique tuple")
@@ -198,6 +258,12 @@ class TrustedExecutionContext:
                     self.candidate_commit, self.protected_policy_repository,
                     self.protected_policy_repository_identity, self.protected_policy_commit)):
                 raise DomainError("operator execution context cannot claim protected Git roles")
+            if prefix != ".":
+                raise DomainError("operator execution context cannot claim a Git subpath")
+            snapshot = self.candidate_snapshot_sha256 or hashlib.sha256(
+                b"operator-unbound-snapshot"
+            ).hexdigest()
+            object.__setattr__(self, "candidate_snapshot_sha256", snapshot)
         else:
             if not isinstance(self.repository_root, Path):
                 raise DomainError("protected execution context requires a repository root")
@@ -212,6 +278,17 @@ class TrustedExecutionContext:
                     raise DomainError(f"{name} is not an exact repository commit")
             if not _within(self.candidate_root, repository):
                 raise DomainError("execution candidate root is outside evaluated repository")
+            actual_prefix = self.candidate_root.relative_to(repository).as_posix() or "."
+            if prefix != actual_prefix:
+                raise DomainError("candidate repository-relative prefix does not match its root")
+            if not __import__("re").fullmatch(
+                r"[0-9a-f]{64}", self.candidate_snapshot_sha256
+            ):
+                raise DomainError("candidate snapshot digest must bind protected D5 evidence")
+            tree_sha = _candidate_checkout_tree(
+                repository, self.candidate_root, self.candidate_commit, prefix
+            )
+            object.__setattr__(self, "candidate_tree_sha", tree_sha)
             if self.mode is ExecutionMode.PR_BASE:
                 if any((self.protected_policy_repository,
                         self.protected_policy_repository_identity,
@@ -262,6 +339,7 @@ def load_operator_execution_context(
         None, "", "", tuple(sorted(_default_governed_paths(config))),
         config.config_sha256, authorization.context_identity,
         datetime.now(timezone.utc), "system_utc_clock",
+        ".", config.candidate_source_snapshot_sha256,
         _trusted_context=_TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
 
@@ -296,6 +374,84 @@ def _git_object_bytes(repository: Path, commit: str, relative: str) -> bytes:
     if len(payload) != size:
         raise DomainError("Git policy object size changed during read")
     return payload
+
+
+def _prefixed_path(prefix: str, relative: str) -> str:
+    relative = canonical_repo_path(relative, "governed path")
+    if prefix == ".":
+        return relative
+    return canonical_repo_path(f"{prefix}/{relative}", "prefixed governed path")
+
+
+def _git_tree_entry(
+    repository: Path, commit: str, relative: str
+) -> tuple[str, str, str] | None:
+    entry = _git_command(repository, ("ls-tree", "-z", commit, "--", relative))
+    if entry == b"":
+        return None
+    if not entry.endswith(b"\x00") or entry.count(b"\x00") != 1 or b"\t" not in entry:
+        raise DomainError("Git governed object tree entry is malformed")
+    metadata, recorded_path = entry[:-1].split(b"\t", 1)
+    fields = metadata.decode("ascii", errors="strict").split()
+    if len(fields) != 3 or recorded_path.decode("utf-8", errors="strict") != relative:
+        raise DomainError("Git governed object tree entry is inconsistent")
+    return fields[0], fields[1], fields[2]
+
+
+def _git_governed_record(
+    repository: Path, commit: str, relative: str, report_path: str
+) -> GovernedPathRecord | None:
+    entry = _git_tree_entry(repository, commit, relative)
+    if entry is None:
+        return None
+    mode, kind, object_id = entry
+    if mode in {"100644", "100755"} and kind == "blob":
+        payload = _git_object_bytes(repository, commit, relative)
+        record_kind = "REGULAR_FILE"
+    elif mode == "120000" and kind == "blob":
+        payload = _git_command(repository, ("cat-file", "blob", object_id))
+        if len(payload) > _MAX_POLICY_BYTES:
+            raise DomainError("Git governed symlink exceeds the trusted byte limit")
+        record_kind = "SYMLINK"
+    elif mode == "040000" and kind == "tree":
+        listing = _git_command(repository, ("ls-tree", "-r", "-z", commit, "--", relative))
+        records = []
+        total = 0
+        entries = [item for item in listing.split(b"\x00") if item]
+        if len(entries) > 10_000:
+            raise DomainError("Git governed directory exceeds its file-count limit")
+        for raw in entries:
+            if b"\t" not in raw:
+                raise DomainError("Git governed directory entry is malformed")
+            metadata, path_bytes = raw.split(b"\t", 1)
+            fields = metadata.decode("ascii", errors="strict").split()
+            if len(fields) != 3:
+                raise DomainError("Git governed directory metadata is malformed")
+            child_mode, child_kind, child_oid = fields
+            child_path = path_bytes.decode("utf-8", errors="strict")
+            child_payload = _git_command(
+                repository, ("cat-file", "blob", child_oid)
+            ) if child_kind == "blob" else b""
+            total += len(child_payload)
+            if len(child_payload) > _MAX_POLICY_BYTES or total > 100 * _MAX_POLICY_BYTES:
+                raise DomainError("Git governed directory exceeds its byte limit")
+            records.append({
+                "path": child_path,
+                "mode": child_mode,
+                "kind": child_kind,
+                "sha256": _sha256(child_payload),
+                "size": len(child_payload),
+            })
+        payload = json.dumps(
+            records, sort_keys=True, separators=(",", ":")
+        ).encode()
+        record_kind = "REAL_DIRECTORY"
+    else:
+        payload = f"{mode}:{kind}:{object_id}".encode("ascii")
+        record_kind = "OTHER"
+    return GovernedPathRecord(
+        report_path, record_kind, _sha256(payload), len(payload)
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -636,6 +792,9 @@ class TrustedPolicyBundle:
     execution_context_identity: str = "legacy_unbound_context"
     verification_config_sha256: str = "0" * 64
     candidate_root_identity: str = ""
+    candidate_snapshot_sha256: str = "0" * 64
+    candidate_tree_sha: str = ""
+    repository_relative_candidate_prefix: str = "."
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -719,6 +878,19 @@ class TrustedPolicyBundle:
             self, "candidate_root_identity",
             canonical_identifier(self.candidate_root_identity or "operator_candidate", "candidate root identity"),
         )
+        if not __import__("re").fullmatch(r"[0-9a-f]{64}", self.candidate_snapshot_sha256):
+            raise DomainError("policy candidate snapshot digest is malformed")
+        if self.candidate_tree_sha and not _GIT_SHA.fullmatch(self.candidate_tree_sha):
+            raise DomainError("policy candidate tree identity is malformed")
+        prefix = self.repository_relative_candidate_prefix
+        if prefix != ".":
+            prefix = canonical_repo_path(prefix, "policy candidate repository prefix")
+        object.__setattr__(self, "repository_relative_candidate_prefix", prefix)
+        if self.execution_mode is ExecutionMode.EXPLICIT_OPERATOR:
+            if self.candidate_tree_sha or prefix != ".":
+                raise DomainError("operator policy cannot claim a Git candidate tree")
+        elif not self.candidate_tree_sha:
+            raise DomainError("protected policy requires an exact candidate tree identity")
         if _trusted_context is not _TRUSTED_BUNDLE_CONTEXT:
             raise DomainError("TrustedPolicyBundle requires production loader provenance")
         object.__setattr__(self, "_trusted", True)
@@ -748,6 +920,11 @@ class TrustedPolicyBundle:
             "execution_context_identity": self.execution_context_identity,
             "verification_config_sha256": self.verification_config_sha256,
             "candidate_root_identity": self.candidate_root_identity,
+            "candidate_snapshot_sha256": self.candidate_snapshot_sha256,
+            "candidate_tree_sha": self.candidate_tree_sha,
+            "repository_relative_candidate_prefix": (
+                self.repository_relative_candidate_prefix
+            ),
         }
 
 
@@ -814,6 +991,9 @@ def _bundle(
             if context.candidate_commit
             else f"operator_candidate_{context.context_identity}"
         ),
+        context.candidate_snapshot_sha256,
+        context.candidate_tree_sha,
+        context.repository_relative_candidate_prefix,
         _trusted_context=_TRUSTED_BUNDLE_CONTEXT,
     )
 
@@ -829,27 +1009,46 @@ def _optional_git_object(source: TrustedGitSource, relative: str) -> bytes | Non
     return _git_object_bytes(source.repository_root, source.commit_sha, relative)
 
 
-def _source_governed_evidence(source: TrustedGitSource) -> tuple:
+def _source_governed_evidence(
+    source: TrustedGitSource, context: TrustedExecutionContext
+) -> tuple:
     evidence = []
     for relative in source.governed_paths:
-        trusted = _optional_git_object(source, relative)
-        candidate = _read_policy_bytes(
-            source.candidate_root / relative, required=False,
-            trusted_root=source.candidate_root,
+        trusted_path = (
+            _prefixed_path(context.repository_relative_candidate_prefix, relative)
+            if source.source_origin is ExceptionOrigin.TRUSTED_BASE
+            else relative
+        )
+        candidate_path = _prefixed_path(
+            context.repository_relative_candidate_prefix, relative
+        )
+        trusted = _git_governed_record(
+            source.repository_root, source.commit_sha, trusted_path, relative
+        )
+        candidate = _git_governed_record(
+            context.repository_root, context.candidate_commit, candidate_path, relative
         )
         if trusted is None and candidate is None:
             continue
-        trusted_digest = None if trusted is None else _sha256(trusted)
-        candidate_digest = None if candidate is None else _sha256(candidate)
+        trusted_digest = None if trusted is None else trusted.sha256
+        candidate_digest = None if candidate is None else candidate.sha256
         state = (
             "added" if trusted is None
             else "removed" if candidate is None
-            else "stable" if trusted_digest == candidate_digest
+            else "type_changed" if trusted.kind != candidate.kind
+            else "stable" if (
+                trusted.kind in {"REGULAR_FILE", "REAL_DIRECTORY"}
+                and trusted_digest == candidate_digest
+            )
             else "changed"
         )
         evidence.append(
             GovernedConfigEvidence(
-                relative, trusted_digest, candidate_digest, state
+                relative, trusted_digest, candidate_digest, state,
+                "ABSENT" if trusted is None else trusted.kind,
+                "ABSENT" if candidate is None else candidate.kind,
+                0 if trusted is None else trusted.size,
+                0 if candidate is None else candidate.size,
             )
         )
     return tuple(evidence)
@@ -867,6 +1066,14 @@ def _load_git_source_bundle(
     require_exact_type(context, TrustedExecutionContext, "trusted execution context")
     if not context._trusted:
         raise DomainError("trusted execution context lacks protected provenance")
+    current_tree = _candidate_checkout_tree(
+        context.repository_root,
+        context.candidate_root,
+        context.candidate_commit,
+        context.repository_relative_candidate_prefix,
+    )
+    if current_tree != context.candidate_tree_sha:
+        raise DomainError("candidate tree changed after execution-context attestation")
     expected_mode = (
         ExecutionMode.PR_BASE if origin is ExceptionOrigin.TRUSTED_BASE
         else ExecutionMode.PROTECTED_POLICY_REPOSITORY
@@ -896,12 +1103,24 @@ def _load_git_source_bundle(
     governed_path = canonical_repo_path(governed_path, "governed policy path")
     if governed_path not in source.governed_paths:
         raise DomainError("governed policy path is outside the attested Git source")
-    trusted_bytes = _git_object_bytes(
-        source.repository_root, source.commit_sha, governed_path
+    trusted_object_path = (
+        _prefixed_path(context.repository_relative_candidate_prefix, governed_path)
+        if origin is ExceptionOrigin.TRUSTED_BASE else governed_path
     )
-    candidate_bytes = _read_policy_bytes(
-        source.candidate_root / governed_path, required=False,
-        trusted_root=source.candidate_root,
+    candidate_object_path = _prefixed_path(
+        context.repository_relative_candidate_prefix, governed_path
+    )
+    trusted_bytes = _git_object_bytes(
+        source.repository_root, source.commit_sha, trusted_object_path
+    )
+    candidate_entry = _git_tree_entry(
+        context.repository_root, context.candidate_commit, candidate_object_path
+    )
+    candidate_bytes = (
+        None if candidate_entry is None
+        else _git_object_bytes(
+            context.repository_root, context.candidate_commit, candidate_object_path
+        )
     )
     candidate_state = "missing" if candidate_bytes is None else "present"
     repository_identity = expected_identity
@@ -914,7 +1133,7 @@ def _load_git_source_bundle(
         source.source_identity,
         governed_path,
         context,
-        governed_evidence=_source_governed_evidence(source),
+        governed_evidence=_source_governed_evidence(source, context),
         source_repository=repository_identity,
         source_commit=source.commit_sha,
     )
@@ -1068,6 +1287,10 @@ class PolicyRequest:
             or self.policy_bundle.verification_config_sha256 != config.config_sha256
             or self.policy_bundle.candidate_root_identity
             != authorization.candidate_identity
+            or self.policy_bundle.candidate_snapshot_sha256
+            != self.verification.candidate_snapshot.snapshot_sha256
+            or self.policy_bundle.repository_relative_candidate_prefix
+            != self.verification.candidate_snapshot.repository_relative_subpath
         ):
             raise DomainError("policy bundle is not authorized for this verification config")
         expected_origin = {

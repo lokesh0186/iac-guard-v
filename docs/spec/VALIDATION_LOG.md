@@ -668,6 +668,44 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
+## D6.4 — Candidate tree and governed directory attestation (2026-08-11)
+
+Parent: `230c0cec23b1a662b7a7f98b24ae370e3b27f6fd`. D6.4 did not alter the
+frozen QRS scope and did not begin D7, D9, or Phase E. Literal parent behavior reproduced
+before modification:
+
+```text
+OLD_CONTEXT_CANDIDATE_COMMIT <candidate commit SHA>
+OLD_WORKTREE_EQUALS_BASE True
+OLD_POLICY_DRIFT False
+OLD_CANDIDATE_ROOT_IDENTITY git_candidate_<candidate commit SHA>
+OLD_GOVERNED_SYMLINK_EVIDENCE []
+```
+
+Passing-after focused evidence:
+
+```text
+candidate commit/worktree mismatch -> DomainError: candidate checkout differs from authorized commit
+mutation after context attestation -> rejected again immediately before policy loading
+ignored untracked ignored.tf -> rejected as ignored supported or governed input
+.iac-guard symlink directory -> candidate_kind SYMLINK; state type_changed
+custom_checks symlink directory -> candidate_kind SYMLINK; state type_changed
+monorepo prefix -> services/team-a on base and candidate Git-object reads
+policy snapshot digest substitution -> PolicyRequest rejected as unauthorized
+focused D6.4 regression file -> 17 passed
+focused D6 suite -> 187 passed; policy branch coverage 92%
+```
+
+Candidate policy and governed evidence now come from the authorized candidate Git object.
+The protected checkout is clean and commit-bound, D5/D6 snapshot and subpath identities
+must agree, and canonical source evidence does not include local absolute roots.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
 ## Gate D4.4 — Strict independent artifact discovery
 
 Literal failing-before probes on `f9fe391b88b07676dbbab68124da04ac15bd13e3`:

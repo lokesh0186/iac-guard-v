@@ -540,6 +540,16 @@ def _source_snapshot_state(
     return digest, tuple(governed[path] for path in sorted(governed))
 
 
+def _repository_relative_subpath(root: Path) -> str:
+    """Best-effort portable subtree label; Git authorization remains D6's job."""
+    resolved = root.resolve(strict=True)
+    for parent in (resolved, *resolved.parents):
+        if (parent / ".git").exists():
+            relative = resolved.relative_to(parent).as_posix()
+            return relative or "."
+    return "."
+
+
 @dataclass(frozen=True, slots=True)
 class TrustedVerificationConfigBundle:
     """Protected scanner, regression, gate, and governed-config policy."""
@@ -570,6 +580,8 @@ class TrustedVerificationConfigBundle:
     config_sha256: str = field(init=False)
     baseline_source_snapshot_sha256: str = field(init=False)
     candidate_source_snapshot_sha256: str = field(init=False)
+    baseline_repository_relative_subpath: str = field(init=False)
+    candidate_repository_relative_subpath: str = field(init=False)
 
     def __post_init__(self, _trusted_context: object) -> None:
         if _trusted_context is not _TRUSTED_CONFIG_CONTEXT:
@@ -632,10 +644,18 @@ class TrustedVerificationConfigBundle:
         )
         object.__setattr__(self, "baseline_source_snapshot_sha256", baseline_state)
         object.__setattr__(self, "candidate_source_snapshot_sha256", candidate_state)
+        baseline_subpath = _repository_relative_subpath(self.baseline_root)
+        candidate_subpath = _repository_relative_subpath(self.candidate_root)
+        object.__setattr__(self, "baseline_repository_relative_subpath", baseline_subpath)
+        object.__setattr__(self, "candidate_repository_relative_subpath", candidate_subpath)
         payload = {
             "role_snapshots": {
                 "baseline": baseline_state,
                 "candidate": candidate_state,
+            },
+            "role_subpaths": {
+                "baseline": baseline_subpath,
+                "candidate": candidate_subpath,
             },
             "frameworks": list(frameworks),
             "version": self.expected_version,
@@ -678,6 +698,10 @@ class TrustedVerificationConfigBundle:
             "role_snapshots": {
                 "baseline": self.baseline_source_snapshot_sha256,
                 "candidate": self.candidate_source_snapshot_sha256,
+            },
+            "role_subpaths": {
+                "baseline": self.baseline_repository_relative_subpath,
+                "candidate": self.candidate_repository_relative_subpath,
             },
         }
 
@@ -1649,7 +1673,13 @@ def attest_checkov_scan_plan(
             or "operator_content_repository_v1"
             if config is not None else "operator_content_repository_v1"
         ),
-        ".",
+        (
+            config.baseline_repository_relative_subpath
+            if role is ScanRole.BASELINE
+            else config.candidate_repository_relative_subpath
+            if role is ScanRole.CANDIDATE
+            else "."
+        ) if config is not None else ".",
         _trusted_context=_TRUSTED_SCAN_PLAN_CONTEXT,
     )
 

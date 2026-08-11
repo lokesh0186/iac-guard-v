@@ -349,3 +349,11 @@ snapshot per role. Validators do not reread the mutable checkout. A final comple
 supported/governed inventory comparison detects late files, removals, byte changes,
 type changes, and symlink substitutions before a result can be trusted. Local absolute
 paths remain runtime-only and do not affect canonical snapshot or configuration hashes.
+
+D6.4 prevents a commit label from blessing unrelated working-tree bytes. Protected
+contexts require the authorized candidate at `HEAD`, a clean checkout, and no untracked
+or ignored supported/governed input; loaders recheck that state and read candidate policy
+from Git objects. D5 and D6 must agree on candidate snapshot digest and repository
+subpath. Governed directory entries are inspected even when they are symlinks, and real
+directories carry bounded recursive manifests. Thus a governed `.iac-guard` or
+`custom_checks` symlink is explicit drift/error rather than an empty inventory.
