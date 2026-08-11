@@ -46,6 +46,14 @@ drift apart.
 ## Amendment, 2026-08-11: portable input and resource coverage evidence
 
 D4.2 defines portable scanner-input identity as path, artifact type, size, and SHA-256.
+
+## Amendment, 2026-08-11: sealed snapshot evidence
+
+D5.4 requires canonical verification evidence to include baseline and candidate sealed
+snapshot identities, portable repository-relative subpaths, complete artifact
+classifications, expected resources, governed-entry types/digests, resource inventory
+roots, and gate implementation identities. Local absolute source roots are private
+runtime diagnostics and do not contribute to canonical configuration or report hashes.
 Device and inode remain private runtime race checks and do not serialize. Scanner reports
 also carry `resource_coverage` separately from file/evaluation counters. These are
 pre-release schema corrections: host filesystem allocation must not make otherwise

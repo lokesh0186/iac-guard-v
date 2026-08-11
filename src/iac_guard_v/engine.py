@@ -81,12 +81,48 @@ _GOVERNED_DIRECTORY_NAMES = frozenset({
     ".iac-guard", ".checkov", "checkov_custom_checks", "custom_checks",
     "oracle-policy", "control-catalog",
 })
+_MAX_GOVERNED_FILES = 10_000
+_MAX_GOVERNED_FILE_BYTES = 10 * 1024 * 1024
+_MAX_GOVERNED_TOTAL_BYTES = 100 * 1024 * 1024
+_GOVERNED_KINDS = frozenset({
+    "ABSENT", "REGULAR_FILE", "REAL_DIRECTORY", "SYMLINK", "OTHER",
+})
 
 
 def _digest(value: object, name: str) -> str:
     if type(value) is not str or not _SHA256.fullmatch(value):
         raise DomainError(f"{name} must be a lowercase SHA-256 digest")
     return value
+
+
+@dataclass(frozen=True, slots=True)
+class GovernedPathRecord:
+    """One no-follow governed entry in a role-specific snapshot."""
+
+    file_path: str
+    kind: str
+    sha256: str | None
+    size: int
+
+    def __post_init__(self) -> None:
+        from .models import canonical_repo_path
+
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        if self.kind not in _GOVERNED_KINDS - {"ABSENT"}:
+            raise DomainError("governed path record kind is unsupported")
+        if type(self.size) is not int or self.size < 0:
+            raise DomainError("governed path record size must be nonnegative")
+        if self.sha256 is None:
+            raise DomainError("present governed path record requires a digest")
+        _digest(self.sha256, "governed path record digest")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "file_path": self.file_path,
+            "kind": self.kind,
+            "sha256": self.sha256,
+            "size": self.size,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,6 +133,10 @@ class GovernedConfigEvidence:
     trusted_sha256: str | None
     candidate_sha256: str | None
     state: str
+    trusted_kind: str = ""
+    candidate_kind: str = ""
+    trusted_size: int = 0
+    candidate_size: int = 0
 
     def __post_init__(self) -> None:
         from .models import canonical_repo_path
@@ -106,10 +146,28 @@ class GovernedConfigEvidence:
             value = getattr(self, name)
             if value is not None:
                 _digest(value, f"governed config {name}")
+        trusted_kind = self.trusted_kind or (
+            "REGULAR_FILE" if self.trusted_sha256 is not None else "ABSENT"
+        )
+        candidate_kind = self.candidate_kind or (
+            "REGULAR_FILE" if self.candidate_sha256 is not None else "ABSENT"
+        )
+        if trusted_kind not in _GOVERNED_KINDS or candidate_kind not in _GOVERNED_KINDS:
+            raise DomainError("governed config entry kind is unsupported")
+        object.__setattr__(self, "trusted_kind", trusted_kind)
+        object.__setattr__(self, "candidate_kind", candidate_kind)
+        for name in ("trusted_size", "candidate_size"):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise DomainError("governed config entry size must be nonnegative")
         expected = (
-            "added" if self.trusted_sha256 is None
-            else "removed" if self.candidate_sha256 is None
-            else "stable" if self.trusted_sha256 == self.candidate_sha256
+            "added" if trusted_kind == "ABSENT"
+            else "removed" if candidate_kind == "ABSENT"
+            else "type_changed" if trusted_kind != candidate_kind
+            else "stable" if (
+                trusted_kind in {"REGULAR_FILE", "REAL_DIRECTORY"}
+                and self.trusted_sha256 == self.candidate_sha256
+            )
             else "changed"
         )
         if self.state != expected:
@@ -121,6 +179,10 @@ class GovernedConfigEvidence:
             "trusted_sha256": self.trusted_sha256,
             "candidate_sha256": self.candidate_sha256,
             "state": self.state,
+            "trusted_kind": self.trusted_kind,
+            "candidate_kind": self.candidate_kind,
+            "trusted_size": self.trusted_size,
+            "candidate_size": self.candidate_size,
         }
 
 
@@ -172,7 +234,7 @@ class PolicySourceAuthorization:
         }
 
 
-GateExecutor = Callable[[str, str, Path], GateResult]
+GateExecutor = Callable[[str, str, "SealedVerificationSnapshot"], GateResult]
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,18 +307,22 @@ class TrustedGateRegistry:
             raise DomainError("TrustedGateRegistry requires factory provenance")
         object.__setattr__(self, "_trusted", True)
 
-    def execute(self, kind: str, gate_id: str, root: Path) -> GateResult:
+    def execute(
+        self, kind: str, gate_id: str, snapshot: "SealedVerificationSnapshot"
+    ) -> GateResult:
         supported = self.validator_ids if kind == "validator" else self.oracle_ids
         if gate_id not in supported:
             return GateResult(gate_id, Status.UNSUPPORTED, "GATE_IMPLEMENTATION_UNAVAILABLE")
-        result = self._executor(kind, gate_id, root)
+        result = self._executor(kind, gate_id, snapshot)
         require_exact_type(result, GateResult, "gate registry result")
         if result.gate_id != gate_id:
             raise DomainError("trusted gate registry substituted a different gate id")
         return GateResult(result.gate_id, result.status, result.reason_code, result.detail)
 
 
-def _production_gate_executor(kind: str, gate_id: str, root: Path) -> GateResult:
+def _production_gate_executor(
+    kind: str, gate_id: str, snapshot: "SealedVerificationSnapshot"
+) -> GateResult:
     if kind != "validator":
         return GateResult(gate_id, Status.UNSUPPORTED, "ORACLE_IMPLEMENTATION_UNAVAILABLE")
     suffixes = (
@@ -266,11 +332,12 @@ def _production_gate_executor(kind: str, gate_id: str, root: Path) -> GateResult
     )
     try:
         checked = 0
-        for path in sorted(root.rglob("*")):
-            if not path.is_file() or path.suffix.lower() not in suffixes:
+        for bound in snapshot.files:
+            path = Path(bound.file_path)
+            if path.suffix.lower() not in suffixes:
                 continue
-            relative = path.relative_to(root).as_posix()
-            content = _read_detector_file(path, root, 10 * 1024 * 1024)
+            relative = bound.file_path
+            content = bound.content
             if gate_id == "terraform_hcl_parse":
                 _terraform_resources(relative, content)
             elif path.suffix.lower() == ".json":
@@ -284,20 +351,39 @@ def _production_gate_executor(kind: str, gate_id: str, root: Path) -> GateResult
 
 
 def production_gate_registry() -> TrustedGateRegistry:
-    code_digest = hashlib.sha256(
-        inspect.getsource(_production_gate_executor).encode("utf-8")
-    ).hexdigest()
+    import importlib.metadata
+
+    implementation_sources = (
+        _production_gate_executor,
+        _terraform_resources,
+        _bounded_yaml_documents,
+        _kubernetes_resources,
+        _strict_json_document,
+        _kubernetes_json_resources,
+        _resources_from_kubernetes_documents,
+    )
+    payload = {
+        "contract": "phase-d-gate-implementation-v2",
+        "sources": [inspect.getsource(item) for item in implementation_sources],
+        "dependencies": {
+            name: importlib.metadata.version(name)
+            for name in ("python-hcl2", "PyYAML")
+        },
+    }
+    code_digest = hashlib.sha256(json.dumps(
+        payload, sort_keys=True, separators=(",", ":")
+    ).encode()).hexdigest()
     return TrustedGateRegistry(
-        "iac_guard_v_phase_d_registry_v1",
+        "iac_guard_v_phase_d_registry_v2",
         ("kubernetes_yaml_parse", "terraform_hcl_parse"),
         (),
         (
             GateImplementation(
-                "kubernetes_yaml_parse", "validator", "1", code_digest,
+                "kubernetes_yaml_parse", "validator", "2", code_digest,
                 (ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON),
             ),
             GateImplementation(
-                "terraform_hcl_parse", "validator", "1", code_digest,
+                "terraform_hcl_parse", "validator", "2", code_digest,
                 (ArtifactKind.TERRAFORM_HCL,),
             ),
         ),
@@ -309,22 +395,61 @@ def _governed_file(path: Path, relative: str) -> bool:
     parts = Path(relative).parts
     return (
         path.name in _GOVERNED_FILE_NAMES
-        or any(part in _GOVERNED_DIRECTORY_NAMES for part in parts[:-1])
+        or any(part in _GOVERNED_DIRECTORY_NAMES for part in parts)
     )
 
 
-def _governed_inventory(root: Path) -> dict[str, str]:
-    result: dict[str, str] = {}
+def _governed_inventory(root: Path) -> dict[str, GovernedPathRecord]:
+    result: dict[str, GovernedPathRecord] = {}
+    total_bytes = 0
     for path in sorted(root.rglob("*")):
         relative = path.relative_to(root).as_posix()
+        if ".git" in Path(relative).parts:
+            continue
         if not _governed_file(path, relative):
             continue
-        if path.is_symlink():
-            raise DomainError("governed configuration cannot be a symlink")
-        if not path.is_file():
+        if len(result) >= _MAX_GOVERNED_FILES:
+            raise DomainError("governed configuration exceeds its file-count limit")
+        try:
+            metadata = path.lstat()
+        except OSError as exc:
+            raise DomainError("governed path entry could not be inspected") from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            try:
+                payload = os.readlink(path).encode("utf-8", errors="strict")
+            except (OSError, UnicodeError) as exc:
+                raise DomainError("governed symlink target could not be recorded") from exc
+            kind = "SYMLINK"
+        elif stat.S_ISREG(metadata.st_mode):
+            payload = _read_detector_file(path, root, _MAX_GOVERNED_FILE_BYTES)
+            total_bytes += len(payload)
+            if total_bytes > _MAX_GOVERNED_TOTAL_BYTES:
+                raise DomainError("governed configuration exceeds its total-byte limit")
+            kind = "REGULAR_FILE"
+        elif stat.S_ISDIR(metadata.st_mode):
+            payload = b"directory"
+            kind = "REAL_DIRECTORY"
+        else:
+            payload = f"mode:{stat.S_IFMT(metadata.st_mode):o}".encode("ascii")
+            kind = "OTHER"
+        result[relative] = GovernedPathRecord(
+            relative, kind, hashlib.sha256(payload).hexdigest(), len(payload)
+        )
+    # A directory digest binds all typed descendants, including an empty directory.
+    for relative, record in tuple(result.items()):
+        if record.kind != "REAL_DIRECTORY":
             continue
-        payload = _read_detector_file(path, root, 10 * 1024 * 1024)
-        result[relative] = hashlib.sha256(payload).hexdigest()
+        prefix = relative + "/"
+        descendants = [
+            item.canonical_dict() for name, item in sorted(result.items())
+            if name.startswith(prefix)
+        ]
+        payload = json.dumps(
+            descendants, sort_keys=True, separators=(",", ":")
+        ).encode()
+        result[relative] = GovernedPathRecord(
+            relative, record.kind, hashlib.sha256(payload).hexdigest(), len(payload)
+        )
     return result
 
 
@@ -335,9 +460,84 @@ def _governed_comparison(baseline_root: Path, candidate_root: Path) -> tuple:
     for path in sorted(set(trusted) | set(candidate)):
         before = trusted.get(path)
         after = candidate.get(path)
-        state = "added" if before is None else "removed" if after is None else "stable" if before == after else "changed"
-        evidence.append(GovernedConfigEvidence(path, before, after, state))
+        before_kind = "ABSENT" if before is None else before.kind
+        after_kind = "ABSENT" if after is None else after.kind
+        before_digest = None if before is None else before.sha256
+        after_digest = None if after is None else after.sha256
+        state = (
+            "added" if before is None
+            else "removed" if after is None
+            else "type_changed" if before.kind != after.kind
+            else "stable" if (
+                before.kind in {"REGULAR_FILE", "REAL_DIRECTORY"}
+                and before.sha256 == after.sha256
+            )
+            else "changed"
+        )
+        evidence.append(GovernedConfigEvidence(
+            path, before_digest, after_digest, state,
+            before_kind, after_kind,
+            0 if before is None else before.size,
+            0 if after is None else after.size,
+        ))
     return tuple(evidence)
+
+
+def _source_snapshot_state(
+    root: Path,
+    *,
+    max_files: int,
+    max_file_bytes: int,
+    max_total_bytes: int,
+) -> tuple[str, tuple[GovernedPathRecord, ...]]:
+    """Portable no-follow state for supported artifacts plus governed entries."""
+    records: list[dict] = []
+    count = total = 0
+    governed = _governed_inventory(root)
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        parts = Path(relative).parts
+        if ".git" in parts:
+            continue
+        supported = (
+            path.suffix.lower() in {".tf", ".yaml", ".yml", ".json"}
+            or path.name.lower().endswith(".tf.json")
+        )
+        if not supported or relative in governed:
+            continue
+        try:
+            metadata = path.lstat()
+        except OSError as exc:
+            raise DomainError("snapshot entry could not be inspected") from exc
+        count += 1
+        if count > max_files:
+            raise DomainError("snapshot exceeds its supported-file count limit")
+        if stat.S_ISLNK(metadata.st_mode):
+            payload = os.readlink(path).encode("utf-8", errors="strict")
+            kind = "SYMLINK"
+        elif stat.S_ISREG(metadata.st_mode):
+            payload = _read_detector_file(path, root, max_file_bytes)
+            total += len(payload)
+            if total > max_total_bytes:
+                raise DomainError("snapshot exceeds its supported-file byte limit")
+            kind = "REGULAR_FILE"
+        elif stat.S_ISDIR(metadata.st_mode):
+            continue
+        else:
+            payload = f"mode:{stat.S_IFMT(metadata.st_mode):o}".encode("ascii")
+            kind = "OTHER"
+        records.append({
+            "file_path": relative,
+            "kind": kind,
+            "size": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        })
+    records.extend(item.canonical_dict() for item in governed.values())
+    digest = hashlib.sha256(json.dumps(
+        sorted(records, key=lambda item: item["file_path"]),
+        sort_keys=True, separators=(",", ":"),
+    ).encode()).hexdigest()
+    return digest, tuple(governed[path] for path in sorted(governed))
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,6 +568,8 @@ class TrustedVerificationConfigBundle:
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
     config_sha256: str = field(init=False)
+    baseline_source_snapshot_sha256: str = field(init=False)
+    candidate_source_snapshot_sha256: str = field(init=False)
 
     def __post_init__(self, _trusted_context: object) -> None:
         if _trusted_context is not _TRUSTED_CONFIG_CONTEXT:
@@ -416,10 +618,24 @@ class TrustedVerificationConfigBundle:
         require_exact_type(self.gate_registry, TrustedGateRegistry, "trusted gate registry")
         if not self.gate_registry._trusted:
             raise DomainError("gate registry lacks factory provenance")
+        baseline_state, _baseline_governed = _source_snapshot_state(
+            self.baseline_root,
+            max_files=self.max_eligible_files,
+            max_file_bytes=self.max_file_bytes,
+            max_total_bytes=self.max_total_eligible_bytes,
+        )
+        candidate_state, _candidate_governed = _source_snapshot_state(
+            self.candidate_root,
+            max_files=self.max_eligible_files,
+            max_file_bytes=self.max_file_bytes,
+            max_total_bytes=self.max_total_eligible_bytes,
+        )
+        object.__setattr__(self, "baseline_source_snapshot_sha256", baseline_state)
+        object.__setattr__(self, "candidate_source_snapshot_sha256", candidate_state)
         payload = {
-            "role_roots": {
-                "baseline": str(self.baseline_root),
-                "candidate": str(self.candidate_root),
+            "role_snapshots": {
+                "baseline": baseline_state,
+                "candidate": candidate_state,
             },
             "frameworks": list(frameworks),
             "version": self.expected_version,
@@ -459,6 +675,10 @@ class TrustedVerificationConfigBundle:
             "required_gates": self.required_gates.canonical_dict(),
             "gate_registry_identity": self.gate_registry.identity,
             "governed_config": [item.canonical_dict() for item in self.governed_config],
+            "role_snapshots": {
+                "baseline": self.baseline_source_snapshot_sha256,
+                "candidate": self.candidate_source_snapshot_sha256,
+            },
         }
 
 
@@ -607,6 +827,78 @@ class ArtifactClassification:
 
 
 @dataclass(frozen=True, slots=True)
+class SealedVerificationSnapshot:
+    """Portable immutable bytes and inventories consumed by every Phase-D gate."""
+
+    role: ScanRole
+    repository_identity: str
+    repository_relative_subpath: str
+    snapshot_sha256: str
+    artifact_manifest_sha256: str
+    resource_inventory_sha256: str
+    config_sha256: str
+    files: tuple
+    classifications: tuple
+    resources: tuple
+    governed_paths: tuple
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        from .models import canonical_repo_path
+
+        require_enum(self.role, ScanRole, "sealed snapshot role")
+        if self.role is ScanRole.DISCOVERY:
+            raise DomainError("sealed verification snapshot requires baseline/candidate role")
+        object.__setattr__(
+            self, "repository_identity",
+            canonical_identifier(self.repository_identity, "snapshot repository identity"),
+        )
+        subpath = self.repository_relative_subpath
+        if subpath == ".":
+            canonical_subpath = "."
+        else:
+            canonical_subpath = canonical_repo_path(subpath, "snapshot repository subpath")
+        object.__setattr__(self, "repository_relative_subpath", canonical_subpath)
+        for name in (
+            "snapshot_sha256", "artifact_manifest_sha256",
+            "resource_inventory_sha256", "config_sha256",
+        ):
+            _digest(getattr(self, name), name)
+        typed_collections = (
+            ("files", ScanPlanFile),
+            ("classifications", ArtifactClassification),
+            ("resources", ExpectedResource),
+            ("governed_paths", GovernedPathRecord),
+        )
+        for name, item_type in typed_collections:
+            values = getattr(self, name)
+            if type(values) is not tuple or any(type(item) is not item_type for item in values):
+                raise DomainError(f"sealed snapshot {name} must be an exact typed tuple")
+        paths = [item.file_path for item in self.files]
+        if len(paths) != len(set(paths)):
+            raise DomainError("sealed snapshot files contain duplicate paths")
+        if _trusted_context is not _TRUSTED_SCAN_PLAN_CONTEXT:
+            raise DomainError("sealed snapshot requires scan-plan factory provenance")
+        object.__setattr__(self, "_trusted", True)
+
+    def canonical_dict(self) -> dict:
+        return {
+            "role": self.role.value,
+            "repository_identity": self.repository_identity,
+            "repository_relative_subpath": self.repository_relative_subpath,
+            "snapshot_sha256": self.snapshot_sha256,
+            "artifact_manifest_sha256": self.artifact_manifest_sha256,
+            "resource_inventory_sha256": self.resource_inventory_sha256,
+            "config_sha256": self.config_sha256,
+            "files": [item.canonical_dict() for item in self.files],
+            "classifications": [item.canonical_dict() for item in self.classifications],
+            "resources": [item.canonical_dict() for item in self.resources],
+            "governed_paths": [item.canonical_dict() for item in self.governed_paths],
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class TrustedScanPlan:
     """Private-factory scan plan whose resources were detected from bound bytes."""
 
@@ -615,11 +907,20 @@ class TrustedScanPlan:
     resources: tuple
     inventory_sha256: str
     classifications: tuple = ()
+    inspected_files: tuple = ()
+    governed_paths: tuple = ()
     role: ScanRole = ScanRole.DISCOVERY
     snapshot_sha256: str = ""
+    artifact_manifest_sha256: str = ""
+    source_state_sha256: str = ""
     config_sha256: str = ""
+    repository_identity: str = "operator_content_repository_v1"
+    repository_relative_subpath: str = "."
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+    sealed_snapshot: SealedVerificationSnapshot | None = field(
+        init=False, default=None, repr=False, compare=False
+    )
 
     def __post_init__(self, _trusted_context: object) -> None:
         require_exact_type(self.request, CheckovScanRequest, "scan-plan request")
@@ -631,6 +932,16 @@ class TrustedScanPlan:
             type(item) is not ArtifactClassification for item in self.classifications
         ):
             raise DomainError("scan-plan classifications must be exact typed records")
+        if type(self.inspected_files) is not tuple or any(
+            type(item) is not ScanPlanFile for item in self.inspected_files
+        ):
+            raise DomainError("scan-plan inspected files must be exact ScanPlanFile values")
+        if not self.inspected_files:
+            object.__setattr__(self, "inspected_files", self.files)
+        if type(self.governed_paths) is not tuple or any(
+            type(item) is not GovernedPathRecord for item in self.governed_paths
+        ):
+            raise DomainError("scan-plan governed paths must be exact typed records")
         require_enum(self.role, ScanRole, "scan-plan role")
         if tuple(self.request.expected_resources) != self.resources:
             raise DomainError("scan-plan resources disagree with its adapter request")
@@ -640,12 +951,19 @@ class TrustedScanPlan:
         if len(paths) != len(set(paths)):
             raise DomainError("scan-plan classifications contain duplicate paths")
         files_by_path = {item.file_path: item for item in self.files}
+        inspected_by_path = {item.file_path: item for item in self.inspected_files}
+        if set(inspected_by_path) != set(paths):
+            raise DomainError("scan-plan inspected bytes disagree with classifications")
         classified_eligible = {
             item.file_path: item for item in self.classifications
             if not item.classification.startswith("NON_KUBERNETES")
         }
         if set(files_by_path) != set(classified_eligible):
             raise DomainError("eligible scan-plan files disagree with classifications")
+        for path, bound in inspected_by_path.items():
+            classified = next(item for item in self.classifications if item.file_path == path)
+            if (classified.sha256, classified.size) != (bound.sha256, bound.size):
+                raise DomainError("scan-plan classification bytes disagree with inspected file")
         for path, bound in files_by_path.items():
             classified = classified_eligible[path]
             if (classified.sha256, classified.size) != (bound.sha256, bound.size):
@@ -673,20 +991,42 @@ class TrustedScanPlan:
         ).hexdigest()
         if computed_inventory != self.inventory_sha256:
             raise DomainError("scan-plan inventory digest is not canonical")
-        computed_snapshot = hashlib.sha256(json.dumps(
+        computed_artifact_manifest = hashlib.sha256(json.dumps(
             {
                 "root_files": [item.canonical_dict() for item in self.classifications],
                 "eligible_files": [item.canonical_dict() for item in self.files],
             }, sort_keys=True, separators=(",", ":"),
         ).encode()).hexdigest()
+        if self.artifact_manifest_sha256 and self.artifact_manifest_sha256 != computed_artifact_manifest:
+            raise DomainError("scan-plan artifact manifest digest is not canonical")
+        object.__setattr__(self, "artifact_manifest_sha256", computed_artifact_manifest)
+        if self.role is ScanRole.DISCOVERY:
+            if self.config_sha256 or self.source_state_sha256:
+                raise DomainError("discovery scan plan cannot claim a config identity")
+            computed_snapshot = computed_artifact_manifest
+        else:
+            _digest(self.config_sha256, "scan-plan config digest")
+            _digest(self.source_state_sha256, "scan-plan source-state digest")
+            computed_snapshot = self.source_state_sha256
         if self.snapshot_sha256 and self.snapshot_sha256 != computed_snapshot:
             raise DomainError("scan-plan snapshot digest is not canonical")
         object.__setattr__(self, "snapshot_sha256", computed_snapshot)
-        if self.role is ScanRole.DISCOVERY:
-            if self.config_sha256:
-                raise DomainError("discovery scan plan cannot claim a config identity")
-        else:
-            _digest(self.config_sha256, "scan-plan config digest")
+        if self.role is not ScanRole.DISCOVERY:
+            sealed = SealedVerificationSnapshot(
+                self.role,
+                self.repository_identity,
+                self.repository_relative_subpath,
+                computed_snapshot,
+                computed_artifact_manifest,
+                self.inventory_sha256,
+                self.config_sha256,
+                self.inspected_files,
+                self.classifications,
+                self.resources,
+                self.governed_paths,
+                _trusted_context=_TRUSTED_SCAN_PLAN_CONTEXT,
+            )
+            object.__setattr__(self, "sealed_snapshot", sealed)
         object.__setattr__(self, "_trusted", True)
 
     @property
@@ -728,10 +1068,13 @@ class TrustedScanPlan:
             "inventory_sha256": self.inventory_sha256,
             "role": self.role.value,
             "snapshot_sha256": self.snapshot_sha256,
+            "artifact_manifest_sha256": self.artifact_manifest_sha256,
+            "source_state_sha256": self.source_state_sha256,
             "config_sha256": self.config_sha256,
             "classifications": [
                 item.canonical_dict() for item in self.classifications
             ],
+            "governed_paths": [item.canonical_dict() for item in self.governed_paths],
         }
 
 
@@ -1145,6 +1488,7 @@ def attest_checkov_scan_plan(
         max_total_bytes = untrusted.max_total_eligible_bytes
         max_files = untrusted.max_eligible_files
     files: list[ScanPlanFile] = []
+    inspected_files: list[ScanPlanFile] = []
     resources: list[ExpectedResource] = []
     kubernetes: list[CheckovKubernetesIdentity] = []
     eligible: list[str] = []
@@ -1215,6 +1559,15 @@ def attest_checkov_scan_plan(
                 tuple(detected),
             )
         )
+        inspected_files.append(
+            ScanPlanFile(
+                relative,
+                file_type or f"classified_{syntax_kind}",
+                len(content),
+                hashlib.sha256(content).hexdigest(),
+                content,
+            )
+        )
         if not file_type:
             continue
         if len(eligible) >= max_files:
@@ -1264,15 +1617,39 @@ def attest_checkov_scan_plan(
     inventory_digest = hashlib.sha256(
         json.dumps(inventory_payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
+    source_state, governed_paths = _source_snapshot_state(
+        root,
+        max_files=max_files,
+        max_file_bytes=max_file_bytes,
+        max_total_bytes=max_total_bytes,
+    )
+    if config is not None:
+        expected_state = (
+            config.baseline_source_snapshot_sha256
+            if role is ScanRole.BASELINE
+            else config.candidate_source_snapshot_sha256
+        )
+        if source_state != expected_state:
+            raise DomainError("role source snapshot changed after protected configuration")
     return TrustedScanPlan(
         request,
         tuple(sorted(files, key=lambda item: item.file_path)),
         ordered_resources,
         inventory_digest,
         ordered_classifications,
+        tuple(sorted(inspected_files, key=lambda item: item.file_path)),
+        governed_paths,
         role,
         "",
+        "",
+        source_state if config is not None else "",
         config.config_sha256 if config is not None else "",
+        (
+            config.policy_source_authorization.repository_identity
+            or "operator_content_repository_v1"
+            if config is not None else "operator_content_repository_v1"
+        ),
+        ".",
         _trusted_context=_TRUSTED_SCAN_PLAN_CONTEXT,
     )
 
@@ -1627,6 +2004,8 @@ class VerificationResult:
     change_metrics: ChangeMetrics
     required_gates: RequiredGates
     verification_config: TrustedVerificationConfigBundle
+    baseline_snapshot: SealedVerificationSnapshot
+    candidate_snapshot: SealedVerificationSnapshot
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -1642,6 +2021,16 @@ class VerificationResult:
         )
         if not self.verification_config._trusted:
             raise DomainError("verification result config lacks loader provenance")
+        for name, role in (
+            ("baseline_snapshot", ScanRole.BASELINE),
+            ("candidate_snapshot", ScanRole.CANDIDATE),
+        ):
+            snapshot = getattr(self, name)
+            require_exact_type(snapshot, SealedVerificationSnapshot, name)
+            if not snapshot._trusted or snapshot.role is not role:
+                raise DomainError(f"{name} lacks role-bound factory provenance")
+            if snapshot.config_sha256 != self.verification_config.config_sha256:
+                raise DomainError(f"{name} belongs to a different verification config")
         if self.required_gates != self.verification_config.required_gates:
             raise DomainError("verification result gates disagree with protected config")
         for name in ("preflight", "scanner_integrity", "regression", "suppression"):
@@ -1705,6 +2094,8 @@ class VerificationResult:
             "baseline_run": self.baseline_run.canonical_dict(),
             "candidate_run": self.candidate_run.canonical_dict(),
             "verification_config": self.verification_config.canonical_dict(),
+            "baseline_snapshot": self.baseline_snapshot.canonical_dict(),
+            "candidate_snapshot": self.candidate_snapshot.canonical_dict(),
         }
 
 
@@ -1718,12 +2109,12 @@ def require_trusted_verification_result(value: object) -> VerificationResult:
 def _gate_results(
     ids: tuple,
     kind: str,
-    root: Path,
+    snapshot: SealedVerificationSnapshot,
     registry: TrustedGateRegistry,
 ) -> tuple[GateResult, ...]:
     results: list[GateResult] = []
     for gate_id in ids:
-        result = registry.execute(kind, gate_id, root)
+        result = registry.execute(kind, gate_id, snapshot)
         results.append(result)
     return tuple(results)
 
@@ -1748,6 +2139,9 @@ def _execution_identity(run: ScannerRun) -> tuple:
         run.scanner_environment_digest,
         run.policy_inventory_digest,
         run.invocation_config_digest,
+        run.installed_distribution_digest,
+        run.dependency_lock_digest,
+        run.custom_check_digest,
     )
 
 
@@ -1813,7 +2207,10 @@ def _target_observation(
     expected_resources = {item.canonical_key for item in request.candidate_scan.expected_resources}
     resource_present = target.resource_key in expected_resources
     path_present = resource_present or any(path in eligible for path in baseline_paths)
-    physical_present = any((request.candidate_scan.scan_root / path).is_file() for path in baseline_paths)
+    classified_paths = {
+        item.file_path for item in request.candidate_scan.classifications
+    }
+    physical_present = any(path in classified_paths for path in baseline_paths)
     if resource_present or path_present:
         file_state = Status.PASS
         eligibility = Status.PASS
@@ -1960,6 +2357,18 @@ def _preflight_result(
     request: VerificationRequest, baseline: ScannerRun, candidate: ScannerRun
 ) -> GateResult:
     try:
+        baseline_state, _baseline_governed = _source_snapshot_state(
+            request.config.baseline_root,
+            max_files=request.config.max_eligible_files,
+            max_file_bytes=request.config.max_file_bytes,
+            max_total_bytes=request.config.max_total_eligible_bytes,
+        )
+        candidate_state, _candidate_governed = _source_snapshot_state(
+            request.config.candidate_root,
+            max_files=request.config.max_eligible_files,
+            max_file_bytes=request.config.max_file_bytes,
+            max_total_bytes=request.config.max_total_eligible_bytes,
+        )
         current_governed = _governed_comparison(
             request.config.baseline_root, request.config.candidate_root
         )
@@ -1967,11 +2376,27 @@ def _preflight_result(
         return GateResult(
             "preflight", Status.ERROR, "GOVERNED_CONFIG_REVALIDATION_FAILED", str(exc)
         )
+    if (
+        baseline_state != request.baseline_scan.source_state_sha256
+        or candidate_state != request.candidate_scan.source_state_sha256
+    ):
+        return GateResult(
+            "preflight", Status.ERROR, "SNAPSHOT_CHANGED_DURING_VERIFICATION"
+        )
     if tuple(item.canonical_dict() for item in current_governed) != tuple(
         item.canonical_dict() for item in request.config.governed_config
     ):
         return GateResult(
             "preflight", Status.ERROR, "GOVERNED_CONFIG_CHANGED_AFTER_ATTESTATION"
+        )
+    unsafe_governed = tuple(
+        item.file_path for item in current_governed
+        if item.candidate_kind in {"SYMLINK", "OTHER"}
+    )
+    if unsafe_governed:
+        return GateResult(
+            "preflight", Status.ERROR, "GOVERNED_PATH_TYPE_UNSAFE",
+            ",".join(unsafe_governed),
         )
     payload = {
         "baseline": [item.canonical_dict() for item in request.baseline_scan.eligible_file_evidence],
@@ -2148,13 +2573,19 @@ def run_checkov_verification(
                 _trusted_context=_TRUSTED_ENGINE_CONTEXT,
             )
         )
-    candidate_root = request.candidate_scan.scan_root
+    if (
+        request.baseline_scan.sealed_snapshot is None
+        or request.candidate_scan.sealed_snapshot is None
+    ):
+        raise DomainError("verification request lacks role-sealed snapshots")
     validators = _gate_results(
-        request.required_gates.validator_ids, "validator", candidate_root,
+        request.required_gates.validator_ids, "validator",
+        request.candidate_scan.sealed_snapshot,
         request.config.gate_registry,
     )
     oracles = _gate_results(
-        request.required_gates.oracle_ids, "oracle", candidate_root,
+        request.required_gates.oracle_ids, "oracle",
+        request.candidate_scan.sealed_snapshot,
         request.config.gate_registry,
     )
     scanner_status = (
@@ -2167,12 +2598,13 @@ def run_checkov_verification(
     suppression_status = (
         Status.PASS if candidate.status is Status.PASS else Status.INCONCLUSIVE
     )
+    preflight = _preflight_result(request, baseline, candidate)
     return VerificationResult(
         baseline,
         candidate,
         diff,
         tuple(outcomes),
-        _preflight_result(request, baseline, candidate),
+        preflight,
         GateResult(
             "scanner_integrity", scanner_status,
             "SCANNER_EVIDENCE_RECONCILED" if scanner_status is Status.PASS
@@ -2186,6 +2618,8 @@ def run_checkov_verification(
         _change_metrics(request),
         request.required_gates,
         request.config,
+        request.baseline_scan.sealed_snapshot,
+        request.candidate_scan.sealed_snapshot,
         _trusted_context=_TRUSTED_ENGINE_CONTEXT,
     )
 
@@ -2193,9 +2627,9 @@ def run_checkov_verification(
 __all__ = [
     "ArtifactClassification", "ChangeMetrics", "EngineEventEvaluation",
     "GateImplementation", "PolicySourceAuthorization",
-    "GovernedConfigEvidence",
+    "GovernedConfigEvidence", "GovernedPathRecord",
     "ScanPlanFile", "TargetObservation",
-    "TargetOutcomeEvidence", "TrustedScanPlan", "VerificationRequest",
+    "SealedVerificationSnapshot", "TargetOutcomeEvidence", "TrustedScanPlan", "VerificationRequest",
     "TrustedGateRegistry", "TrustedVerificationConfigBundle", "VerificationResult",
     "attest_checkov_scan_plan", "classify_target",
     "load_operator_verification_config", "production_gate_registry",

@@ -91,7 +91,7 @@ def test_production_registry_binds_packaged_implementation_evidence() -> None:
         "terraform_hcl_parse", "kubernetes_yaml_parse"
     }
     assert all(len(item.code_sha256) == 64 for item in registry.implementations)
-    assert all(item.canonical_dict()["version"] == "1" for item in registry.implementations)
+    assert all(item.canonical_dict()["version"] == "2" for item in registry.implementations)
 
 
 @pytest.mark.parametrize(
@@ -146,14 +146,26 @@ def test_policy_source_authorization_mutation_guards(values) -> None:
 
 
 def test_production_kubernetes_validator_covers_json(tmp_path: Path) -> None:
-    root = tmp_path / "candidate"
-    root.mkdir()
+    executable = _executable(tmp_path)
+    baseline = _scan_request(tmp_path / "baseline", executable)
+    candidate = _scan_request(tmp_path / "candidate", executable)
+    root = candidate.scan_root
     (root / "pod.json").write_text(
         '{"apiVersion":"v1","kind":"Pod","metadata":{"name":"p"}}',
         encoding="utf-8",
     )
+    config = _config(
+        baseline, candidate, RequiredGates(("kubernetes_yaml_parse",)),
+        executor=None, frameworks=("terraform", "kubernetes"),
+    )
+    request = VerificationRequest(
+        baseline, candidate, (Target(IDENTITY, 1),), config
+    )
     registry = ENGINE.production_gate_registry()
-    result = registry.execute("validator", "kubernetes_yaml_parse", root)
+    result = registry.execute(
+        "validator", "kubernetes_yaml_parse",
+        request.candidate_scan.sealed_snapshot,
+    )
     assert result.status is Status.PASS
     assert result.detail == "files=1"
 
@@ -242,8 +254,12 @@ def test_role_plan_from_different_config_is_rejected(tmp_path: Path) -> None:
     values = dict(
         request=baseline.request, files=baseline.files, resources=baseline.resources,
         inventory_sha256=baseline.inventory_sha256,
-        classifications=baseline.classifications, role=ScanRole.BASELINE,
-        snapshot_sha256=baseline.snapshot_sha256, config_sha256="0" * 64,
+        classifications=baseline.classifications,
+        inspected_files=baseline.inspected_files,
+        governed_paths=baseline.governed_paths,
+        role=ScanRole.BASELINE,
+        source_state_sha256=config.baseline_source_snapshot_sha256,
+        config_sha256="0" * 64,
         _trusted_context=ENGINE._TRUSTED_SCAN_PLAN_CONTEXT,
     )
     forged = ENGINE.TrustedScanPlan(**values)

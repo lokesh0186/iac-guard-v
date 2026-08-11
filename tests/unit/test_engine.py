@@ -28,6 +28,7 @@ from iac_guard_v.enums import (
     ArtifactKind,
     CheckEvaluationResult,
     Outcome,
+    ScanRole,
     Severity,
     Status,
 )
@@ -183,9 +184,9 @@ def _run(request: CheckovScanRequest, *, baseline: bool) -> ScannerRun:
     )
 
 
-def _gate(kind: str, gate_id: str, root: Path) -> GateResult:
+def _gate(kind: str, gate_id: str, snapshot) -> GateResult:
     assert kind in {"validator", "oracle"}
-    assert root.name == "candidate"
+    assert snapshot.role is ScanRole.CANDIDATE
     return GateResult(gate_id, Status.PASS, "AFFIRMATIVE_GATE_EVIDENCE")
 
 

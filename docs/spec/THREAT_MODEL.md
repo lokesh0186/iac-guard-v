@@ -342,3 +342,10 @@ remain distinct identities. Kubernetes-only alias/tag restrictions apply only af
 root identity is established, so ordinary workflow, OpenAPI, and CloudFormation YAML
 with aliases, custom tags, or nested `kind` fields remains visible non-Kubernetes
 evidence; unsafe Kubernetes roots and unsupported nested complete identities fail closed.
+
+D5.4 prevents cross-state evidence composition. Scanner input, validators, oracles,
+target presence, metrics, policy drift, and the canonical result are bound to one sealed
+snapshot per role. Validators do not reread the mutable checkout. A final complete
+supported/governed inventory comparison detects late files, removals, byte changes,
+type changes, and symlink substitutions before a result can be trusted. Local absolute
+paths remain runtime-only and do not affect canonical snapshot or configuration hashes.

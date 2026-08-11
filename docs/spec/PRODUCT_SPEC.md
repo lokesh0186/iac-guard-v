@@ -352,3 +352,9 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
     are rejected. Kubernetes classification applies strict Kubernetes semantics only
     after root identity evidence; clearly non-Kubernetes aliases, custom tags, and
     nested `kind` properties remain visible non-Kubernetes classifications.
+15. One immutable, role-bound sealed snapshot supplies Checkov input binding, validators,
+    oracles, target/resource presence, V4 metrics, policy-drift evidence, and the final
+    canonical report. The mutable source roots are fully revalidated immediately before
+    result construction; late additions/removals/changes/type or symlink replacements
+    are `SNAPSHOT_CHANGED_DURING_VERIFICATION`, never `VERIFIED`. Canonical identities
+    use repository/snapshot/subpath evidence and exclude local absolute roots.

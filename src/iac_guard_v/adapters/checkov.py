@@ -204,7 +204,7 @@ def checkov_distribution_identity(
         roots = sorted(candidate.glob("lib/python*/site-packages/checkov"))
         if roots:
             installation_root = candidate.resolve(strict=True)
-            checkov_roots = roots
+            checkov_roots = [root.resolve(strict=True) for root in roots]
             break
     if installation_root is None:
         raise DomainError("Checkov installed distribution manifest cannot be established")

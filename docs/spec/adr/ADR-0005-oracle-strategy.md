@@ -56,5 +56,13 @@ warning label.
 
 Required gate ids and registry identity come from protected verification configuration.
 The production registry implements strict Terraform HCL and Kubernetes YAML validation.
+
+## Amendment, 2026-08-11: sealed gate input and implementation manifest
+
+D5.4 passes one immutable candidate snapshot to every packaged validator and oracle;
+gates cannot reread the mutable checkout. Registry implementation identity is a digest
+over the dispatcher, Terraform and Kubernetes parser/classifier helpers, the contract
+version, and parser dependency versions. A helper or dependency change therefore alters
+the recorded identity.
 `run_checkov_verification` accepts no callback. A private factory can install a unit-test
 registry, but that capability is absent from serialized and future CLI/API inputs.

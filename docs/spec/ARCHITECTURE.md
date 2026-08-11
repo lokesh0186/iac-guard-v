@@ -534,3 +534,21 @@ document carrying Kubernetes identity. Ordinary workflow, OpenAPI, and CloudForm
 documents therefore remain classified evidence even when they use aliases, custom tags,
 or nested fields named `kind`. Nested complete Kubernetes identity outside a supported
 root shape and unsafe Kubernetes roots still fail closed.
+
+## 19. D5.4 sealed verification snapshots
+
+Each role has one factory-proven `SealedVerificationSnapshot`. It contains the portable
+source-state root, all inspected supported-file bytes and classifications, expected
+resources, governed-entry types/digests, role, repository identity/subpath, resource
+inventory, and protected configuration identity. Checkov revalidates and copies exactly
+the plan-bound eligible bytes; packaged validators and oracles consume the same in-memory
+sealed bytes and never reread the mutable source root. Target presence and V4 metrics use
+the sealed inventories.
+
+Immediately before `VerificationResult` construction, P0 re-enumerates the live role
+roots. Any added, removed, changed, type-replaced, or symlinked supported/governed entry
+produces `ERROR/SNAPSHOT_CHANGED_DURING_VERIFICATION`. Canonical configuration and
+snapshot evidence use portable repository/snapshot/subpath identities, not local
+absolute paths. The result retains both complete role snapshots. Gate implementation
+identity hashes the dispatcher, parser/classifier helpers, contract version, and parser
+dependency versions rather than one dispatcher function.

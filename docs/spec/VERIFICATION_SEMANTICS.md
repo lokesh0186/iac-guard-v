@@ -1139,3 +1139,23 @@ Root-level syntax evidence decides whether Kubernetes semantics apply. Ordinary 
 may use anchors, aliases, custom domain tags, or nested `kind` fields and remains
 `NON_KUBERNETES_YAML`. A root Kubernetes object using unsafe syntax, or a complete
 Kubernetes identity embedded in an unsupported root shape, remains a typed failure.
+
+## 16. D5.4 one-snapshot evidence rule
+
+Baseline and candidate each have one `SealedVerificationSnapshot` binding role,
+portable repository identity and relative subpath, complete supported-artifact bytes and
+classifications, governed-entry inventory, resource inventory, manifest root, and
+trusted configuration digest. Checkov's private view is rebuilt only after its request
+proves the eligible source bytes still equal those bindings. Validators and oracles
+consume the bound bytes directly. Target presence, resource deletion, V4 metrics, and
+report classifications use the same sealed records; no production gate reads the live
+root after scanner evidence exists.
+
+P0 performs a final no-follow re-enumeration immediately before aggregate result
+construction. Any supported or governed file addition, removal, content change, type
+change, or symlink replacement yields `ERROR/SNAPSHOT_CHANGED_DURING_VERIFICATION`.
+The result cannot therefore combine scanner state A with validator state B. Canonical
+configuration and report identities omit absolute roots and retain both role snapshot
+identities, all artifact classifications, resources, governed records, and gate
+implementation evidence. Gate identity covers parser/classifier helpers and dependency
+versions, not only the dispatcher.

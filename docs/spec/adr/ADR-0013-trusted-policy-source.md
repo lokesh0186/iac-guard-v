@@ -210,3 +210,11 @@ accept no ref, source-identity, date, or `_clock` override. `PolicyRequest` reje
 bundle whose mode/context/config/repository/commit differs from D5 authorization.
 Portable repository identity uses protected remote/root Git-object evidence, and
 candidate governed reads reject symlinks in parent components as well as the final file.
+
+## Amendment, 2026-08-11: one candidate snapshot
+
+D5.4 seals all supported artifact and governed evidence once per role. Checkov input,
+validators, oracles, target/resource observation, metrics, drift detection, and report
+evidence refer to that snapshot. A final source-state comparison makes any late
+supported/governed mutation typed uncertainty rather than allowing evidence from two
+candidate states to produce `VERIFIED`.

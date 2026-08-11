@@ -81,6 +81,20 @@ def _replace_engine(run: VerificationResult, **changes) -> VerificationResult:
         for name in VerificationResult.__dataclass_fields__
         if not name.startswith("_")
     }
+    if "verification_config" in changes:
+        config = changes["verification_config"]
+        for name in ("baseline_snapshot", "candidate_snapshot"):
+            snapshot = values[name]
+            snapshot_values = {
+                field_name: getattr(snapshot, field_name)
+                for field_name in ENGINE.SealedVerificationSnapshot.__dataclass_fields__
+                if not field_name.startswith("_")
+            }
+            snapshot_values["config_sha256"] = config.config_sha256
+            values[name] = ENGINE.SealedVerificationSnapshot(
+                **snapshot_values,
+                _trusted_context=ENGINE._TRUSTED_SCAN_PLAN_CONTEXT,
+            )
     values.update(changes)
     return VerificationResult(
         **values,

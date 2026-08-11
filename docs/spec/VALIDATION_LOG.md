@@ -967,6 +967,47 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## D5.4 — Sealed verification snapshot and portable evidence (2026-08-11)
+
+Parent: `d1aa89b`. D5.4 did not alter the frozen QRS scope and did not begin D6.4,
+D7, D9, or Phase E.
+
+Literal failing-before evidence:
+
+```text
+OLD_CHANGED_CURRENT_DIFFERS_BOUND True
+OLD_CHANGED_PREFLIGHT PASS BOUND_SCAN_PLAN_VALIDATED
+OLD_CHANGED_VALIDATOR PASS VALIDATOR_COMPLETED
+OLD_CHANGED_TARGET FIXED AFFIRMATIVE_TARGET_PASS
+OLD_CHANGED_VERDICT VERIFIED
+OLD_LATE_IN_PLAN False
+OLD_LATE_EXISTS True
+OLD_LATE_PREFLIGHT PASS BOUND_SCAN_PLAN_VALIDATED
+OLD_LATE_VERDICT VERIFIED
+OLD_CONFIG_SHA_EQUAL False
+OLD_CONFIG_CANONICAL_EQUAL False
+OLD_GATE_DIGEST_IS_DISPATCHER_ONLY True
+OLD_RESULT_CANONICAL_HAS_SNAPSHOTS False
+```
+
+Passing-after evidence:
+
+```text
+NEW_CHANGED_PREFLIGHT ERROR SNAPSHOT_CHANGED_DURING_VERIFICATION
+NEW_CHANGED_VALIDATOR PASS VALIDATOR_COMPLETED
+NEW_CHANGED_VERDICT INCONCLUSIVE
+NEW_RESULT_SNAPSHOT_KEYS ['baseline_snapshot', 'candidate_snapshot']
+late Kubernetes YAML/JSON -> ERROR SNAPSHOT_CHANGED_DURING_VERIFICATION
+equivalent roots + identical scanner -> equal config_sha256 and canonical config
+parser helper source mutation -> gate implementation digest changes
+focused D5 suite -> 179 passed; engine branch coverage 91%
+```
+
+All validator and oracle inputs are now sealed plan bytes. Target presence and metrics
+use the sealed inventories; final P0 revalidation covers supported and governed entries.
+No benchmark inference, model-provider call, model refresh, tag/branch push, release,
+or external publication occurred.
+
 ## D6.3 — Authorized source context and trusted clock (2026-08-11)
 
 Parent: `fd33c53a036a184cd6a27c2fdcc281be75ec8657`. Literal archived-parent

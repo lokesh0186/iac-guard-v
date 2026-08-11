@@ -341,21 +341,30 @@ def test_protected_framework_set_overrides_narrow_caller_scan_universe(
 
 
 def test_production_gate_registry_runs_only_built_in_validators(tmp_path: Path) -> None:
-    root = tmp_path / "candidate"
-    root.mkdir()
-    (root / "main.tf").write_text('resource "aws_x" "r" {}\n', encoding="utf-8")
+    executable = _executable(tmp_path)
+    baseline = _scan_request(tmp_path / "baseline", executable)
+    candidate = _scan_request(tmp_path / "candidate", executable)
+    root = candidate.scan_root
     (root / "pod.yaml").write_text(
         "apiVersion: v1\nkind: Pod\nmetadata: {name: p}\n", encoding="utf-8"
     )
+    config = _config(
+        baseline, candidate, RequiredGates(("terraform_hcl_parse",)),
+        executor=None, frameworks=("terraform", "kubernetes"),
+    )
+    request = VerificationRequest(
+        baseline, candidate, (Target(IDENTITY, 1),), config
+    )
+    snapshot = request.candidate_scan.sealed_snapshot
     registry = production_gate_registry()
-    assert registry.execute("validator", "terraform_hcl_parse", root).status is Status.PASS
-    assert registry.execute("validator", "kubernetes_yaml_parse", root).status is Status.PASS
-    assert registry.execute("oracle", "oracle", root).status is Status.UNSUPPORTED
-    assert registry.execute("validator", "fake", root).status is Status.UNSUPPORTED
+    assert registry.execute("validator", "terraform_hcl_parse", snapshot).status is Status.PASS
+    assert registry.execute("validator", "kubernetes_yaml_parse", snapshot).status is Status.PASS
+    assert registry.execute("oracle", "oracle", snapshot).status is Status.UNSUPPORTED
+    assert registry.execute("validator", "fake", snapshot).status is Status.UNSUPPORTED
     (root / "main.tf").write_text(
         'resource "aws_x" "r" { invalid = }\n', encoding="utf-8"
     )
-    assert registry.execute("validator", "terraform_hcl_parse", root).status is Status.FAIL
+    assert registry.execute("validator", "terraform_hcl_parse", snapshot).status is Status.PASS
 
 
 @pytest.mark.parametrize(
