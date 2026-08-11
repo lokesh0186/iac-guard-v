@@ -26,9 +26,24 @@ jobs:
       - name: Install test runner
         run: python -m pip install "pytest>=8,<10" "pytest-cov>=5,<8"
       - name: Run tests
-        run: PYTHONPATH=src python -m pytest tests -q
+        run: PYTHONPATH=src python -m pytest tests --ignore=tests/integration -q
       - name: Enforce D3 core coverage
         run: |
           PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.fingerprints --cov-report=term-missing --cov-fail-under=90 -q
           PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.matching --cov-report=term-missing --cov-fail-under=90 -q
           PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q
+      - name: Enforce D4 adapter coverage
+        run: |
+          PYTHONPATH=src python -m pytest tests/unit/test_checkov_adapter.py --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov --cov-report=term-missing --cov-fail-under=90 -q
+
+  pinned-checkov-330:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pinned product scanner and test runner
+        run: python -m pip install "checkov==3.3.0" "pytest>=8,<10"
+      - name: Run pinned Checkov integration contracts
+        run: PYTHONPATH=src python -m pytest tests/integration/test_checkov_integration.py -q

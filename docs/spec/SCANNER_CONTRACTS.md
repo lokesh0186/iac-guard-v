@@ -18,10 +18,18 @@ against a pinned image before the adapter is declared supported.
 | Research pin | **3.2.517** — `requirements.txt:4`, corroborated by `checkov_version` inside all 70 frozen baseline outputs |
 | Product version under test | **3.3.0** (installed here) |
 | Version probe | `checkov --version` → bare version on the last stdout line (verified: `3.3.0`) |
-| Invocation | `checkov -d <dir> --framework <fw> --output json --quiet --compact --output-file-path <dir>` |
+| Invocation | `checkov -d <private-eligible-file-view> --framework <fw> --output json --quiet --compact --output-file-path <private-dir> --config-file <adapter-config> --skip-download --download-external-modules false --skip-results-upload` |
 | Frameworks validated | `terraform`, `kubernetes` (the two used by the frozen baselines) |
 | External Python checks | **disabled by default**; enabling requires a trusted-source opt-in (threat model T2) |
 | External module download | disabled |
+
+The scan directory is an adapter-owned private view containing only paths supplied by
+the independent eligible-file detector. Relative paths are preserved. Candidate
+`.checkov.yml` / `.checkov.yaml`, custom-check directories, and unrelated repository
+content are not copied and therefore cannot govern the run. An explicit adapter-owned
+config is still passed because Checkov rejects an empty config document. This snapshot
+also prevents a candidate file from changing after the adapter's final identity check
+but before Checkov reads it. It is a scanner input view, not a native-execution sandbox.
 
 ### 1.1 Output shapes the adapter must handle
 
@@ -69,6 +77,12 @@ open source), `resource`, `file_path`, `file_line_range`, `guideline`,
 From `summary`: `passed`, `failed`, `skipped`, `parsing_errors`, `resource_count`,
 `checkov_version` (verified present in both 3.2.517 and 3.3.0).
 
+When Checkov supplies no native fingerprint, the adapter retains occurrence evidence by
+hashing its ordered `check_result.evaluated_keys` string array as
+`checkov-eval-v1:<sha256>`. This remains separate from `iacgv1`; it exists so two checks
+against different indexed keys on one resource do not collapse before deterministic
+occurrence indices are assigned.
+
 ### 1.4 Integrity mapping (semantics V5)
 
 | Evidence | Source |
@@ -81,6 +95,29 @@ From `summary`: `passed`, `failed`, `skipped`, `parsing_errors`, `resource_count
 
 `summary.checkov_version` differing from the probe is `ERROR`: the binary that
 reported is not the binary that was probed.
+
+The trusted request also pins the SHA-256 of the strictly resolved native launcher.
+That digest is checked at construction and again immediately before probe/spawn, then
+recorded as `executable_or_image_digest`. For a native Python console script this binds
+the launcher, not its entire environment; hardened container mode must bind the complete
+image digest.
+
+Raw JSON written through `--output-file-path` is accepted only as one nonsymlink regular
+`.json` file, read with no-follow semantics under the configured byte cap. Its digest is
+recorded separately as `raw_output_sha256`; `stdout_sha256` remains the process stdout
+digest. Output-view cleanup failure is a typed `ERROR`, including when execution already
+failed.
+
+### 1.5 D4 closed adapter reasons
+
+`COMPLETED`, `PROCESS_ERROR`, `EMPTY_OUTPUT`, `MALFORMED_JSON`,
+`TRUNCATED_OUTPUT`, `UNEXPECTED_TOP_LEVEL`, `EXIT_CODE_OUTSIDE_CONTRACT`,
+`DEADLINE_EXCEEDED`, `KILLED_PROCESS`, `PARTIAL_SCAN`, `ZERO_FILES_DISCOVERED`,
+`UNSUPPORTED_VERSION`, `VERSION_MISMATCH`, `VERSION_PROBE_FAILED`,
+`NO_RESULTS_STRUCTURE`, `INVALID_RESULTS_STRUCTURE`, `COVERAGE_MISMATCH`,
+`CHECK_INVENTORY_MISMATCH`, `FRAMEWORK_MISMATCH`, `MISSING_RESOURCE_IDENTITY`,
+`RAW_OUTPUT_MISSING`, and `OUTPUT_CLEANUP_FAILED` are the complete D4 adapter-reason
+family. Unknown scanner conditions are never accepted as a clean run.
 
 ---
 
@@ -189,7 +226,7 @@ container path; the support matrix below records that honestly.
 
 | Tool | Version(s) | Contract fixtures | Pinned integration test | Status |
 | --- | --- | --- | --- | --- |
-| Checkov | 3.2.517 (research), 3.3.0 (product) | Phase D | Phase D | planned; output shapes verified 2026-08-09 |
+| Checkov | 3.2.517 (research), 3.3.0 (product) | **PASS, D4** for both versions | **PASS, D4** for installed 3.3.0 Terraform + Kubernetes; 3.2.517 executable re-run remains Phase E | product 3.3.0 supported; research 3.2.517 has a frozen-shape contract fixture and offline replay, but is not claimed as a current native integration |
 | KICS | pinned image, version TBD | Phase E | Phase E | documented from official schema; **not yet verified locally** |
 | Trivy | 0.71.1 + pinned bundle | Phase E | Phase E | output shape verified 2026-08-09; bundle pinning outstanding |
 | terraform validate | TBD | Phase E | Phase E | not installed locally |

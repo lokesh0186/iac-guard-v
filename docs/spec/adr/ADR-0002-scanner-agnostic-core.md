@@ -40,3 +40,16 @@ tied to one tool's semantics.
 **Normalise everything into SARIF internally.** Rejected: SARIF is a good output format
 but loses scanner-specific completeness counters (`files_failed_to_scan`,
 `queries_failed_to_execute`) that the integrity gate depends on.
+
+## Amendment, 2026-08-10: first concrete adapter
+
+D4 implements Checkov only. The adapter translates both single-framework objects and
+multi-framework lists into `ScannerRun`; it never imports policy or emits a verdict.
+Every malformed/incomplete execution shape is represented by the closed `AdapterReason`
+family and a non-`PASS` status when eligible inputs exist. KICS and Trivy remain
+unimplemented at Review 2.
+
+The adapter's scan directory is a private snapshot of independently eligible files.
+This is necessary because Checkov discovers configuration under `-d` even when a trusted
+`--config-file` is also present. It also makes the adapter boundary concrete: native
+scanner structures and implicit configuration discovery cannot leak into the core.

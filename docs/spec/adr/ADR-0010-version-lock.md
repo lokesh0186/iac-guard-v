@@ -43,3 +43,16 @@ code.
 
 **Pin only the binary, not the checks bundle.** Rejected: for Trivy the bundle is where
 the policies live, so an unpinned bundle is an unpinned policy set.
+
+## Amendment, 2026-08-10: D4 native Checkov evidence
+
+The D4 Checkov request requires an expected version and SHA-256 of the strictly resolved
+native launcher. The digest is verified at construction and immediately before probe and
+spawn; the probe, every `summary.checkov_version`, and the trusted expected version must
+agree. The launcher digest is recorded separately from process-output and raw-JSON
+digests.
+
+This does not pretend that hashing a Python console script binds its full dependency
+environment. Product Checkov 3.3.0 has a pinned live integration job. Research 3.2.517
+has a D4 parser fixture and frozen replay evidence, while its current executable/image
+integration remains Phase E and is not labelled supported native execution.

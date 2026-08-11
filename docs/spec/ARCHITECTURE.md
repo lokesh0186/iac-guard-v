@@ -350,3 +350,30 @@ relocations. Results are frozen, slotted, canonically ordered evidence objects.
 evidence alone. The five classes needing engine, coverage, plan, diagnostic, control-map,
 or policy inputs remain unavailable at this boundary and are deferred to D5. Different
 resource addresses never relocate: the old occurrence resolves and the new one is new.
+
+## 14. D4 Checkov adapter
+
+`adapters/base.py` owns the immutable scanner contract and closed adapter-reason family;
+`adapters/checkov.py` is the only module that interprets Checkov JSON. D4 deliberately
+contains no Trivy implementation.
+
+The trusted Checkov request pins the resolved launcher digest, supported version,
+framework set, independently eligible paths, optional locked check inventory, and—for
+Kubernetes—the canonical object identities established outside Checkov. Immediately
+before execution, the adapter revalidates the executable, scan root, and every eligible
+file by resolved path/device/inode and rechecks the executable digest.
+
+Checkov discovers `.checkov.yml` in the directory passed with `-d` even when an explicit
+config file and private process cwd are used. The adapter therefore builds a private
+eligible-file view, preserving repository-relative paths but excluding candidate policy,
+custom checks, and unrelated content. It supplies an adapter-owned config, disables
+downloads/uploads, and uses the D2 process runner. The view narrows policy injection and
+read races; native execution remains reduced isolation.
+
+Normalization handles object and multi-framework-list shapes, requires affirmative
+results when eligible files exist, reconciles summaries and suppressions, cross-checks
+summary/probe/trusted versions, and records process stdout/stderr plus a distinct bounded
+raw-JSON digest. Ordered Checkov `evaluated_keys` are retained as a versioned native
+occurrence fingerprint when Checkov provides no native fingerprint. Any malformed,
+truncated, incomplete, unsupported, mismatched, or
+cleanup-uncertain run remains non-`PASS`.

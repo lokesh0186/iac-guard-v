@@ -677,6 +677,33 @@ The gate that makes audit finding F1 impossible. Required evidence per scanner r
 Success is never inferred from exit code alone, and failure is never inferred from
 the presence of findings.
 
+#### V5 Checkov evidence in D4
+
+Checkov 0 and 1 are both execution-contract exits; only the documented JSON structure
+and coverage reconciliation decide integrity. Product 3.3.0 is probed live and every
+`summary.checkov_version` must match both that probe and trusted configuration. Research
+3.2.517 has a contract fixture but no D4 claim of current native integration.
+
+Because Checkov merges `.checkov.yml` found under its `-d` directory even when an
+explicit config file is supplied, the adapter scans a private snapshot containing only
+independently eligible files. Candidate configuration and custom checks are not inputs.
+Kubernetes `resource_address` comes from the independent canonical identity map;
+Checkov's abbreviated `Kind.namespace.name` string does not establish `apiVersion`.
+
+Process stdout/stderr hashes and the bounded raw-JSON hash are separate evidence. A
+missing, empty, malformed, truncated, symlinked, over-cap, or multiply produced JSON
+output; summary/results contradiction; parse error; version/digest mismatch; output-view
+cleanup failure; or eligible input with no affirmative results/resource evidence cannot
+be `PASS`.
+
+The closed adapter-reason family is: `COMPLETED`, `PROCESS_ERROR`, `EMPTY_OUTPUT`,
+`MALFORMED_JSON`, `TRUNCATED_OUTPUT`, `UNEXPECTED_TOP_LEVEL`,
+`EXIT_CODE_OUTSIDE_CONTRACT`, `DEADLINE_EXCEEDED`, `KILLED_PROCESS`, `PARTIAL_SCAN`,
+`ZERO_FILES_DISCOVERED`, `UNSUPPORTED_VERSION`, `VERSION_MISMATCH`,
+`VERSION_PROBE_FAILED`, `NO_RESULTS_STRUCTURE`, `INVALID_RESULTS_STRUCTURE`,
+`COVERAGE_MISMATCH`, `CHECK_INVENTORY_MISMATCH`, `FRAMEWORK_MISMATCH`,
+`MISSING_RESOURCE_IDENTITY`, `RAW_OUTPUT_MISSING`, and `OUTPUT_CLEANUP_FAILED`.
+
 ### V6 — Independent oracle
 
 Optional for routine CI. **Required** before any case may be labelled a validated

@@ -365,6 +365,8 @@ class ScannerRun:
     exit_code: int = 0
     stdout_sha256: str = ""
     stderr_sha256: str = ""
+    raw_output_sha256: str = ""
+    executable_or_image_digest: str = ""
     duration_ms: int = 0
     diagnostics: tuple = ()
 
@@ -411,7 +413,12 @@ class ScannerRun:
         set_(self, "diagnostics",
              tuple(safe_report_text(d, "diagnostic", MAX_MESSAGE_LENGTH)
                    for d in tuple(self.diagnostics)))
-        for name in ("stdout_sha256", "stderr_sha256"):
+        for name in (
+            "stdout_sha256",
+            "stderr_sha256",
+            "raw_output_sha256",
+            "executable_or_image_digest",
+        ):
             value = getattr(self, name)
             if value and not re.fullmatch(r"[0-9a-f]{64}", value):
                 raise DomainError(f"{name} must be a lowercase hex SHA-256 or empty")
@@ -422,6 +429,8 @@ class ScannerRun:
             "status": self.status.value, "exit_code": self.exit_code,
             "duration_ms": self.duration_ms,
             "stdout_sha256": self.stdout_sha256, "stderr_sha256": self.stderr_sha256,
+            "raw_output_sha256": self.raw_output_sha256,
+            "executable_or_image_digest": self.executable_or_image_digest,
             "coverage": self.coverage.canonical_dict(),
             "findings": [f.canonical_dict() for f in self.findings],
             "diagnostics": list(self.diagnostics),

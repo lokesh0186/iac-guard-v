@@ -941,3 +941,136 @@ $ PYTHONPATH=src pytest tests -q
 ```
 
 D3 adds 64 tests; the 660 tests at the D2.3 commit remain green.
+
+---
+
+## Gate D4 — Checkov-only adapter / Review 2
+
+D4 began only after D3 commit
+`8be0c7886554cee964a66f30545261b1ff271f36`. The Checkov contract, V5 integrity
+semantics, threat model, architecture adapter boundary, ADR-0002, ADR-0010, and
+ADR-0013 were reread before implementation. No Trivy implementation was started.
+
+### D4.1 Literal failing-before evidence
+
+The D3 commit had no adapter package:
+
+```console
+$ PYTHONPATH=src python -W error -c 'import iac_guard_v.adapters.checkov'
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+ModuleNotFoundError: No module named 'iac_guard_v.adapters'
+```
+
+A live Checkov 3.3.0 mutation probe then established that private cwd plus an explicit
+trusted config was insufficient. With candidate `.checkov.yml` containing
+`skip-check: CKV_AWS_23`, direct `-d <candidate>` output contained:
+
+```text
+finding rule ids: {'CKV_AWS_24'}
+CKV_AWS_23 present: False
+```
+
+Checkov merges default config discovered below `-d`. After switching to the private
+eligible-file view, the identical candidate mutation produces:
+
+```text
+finding rule ids include: {'CKV_AWS_23', 'CKV_AWS_24'}
+CKV_AWS_23 present: True
+```
+
+### D4.2 Executable contract evidence
+
+- the twelve common scanner shapes and Checkov summary-only shape are automated;
+- object and multi-framework-list JSON are both consumed completely;
+- research 3.2.517 and product 3.3.0 parser fixtures pass;
+- installed product Checkov 3.3.0 passes live Terraform and Kubernetes scans;
+- candidate config/custom-check inputs are absent, and the live skip-check mutation is
+  inert;
+- the resolved launcher version and digest are revalidated before use;
+- raw JSON is a single bounded nonsymlink file with its own digest;
+- suppressions remain findings with `suppressed=True`;
+- malformed structures, partial coverage, timeout/signal/truncation, unsupported or
+  mismatched versions, path replacement, check-inventory mismatch, and cleanup failure
+  remain non-`PASS`.
+
+Focused suite and executable coverage:
+
+```console
+$ PYTHONPATH=src pytest tests/unit/test_checkov_adapter.py -q
+65 passed in 0.27s
+
+$ PYTHONPATH=src pytest tests/unit/test_checkov_adapter.py \
+    --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov \
+    --cov-report=term-missing --cov-fail-under=90 -q
+src/iac_guard_v/adapters/base.py         51      0   100%
+src/iac_guard_v/adapters/checkov.py     492     44    91%
+TOTAL                                   543     44    92%
+Required test coverage of 90% reached. Total coverage: 91.90%
+65 passed in 0.34s
+
+$ PYTHONPATH=src pytest tests/integration/test_checkov_integration.py -q
+2 passed in 13.66s
+```
+
+The current non-integration total is 789 tests (724 at D3 plus 65 D4 contract tests).
+The separate pinned integration suite adds two live checks. A current executable
+integration for research Checkov 3.2.517 is **BLOCKED/deferred to Phase E**; D4 does not
+claim it as a supported native product path.
+
+```console
+$ PYTHONPATH=src pytest tests -q
+791 passed in 69.95s (0:01:09)
+```
+
+No benchmark tree, frozen scanner output, model provider, Trivy executable, or model
+refresh path was invoked by D4.
+
+### D4.3 Review 2 research and specification gates
+
+```console
+$ python tools/spec_lint.py docs/spec/
+documents inspected:  23
+enum values defined:  74
+PASS
+
+$ python research/verify_byte_manifest.py \
+    --manifest research/qrs2026-byte-manifest.jsonl --root . \
+    --tag qrs-2026-replication-v1 --expect-entries 4842 --strict
+files checked:          4842
+MANIFEST_ROOT computed: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+MANIFEST_ROOT recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+PASS
+```
+
+Replay remained 630/630 frozen records, 10,080/10,080 field comparisons, zero verdict
+mismatches, and seven of seven `SEMANTIC_MATCH` tables. The frozen-scope diff against
+`qrs-2026-replication-v1` was empty; the tag still resolves to annotated tag object and
+commit `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5`.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
+### D4.4 Changed-file inventory
+
+- `.github/workflows/python-compat.yml`
+- `docs/spec/ARCHITECTURE.md`
+- `docs/spec/PRODUCT_SPEC.md`
+- `docs/spec/SCANNER_CONTRACTS.md`
+- `docs/spec/THREAT_MODEL.md`
+- `docs/spec/VALIDATION_LOG.md`
+- `docs/spec/VERIFICATION_SEMANTICS.md`
+- `docs/spec/adr/ADR-0002-scanner-agnostic-core.md`
+- `docs/spec/adr/ADR-0010-version-lock.md`
+- `docs/spec/adr/ADR-0013-trusted-policy-source.md`
+- `src/iac_guard_v/__init__.py`
+- `src/iac_guard_v/models.py`
+- `src/iac_guard_v/adapters/__init__.py`
+- `src/iac_guard_v/adapters/base.py`
+- `src/iac_guard_v/adapters/checkov.py`
+- `tests/integration/test_checkov_integration.py`
+- `tests/unit/test_checkov_adapter.py`
+- `tools/spec_lint.py`

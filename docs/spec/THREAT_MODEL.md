@@ -269,3 +269,23 @@ the network. Container mode remains mandatory for hostile pull-request evaluatio
 Output evidence distinguishes bytes read from pipes (`*_observed_bytes`) from bytes kept
 under the per-stream and combined caps (`*_retained_bytes`). When truncated, hashes are
 explicitly labelled as covering retained bytes only.
+
+## 9. D4 Checkov adapter controls
+
+The Checkov adapter does not expose candidate configuration, custom-check, external-git,
+or module-download inputs. Checkov nevertheless performs implicit config discovery under
+the directory supplied to `-d`; an explicit trusted `--config-file` alone does not erase
+values merged from candidate `.checkov.yml`. D4 therefore scans an adapter-owned view
+containing only independently eligible IaC files. A live mutation probe proves a
+candidate `skip-check` is inert in that view.
+
+The adapter pins both the version and resolved native-launcher SHA-256, revalidates path
+identities immediately before use, disables policy/module downloads and result uploads,
+and accepts only a bounded nonsymlink JSON output file. Checkov suppressions are retained
+as findings with `suppressed=True`; they do not disappear into an empty result.
+
+Residual risk remains explicit: the native launcher digest does not bind an entire
+Python environment, the private view is not a kernel sandbox, and Checkov itself remains
+trusted executable code. Hostile pull-request evaluation still requires the digest-bound
+hardened container. A current 3.2.517 native integration is not claimed merely because
+the frozen research output has that version.

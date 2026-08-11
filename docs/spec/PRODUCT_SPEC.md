@@ -207,3 +207,25 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    trusted-policy evidence.
 6. Fingerprint, matching, and diffing modules each maintain at least 90% executable test
    coverage in CI.
+
+## 15. D4 — Checkov-only adapter
+
+1. Checkov is the sole D4 scanner adapter; Trivy remains deferred.
+2. Contract fixtures cover the twelve common scanner shapes plus Checkov's
+   summary-only/no-results shape for research 3.2.517 and product 3.3.0 output.
+3. Product 3.3.0 has pinned live Terraform and Kubernetes integration tests. The
+   research 3.2.517 executable integration remains honestly deferred to Phase E; frozen
+   output and a parser fixture do not impersonate a native run.
+4. Version probe, summary version, trusted expected version, and trusted resolved-launcher
+   digest must agree. Exit code 1 is valid finding evidence, not process failure.
+5. Candidate Checkov config, custom checks, downloads, and uploads cannot govern a scan.
+   The adapter scans only a private view of independently eligible files and uses an
+   adapter-owned config.
+6. Empty, malformed, truncated, structurally incomplete, unsupported-version,
+   mismatched-version, partial, zero-resource, and cleanup-failed evidence cannot become
+   `PASS` when eligible inputs exist.
+7. Skipped checks remain typed suppression findings. Kubernetes normalization requires
+   independently established canonical object identities rather than guessing an API
+   version from Checkov's abbreviated resource string.
+8. Raw JSON is bounded and no-follow read, and has a digest distinct from process stdout.
+   Adapter base and Checkov modules maintain at least 90% executable test coverage.

@@ -98,3 +98,15 @@ self-granted approval after applying it is theatre.
 
 **Require policy to live in a separate repository.** Rejected as a default: too much
 setup for a first-time user. Supported as an option for organisations that want it.
+
+## Amendment, 2026-08-10: Checkov implicit configuration discovery
+
+A D4 live probe showed that passing an explicit trusted `--config-file` does not by
+itself neutralise candidate `.checkov.yml`: Checkov merges values from config discovered
+under the `-d` directory. A candidate `skip-check` removed a known finding.
+
+The Checkov adapter therefore builds an adapter-owned view containing only independently
+eligible IaC files, preserving their relative paths, and scans that view. Candidate
+Checkov configuration and custom-check sources are never copied or accepted as request
+inputs. With the same mutation, both known findings remain present. This is the concrete
+adapter enforcement of this ADR, not merely a loader convention.
