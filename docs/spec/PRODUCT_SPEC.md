@@ -271,3 +271,19 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 5. D5 reports preflight, scanner integrity, validator/oracle, regression, suppression,
    policy-drift, coverage, target, and finding-delta evidence deterministically. It has
    no verdict field; verdict construction belongs exclusively to D6.
+
+## 17. D6 — Policy and verdict
+
+1. The policy request requires a factory-proven D5 result. A caller cannot inject
+   precomputed target or delta evidence into a verdict.
+2. Exceptions are defensively rebuilt and may permit only the exact structured target
+   and exact eligible outcome named by a trusted record whose inclusive date window is
+   in force. Permission is derived by the policy layer, never believed from input.
+3. Every classification stays visible. Permission changes its consequence and records
+   the exception id; it never rewrites the event to `FIXED`.
+4. Operational uncertainty, incomplete evidence, required-scanner coverage loss, and
+   rule substitution produce `INCONCLUSIVE` before definite-negative evaluation.
+   Validator/oracle failure, policy drift, unresolved targets, and regression or
+   suppression failure then produce `FAILED`; otherwise the result is `VERIFIED`.
+5. Verdicts and exit codes are closed and inseparable: `VERIFIED/0`, `FAILED/1`, and
+   `INCONCLUSIVE/3`. Usage and internal error exits are outside `PolicyResult`.

@@ -682,7 +682,7 @@ After implementation, the focused executable properties reported:
 
 ```text
 PYTHONPATH=src pytest -q tests/unit/test_engine.py
-20 passed
+31 passed
 
 all ten target outcomes produced: 10/10
 zero findings + non-PASS affirmative evidence: INCONCLUSIVE (7/7 states)
@@ -699,6 +699,71 @@ protected configuration digests. Checkov runs, target evaluations, comparisons, 
 and target outcomes are invoked or derived internally and factory-bound. D5 emits no
 verdict. Full-suite, coverage, specification, freeze, replay, and frozen-diff values are
 recorded at the D5 commit gate.
+
+Exact D5 gate values:
+
+```text
+engine coverage: 90.23% (31 passed)
+full suite: 897 passed in 151.81s
+spec_lint: 23 documents, 97 enum values, PASS, zero warnings
+manifest: 4842/4842 PASS
+MANIFEST_ROOT: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+replay: 630/630; 10080/10080 fields equal
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff: empty
+```
+
+## D6 — Policy and verdict (2026-08-11)
+
+The production policy module did not exist before D6:
+
+```text
+from iac_guard_v.policy import evaluate_policy
+ModuleNotFoundError: No module named 'iac_guard_v.policy'
+```
+
+Literal passing-after focused evidence:
+
+```text
+clean fully evidenced result -> VERIFIED / 0
+definite unpermitted target outcomes -> FAILED (6/6)
+uncertain target outcomes -> INCONCLUSIVE (3/3)
+event-specific trusted exceptions -> VERIFIED, original event retained (3/3)
+suppression exception applied to deletion -> FAILED
+candidate, expired, and not-yet-valid exceptions -> FAILED (3/3)
+validator statuses -> PASS/FAILED/INCONCLUSIVE mapping (8/8)
+oracle statuses -> PASS/FAILED/INCONCLUSIVE mapping (8/8)
+regression/suppression policy states -> specified mapping (8/8)
+trusted optional SKIPPED regression -> VERIFIED
+oracle ERROR plus STILL_PRESENT -> INCONCLUSIVE
+policy drift -> FAILED
+coverage/rule-substitution uncertainty -> INCONCLUSIVE
+reversed exception input order -> byte-identical canonical policy output
+candidate-authored optionality -> DomainError
+caller-constructed PolicyResult -> DomainError
+
+PYTHONPATH=src pytest -q tests/unit/test_policy.py
+49 passed
+policy coverage: 91.21%
+```
+
+D6 accepts only factory-proven D5 evidence, derives permissions rather than believing a
+caller flag, applies the normative uncertainty-first verdict table, and binds each
+verdict to its closed exit code. Complete Review-3 suite, lint, research, and frozen
+scope gates are recorded after both D5 and D6.
+
+```text
+focused engine+policy: 80 passed; combined coverage 90.49%
+  engine.py: 90%
+  policy.py: 91%
+complete suite: 946 passed in 154.86s
+spec_lint: 23 documents, 97 enum values, PASS, zero warnings
+manifest: 4842/4842 PASS
+MANIFEST_ROOT computed/recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+replay: 630/630; 10080/10080 fields equal
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff: empty
+```
 
 ---
 

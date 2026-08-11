@@ -109,6 +109,19 @@ requires the container mode.
 - Some legitimately unusual repositories will land on `INCONCLUSIVE` until an adapter
   learns their shape. That is the intended direction of error.
 
+## Amendment, 2026-08-11: D5/D6 executable evidence and verdict boundaries
+
+D5 now invokes Checkov, affirmative target evaluation, and D3 diffing internally; its
+serialized request cannot carry their derived evidence. D6 accepts only the resulting
+factory-proven engine aggregate. It reconstructs permissions from protected exceptions
+and implements the section-7 ordering directly: uncertainty dominates definite failure,
+then real negative evidence fails, and only the fully evidenced remainder verifies.
+
+Required gate implementations never default to `PASS`; unavailable is `UNSUPPORTED`,
+and substituted gate identities are rejected. A skipped regression or suppression gate
+is nonblocking only when protected configuration explicitly marked that named gate
+optional. Policy results bind the verdict to its specified exit code.
+
 ## Alternatives considered
 
 **Retry on empty output and pass if the retry is clean.** Rejected: it converts an

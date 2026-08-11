@@ -21,6 +21,7 @@ from . import (  # noqa: F401
     matching,
     models,
     normalisation,
+    policy,
     process,
     redaction,
 )
@@ -35,6 +36,7 @@ __all__ = [
     "matching",
     "models",
     "normalisation",
+    "policy",
     "process",
     "redaction",
 ]

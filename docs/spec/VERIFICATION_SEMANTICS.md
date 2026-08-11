@@ -888,6 +888,26 @@ trustworthy, so the apparent defect is not established evidence either.
 The candidate demonstrably attempted to alter the rules governing its own evaluation,
 which is a conclusion, not an absence of one.
 
+### 7.1 D6 executable policy boundary
+
+The policy request accepts only a D5 `VerificationResult` carrying private engine
+factory provenance. It does not accept serialized scanner runs, deltas, target outcomes,
+or decisions as a substitute. The evaluation date is exact `date` execution context.
+Exception records are copied into an immutable policy before evaluation, and optional
+gate names are accepted only from the closed set `regression`, `suppression` with trusted
+configuration provenance.
+
+For each engine target classification, D6 derives a fresh decision. A permission exists
+only when one record matches the structured scanner/rule/scope identity, names that exact
+exception-eligible outcome, has trusted loader-stamped origin, and satisfies
+`created <= evaluation_date <= expires`. The event remains unchanged and visible.
+
+The three-step table above is implemented in the written order. `ERROR`, `TIMEOUT`,
+`UNSUPPORTED`, `SKIPPED`, `PARTIAL`, and `INCONCLUSIVE` on a required operational gate
+cannot become either a pass or a real-negative verdict. An explicitly optional
+regression or suppression gate may be `SKIPPED` only when that optionality came from
+trusted configuration. Every policy result uses the closed verdict/exit mapping.
+
 ---
 
 ## 8. Control mappings

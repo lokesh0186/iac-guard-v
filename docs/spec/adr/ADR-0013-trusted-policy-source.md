@@ -124,3 +124,11 @@ and not a candidate-authored precomputed verdict. It binds canonical file, resou
 artifact kind, and the native lookup key used to reconcile Checkov. Policy/environment
 digest mismatch fails ruleset integrity even when the overall execution already ended in
 `ERROR`; status fields cannot contradict the integrity diagnostic.
+
+## Amendment, 2026-08-11: permission is derived inside D6
+
+D6 never trusts a caller-authored `policy_permitted` flag. It defensively rebuilds the
+protected exception collection and creates a fresh decision only after proving exact
+structured target identity, exact event authorisation, trusted loader-stamped origin,
+and the inclusive execution-date window. The original event remains in the result.
+Caller-authored engine, target, or delta evidence cannot reach this decision boundary.

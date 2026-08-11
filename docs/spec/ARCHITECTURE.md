@@ -419,3 +419,23 @@ affirmative target-pass evidence. It follows verification semantics section 4. A
 candidate count reaches `FIXED` only with affirmative native pass evidence. Matching
 ambiguity, a mismatched baseline occurrence count, or an unknown structural predicate
 yields `INCONCLUSIVE`. D5 emits evidence and events only; it cannot emit a verdict.
+
+## 16. D6 policy layer
+
+`policy.py` is the only layer that constructs `Verdict`. Its request requires a
+factory-proven D5 `VerificationResult`, a trusted execution date, a defensively rebuilt
+exception policy, and—when used—closed optional-gate names stamped with trusted
+configuration provenance. It cannot accept caller-authored target outcomes, deltas, or
+scanner evidence in place of the engine result.
+
+The policy layer independently rebuilds decisions from engine classifications. It finds
+an exact structured target, event-specific, trusted, in-force exception; permission is
+never copied from a caller-authored decision. A permitted event remains in the result
+with its outcome and exception id. Missing, wrong-event, wrong-target, untrusted,
+not-yet-valid, and expired records remain visible as unpermitted decisions.
+
+The section-7 order is executable: any operational uncertainty dominates a definite
+negative result and yields `INCONCLUSIVE`; validators/oracles that affirmatively fail,
+policy drift, unresolved targets, and failed regression/suppression gates yield
+`FAILED`; only the remaining fully evidenced state is `VERIFIED`. `PolicyResult` binds
+the closed verdict to exit code 0, 1, or 3 and carries private policy-factory provenance.
