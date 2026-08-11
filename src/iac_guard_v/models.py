@@ -315,6 +315,67 @@ class ExpectedResource:
 
 
 @dataclass(frozen=True, slots=True)
+class ResolvedTargetBinding:
+    """One target resolved to an exact independent resource occurrence."""
+
+    identity: TargetIdentity
+    file_path: str
+    artifact_kind: ArtifactKind
+    scanner_native_lookup: str
+    baseline_occurrences: int = 1
+
+    def __post_init__(self) -> None:
+        require_target_identity(self.identity, "resolved target identity")
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        require_enum(self.artifact_kind, ArtifactKind, "resolved target artifact kind")
+        if self.artifact_kind is ArtifactKind.UNKNOWN:
+            raise DomainError("resolved target artifact kind cannot be UNKNOWN")
+        object.__setattr__(
+            self,
+            "scanner_native_lookup",
+            canonical_resource_scope(
+                self.scanner_native_lookup, "resolved target native lookup"
+            ),
+        )
+        if require_int(self.baseline_occurrences, "baseline_occurrences") < 1:
+            raise DomainError("resolved target baseline_occurrences must be >= 1")
+
+    @property
+    def scanner(self) -> str:
+        return self.identity.scanner
+
+    @property
+    def rule_id(self) -> str:
+        return self.identity.rule_id
+
+    @property
+    def scope(self) -> str:
+        return self.identity.scope
+
+    @property
+    def resource_key(self) -> tuple:
+        return (
+            self.file_path,
+            self.scope,
+            self.artifact_kind.value,
+            self.scanner_native_lookup,
+        )
+
+    @property
+    def canonical_key(self) -> tuple:
+        return (*self.identity.canonical_key, *self.resource_key)
+
+    def canonical_dict(self) -> dict:
+        return {
+            "identity": self.identity.canonical_dict(),
+            "file_path": self.file_path,
+            "artifact_kind": self.artifact_kind.value,
+            "scanner_native_lookup": self.scanner_native_lookup,
+            "baseline_occurrences": self.baseline_occurrences,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class Finding:
     """A normalised finding. Identity is never the rule id alone (semantics §3)."""
 
@@ -1169,10 +1230,18 @@ def require_target_identity(value: Any, name: str = "identity") -> TargetIdentit
 
 @dataclass(frozen=True, slots=True)
 class Target:
-    """A target: an identity plus the baseline occurrence count."""
+    """A target selector plus the baseline occurrence count.
+
+    Empty selector fields are permitted only when the baseline inventory contains one
+    resource for the coarse identity.  D5 resolves this value to
+    :class:`ResolvedTargetBinding` before execution.
+    """
 
     identity: TargetIdentity
     baseline_occurrences: int = 1
+    file_path: str = ""
+    artifact_kind: ArtifactKind = ArtifactKind.UNKNOWN
+    scanner_native_lookup: str = ""
 
     def __post_init__(self) -> None:
         require_target_identity(self.identity)
@@ -1180,6 +1249,17 @@ class Target:
             raise DomainError(
                 "baseline_occurrences must be >= 1: a target exists because the baseline "
                 "had at least one occurrence"
+            )
+        if self.file_path:
+            object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        require_enum(self.artifact_kind, ArtifactKind, "target selector artifact kind")
+        if self.scanner_native_lookup:
+            object.__setattr__(
+                self,
+                "scanner_native_lookup",
+                canonical_resource_scope(
+                    self.scanner_native_lookup, "target selector native lookup"
+                ),
             )
 
     @classmethod
@@ -1201,7 +1281,13 @@ class Target:
 
     def canonical_dict(self) -> dict:
         return {"identity": self.identity.canonical_dict(),
-                "baseline_occurrences": self.baseline_occurrences}
+                "baseline_occurrences": self.baseline_occurrences,
+                "file_path": self.file_path or None,
+                "artifact_kind": (
+                    None if self.artifact_kind is ArtifactKind.UNKNOWN
+                    else self.artifact_kind.value
+                ),
+                "scanner_native_lookup": self.scanner_native_lookup or None}
 
 
 @dataclass(frozen=True, slots=True)
@@ -1301,7 +1387,8 @@ def permission_rejection_reason(decision: TargetDecision, policy: ExceptionPolic
 
 #: Every persistent model, for the immutability test matrix.
 PERSISTENT_MODELS: tuple = (
-    FindingLocation, BoundInputFile, ExpectedResource, Finding, CheckEvaluation,
+    FindingLocation, BoundInputFile, ExpectedResource, ResolvedTargetBinding,
+    Finding, CheckEvaluation,
     CoverageCounters, ResourceCoverage,
     ScannerRun, GateResult, RequiredGates,
     ExceptionRecord, ExceptionPolicy, TargetIdentity, Target, TargetDecision,

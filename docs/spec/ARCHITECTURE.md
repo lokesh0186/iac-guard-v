@@ -404,10 +404,11 @@ decoder for syntax, balance, and duplicate-key validation.
 
 ## 15. D5 verification engine
 
-`engine.py` owns the executable P0/V1--V7 orchestration boundary. Its serialized
-request contains two private-factory-attested Checkov scan plans, structured targets,
-required gate identities, protected governed-configuration evidence, and regression
-settings. A public Checkov request is only an untrusted discovery input: the factory
+`engine.py` owns the executable P0/V1--V7 orchestration boundary. Its request contains
+two independently discovered Checkov plans, target selectors, and one loader-attested
+`TrustedVerificationConfigBundle`. Required gates, framework/scanner locks, limits,
+severity/location policy, governed configuration, and gate-registry identity exist only
+inside that bundle. A public Checkov request is only an untrusted discovery input: the factory
 ignores its resource inventory, performs bounded no-follow reads, detects supported
 Terraform and Kubernetes resource identities from those bytes, and binds the resulting
 inventory to a digest. It has no
@@ -427,7 +428,8 @@ eligibility, file/resource presence, suppression absence, occurrence sufficiency
 affirmative target-pass evidence. It follows verification semantics section 4. A zero
 candidate count reaches `FIXED` only with affirmative native pass evidence bound to the
 target file and artifact domain. More than one baseline occurrence requires complete
-native occurrence tokens or distinct positive evaluation scopes. Matching ambiguity, a
+native occurrence-token coverage or an independent complete-target oracle; arbitrary
+positive-key counts never suffice. Matching ambiguity, a
 mismatched baseline occurrence count, or an unknown structural predicate yields
 `INCONCLUSIVE`.
 
@@ -439,6 +441,13 @@ not a value below the severity floor. Resource inventory loss is a visible destr
 event. Suppression detector completion is separate from a target suppression event so
 that D6 can apply an exact protected exception. D5 emits evidence and events only; it
 cannot emit a verdict.
+
+D5.2 resolves every target to file, artifact kind, and scanner-native resource identity
+before scanning. Repeated addresses across roots are ambiguous without an explicit
+selector. Destructive events retain full `ExpectedResource` keys, so a permitted target
+deletion cannot erase an unrelated same-address deletion. Governed paths are hashed
+mechanically, and the production runner calls only the versioned Terraform/Kubernetes
+gate registry; no arbitrary callback is exposed.
 
 ## 16. D6 policy layer
 

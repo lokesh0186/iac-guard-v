@@ -309,3 +309,9 @@ multi-document, and Kubernetes `List` forms enter the scan plan. Duplicate keys,
 unsafe tags, malformed/incomplete Kubernetes evidence, excessive structure, invalid HCL,
 and unsupported `.tf.json` fail preflight. This prevents surface syntax from removing a
 candidate resource from the scanner universe while retaining no-follow and byte caps.
+
+Verification policy is a separate trust boundary. Candidate/public input cannot select
+the severity floor, framework/gate set, scanner locks, limits, governed digests, or gate
+implementation. These are factory-stamped in `TrustedVerificationConfigBundle`, and
+governed files are hashed by path. Target authority includes file/artifact/native
+identity so two modules sharing a Terraform address cannot share deletion permission.

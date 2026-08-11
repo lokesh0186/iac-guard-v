@@ -51,3 +51,10 @@ and a majority of tools sharing an upstream policy source is one opinion, not th
 **Allow user-supplied Python oracles behind a flag.** Rejected for 1.0: a flag that
 executes untrusted code from a case bundle is a remote-code-execution feature with a
 warning label.
+
+## Amendment, 2026-08-11: trusted gate registry
+
+Required gate ids and registry identity come from protected verification configuration.
+The production registry implements strict Terraform HCL and Kubernetes YAML validation.
+`run_checkov_verification` accepts no callback. A private factory can install a unit-test
+registry, but that capability is absent from serialized and future CLI/API inputs.

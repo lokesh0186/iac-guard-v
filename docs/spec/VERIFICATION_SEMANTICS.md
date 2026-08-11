@@ -25,7 +25,7 @@ specification may use these words in a normative sentence without pointing here.
 | **evidence** | A recorded, re-readable fact: a raw scanner output reference, a hash, a coverage counter, an oracle result, or a diff. Verdicts cite evidence; evidence never contains a verdict. |
 | **baseline** | The artifact tree designated as the "before" state, plus its scan results. |
 | **candidate** | The artifact tree designated as the "after" state, plus its scan results. |
-| **target** | A `(scanner, rule_id, scope)` triple the change is expected to fix, where scope is a resource address or an artifact path (§3). |
+| **target** | A selector `(scanner, rule_id, scope[, file/module])` resolved before execution to scanner, rule, canonical resource, file, artifact kind, and native lookup identity (§3). A coarse selector matching several roots is ambiguous. |
 | **trusted configuration** | Configuration loaded from the trusted source defined in §2, never from the evaluated change. |
 
 ---
@@ -858,8 +858,9 @@ maps to `FIXED` only when the affirmative target-pass status is `PASS`.
 
 Affirmative evidence is file- and artifact-domain-bound. When the protected target has
 multiple baseline occurrences, one generic `PASSED` evaluation does not close the
-multiset: complete stable occurrence tokens, distinct native evaluation scopes, or an
-independent complete-target oracle are required. Otherwise the reason is
+multiset: complete stable occurrence-token coverage in the same evidence domain or an
+independent complete-target oracle is required. Counting distinct arbitrary
+`evaluated_keys` or file/key pairs is forbidden. Otherwise the reason is
 `OCCURRENCE_PASS_COVERAGE_INCOMPLETE`. Stable execution also requires equality of the
 scanner identity, version, launcher digest, environment digest, policy inventory digest,
 and invocation/config digest.
@@ -1055,3 +1056,20 @@ and `List` objects. Duplicate keys, tags, aliases, excessive depth, malformed or
 incomplete Kubernetes identities, and currently unsupported `.tf.json` are explicit
 preflight failures. Definitively non-Kubernetes YAML may be excluded, but YAML carrying
 root Kubernetes identity evidence cannot disappear as non-IaC.
+
+## 14. D5.2 protected configuration and exact target binding
+
+`VerificationRequest` contains independently discovered plans, target selectors, and a
+private-factory `TrustedVerificationConfigBundle`. Severity floor, location policy,
+required gates, framework universe, scanner locks, invocation limits, governed path
+digests, and gate-registry identity are absent as ordinary request fields. The operator
+loader is explicit local mode; serialized/public inputs cannot construct or restamp the
+bundle.
+
+The plan factory re-attests both roots under the bundle's framework/lock universe.
+Governed files are discovered and hashed path by path with added, removed, changed, and
+stable states. A target resolves to one `ResolvedTargetBinding` containing scanner, rule,
+resource, file, artifact kind, and native lookup; repeated addresses require a file or
+module selector. Destructive events retain complete `ExpectedResource` records and a
+target deletion exempts only its exact key. Production gates come from the versioned
+Terraform/Kubernetes registry; the runner exposes no arbitrary callback.

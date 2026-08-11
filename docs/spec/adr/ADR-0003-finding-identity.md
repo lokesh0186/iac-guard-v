@@ -102,3 +102,10 @@ Matching and diff objects are factory-bound with private noncanonical provenance
 Adapter scanner/target evidence distinguishes internal production from ordinary public
 model construction. This prevents a CLI/config/JSON caller from supplying precomputed
 `NEW_FINDING` or `RESOLVED_FINDING` claims to D5; D5 must invoke the trusted factories.
+
+## Amendment, 2026-08-11: exact target binding
+
+The target selector may begin as scanner/rule/resource, but D5 and authorisation use a
+resolved binding containing file, artifact kind, and scanner-native lookup. Repeated
+addresses across roots are ambiguous without a file/module selector. Destructive events
+retain complete expected-resource keys; address-only deduplication is forbidden.

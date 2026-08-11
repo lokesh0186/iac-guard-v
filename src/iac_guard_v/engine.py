@@ -14,7 +14,7 @@ import os
 import stat
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
-from typing import Callable
+from collections.abc import Callable, Mapping
 
 import hcl2
 import yaml
@@ -50,6 +50,7 @@ from .models import (
     ExpectedResource,
     GateResult,
     RequiredGates,
+    ResolvedTargetBinding,
     ScannerRun,
     Target,
     TargetIdentity,
@@ -62,13 +63,340 @@ from .models import (
 
 _TRUSTED_ENGINE_CONTEXT = object()
 _TRUSTED_SCAN_PLAN_CONTEXT = object()
+_TRUSTED_CONFIG_CONTEXT = object()
+_TRUSTED_GATE_REGISTRY_CONTEXT = object()
 _SHA256 = __import__("re").compile(r"^[0-9a-f]{64}$")
+_GOVERNED_FILE_NAMES = frozenset({
+    ".iac-guard.yml", ".iac-guard.yaml", ".checkov.yml", ".checkov.yaml",
+    ".trivyignore", ".tflint.hcl", ".kics.yaml", ".kics.yml",
+    "iac-guard.lock.yml", "exceptions.json", "control-catalog.json",
+    "oracle-policy.json", "severity-policy.json", "gate-policy.json",
+})
+_GOVERNED_DIRECTORY_NAMES = frozenset({
+    ".iac-guard", ".checkov", "checkov_custom_checks", "custom_checks",
+    "oracle-policy", "control-catalog",
+})
 
 
 def _digest(value: object, name: str) -> str:
     if type(value) is not str or not _SHA256.fullmatch(value):
         raise DomainError(f"{name} must be a lowercase SHA-256 digest")
     return value
+
+
+@dataclass(frozen=True, slots=True)
+class GovernedConfigEvidence:
+    """Path-by-path protected/candidate configuration comparison."""
+
+    file_path: str
+    trusted_sha256: str | None
+    candidate_sha256: str | None
+    state: str
+
+    def __post_init__(self) -> None:
+        from .models import canonical_repo_path
+
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        for name in ("trusted_sha256", "candidate_sha256"):
+            value = getattr(self, name)
+            if value is not None:
+                _digest(value, f"governed config {name}")
+        expected = (
+            "added" if self.trusted_sha256 is None
+            else "removed" if self.candidate_sha256 is None
+            else "stable" if self.trusted_sha256 == self.candidate_sha256
+            else "changed"
+        )
+        if self.state != expected:
+            raise DomainError("governed config state contradicts its digests")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "file_path": self.file_path,
+            "trusted_sha256": self.trusted_sha256,
+            "candidate_sha256": self.candidate_sha256,
+            "state": self.state,
+        }
+
+
+GateExecutor = Callable[[str, str, Path], GateResult]
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedGateRegistry:
+    """Factory-stamped gate implementations; never accepted from serialized input."""
+
+    identity: str
+    validator_ids: tuple
+    oracle_ids: tuple
+    _executor: Callable = field(repr=False, compare=False)
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        object.__setattr__(self, "identity", canonical_identifier(self.identity, "gate registry identity"))
+        for name in ("validator_ids", "oracle_ids"):
+            value = getattr(self, name)
+            if type(value) is not tuple:
+                raise DomainError(f"{name} must be an exact tuple")
+            rebuilt = tuple(canonical_identifier(item, "gate id") for item in value)
+            if len(rebuilt) != len(set(rebuilt)):
+                raise DomainError(f"{name} contains duplicate gate ids")
+            object.__setattr__(self, name, tuple(sorted(rebuilt)))
+        if not callable(self._executor):
+            raise DomainError("gate registry executor must be callable")
+        if _trusted_context is not _TRUSTED_GATE_REGISTRY_CONTEXT:
+            raise DomainError("TrustedGateRegistry requires factory provenance")
+        object.__setattr__(self, "_trusted", True)
+
+    def execute(self, kind: str, gate_id: str, root: Path) -> GateResult:
+        supported = self.validator_ids if kind == "validator" else self.oracle_ids
+        if gate_id not in supported:
+            return GateResult(gate_id, Status.UNSUPPORTED, "GATE_IMPLEMENTATION_UNAVAILABLE")
+        result = self._executor(kind, gate_id, root)
+        require_exact_type(result, GateResult, "gate registry result")
+        if result.gate_id != gate_id:
+            raise DomainError("trusted gate registry substituted a different gate id")
+        return GateResult(result.gate_id, result.status, result.reason_code, result.detail)
+
+
+def _production_gate_executor(kind: str, gate_id: str, root: Path) -> GateResult:
+    if kind != "validator":
+        return GateResult(gate_id, Status.UNSUPPORTED, "ORACLE_IMPLEMENTATION_UNAVAILABLE")
+    suffixes = (
+        {".tf"} if gate_id == "terraform_hcl_parse"
+        else {".yaml", ".yml"} if gate_id == "kubernetes_yaml_parse"
+        else set()
+    )
+    try:
+        checked = 0
+        for path in sorted(root.rglob("*")):
+            if not path.is_file() or path.suffix.lower() not in suffixes:
+                continue
+            relative = path.relative_to(root).as_posix()
+            content = _read_detector_file(path, root, 10 * 1024 * 1024)
+            if gate_id == "terraform_hcl_parse":
+                _terraform_resources(relative, content)
+            else:
+                _kubernetes_resources(relative, content)
+            checked += 1
+    except DomainError as exc:
+        return GateResult(gate_id, Status.FAIL, "ARTIFACT_SYNTAX_INVALID", str(exc))
+    return GateResult(gate_id, Status.PASS, "VALIDATOR_COMPLETED", f"files={checked}")
+
+
+def production_gate_registry() -> TrustedGateRegistry:
+    return TrustedGateRegistry(
+        "iac_guard_v_phase_d_registry_v1",
+        ("kubernetes_yaml_parse", "terraform_hcl_parse"),
+        (),
+        _production_gate_executor,
+        _trusted_context=_TRUSTED_GATE_REGISTRY_CONTEXT,
+    )
+
+
+def _test_gate_registry(executor: GateExecutor) -> TrustedGateRegistry:
+    """Private test capability; production requests never accept a callback."""
+    return TrustedGateRegistry(
+        "iac_guard_v_test_registry_v1",
+        ("kubernetes_yaml_parse", "terraform_hcl_parse", "validator"),
+        ("oracle", "target_oracle"),
+        executor,
+        _trusted_context=_TRUSTED_GATE_REGISTRY_CONTEXT,
+    )
+
+
+def _governed_file(path: Path, relative: str) -> bool:
+    parts = Path(relative).parts
+    return (
+        path.name in _GOVERNED_FILE_NAMES
+        or any(part in _GOVERNED_DIRECTORY_NAMES for part in parts[:-1])
+    )
+
+
+def _governed_inventory(root: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for path in sorted(root.rglob("*")):
+        relative = path.relative_to(root).as_posix()
+        if not _governed_file(path, relative):
+            continue
+        if path.is_symlink():
+            raise DomainError("governed configuration cannot be a symlink")
+        if not path.is_file():
+            continue
+        payload = _read_detector_file(path, root, 10 * 1024 * 1024)
+        result[relative] = hashlib.sha256(payload).hexdigest()
+    return result
+
+
+def _governed_comparison(baseline_root: Path, candidate_root: Path) -> tuple:
+    trusted = _governed_inventory(baseline_root)
+    candidate = _governed_inventory(candidate_root)
+    evidence = []
+    for path in sorted(set(trusted) | set(candidate)):
+        before = trusted.get(path)
+        after = candidate.get(path)
+        state = "added" if before is None else "removed" if after is None else "stable" if before == after else "changed"
+        evidence.append(GovernedConfigEvidence(path, before, after, state))
+    return tuple(evidence)
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedVerificationConfigBundle:
+    """Protected scanner, regression, gate, and governed-config policy."""
+
+    baseline_root: Path
+    candidate_root: Path
+    scanner_executable: Path
+    frameworks: tuple
+    expected_version: str
+    expected_executable_sha256: str
+    expected_scanner_environment_sha256: str
+    expected_policy_inventory_sha256: str
+    required_gates: RequiredGates
+    severity_floor: Severity
+    fail_on_location_change: bool
+    timeout_seconds: int
+    max_output_bytes: int
+    max_eligible_files: int
+    max_file_bytes: int
+    max_total_eligible_bytes: int
+    governed_config: tuple
+    source_identity: str
+    source_provenance: str
+    gate_registry: TrustedGateRegistry = field(repr=False, compare=False)
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+    config_sha256: str = field(init=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        if _trusted_context is not _TRUSTED_CONFIG_CONTEXT:
+            raise DomainError("TrustedVerificationConfigBundle requires loader provenance")
+        for name in ("baseline_root", "candidate_root"):
+            value = getattr(self, name)
+            if not isinstance(value, Path):
+                raise DomainError(f"{name} must be pathlib.Path")
+            object.__setattr__(self, name, value.resolve(strict=True))
+        if not isinstance(self.scanner_executable, Path):
+            raise DomainError("scanner_executable must be pathlib.Path")
+        object.__setattr__(self, "scanner_executable", self.scanner_executable.resolve(strict=True))
+        frameworks = tuple(sorted(canonical_identifier(item, "framework") for item in self.frameworks))
+        if type(self.frameworks) is not tuple or not frameworks or len(frameworks) != len(set(frameworks)):
+            raise DomainError("trusted frameworks must be a nonempty unique tuple")
+        object.__setattr__(self, "frameworks", frameworks)
+        require_exact_type(self.required_gates, RequiredGates, "trusted required gates")
+        require_enum(self.severity_floor, Severity, "trusted severity floor")
+        if type(self.fail_on_location_change) is not bool:
+            raise DomainError("trusted location policy must be bool")
+        for name in (
+            "timeout_seconds", "max_output_bytes", "max_eligible_files",
+            "max_file_bytes", "max_total_eligible_bytes",
+        ):
+            value = getattr(self, name)
+            if type(value) is not int or value <= 0:
+                raise DomainError(f"{name} must be a positive exact int")
+        for name in (
+            "expected_executable_sha256", "expected_scanner_environment_sha256",
+            "expected_policy_inventory_sha256",
+        ):
+            _digest(getattr(self, name), name)
+        object.__setattr__(self, "expected_version", canonical_identifier(self.expected_version, "scanner version"))
+        object.__setattr__(self, "source_identity", canonical_identifier(self.source_identity, "config source identity"))
+        object.__setattr__(self, "source_provenance", canonical_identifier(self.source_provenance, "config source provenance"))
+        if type(self.governed_config) is not tuple or any(type(item) is not GovernedConfigEvidence for item in self.governed_config):
+            raise DomainError("governed_config must contain exact evidence records")
+        require_exact_type(self.gate_registry, TrustedGateRegistry, "trusted gate registry")
+        if not self.gate_registry._trusted:
+            raise DomainError("gate registry lacks factory provenance")
+        payload = {
+            "frameworks": list(frameworks),
+            "version": self.expected_version,
+            "launcher": self.expected_executable_sha256,
+            "environment": self.expected_scanner_environment_sha256,
+            "policy": self.expected_policy_inventory_sha256,
+            "required_gates": self.required_gates.canonical_dict(),
+            "severity_floor": self.severity_floor.value,
+            "fail_on_location_change": self.fail_on_location_change,
+            "limits": [self.timeout_seconds, self.max_output_bytes, self.max_eligible_files, self.max_file_bytes, self.max_total_eligible_bytes],
+            "governed_config": [item.canonical_dict() for item in self.governed_config],
+            "source": [self.source_identity, self.source_provenance],
+            "gate_registry": self.gate_registry.identity,
+        }
+        object.__setattr__(self, "config_sha256", hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
+        object.__setattr__(self, "_trusted", True)
+
+    @property
+    def policy_drift_paths(self) -> tuple:
+        return tuple(item.file_path for item in self.governed_config if item.state != "stable")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "config_sha256": self.config_sha256,
+            "source_identity": self.source_identity,
+            "source_provenance": self.source_provenance,
+            "frameworks": list(self.frameworks),
+            "severity_floor": self.severity_floor.value,
+            "fail_on_location_change": self.fail_on_location_change,
+            "required_gates": self.required_gates.canonical_dict(),
+            "gate_registry_identity": self.gate_registry.identity,
+            "governed_config": [item.canonical_dict() for item in self.governed_config],
+        }
+
+
+def load_operator_verification_config(
+    baseline_request: CheckovScanRequest,
+    candidate_request: CheckovScanRequest,
+    *,
+    required_gates: RequiredGates,
+    severity_floor: Severity = Severity.HIGH,
+    fail_on_location_change: bool = False,
+    frameworks: tuple | None = None,
+    _test_executor: GateExecutor | None = None,
+) -> TrustedVerificationConfigBundle:
+    """Explicit local/operator loader; future PR mode uses a Git-attested source."""
+    require_exact_type(baseline_request, CheckovScanRequest, "baseline Checkov request")
+    require_exact_type(candidate_request, CheckovScanRequest, "candidate Checkov request")
+    lock_fields = (
+        "executable", "expected_version", "expected_executable_sha256",
+        "expected_scanner_environment_sha256", "expected_policy_inventory_sha256",
+        "timeout_seconds", "max_output_bytes", "max_eligible_files", "max_file_bytes",
+        "max_total_eligible_bytes",
+    )
+    if any(getattr(baseline_request, name) != getattr(candidate_request, name) for name in lock_fields):
+        raise DomainError("baseline and candidate scanner lock inputs differ")
+    registry = _test_gate_registry(_test_executor) if _test_executor else production_gate_registry()
+    selected_frameworks = frameworks if frameworks is not None else baseline_request.frameworks
+    source_payload = {
+        "mode": "operator",
+        "frameworks": list(selected_frameworks),
+        "severity_floor": severity_floor.value if type(severity_floor) is Severity else str(severity_floor),
+        "required_gates": required_gates.canonical_dict(),
+        "gate_registry": registry.identity,
+    }
+    source_identity = "operator_" + hashlib.sha256(json.dumps(source_payload, sort_keys=True).encode()).hexdigest()
+    return TrustedVerificationConfigBundle(
+        baseline_request.scan_root,
+        candidate_request.scan_root,
+        baseline_request.executable,
+        selected_frameworks,
+        baseline_request.expected_version,
+        baseline_request.expected_executable_sha256,
+        baseline_request.expected_scanner_environment_sha256,
+        baseline_request.expected_policy_inventory_sha256,
+        required_gates,
+        severity_floor,
+        fail_on_location_change,
+        baseline_request.timeout_seconds,
+        baseline_request.max_output_bytes,
+        baseline_request.max_eligible_files,
+        baseline_request.max_file_bytes,
+        baseline_request.max_total_eligible_bytes,
+        _governed_comparison(baseline_request.scan_root, candidate_request.scan_root),
+        source_identity,
+        "operator",
+        registry,
+        _trusted_context=_TRUSTED_CONFIG_CONTEXT,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -395,9 +723,29 @@ def _read_detector_file(path: Path, root: Path, max_bytes: int) -> bytes:
     return b"".join(chunks)
 
 
-def attest_checkov_scan_plan(untrusted: CheckovScanRequest) -> TrustedScanPlan:
-    """Re-discover eligible files/resources from bytes; ignore caller inventories."""
+def attest_checkov_scan_plan(
+    untrusted: CheckovScanRequest,
+    config: TrustedVerificationConfigBundle | None = None,
+) -> TrustedScanPlan:
+    """Re-discover bytes/resources; production calls provide protected config."""
     require_exact_type(untrusted, CheckovScanRequest, "unattested Checkov request")
+    if config is not None:
+        require_exact_type(config, TrustedVerificationConfigBundle, "verification config")
+        if not config._trusted:
+            raise DomainError("verification config lacks loader provenance")
+        if untrusted.scan_root not in {config.baseline_root, config.candidate_root}:
+            raise DomainError("scan root is outside the protected verification config")
+        frameworks = config.frameworks
+        max_file_bytes = config.max_file_bytes
+        max_total_bytes = config.max_total_eligible_bytes
+        max_files = config.max_eligible_files
+    else:
+        # Discovery-only compatibility path. VerificationRequest always re-attests both
+        # sides with its protected bundle before evidence can reach D5.
+        frameworks = untrusted.frameworks
+        max_file_bytes = untrusted.max_file_bytes
+        max_total_bytes = untrusted.max_total_eligible_bytes
+        max_files = untrusted.max_eligible_files
     files: list[ScanPlanFile] = []
     resources: list[ExpectedResource] = []
     kubernetes: list[CheckovKubernetesIdentity] = []
@@ -414,15 +762,15 @@ def attest_checkov_scan_plan(untrusted: CheckovScanRequest) -> TrustedScanPlan:
             continue
         relative = path.relative_to(root).as_posix()
         suffix = path.suffix.lower()
-        if is_tf_json and "terraform" in untrusted.frameworks:
+        if is_tf_json and "terraform" in frameworks:
             raise DomainError("Terraform JSON (.tf.json) is explicitly unsupported")
-        content = _read_detector_file(path, root, untrusted.max_file_bytes)
+        content = _read_detector_file(path, root, max_file_bytes)
         detected: tuple[ExpectedResource, ...] = ()
         file_type = ""
-        if suffix == ".tf" and "terraform" in untrusted.frameworks:
+        if suffix == ".tf" and "terraform" in frameworks:
             detected = _terraform_resources(relative, content)
             file_type = ArtifactKind.TERRAFORM_HCL.value
-        elif suffix in {".yaml", ".yml"} and "kubernetes" in untrusted.frameworks:
+        elif suffix in {".yaml", ".yml"} and "kubernetes" in frameworks:
             detected, identities = _kubernetes_resources(relative, content)
             if not detected:
                 continue
@@ -430,10 +778,10 @@ def attest_checkov_scan_plan(untrusted: CheckovScanRequest) -> TrustedScanPlan:
             file_type = ArtifactKind.KUBERNETES_YAML.value
         else:
             continue
-        if len(eligible) >= untrusted.max_eligible_files:
+        if len(eligible) >= max_files:
             raise DomainError("independent detector input exceeds its eligible-file limit")
         total_bytes += len(content)
-        if total_bytes > untrusted.max_total_eligible_bytes:
+        if total_bytes > max_total_bytes:
             raise DomainError("independent detector input exceeds its total-byte limit")
         eligible.append(relative)
         resources.extend(detected)
@@ -443,22 +791,22 @@ def attest_checkov_scan_plan(untrusted: CheckovScanRequest) -> TrustedScanPlan:
             )
         )
     request = CheckovScanRequest(
-        executable=untrusted.executable,
+        executable=config.scanner_executable if config else untrusted.executable,
         scan_root=untrusted.scan_root,
         workspace_root=untrusted.workspace_root,
-        frameworks=untrusted.frameworks,
+        frameworks=frameworks,
         files_eligible=tuple(eligible),
-        expected_version=untrusted.expected_version,
-        expected_executable_sha256=untrusted.expected_executable_sha256,
-        expected_scanner_environment_sha256=untrusted.expected_scanner_environment_sha256,
-        expected_policy_inventory_sha256=untrusted.expected_policy_inventory_sha256,
+        expected_version=config.expected_version if config else untrusted.expected_version,
+        expected_executable_sha256=(config.expected_executable_sha256 if config else untrusted.expected_executable_sha256),
+        expected_scanner_environment_sha256=(config.expected_scanner_environment_sha256 if config else untrusted.expected_scanner_environment_sha256),
+        expected_policy_inventory_sha256=(config.expected_policy_inventory_sha256 if config else untrusted.expected_policy_inventory_sha256),
         kubernetes_identities=tuple(kubernetes),
         expected_resources=tuple(resources),
-        timeout_seconds=untrusted.timeout_seconds,
-        max_output_bytes=untrusted.max_output_bytes,
-        max_eligible_files=untrusted.max_eligible_files,
-        max_file_bytes=untrusted.max_file_bytes,
-        max_total_eligible_bytes=untrusted.max_total_eligible_bytes,
+        timeout_seconds=config.timeout_seconds if config else untrusted.timeout_seconds,
+        max_output_bytes=config.max_output_bytes if config else untrusted.max_output_bytes,
+        max_eligible_files=max_files,
+        max_file_bytes=max_file_bytes,
+        max_total_eligible_bytes=max_total_bytes,
     )
     evidence_by_path = {item.file_path: item for item in request.eligible_file_evidence}
     if any(
@@ -483,57 +831,81 @@ def attest_checkov_scan_plan(untrusted: CheckovScanRequest) -> TrustedScanPlan:
 
 @dataclass(frozen=True, slots=True)
 class VerificationRequest:
-    """Paths, targets, and protected configuration; never derived scan evidence."""
+    """Paths, selectors, and one loader-attested protected configuration."""
 
     baseline_scan: TrustedScanPlan
     candidate_scan: TrustedScanPlan
     targets: tuple
-    required_gates: RequiredGates
-    trusted_governed_config_sha256: str
-    candidate_governed_config_sha256: str
-    severity_floor: Severity = Severity.HIGH
-    fail_on_location_change: bool = False
+    config: TrustedVerificationConfigBundle
 
     def __post_init__(self) -> None:
         require_exact_type(self.baseline_scan, TrustedScanPlan, "baseline trusted scan plan")
         require_exact_type(self.candidate_scan, TrustedScanPlan, "candidate trusted scan plan")
         if not self.baseline_scan._trusted or not self.candidate_scan._trusted:
             raise DomainError("verification scan plans require detector provenance")
-        require_exact_type(self.required_gates, RequiredGates, "required gates")
-        require_enum(self.severity_floor, Severity, "severity_floor")
-        if type(self.fail_on_location_change) is not bool:
-            raise DomainError("fail_on_location_change must be a bool")
+        require_exact_type(self.config, TrustedVerificationConfigBundle, "verification config")
+        if not self.config._trusted:
+            raise DomainError("verification config lacks loader provenance")
+        baseline = attest_checkov_scan_plan(self.baseline_scan.request, self.config)
+        candidate = attest_checkov_scan_plan(self.candidate_scan.request, self.config)
+        object.__setattr__(self, "baseline_scan", baseline)
+        object.__setattr__(self, "candidate_scan", candidate)
         if type(self.targets) is not tuple or not self.targets:
             raise DomainError("targets must be a nonempty exact tuple")
-        rebuilt: list[Target] = []
+        rebuilt: list[ResolvedTargetBinding] = []
         for item in self.targets:
             require_exact_type(item, Target, "verification target")
+            matches = [
+                resource for resource in baseline.expected_resources
+                if resource.resource_address == item.scope
+                and (not item.file_path or resource.file_path == item.file_path)
+                and (
+                    item.artifact_kind is ArtifactKind.UNKNOWN
+                    or resource.artifact_kind is item.artifact_kind
+                )
+                and (
+                    not item.scanner_native_lookup
+                    or resource.scanner_native_lookup == item.scanner_native_lookup
+                )
+            ]
+            if not matches:
+                raise DomainError("target selector does not resolve in baseline inventory")
+            if len(matches) != 1:
+                raise DomainError(
+                    "target selector is ambiguous; provide file/artifact/native identity"
+                )
+            resource = matches[0]
             rebuilt.append(
-                Target(
+                ResolvedTargetBinding(
                     TargetIdentity(
                         item.identity.scanner,
                         item.identity.rule_id,
                         item.identity.scope,
                     ),
+                    resource.file_path,
+                    resource.artifact_kind,
+                    resource.scanner_native_lookup,
                     item.baseline_occurrences,
                 )
             )
-        keys = [item.identity.canonical_key for item in rebuilt]
+        keys = [item.canonical_key for item in rebuilt]
         if len(keys) != len(set(keys)):
             raise DomainError("verification targets contain duplicate identities")
         if any(item.scanner != "checkov" for item in rebuilt):
             raise DomainError("D5 supports Checkov targets only")
-        object.__setattr__(self, "targets", tuple(sorted(rebuilt, key=lambda x: x.identity.canonical_key)))
-        object.__setattr__(
-            self,
-            "trusted_governed_config_sha256",
-            _digest(self.trusted_governed_config_sha256, "trusted governed-config digest"),
-        )
-        object.__setattr__(
-            self,
-            "candidate_governed_config_sha256",
-            _digest(self.candidate_governed_config_sha256, "candidate governed-config digest"),
-        )
+        object.__setattr__(self, "targets", tuple(sorted(rebuilt, key=lambda x: x.canonical_key)))
+
+    @property
+    def required_gates(self) -> RequiredGates:
+        return self.config.required_gates
+
+    @property
+    def severity_floor(self) -> Severity:
+        return self.config.severity_floor
+
+    @property
+    def fail_on_location_change(self) -> bool:
+        return self.config.fail_on_location_change
 
 
 @dataclass(frozen=True, slots=True)
@@ -610,6 +982,7 @@ def classify_target(observation: TargetObservation) -> Outcome:
 @dataclass(frozen=True, slots=True)
 class TargetOutcomeEvidence:
     identity: TargetIdentity
+    binding: ResolvedTargetBinding
     outcome: Outcome
     observation: TargetObservation
     target_reason: str
@@ -618,6 +991,9 @@ class TargetOutcomeEvidence:
 
     def __post_init__(self, _trusted_context: object) -> None:
         require_exact_type(self.identity, TargetIdentity, "target identity")
+        require_exact_type(self.binding, ResolvedTargetBinding, "resolved target binding")
+        if self.binding.identity.canonical_key != self.identity.canonical_key:
+            raise DomainError("resolved target binding disagrees with target identity")
         require_enum(self.outcome, Outcome, "target outcome")
         require_exact_type(self.observation, TargetObservation, "target observation")
         if self.identity.canonical_key != self.observation.identity.canonical_key:
@@ -631,11 +1007,12 @@ class TargetOutcomeEvidence:
 
     @property
     def canonical_key(self) -> tuple:
-        return (*self.identity.canonical_key, self.outcome.value)
+        return (*self.binding.canonical_key, self.outcome.value)
 
     def canonical_dict(self) -> dict:
         return {
             "identity": self.identity.canonical_dict(),
+            "binding": self.binding.canonical_dict(),
             "outcome": self.outcome.value,
             "target_reason": self.target_reason,
             "counts": {
@@ -643,9 +1020,6 @@ class TargetOutcomeEvidence:
                 "candidate": self.observation.candidate_matches,
             },
         }
-
-
-GateExecutor = Callable[[str, str, Path], GateResult]
 
 
 _ENGINE_DELTA_CLASSES = frozenset({
@@ -664,6 +1038,7 @@ class EngineEventEvaluation:
     delta_class: DeltaClass
     status: Status
     reason_code: str
+    affected_resource_records: tuple = ()
     affected_resources: tuple = ()
     affected_paths: tuple = ()
     detail: str = ""
@@ -674,6 +1049,17 @@ class EngineEventEvaluation:
             raise DomainError("EngineEventEvaluation accepts only D5-derived delta classes")
         require_enum(self.status, Status, "engine event status")
         object.__setattr__(self, "reason_code", canonical_identifier(self.reason_code, "engine event reason"))
+        if type(self.affected_resource_records) is not tuple or any(
+            type(item) is not ExpectedResource for item in self.affected_resource_records
+        ):
+            raise DomainError(
+                "affected_resource_records must be an exact tuple of ExpectedResource"
+            )
+        object.__setattr__(
+            self,
+            "affected_resource_records",
+            tuple(sorted(self.affected_resource_records, key=lambda item: item.canonical_key)),
+        )
         for name in ("affected_resources", "affected_paths"):
             raw = getattr(self, name)
             if type(raw) is not tuple or any(type(item) is not str or not item for item in raw):
@@ -685,6 +1071,7 @@ class EngineEventEvaluation:
     @property
     def canonical_key(self) -> tuple:
         return (self.delta_class.value, self.status.value, self.reason_code,
+                tuple(item.canonical_key for item in self.affected_resource_records),
                 self.affected_resources, self.affected_paths, self.detail)
 
     def canonical_dict(self) -> dict:
@@ -692,6 +1079,9 @@ class EngineEventEvaluation:
             "delta_class": self.delta_class.value,
             "status": self.status.value,
             "reason_code": self.reason_code,
+            "affected_resource_records": [
+                item.canonical_dict() for item in self.affected_resource_records
+            ],
             "affected_resources": list(self.affected_resources),
             "affected_paths": list(self.affected_paths),
             "detail": self.detail,
@@ -761,6 +1151,7 @@ class VerificationResult:
     engine_events: tuple
     change_metrics: ChangeMetrics
     required_gates: RequiredGates
+    verification_config: TrustedVerificationConfigBundle
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -769,6 +1160,15 @@ class VerificationResult:
         require_trusted_scanner_run(self.candidate_run)
         require_trusted_diff_result(self.finding_diff)
         require_exact_type(self.required_gates, RequiredGates, "required gates")
+        require_exact_type(
+            self.verification_config,
+            TrustedVerificationConfigBundle,
+            "verification config",
+        )
+        if not self.verification_config._trusted:
+            raise DomainError("verification result config lacks loader provenance")
+        if self.required_gates != self.verification_config.required_gates:
+            raise DomainError("verification result gates disagree with protected config")
         for name in ("preflight", "scanner_integrity", "regression", "suppression"):
             require_exact_type(getattr(self, name), GateResult, name)
         for name, expected_ids in (
@@ -829,6 +1229,7 @@ class VerificationResult:
             "change_metrics": self.change_metrics.canonical_dict(),
             "baseline_run": self.baseline_run.canonical_dict(),
             "candidate_run": self.candidate_run.canonical_dict(),
+            "verification_config": self.verification_config.canonical_dict(),
         }
 
 
@@ -843,29 +1244,24 @@ def _gate_results(
     ids: tuple,
     kind: str,
     root: Path,
-    executor: GateExecutor | None,
+    registry: TrustedGateRegistry,
 ) -> tuple[GateResult, ...]:
     results: list[GateResult] = []
     for gate_id in ids:
-        if executor is None:
-            result = GateResult(gate_id, Status.UNSUPPORTED, "GATE_EXECUTOR_UNAVAILABLE")
-        else:
-            result = executor(kind, gate_id, root)
-            require_exact_type(result, GateResult, f"{kind} executor result")
-            if result.gate_id != gate_id:
-                raise DomainError(f"{kind} executor substituted {result.gate_id!r} for {gate_id!r}")
-            result = GateResult(result.gate_id, result.status, result.reason_code, result.detail)
+        result = registry.execute(kind, gate_id, root)
         results.append(result)
     return tuple(results)
 
 
-def _target_paths(run: ScannerRun, target: Target) -> tuple[str, ...]:
+def _target_paths(run: ScannerRun, target: ResolvedTargetBinding) -> tuple[str, ...]:
     return tuple(sorted({
         finding.location.file_path
         for finding in run.findings
         if finding.scanner == target.scanner
         and finding.rule_id == target.rule_id
         and finding.resource_address == target.scope
+        and finding.location.file_path == target.file_path
+        and finding.artifact_kind is target.artifact_kind
     }))
 
 
@@ -881,7 +1277,7 @@ def _execution_identity(run: ScannerRun) -> tuple:
 
 
 def _occurrence_complete_pass(
-    target: Target,
+    target: ResolvedTargetBinding,
     baseline_findings: tuple,
     candidate: ScannerRun,
     candidate_resource_paths: frozenset[str],
@@ -906,15 +1302,11 @@ def _occurrence_complete_pass(
     }
     if len(baseline_tokens) == target.baseline_occurrences:
         return baseline_tokens <= evaluated_tokens
-    distinct_evaluated_scopes = {
-        (item.file_path, item.evaluated_keys)
-        for item in passed if item.evaluated_keys
-    }
-    return len(distinct_evaluated_scopes) >= target.baseline_occurrences
+    return False
 
 
 def _target_observation(
-    target: Target,
+    target: ResolvedTargetBinding,
     baseline: ScannerRun,
     candidate: ScannerRun,
     diff: FindingDiffResult,
@@ -930,19 +1322,23 @@ def _target_observation(
     baseline_findings = tuple(
         f for f in baseline.findings
         if f.rule_id == target.rule_id and f.resource_address == target.scope
+        and f.location.file_path == target.file_path
+        and f.artifact_kind is target.artifact_kind
     )
     candidate_findings = tuple(
         f for f in candidate.findings
         if f.rule_id == target.rule_id and f.resource_address == target.scope and not f.suppressed
+        and f.location.file_path == target.file_path
+        and f.artifact_kind is target.artifact_kind
     )
     baseline_paths = _target_paths(baseline, target)
     eligible = set(request.candidate_scan.files_eligible)
     target_resource_records = tuple(
         item for item in request.candidate_scan.expected_resources
-        if item.resource_address == target.scope
+        if item.canonical_key == target.resource_key
     )
-    expected_resources = {item.resource_address for item in request.candidate_scan.expected_resources}
-    resource_present = target.scope in expected_resources
+    expected_resources = {item.canonical_key for item in request.candidate_scan.expected_resources}
+    resource_present = target.resource_key in expected_resources
     path_present = resource_present or any(path in eligible for path in baseline_paths)
     physical_present = any((request.candidate_scan.scan_root / path).is_file() for path in baseline_paths)
     if resource_present or path_present:
@@ -960,17 +1356,21 @@ def _target_observation(
     resource_state = Status.PASS if resource_present else Status.FAIL
     ambiguity = any(
         any(f.rule_id == target.rule_id and f.resource_address == target.scope
+            and f.location.file_path == target.file_path
+            and f.artifact_kind is target.artifact_kind
             for f in (*item.baseline, *item.candidate))
         for item in diff.ambiguities
     )
     target_evidence = evaluate_checkov_target(
         candidate, target.rule_id, target.scope,
-        baseline_paths[0] if len(baseline_paths) == 1 and baseline_paths[0] in eligible else None,
+        target.file_path if target.file_path in eligible else None,
     )
     suppressed = (
         target_evidence.reason is CheckTargetReason.TARGET_SUPPRESSED
         or any(f.suppressed for f in candidate.findings
-               if f.rule_id == target.rule_id and f.resource_address == target.scope)
+               if f.rule_id == target.rule_id and f.resource_address == target.scope
+               and f.location.file_path == target.file_path
+               and f.artifact_kind is target.artifact_kind)
     )
     baseline_count_ok = len(baseline_findings) == target.baseline_occurrences
     candidate_resource_paths = frozenset(item.file_path for item in target_resource_records)
@@ -1026,7 +1426,13 @@ def _regression_result(
     uncertain = []
     floor = SEVERITY_ORDER.index(request.severity_floor)
     suppressed_targets = {
-        item.identity.canonical_key
+        (
+            item.identity.scanner,
+            item.identity.rule_id,
+            item.identity.scope,
+            item.binding.file_path,
+            item.binding.artifact_kind.value,
+        )
         for item in outcomes if item.outcome is Outcome.SUPPRESSED
     }
     for delta in diff.deltas:
@@ -1042,7 +1448,13 @@ def _regression_result(
         }:
             if delta.delta_class is DeltaClass.SUPPRESSION_ADDED:
                 candidate = delta.candidate
-                identity = (candidate.scanner, candidate.rule_id, candidate.resource_address)
+                identity = (
+                    candidate.scanner,
+                    candidate.rule_id,
+                    candidate.resource_address,
+                    candidate.location.file_path,
+                    candidate.artifact_kind.value,
+                )
                 if identity in suppressed_targets:
                     continue
             decisive.append(delta.delta_class.value)
@@ -1052,11 +1464,13 @@ def _regression_result(
         item for item in engine_events
         if item.delta_class is DeltaClass.DESTRUCTIVE_CHANGE
     )
-    target_scopes = {
-        item.identity.scope for item in outcomes
+    target_resource_keys = {
+        item.binding.resource_key for item in outcomes
         if item.outcome in {Outcome.RESOURCE_DELETED, Outcome.FILE_DELETED_OR_RENAMED}
     }
-    unrelated_deleted = set(destructive.affected_resources) - target_scopes
+    unrelated_deleted = {
+        item.canonical_key for item in destructive.affected_resource_records
+    } - target_resource_keys
     if unrelated_deleted:
         decisive.append(DeltaClass.DESTRUCTIVE_CHANGE.value)
     if uncertain:
@@ -1072,6 +1486,20 @@ def _regression_result(
 def _preflight_result(
     request: VerificationRequest, baseline: ScannerRun, candidate: ScannerRun
 ) -> GateResult:
+    try:
+        current_governed = _governed_comparison(
+            request.config.baseline_root, request.config.candidate_root
+        )
+    except DomainError as exc:
+        return GateResult(
+            "preflight", Status.ERROR, "GOVERNED_CONFIG_REVALIDATION_FAILED", str(exc)
+        )
+    if tuple(item.canonical_dict() for item in current_governed) != tuple(
+        item.canonical_dict() for item in request.config.governed_config
+    ):
+        return GateResult(
+            "preflight", Status.ERROR, "GOVERNED_CONFIG_CHANGED_AFTER_ATTESTATION"
+        )
     payload = {
         "baseline": [item.canonical_dict() for item in request.baseline_scan.eligible_file_evidence],
         "candidate": [item.canonical_dict() for item in request.candidate_scan.eligible_file_evidence],
@@ -1139,10 +1567,8 @@ def _engine_events(
         else Status.INCONCLUSIVE
     )
     added_diagnostics = tuple(sorted(set(candidate.diagnostics) - set(baseline.diagnostics)))
-    policy_drift = (
-        request.trusted_governed_config_sha256
-        != request.candidate_governed_config_sha256
-    )
+    policy_drift_paths = request.config.policy_drift_paths
+    policy_drift = bool(policy_drift_paths)
     return (
         EngineEventEvaluation(
             DeltaClass.RULE_SUBSTITUTED,
@@ -1164,6 +1590,7 @@ def _engine_events(
             DeltaClass.DESTRUCTIVE_CHANGE,
             Status.FAIL if deleted else Status.PASS,
             "RESOURCES_DELETED" if deleted else "NO_RESOURCES_DELETED",
+            affected_resource_records=deleted_records,
             affected_resources=deleted,
             affected_paths=deleted_paths,
         ),
@@ -1171,10 +1598,8 @@ def _engine_events(
             DeltaClass.POLICY_DRIFT,
             Status.FAIL if policy_drift else Status.PASS,
             "GOVERNED_CONFIG_DRIFT" if policy_drift else "GOVERNED_CONFIG_STABLE",
-            detail=(
-                f"trusted={request.trusted_governed_config_sha256};"
-                f"candidate={request.candidate_governed_config_sha256}"
-            ),
+            affected_paths=policy_drift_paths,
+            detail=f"config={request.config.config_sha256}",
         ),
     )
 
@@ -1212,20 +1637,17 @@ def _change_metrics(request: VerificationRequest) -> ChangeMetrics:
     return ChangeMetrics(
         added, removed, added + removed, float((added + removed) / denominator),
         changed_files, resource_added + resource_deleted, resource_added,
-        resource_deleted, None, ("policy_files_changed",),
+        resource_deleted, len(request.config.policy_drift_paths), (),
     )
 
 
 def run_checkov_verification(
     request: VerificationRequest,
-    *,
-    _gate_executor: GateExecutor | None = None,
 ) -> VerificationResult:
     """Run both scans and derive all D5 evidence internally.
 
-    ``_gate_executor`` is an in-process trusted dependency hook for validator/oracle
-    implementations. It is deliberately absent from ``VerificationRequest`` and cannot
-    be supplied through CLI/config/JSON.
+    Gate implementations come only from the loader-attested registry carried privately
+    by the protected configuration bundle.
     """
     require_exact_type(request, VerificationRequest, "verification request")
     adapter = CheckovAdapter()
@@ -1246,6 +1668,7 @@ def run_checkov_verification(
         outcomes.append(
             TargetOutcomeEvidence(
                 target.identity,
+                target,
                 classify_target(observation),
                 observation,
                 reason,
@@ -1254,10 +1677,12 @@ def run_checkov_verification(
         )
     candidate_root = request.candidate_scan.scan_root
     validators = _gate_results(
-        request.required_gates.validator_ids, "validator", candidate_root, _gate_executor
+        request.required_gates.validator_ids, "validator", candidate_root,
+        request.config.gate_registry,
     )
     oracles = _gate_results(
-        request.required_gates.oracle_ids, "oracle", candidate_root, _gate_executor
+        request.required_gates.oracle_ids, "oracle", candidate_root,
+        request.config.gate_registry,
     )
     scanner_status = (
         Status.PASS
@@ -1287,13 +1712,17 @@ def run_checkov_verification(
         engine_events,
         _change_metrics(request),
         request.required_gates,
+        request.config,
         _trusted_context=_TRUSTED_ENGINE_CONTEXT,
     )
 
 
 __all__ = [
-    "ChangeMetrics", "EngineEventEvaluation", "ScanPlanFile", "TargetObservation",
+    "ChangeMetrics", "EngineEventEvaluation", "GovernedConfigEvidence",
+    "ScanPlanFile", "TargetObservation",
     "TargetOutcomeEvidence", "TrustedScanPlan", "VerificationRequest",
-    "VerificationResult", "attest_checkov_scan_plan", "classify_target",
+    "TrustedGateRegistry", "TrustedVerificationConfigBundle", "VerificationResult",
+    "attest_checkov_scan_plan", "classify_target",
+    "load_operator_verification_config", "production_gate_registry",
     "require_trusted_verification_result", "run_checkov_verification",
 ]

@@ -32,6 +32,7 @@ from iac_guard_v.policy import (
 )
 from test_engine import (
     IDENTITY,
+    _config,
     _executable,
     _gate,
     _run,
@@ -58,17 +59,18 @@ def verified_engine(monkeypatch, tmp_path) -> VerificationResult:
     monkeypatch.setattr(
         CheckovAdapter,
         "scan",
-        lambda _self, request: _run(request, baseline=request is baseline.request),
+        lambda _self, request: _run(
+            request, baseline=request.scan_root == baseline.scan_root
+        ),
     )
+    gates = RequiredGates(("validator",), ("oracle",))
     request = VerificationRequest(
         baseline,
         candidate,
         (Target(IDENTITY, 1),),
-        RequiredGates(("validator",), ("oracle",)),
-        "a" * 64,
-        "a" * 64,
+        _config(baseline, candidate, gates),
     )
-    return run_checkov_verification(request, _gate_executor=_gate)
+    return run_checkov_verification(request)
 
 
 def _replace_engine(run: VerificationResult, **changes) -> VerificationResult:
@@ -100,6 +102,7 @@ def _outcome(run: VerificationResult, outcome: Outcome) -> VerificationResult:
     observed = observation(**changes)
     evidence = TargetOutcomeEvidence(
         IDENTITY,
+        run.target_outcomes[0].binding,
         outcome,
         observed,
         "TEST_TARGET_EVIDENCE",
@@ -111,12 +114,16 @@ def _outcome(run: VerificationResult, outcome: Outcome) -> VerificationResult:
 def _engine_event(run: VerificationResult, delta_class: DeltaClass, status: Status) -> VerificationResult:
     events = tuple(
         EngineEventEvaluation(
-            item.delta_class,
-            status if item.delta_class is delta_class else item.status,
-            "TEST_EVENT_STATE" if item.delta_class is delta_class else item.reason_code,
-            item.affected_resources,
-            item.affected_paths,
-            item.detail,
+            delta_class=item.delta_class,
+            status=status if item.delta_class is delta_class else item.status,
+            reason_code=(
+                "TEST_EVENT_STATE" if item.delta_class is delta_class
+                else item.reason_code
+            ),
+            affected_resource_records=item.affected_resource_records,
+            affected_resources=item.affected_resources,
+            affected_paths=item.affected_paths,
+            detail=item.detail,
         )
         for item in run.engine_events
     )

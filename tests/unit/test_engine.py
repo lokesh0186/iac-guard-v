@@ -16,6 +16,7 @@ from iac_guard_v.engine import (
     VerificationRequest,
     attest_checkov_scan_plan,
     classify_target,
+    load_operator_verification_config,
     require_trusted_verification_result,
     run_checkov_verification,
 )
@@ -184,6 +185,25 @@ def _gate(kind: str, gate_id: str, root: Path) -> GateResult:
     return GateResult(gate_id, Status.PASS, "AFFIRMATIVE_GATE_EVIDENCE")
 
 
+def _config(
+    baseline,
+    candidate,
+    gates: RequiredGates,
+    *,
+    executor=_gate,
+    severity_floor: Severity = Severity.HIGH,
+    fail_on_location_change: bool = False,
+):
+    return load_operator_verification_config(
+        baseline.request,
+        candidate.request,
+        required_gates=gates,
+        severity_floor=severity_floor,
+        fail_on_location_change=fail_on_location_change,
+        _test_executor=executor,
+    )
+
+
 def test_engine_invokes_adapter_and_factories_internally(monkeypatch, tmp_path: Path) -> None:
     executable = _executable(tmp_path)
     baseline = _scan_request(tmp_path / "baseline", executable)
@@ -192,15 +212,15 @@ def test_engine_invokes_adapter_and_factories_internally(monkeypatch, tmp_path: 
 
     def scan(_self, request):
         called.append(request.scan_root.name)
-        return _run(request, baseline=request is baseline.request)
+        return _run(request, baseline=request.scan_root == baseline.scan_root)
 
     monkeypatch.setattr(CheckovAdapter, "scan", scan)
+    gates = RequiredGates(("terraform_hcl_parse",), ("target_oracle",))
     request = VerificationRequest(
         baseline, candidate, (Target(IDENTITY, 1),),
-        RequiredGates(("terraform_hcl_parse",), ("target_oracle",)),
-        "b" * 64, "b" * 64,
+        _config(baseline, candidate, gates),
     )
-    result = run_checkov_verification(request, _gate_executor=_gate)
+    result = run_checkov_verification(request)
     assert called == ["baseline", "candidate"]
     assert result.target_outcomes[0].outcome is Outcome.FIXED
     assert result.finding_diff.deltas[0].delta_class.value == "RESOLVED_FINDING"
@@ -218,16 +238,17 @@ def test_missing_gate_executor_is_explicitly_unsupported(monkeypatch, tmp_path: 
     candidate = _scan_request(tmp_path / "candidate", executable)
     monkeypatch.setattr(
         CheckovAdapter, "scan",
-        lambda _self, req: _run(req, baseline=req is baseline.request),
+        lambda _self, req: _run(req, baseline=req.scan_root == baseline.scan_root),
     )
+    gates = RequiredGates(("validator",), ("oracle",))
     request = VerificationRequest(
         baseline, candidate, (Target(IDENTITY, 1),),
-        RequiredGates(("validator",), ("oracle",)), "d" * 64, "e" * 64,
+        _config(baseline, candidate, gates, executor=None),
     )
     result = run_checkov_verification(request)
     assert result.validator_results[0].status is Status.UNSUPPORTED
     assert result.oracle_results[0].status is Status.UNSUPPORTED
-    assert result.policy_drift is True
+    assert result.policy_drift is False
 
 
 def test_production_request_has_no_caller_evidence_fields() -> None:
@@ -244,22 +265,20 @@ def test_verification_request_mutation_guards(tmp_path: Path) -> None:
     candidate = _scan_request(tmp_path / "candidate", executable)
     gates = RequiredGates(("validator",))
     target = Target(IDENTITY, 1)
-    base = (baseline, candidate, (target,), gates, "f" * 64, "f" * 64)
+    config = _config(baseline, candidate, gates)
     with pytest.raises(DomainError, match="nonempty"):
-        VerificationRequest(baseline, candidate, (), gates, "f" * 64, "f" * 64)
+        VerificationRequest(baseline, candidate, (), config)
     with pytest.raises(DomainError, match="duplicate"):
-        VerificationRequest(baseline, candidate, (target, target), gates, "f" * 64, "f" * 64)
-    with pytest.raises(DomainError, match="lowercase SHA"):
-        VerificationRequest(*base[:-2], "BAD", "f" * 64)
+        VerificationRequest(baseline, candidate, (target, target), config)
     with pytest.raises(DomainError, match="bool"):
-        VerificationRequest(*base, fail_on_location_change=1)
+        _config(baseline, candidate, gates, fail_on_location_change=1)
     with pytest.raises(DomainError, match="Severity"):
-        VerificationRequest(*base, severity_floor="HIGH")
+        _config(baseline, candidate, gates, severity_floor="HIGH")
     with pytest.raises(DomainError, match="Checkov targets"):
         VerificationRequest(
             baseline, candidate,
             (Target(TargetIdentity("trivy", "AVD_X", "aws_x.r"), 1),),
-            gates, "f" * 64, "f" * 64,
+            config,
         )
 
 
@@ -269,14 +288,17 @@ def test_gate_substitution_is_rejected(monkeypatch, tmp_path: Path) -> None:
     candidate = _scan_request(tmp_path / "candidate", executable)
     monkeypatch.setattr(
         CheckovAdapter, "scan",
-        lambda _self, req: _run(req, baseline=req is baseline.request),
+        lambda _self, req: _run(req, baseline=req.scan_root == baseline.scan_root),
     )
+    gates = RequiredGates(("validator",))
     request = VerificationRequest(
         baseline, candidate, (Target(IDENTITY, 1),),
-        RequiredGates(("required",)), "c" * 64, "c" * 64,
+        _config(
+            baseline,
+            candidate,
+            gates,
+            executor=lambda _kind, _id, _root: GateResult("other", Status.PASS),
+        ),
     )
     with pytest.raises(Exception, match="substituted"):
-        run_checkov_verification(
-            request,
-            _gate_executor=lambda _kind, _id, _root: GateResult("other", Status.PASS),
-        )
+        run_checkov_verification(request)

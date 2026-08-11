@@ -691,6 +691,37 @@ clean-bytecode warning-as-error import: PASS (Python 3.11)
 spec_lint: documents inspected 23; enum values defined 102; PASS
 ```
 
+---
+
+## Gate D5.2 — Protected configuration and exact evidence binding
+
+Literal failing-before probes on D4.4 with D5.1 unchanged:
+
+```text
+VerificationRequest caller policy fields present -> True
+run_checkov_verification _gate_executor parameter present -> True
+two PASSED evaluated_keys unrelated-a/unrelated-b -> target FIXED
+repeated aws_x.r selector across roots -> accepted, no ambiguity
+candidate .checkov.yml plus equal caller digests -> POLICY_DRIFT PASS
+a/main.tf target deletion + b/main.tf same-address deletion -> regression PASS
+focused reproduction -> 6 failed
+```
+
+Passing-after values:
+
+```text
+caller policy/config fields in VerificationRequest -> none
+arbitrary production gate callback parameter -> absent
+unrelated positive keys -> INCONCLUSIVE / OCCURRENCE_PASS_COVERAGE_INCOMPLETE
+repeated coarse selector -> rejected as ambiguous
+candidate .checkov.yml -> POLICY_DRIFT FAIL; affected_paths ['.checkov.yml']
+same-address b/main.tf deletion -> exact DESTRUCTIVE_CHANGE; regression FAIL
+trusted HIGH floor + caller CRITICAL override -> rejected; new HIGH -> regression FAIL
+protected terraform+kubernetes universe + caller terraform-only request ->
+  pod.yaml included as v1/Pod/default/p
+engine branch coverage -> 90.36% (103 passed)
+```
+
 ## D4.3 — Cross-version strict JSON depth (2026-08-11)
 
 The Review-3 reproduction on the D6 parent was stored before implementation:

@@ -319,3 +319,9 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    Lists—cannot be silently removed from coverage by surface representation. Unsafe or
    ambiguous YAML, invalid HCL, and unsupported `.tf.json` stop preflight rather than
    permitting `VERIFIED`.
+
+9. Protected verification configuration is one immutable factory-attested bundle, not
+   ordinary request fields. It binds scanner/framework locks, limits, severity/location
+   policy, validator/oracle ids, the gate registry, governed paths, and provenance.
+   Targets resolve uniquely to file/artifact/native identity; same-address resources in
+   other roots remain separate destructive events.

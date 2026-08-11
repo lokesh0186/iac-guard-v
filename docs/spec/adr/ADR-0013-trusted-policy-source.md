@@ -160,3 +160,11 @@ bounded independent parsers. Valid quoted or flow Kubernetes YAML enters the pro
 view; malformed or unsupported identity evidence fails preflight. Candidate
 `.checkov.yml` remains excluded, and `.tf.json` remains explicitly unsupported until a
 tested contract exists.
+
+## Amendment, 2026-08-11: verification configuration is protected policy
+
+Severity, frameworks, scanner locks, limits, required gates, registry identity, and the
+governed-file inventory are stamped into `TrustedVerificationConfigBundle`; they are
+absent from `VerificationRequest` as caller fields. Exact added/removed/changed paths
+drive `POLICY_DRIFT`. Targets resolve to file/artifact/native identity before policy, so
+same-address resources do not share authority.

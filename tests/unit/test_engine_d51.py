@@ -43,7 +43,7 @@ from iac_guard_v.models import (
 )
 from iac_guard_v.policy import PolicyRequest, evaluate_policy, load_operator_policy
 
-from test_engine import IDENTITY, _executable, _gate, _scan_request
+from test_engine import IDENTITY, _config, _executable, _gate, _scan_request
 from test_checkov_adapter import request as adapter_request
 
 
@@ -132,17 +132,20 @@ def execute(monkeypatch, baseline_request, candidate_request, baseline_run, cand
     monkeypatch.setattr(
         CheckovAdapter,
         "scan",
-        lambda _self, request: baseline_run if request is baseline_request.request else candidate_run,
+        lambda _self, request: (
+            baseline_run
+            if request.scan_root == baseline_request.scan_root
+            else candidate_run
+        ),
     )
+    gates = RequiredGates(("validator",))
     request = VerificationRequest(
         baseline_request,
         candidate_request,
         (Target(IDENTITY, count),),
-        RequiredGates(("validator",)),
-        "b" * 64,
-        "b" * 64,
+        _config(baseline_request, candidate_request, gates),
     )
-    return run_checkov_verification(request, _gate_executor=_gate)
+    return run_checkov_verification(request)
 
 
 def verdict(result, exceptions=None):
@@ -332,9 +335,7 @@ def test_caller_inventory_is_ignored_and_rebuilt_from_file_bytes(tmp_path: Path)
             plan.request,
             rebuilt,
             (Target(IDENTITY, 1),),
-            RequiredGates(("validator",)),
-            "b" * 64,
-            "b" * 64,
+            _config(plan, rebuilt, RequiredGates(("validator",))),
         )
     with pytest.raises(Exception, match="detector provenance"):
         TrustedScanPlan(
@@ -379,8 +380,8 @@ def test_v4_metrics_and_preflight_are_derived_from_bound_plans(
     assert "plan_sha256=" in result.preflight.detail
     assert result.change_metrics.files_changed == 1
     assert result.change_metrics.lines_changed > 0
-    assert result.change_metrics.policy_files_changed is None
-    assert result.change_metrics.unavailable_metrics == ("policy_files_changed",)
+    assert result.change_metrics.policy_files_changed == 0
+    assert result.change_metrics.unavailable_metrics == ()
 
 
 def test_preflight_rejects_adapter_input_evidence_substitution(
