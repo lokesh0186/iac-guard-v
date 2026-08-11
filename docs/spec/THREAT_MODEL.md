@@ -302,3 +302,10 @@ but are not atomic sandbox boundaries; the private view is not a kernel sandbox,
 Checkov remains trusted executable code. Hostile pull-request evaluation still requires
 the digest-bound hardened container. A current 3.2.517 native integration is not claimed
 merely because the frozen research output has that version.
+
+Parser ambiguity is candidate-controlled input. The independent detector therefore uses
+safe bounded parsers rather than line prefixes. Supported quoted, flow, JSON-as-YAML,
+multi-document, and Kubernetes `List` forms enter the scan plan. Duplicate keys, aliases,
+unsafe tags, malformed/incomplete Kubernetes evidence, excessive structure, invalid HCL,
+and unsupported `.tf.json` fail preflight. This prevents surface syntax from removing a
+candidate resource from the scanner universe while retaining no-follow and byte caps.

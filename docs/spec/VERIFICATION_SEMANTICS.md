@@ -1045,3 +1045,13 @@ Second case: Checkov writes nothing to stdout because it crashed.
 | Verdict | `overall_verified_fix: true` | `INCONCLUSIVE`, exit 3 |
 
 Both rows of both tables are the reason this specification exists.
+
+## 13. D4.4 artifact-discovery closure
+
+Independent discovery is syntax-complete for the representations supported in Phase D,
+not a line-pattern heuristic. Strict HCL parsing governs `.tf`; strict bounded safe YAML
+parsing governs Kubernetes YAML and supports quoted/flow/JSON forms, multiple documents,
+and `List` objects. Duplicate keys, tags, aliases, excessive depth, malformed or
+incomplete Kubernetes identities, and currently unsupported `.tf.json` are explicit
+preflight failures. Definitively non-Kubernetes YAML may be excluded, but YAML carrying
+root Kubernetes identity evidence cannot disappear as non-IaC.

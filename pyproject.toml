@@ -21,9 +21,12 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Security",
 ]
-# No runtime dependencies yet, and no model-provider SDK ever: the core is
-# model-agnostic and offline-capable by design.
-dependencies = []
+# Parser dependencies are part of the independent IaC evidence boundary.  No
+# model-provider SDK is present; the core remains model-agnostic and offline-capable.
+dependencies = [
+  "PyYAML>=6.0.2,<7",
+  "python-hcl2>=7.3,<8",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0"]

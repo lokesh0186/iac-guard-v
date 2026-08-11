@@ -11,11 +11,22 @@ import difflib
 import hashlib
 import json
 import os
-import re
 import stat
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from typing import Callable
+
+import hcl2
+import yaml
+from yaml.constructor import ConstructorError
+from yaml.events import (
+    AliasEvent,
+    MappingEndEvent,
+    MappingStartEvent,
+    SequenceEndEvent,
+    SequenceStartEvent,
+)
+from yaml.nodes import MappingNode
 
 from .adapters.checkov import (
     CheckovAdapter,
@@ -152,137 +163,205 @@ class TrustedScanPlan:
         }
 
 
-def _hcl_tokens(text: str) -> tuple[tuple[str, str], ...]:
-    tokens: list[tuple[str, str]] = []
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if char.isspace():
-            index += 1
-            continue
-        if char == "#" or text.startswith("//", index):
-            end = text.find("\n", index)
-            index = len(text) if end < 0 else end + 1
-            continue
-        if text.startswith("/*", index):
-            end = text.find("*/", index + 2)
-            if end < 0:
-                raise DomainError("unterminated Terraform block comment")
-            index = end + 2
-            continue
-        if char == '"':
-            index += 1
-            value = []
-            escaped = False
-            while index < len(text):
-                current = text[index]
-                if escaped:
-                    value.append(current)
-                    escaped = False
-                elif current == "\\":
-                    escaped = True
-                elif current == '"':
-                    break
-                else:
-                    value.append(current)
-                index += 1
-            if index >= len(text):
-                raise DomainError("unterminated Terraform string")
-            tokens.append(("string", "".join(value)))
-            index += 1
-            continue
-        if char.isalpha() or char == "_":
-            end = index + 1
-            while end < len(text) and (text[end].isalnum() or text[end] in "_-"):
-                end += 1
-            tokens.append(("identifier", text[index:end]))
-            index = end
-            continue
-        if char in "{}":
-            tokens.append(("punctuation", char))
-        index += 1
-    return tuple(tokens)
-
-
 def _terraform_resources(relative: str, content: bytes) -> tuple[ExpectedResource, ...]:
     try:
-        tokens = _hcl_tokens(content.decode("utf-8", errors="strict"))
+        text = content.decode("utf-8", errors="strict")
     except UnicodeDecodeError as exc:
         raise DomainError("Terraform source must be UTF-8") from exc
-    resources = []
-    for index in range(max(0, len(tokens) - 3)):
-        if (
-            tokens[index] == ("identifier", "resource")
-            and tokens[index + 1][0] == "string"
-            and tokens[index + 2][0] == "string"
-            and tokens[index + 3] == ("punctuation", "{")
-        ):
-            address = f"{tokens[index + 1][1]}.{tokens[index + 2][1]}"
-            resources.append(
-                ExpectedResource(
-                    relative, address, ArtifactKind.TERRAFORM_HCL, address
+    block_start = text.find("/*")
+    if block_start >= 0 and text.find("*/", block_start + 2) < 0:
+        raise DomainError("unterminated Terraform block comment")
+    escaped = False
+    quote_count = 0
+    for character in text:
+        if escaped:
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == '"':
+            quote_count += 1
+    if quote_count % 2:
+        raise DomainError("unterminated Terraform string")
+    try:
+        document = hcl2.loads(text)
+    except Exception as exc:
+        raise DomainError("Terraform HCL syntax is invalid or unsupported") from exc
+    if type(document) is not dict:
+        raise DomainError("Terraform HCL parser returned an invalid document")
+    resources: list[ExpectedResource] = []
+    seen: set[str] = set()
+    blocks = document.get("resource", [])
+    if type(blocks) is not list:
+        raise DomainError("Terraform resource structure is invalid")
+    for block in blocks:
+        if type(block) is not dict:
+            raise DomainError("Terraform resource block is invalid")
+        for resource_type, instances in block.items():
+            if type(resource_type) is not str or type(instances) is not dict:
+                raise DomainError("Terraform resource identity is invalid")
+            for resource_name in instances:
+                if type(resource_name) is not str:
+                    raise DomainError("Terraform resource name is invalid")
+                address = f"{resource_type}.{resource_name}"
+                if address in seen:
+                    raise DomainError("duplicate Terraform resource identity")
+                seen.add(address)
+                resources.append(
+                    ExpectedResource(
+                        relative, address, ArtifactKind.TERRAFORM_HCL, address
+                    )
                 )
+    return tuple(sorted(resources, key=lambda item: item.canonical_key))
+
+
+_MAX_YAML_DEPTH = 64
+_MAX_YAML_DOCUMENTS = 128
+_MAX_YAML_NODES = 10_000
+
+
+class _StrictSafeLoader(yaml.SafeLoader):
+    """Safe loader with a closed mapping-key and duplicate-key contract."""
+
+
+def _construct_unique_mapping(
+    loader: _StrictSafeLoader, node: MappingNode, deep: bool = False
+) -> dict:
+    if not isinstance(node, MappingNode):
+        raise ConstructorError(None, None, "expected a YAML mapping", node.start_mark)
+    mapping: dict = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if type(key) is not str:
+            raise ConstructorError(
+                "while constructing a mapping", node.start_mark,
+                "YAML mapping keys must be strings", key_node.start_mark,
             )
-    return tuple(resources)
+        if key in mapping:
+            raise ConstructorError(
+                "while constructing a mapping", node.start_mark,
+                f"duplicate YAML mapping key {key!r}", key_node.start_mark,
+            )
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
 
 
-def _yaml_scalar(raw: str, name: str) -> str:
-    value = raw.split(" #", 1)[0].strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
-        value = value[1:-1]
-    if not value or value[0] in "{[&*!|>":
-        raise DomainError(f"unsupported complex Kubernetes {name}")
-    return value
+_StrictSafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _construct_unique_mapping
+)
+
+
+def _bounded_yaml_documents(content: bytes) -> tuple:
+    try:
+        text = content.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise DomainError("Kubernetes YAML must be UTF-8") from exc
+    depth = 0
+    documents = 0
+    nodes = 0
+    try:
+        for event in yaml.parse(text, Loader=_StrictSafeLoader):
+            if isinstance(event, AliasEvent):
+                raise DomainError("Kubernetes YAML aliases are unsupported")
+            if isinstance(event, (MappingStartEvent, SequenceStartEvent)):
+                depth += 1
+                nodes += 1
+                if depth > _MAX_YAML_DEPTH:
+                    raise DomainError("Kubernetes YAML depth limit exceeded")
+                if nodes > _MAX_YAML_NODES:
+                    raise DomainError("Kubernetes YAML node limit exceeded")
+            elif isinstance(event, (MappingEndEvent, SequenceEndEvent)):
+                depth -= 1
+        values = tuple(yaml.load_all(text, Loader=_StrictSafeLoader))
+        documents = len(values)
+    except DomainError:
+        raise
+    except ConstructorError as exc:
+        message = str(exc).lower()
+        reason = "duplicate mapping key" if "duplicate" in message else "unsafe/custom YAML tag"
+        raise DomainError(f"Kubernetes YAML rejected: {reason}") from exc
+    except (yaml.YAMLError, RecursionError) as exc:
+        raise DomainError("Kubernetes YAML syntax is malformed or unsupported") from exc
+    if documents > _MAX_YAML_DOCUMENTS:
+        raise DomainError("Kubernetes YAML document limit exceeded")
+    return values
+
+
+def _kubernetes_identity(
+    relative: str, value: object
+) -> tuple[ExpectedResource, CheckovKubernetesIdentity]:
+    if type(value) is not dict:
+        raise DomainError("unsupported Kubernetes identity shape")
+    api_version = value.get("apiVersion")
+    kind = value.get("kind")
+    metadata = value.get("metadata")
+    if type(api_version) is not str or not api_version.strip():
+        raise DomainError("incomplete Kubernetes resource identity: apiVersion")
+    if type(kind) is not str or not kind.strip():
+        raise DomainError("incomplete Kubernetes resource identity: kind")
+    if type(metadata) is not dict:
+        raise DomainError("incomplete Kubernetes resource identity: metadata")
+    name = metadata.get("name")
+    namespace = metadata.get("namespace", "default")
+    if name is None or name == "":
+        raise DomainError("incomplete Kubernetes resource identity: metadata.name")
+    if type(name) is not str:
+        raise DomainError("unsupported complex Kubernetes metadata.name")
+    if namespace is None:
+        namespace = "default"
+    if type(namespace) is not str:
+        raise DomainError("unsupported complex Kubernetes metadata.namespace")
+    if not namespace.strip():
+        raise DomainError("unsupported Kubernetes identity shape: metadata.namespace")
+    api_version = api_version.strip()
+    kind = kind.strip()
+    name = name.strip()
+    namespace = namespace.strip()
+    canonical = f"{api_version}/{kind}/{namespace}/{name}"
+    native = f"{kind}.{namespace}.{name}"
+    return (
+        ExpectedResource(relative, canonical, ArtifactKind.KUBERNETES_YAML, native),
+        CheckovKubernetesIdentity(
+            relative, native, api_version, kind, namespace, name
+        ),
+    )
 
 
 def _kubernetes_resources(
     relative: str, content: bytes
 ) -> tuple[tuple[ExpectedResource, ...], tuple[CheckovKubernetesIdentity, ...]]:
-    try:
-        text = content.decode("utf-8", errors="strict")
-    except UnicodeDecodeError as exc:
-        raise DomainError("Kubernetes source must be UTF-8") from exc
-    resources = []
-    identities = []
-    for document in re.split(r"(?m)^---\s*(?:#.*)?$", text):
-        api_version = kind = name = ""
-        namespace = "default"
-        metadata_indent = None
-        for line in document.splitlines():
-            if not line.strip() or line.lstrip().startswith("#"):
-                continue
-            indent = len(line) - len(line.lstrip(" "))
-            stripped = line.strip()
-            if indent == 0 and stripped.startswith("apiVersion:"):
-                api_version = _yaml_scalar(stripped.partition(":")[2], "apiVersion")
-            elif indent == 0 and stripped.startswith("kind:"):
-                kind = _yaml_scalar(stripped.partition(":")[2], "kind")
-            elif indent == 0 and stripped == "metadata:":
-                metadata_indent = indent
-            elif metadata_indent is not None and indent > metadata_indent:
-                if stripped.startswith("name:"):
-                    name = _yaml_scalar(stripped.partition(":")[2], "metadata.name")
-                elif stripped.startswith("namespace:"):
-                    namespace = _yaml_scalar(stripped.partition(":")[2], "metadata.namespace")
-            elif indent == 0:
-                metadata_indent = None
-        if not any((api_version, kind, name)):
+    resources: list[ExpectedResource] = []
+    identities: list[CheckovKubernetesIdentity] = []
+    for document in _bounded_yaml_documents(content):
+        if document is None:
             continue
-        if not all((api_version, kind, name)):
-            raise DomainError("incomplete Kubernetes resource identity")
-        canonical = f"{api_version}/{kind}/{namespace}/{name}"
-        native = f"{kind}.{namespace}.{name}"
-        resources.append(
-            ExpectedResource(
-                relative, canonical, ArtifactKind.KUBERNETES_YAML, native
-            )
+        if type(document) is not dict:
+            raise DomainError("unsupported Kubernetes YAML document shape")
+        has_identity_evidence = any(
+            key in document for key in ("apiVersion", "kind", "metadata")
         )
-        identities.append(
-            CheckovKubernetesIdentity(
-                relative, native, api_version, kind, namespace, name
-            )
-        )
-    return tuple(resources), tuple(identities)
+        if not has_identity_evidence:
+            continue
+        if document.get("kind") == "List":
+            if type(document.get("apiVersion")) is not str:
+                raise DomainError("incomplete Kubernetes List identity")
+            items = document.get("items")
+            if type(items) is not list:
+                raise DomainError("unsupported Kubernetes List items shape")
+            for item in items:
+                resource, identity = _kubernetes_identity(relative, item)
+                resources.append(resource)
+                identities.append(identity)
+        else:
+            resource, identity = _kubernetes_identity(relative, document)
+            resources.append(resource)
+            identities.append(identity)
+    keys = [item.canonical_key for item in resources]
+    if len(keys) != len(set(keys)):
+        raise DomainError("duplicate Kubernetes resource identity")
+    return (
+        tuple(sorted(resources, key=lambda item: item.canonical_key)),
+        tuple(sorted(identities, key=lambda item: (item.file_path, item.canonical_address))),
+    )
 
 
 def _read_detector_file(path: Path, root: Path, max_bytes: int) -> bytes:
@@ -326,14 +405,17 @@ def attest_checkov_scan_plan(untrusted: CheckovScanRequest) -> TrustedScanPlan:
     root = untrusted.scan_root
     total_bytes = 0
     for path in sorted(root.rglob("*")):
+        is_tf_json = path.name.lower().endswith(".tf.json")
         if path.is_symlink():
-            if path.suffix.lower() in {".tf", ".yaml", ".yml"}:
+            if path.suffix.lower() in {".tf", ".yaml", ".yml"} or is_tf_json:
                 raise DomainError("independent detector refuses symlinked IaC input")
             continue
         if not path.is_file():
             continue
         relative = path.relative_to(root).as_posix()
         suffix = path.suffix.lower()
+        if is_tf_json and "terraform" in untrusted.frameworks:
+            raise DomainError("Terraform JSON (.tf.json) is explicitly unsupported")
         content = _read_detector_file(path, root, untrusted.max_file_bytes)
         detected: tuple[ExpectedResource, ...] = ()
         file_type = ""

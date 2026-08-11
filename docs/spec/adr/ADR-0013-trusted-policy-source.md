@@ -152,3 +152,11 @@ hooks, so the future public API must expose neither loader selection nor those h
 Target suppression is an event, not a detector failure. A completed detector reports
 operational success while D6 applies the exact protected exception. Unrelated
 `SUPPRESSION_ADDED` evidence remains a regression and is not waived by that target event.
+
+## Amendment, 2026-08-11: candidate syntax cannot choose its scan universe
+
+The trusted scan-plan factory parses required `.tf`, `.yaml`, and `.yml` inputs with
+bounded independent parsers. Valid quoted or flow Kubernetes YAML enters the protected
+view; malformed or unsupported identity evidence fails preflight. Candidate
+`.checkov.yml` remains excluded, and `.tf.json` remains explicitly unsupported until a
+tested contract exists.

@@ -300,3 +300,18 @@ Every adapter must pass the same twelve shapes before being called supported:
 Plus two adapter-specific additions established above: for Checkov, the
 summary-only-no-`results` shape; for Trivy, a `Results` entry with no
 `Misconfigurations` key.
+
+## 7. Independent artifact-discovery contract (D4.4)
+
+Terraform `.tf` files are decoded as strict UTF-8 and parsed with the bounded
+`python-hcl2` grammar before resource addresses enter the expected inventory. Terraform
+JSON (`.tf.json`) is deliberately unsupported in Phase D and its presence under a
+required Terraform framework is an explicit preflight error, never an ignored file.
+
+Kubernetes `.yaml`/`.yml` files use a bounded PyYAML safe loader that rejects duplicate
+keys, custom tags, aliases, nesting above 64, more than 128 documents, excessive nodes,
+and malformed YAML. Quoted keys, flow maps, JSON-as-YAML, multiple documents, and
+Kubernetes `List` items are supported; absent namespace means `default`. Every YAML file
+is either a detected Kubernetes resource set, definitively non-Kubernetes YAML, or a
+fail-closed malformed/unsupported identity. Partial Kubernetes identity evidence cannot
+be silently omitted.

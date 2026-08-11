@@ -71,3 +71,11 @@ report typed resource counters separately from file counters. Adapters map nativ
 identity to canonical resource identity, retain every native evaluation category, and
 fail or become partial on missing, unexpected, count-inconsistent, or contradictory
 resource evidence. An empty independent scope is `SKIPPED`, not scanner success.
+
+## Amendment, 2026-08-11: parser-backed artifact discovery
+
+The independent inventory is trustworthy only if supported syntax cannot evade it.
+Terraform `.tf` discovery now uses `python-hcl2`; Kubernetes discovery uses a bounded,
+duplicate-key-rejecting PyYAML safe loader. Quoted/flow/JSON YAML, multiple documents,
+and Kubernetes Lists are supported. Tags, aliases, excessive structure, incomplete
+identity, malformed bytes, and unsupported `.tf.json` fail closed.

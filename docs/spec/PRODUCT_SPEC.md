@@ -313,3 +313,9 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    if a caller-supplied upstream digest claimed equality.
 7. Verdicts and exit codes are closed and inseparable: `VERIFIED/0`, `FAILED/1`, and
    `INCONCLUSIVE/3`. Usage and internal error exits are outside `PolicyResult`.
+
+8. Phase-D artifact discovery is affirmative and parser-backed. Terraform `.tf` and
+   Kubernetes YAML—including quoted/flow/JSON syntax, multiple documents, and Kubernetes
+   Lists—cannot be silently removed from coverage by surface representation. Unsafe or
+   ambiguous YAML, invalid HCL, and unsupported `.tf.json` stop preflight rather than
+   permitting `VERIFIED`.

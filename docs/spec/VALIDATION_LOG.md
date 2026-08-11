@@ -668,6 +668,29 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
+---
+
+## Gate D4.4 — Strict independent artifact discovery
+
+Literal failing-before probes on `f9fe391b88b07676dbbab68124da04ac15bd13e3`:
+
+```text
+quoted-key Kubernetes pod.yaml -> files_eligible ('main.tf',); resource omitted
+invalid HCL: resource "aws_x" "r" { invalid = } -> accepted; no exception
+focused reproduction -> 2 failed
+```
+
+Passing-after behavior binds quoted/flow/JSON YAML, multi-document resources, and
+Kubernetes List items; rejects duplicate keys, custom tags, aliases, excessive depth,
+malformed/incomplete identity, and invalid HCL; and rejects `.tf.json` explicitly rather
+than ignoring it. Exact executable gate output is recorded after the D4.4 test run.
+
+```text
+focused adapter/engine suites: 186 passed
+clean-bytecode warning-as-error import: PASS (Python 3.11)
+spec_lint: documents inspected 23; enum values defined 102; PASS
+```
+
 ## D4.3 — Cross-version strict JSON depth (2026-08-11)
 
 The Review-3 reproduction on the D6 parent was stored before implementation:

@@ -73,3 +73,10 @@ mismatched, or unprobed version evidence maps to `INCONCLUSIVE`. Trusted scanner
 count, per-file-byte, and total-byte limits join framework and offline flags in the
 invocation/config digest, so changing a resource budget changes recorded execution
 identity.
+
+## Amendment, 2026-08-11: independent parser versions
+
+`PyYAML>=6.0.2,<7` and `python-hcl2>=7.3,<8` are runtime contracts because artifact
+discovery participates in P0 evidence. Their major ranges are bounded; widening either
+requires the accepted/rejected syntax fixtures to pass across the supported Python
+matrix.
