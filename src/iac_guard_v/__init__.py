@@ -15,6 +15,7 @@ __version__ = "0.1.0a1"
 from . import (  # noqa: F401
     adapters,
     diffing,
+    engine,
     enums,
     fingerprints,
     matching,
@@ -28,6 +29,7 @@ __all__ = [
     "__version__",
     "adapters",
     "diffing",
+    "engine",
     "enums",
     "fingerprints",
     "matching",

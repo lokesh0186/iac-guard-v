@@ -396,3 +396,26 @@ File and resource coverage have distinct typed counters. Missing/unexpected reso
 resource-count disagreement, absent independent inventory, or contradictory evaluation
 claims cannot pass. Empty independent scope is skipped. Trusted input count/byte limits
 are part of invocation identity and enforced through streaming preparation.
+
+## 15. D5 verification engine
+
+`engine.py` owns the executable P0/V1--V7 orchestration boundary. Its serialized
+request contains two validated Checkov scan plans, structured targets, required gate
+identities, protected governed-configuration digests, and regression settings. It has no
+field for a scanner run, finding match, multiset comparison, matching ambiguity, delta,
+diff result, target evaluation, target outcome, or verdict.
+
+The engine invokes the adapter twice and invokes `evaluate_checkov_target` and
+`diff_findings` itself. Adapter, matching, diffing, target-outcome, and aggregate engine
+objects must all carry their private in-process factory provenance before aggregation.
+Validator and oracle implementations are invoked as trusted in-process gate executors
+selected by the execution layer; their identity must equal the requested gate id. They
+are dependencies, not JSON/config fields. Without an executor, the named gate is
+explicitly `UNSUPPORTED`, never defaulted to `PASS`.
+
+Target classification uses typed statuses for integrity, ruleset stability, structural
+eligibility, file/resource presence, suppression absence, occurrence sufficiency, and
+affirmative target-pass evidence. It follows verification semantics section 4. A zero
+candidate count reaches `FIXED` only with affirmative native pass evidence. Matching
+ambiguity, a mismatched baseline occurrence count, or an unknown structural predicate
+yields `INCONCLUSIVE`. D5 emits evidence and events only; it cannot emit a verdict.

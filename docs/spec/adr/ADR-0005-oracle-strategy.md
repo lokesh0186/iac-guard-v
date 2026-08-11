@@ -25,6 +25,11 @@ Arbitrary Python, shell, or downloaded policy is never executed. Every oracle re
 its id, version, policy hash, result, diagnostics, and an authoritative reference, and
 ships with positive and negative fixtures.
 
+The D5 engine invokes required oracle implementations as trusted in-process execution
+dependencies selected by operator configuration. A result must repeat the requested
+gate identity. Missing implementations are `UNSUPPORTED`, and serialized requests
+cannot submit a precomputed oracle result as an engine substitute.
+
 Oracles are optional for routine CI and **mandatory** before any case may be labelled a
 validated scanner discrepancy.
 

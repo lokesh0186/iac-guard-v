@@ -819,6 +819,26 @@ States: `AGREEMENT_PASS`, `AGREEMENT_FAIL`, `DISAGREEMENT`, `NOT_COMPARABLE`.
 Computed only over `EXACT` mappings. Advisory. Never overrides V5 or V6, and never
 converts a `DISAGREEMENT` into a defect claim by itself.
 
+### 6.1 D5 production evidence boundary
+
+The D5 request has no field for caller-authored `ScannerRun`, `FindingMatch`,
+`FindingMultisetComparison`, `MatchingAmbiguity`, `FindingDelta`, `FindingDiffResult`,
+`CheckovTargetEvidence`, target outcome, or verdict evidence. The engine invokes Checkov,
+affirmative target evaluation, and multiset diffing internally and accepts their results
+only with the corresponding private factory provenance. This protects serialized input;
+it is not a boundary against Python code already executing inside the process.
+
+Validator and oracle implementations are trusted in-process execution dependencies
+selected outside candidate data. Each is invoked by required gate id and a result whose
+id differs is malformed substitution. An unavailable implementation returns
+`UNSUPPORTED`. It is never replaced by `PASS`.
+
+For target classification, scanner and ruleset integrity are evaluated before structure
+and counts. Structural eligibility, file presence, resource presence, suppression
+absence, occurrence sufficiency, and affirmative native target pass remain typed
+statuses. Operational uncertainty maps to `INCONCLUSIVE`; a zero candidate finding count
+maps to `FIXED` only when the affirmative target-pass status is `PASS`.
+
 ---
 
 ## 7. Verdict

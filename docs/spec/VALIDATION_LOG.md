@@ -668,6 +668,38 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
+## D5 — Verification engine (2026-08-11)
+
+The production verification module did not exist before D5. The literal clean import
+result was:
+
+```text
+from iac_guard_v.engine import run_checkov_verification
+ModuleNotFoundError: No module named 'iac_guard_v.engine'
+```
+
+After implementation, the focused executable properties reported:
+
+```text
+PYTHONPATH=src pytest -q tests/unit/test_engine.py
+20 passed
+
+all ten target outcomes produced: 10/10
+zero findings + non-PASS affirmative evidence: INCONCLUSIVE (7/7 states)
+adapter invocations: [baseline, candidate]
+target outcome: FIXED
+finding delta: RESOLVED_FINDING
+validator/oracle identities: PASS/PASS
+caller evidence fields in VerificationRequest: none
+substituted gate id: DomainError
+```
+
+The engine request contains paths/scan plans, targets, required identities, and
+protected configuration digests. Checkov runs, target evaluations, comparisons, deltas,
+and target outcomes are invoked or derived internally and factory-bound. D5 emits no
+verdict. Full-suite, coverage, specification, freeze, replay, and frozen-diff values are
+recorded at the D5 commit gate.
+
 ---
 
 ## Gate D3.2 — Conservative occurrence ambiguity and multi-domain matching

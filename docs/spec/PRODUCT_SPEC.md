@@ -253,3 +253,21 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 15. Portable input JSON excludes device/inode; empty scope is typed `SKIPPED`; and
     trusted file-count/per-file/total-byte limits are enforced by streaming preparation
     and bound into invocation identity.
+
+## 16. D5 — Verification engine
+
+1. The production request accepts validated scan plans, structured targets, protected
+   governed-configuration digests, required gate identities, and regression settings;
+   it cannot accept precomputed scanner, matching, delta, target, or verdict evidence.
+2. Checkov execution, affirmative target lookup, and multiset comparison occur inside
+   the engine, and every derived object is factory-proven before aggregation.
+3. All ten target outcomes are executable in the documented fail-closed order.
+   `FIXED` requires a zero retained finding count plus affirmative native target-pass
+   evidence; absence, ambiguity, incomplete coverage, and integrity uncertainty do not
+   pass.
+4. Required validator and oracle identities are executed through trusted in-process
+   gate implementations. Missing implementation is `UNSUPPORTED`, and a substituted
+   gate identity is rejected.
+5. D5 reports preflight, scanner integrity, validator/oracle, regression, suppression,
+   policy-drift, coverage, target, and finding-delta evidence deterministically. It has
+   no verdict field; verdict construction belongs exclusively to D6.
