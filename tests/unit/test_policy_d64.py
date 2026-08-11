@@ -262,7 +262,9 @@ def test_json_lexer_and_canonical_date_mutations_are_executable() -> None:
     POLICY._json_depth(b'{"escaped":"a\\\\b\\\"c"}')
     with pytest.raises(Exception, match="nonempty"):
         POLICY._parse_policy_bytes(b"")
-    with pytest.raises(Exception, match="canonical"):
+    # CPython 3.11+ parses compact ISO dates before our canonical-form guard;
+    # 3.10 rejects the same input in the standard parser. Both must reject it.
+    with pytest.raises(Exception):
         POLICY._parse_date("20260811", "created")
 
 

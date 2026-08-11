@@ -700,6 +700,27 @@ Candidate policy and governed evidence now come from the authorized candidate Gi
 The protected checkout is clean and commit-bound, D5/D6 snapshot and subpath identities
 must agree, and canonical source evidence does not include local absolute roots.
 
+Final gate evidence at `66d700c2323fb8a0f13637bdd9fc4357f5ea51ad` plus the
+test-only cross-version assertion correction:
+
+```text
+host Python 3.11 non-integration -> 1216 passed
+container Python 3.10 real declared dependencies -> 1216 passed
+container Python 3.12 real declared dependencies -> 1216 passed
+container Python 3.13 real declared dependencies -> 1216 passed
+clean-bytecode warning-as-error import -> PASS on 3.10, 3.11, 3.12, 3.13
+pinned Checkov 3.3.0 isolated venv --copies -> 6 passed
+D4 adapter branch coverage -> 91%
+D5 engine branch coverage -> 91%
+D6 policy branch coverage -> 92%
+spec_lint -> 23 documents; 111 enums; PASS; zero warnings
+manifest -> 4842/4842; a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3; PASS
+tag -> annotated tag; peeled commit 7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5
+replay -> 630/630 runs; 10080/10080 fields; zero verdict mismatches
+derived tables -> 7/7 SEMANTIC_MATCH
+frozen-scope diff -> empty
+```
+
 ```text
 NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
