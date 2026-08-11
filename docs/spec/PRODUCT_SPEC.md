@@ -259,21 +259,33 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 
 ## 16. D5 — Verification engine
 
-1. The production request accepts validated scan plans, structured targets, protected
-   governed-configuration digests, required gate identities, and regression settings;
-   it cannot accept precomputed scanner, matching, delta, target, or verdict evidence.
+1. The production request accepts factory-attested scan plans, structured targets,
+   protected governed-configuration evidence, required gate identities, and regression
+   settings; it cannot accept precomputed scanner, matching, delta, target, resource
+   inventory, or verdict evidence. The scan-plan factory re-reads bounded regular-file
+   bytes with no-follow safeguards and independently detects Terraform and Kubernetes
+   resources; caller-supplied `expected_resources` is ignored.
 2. Checkov execution, affirmative target lookup, and multiset comparison occur inside
    the engine, and every derived object is factory-proven before aggregation.
 3. All ten target outcomes are executable in the documented fail-closed order.
    `FIXED` requires a zero retained finding count plus affirmative native target-pass
-   evidence; absence, ambiguity, incomplete coverage, and integrity uncertainty do not
-   pass.
+   evidence bound to the target file and artifact domain. Multiple baseline occurrences
+   require occurrence-complete native tokens or distinct positive evaluation scopes;
+   one generic pass is insufficient. Absence, ambiguity, incomplete coverage, and
+   integrity uncertainty do not pass.
 4. Required validator and oracle identities are executed through trusted in-process
    gate implementations. Missing implementation is `UNSUPPORTED`, and a substituted
    gate identity is rejected.
-5. D5 reports preflight, scanner integrity, validator/oracle, regression, suppression,
-   policy-drift, coverage, target, and finding-delta evidence deterministically. It has
-   no verdict field; verdict construction belongs exclusively to D6.
+5. Stable scanner execution requires equal scanner, version, launcher digest,
+   environment digest, policy-inventory digest, and invocation/config digest.
+6. D5 reports derived preflight evidence and immutable V4 change metrics. It evaluates
+   the five engine-owned event classes `RULE_SUBSTITUTED`, `COVERAGE_DECREASED`,
+   `DIAGNOSTIC_ADDED`, `DESTRUCTIVE_CHANGE`, and `POLICY_DRIFT` as typed statuses rather
+   than default booleans. A new finding with unknown severity is inconclusive, and an
+   unrelated resource deletion is a destructive regression.
+7. Suppression detection success is operational evidence, while each `SUPPRESSED`
+   target remains a separate visible event for D6 policy disposition. D5 has no verdict
+   field; verdict construction belongs exclusively to D6.
 
 ## 17. D6 — Policy and verdict
 

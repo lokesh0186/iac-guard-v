@@ -838,11 +838,42 @@ selected outside candidate data. Each is invoked by required gate id and a resul
 id differs is malformed substitution. An unavailable implementation returns
 `UNSUPPORTED`. It is never replaced by `PASS`.
 
+Before execution, D5 requires an independently attested scan plan. Its factory treats a
+public `CheckovScanRequest` only as paths and protected execution configuration, ignores
+its caller-provided eligible/resource claims, re-discovers eligible files, reads bounded
+regular-file bytes through no-follow descriptors, and detects supported Terraform and
+Kubernetes resource identities from the bound content. The future public API therefore
+cannot submit resource-presence conclusions. The private plan records portable
+path/type/size/digest evidence and a deterministic inventory digest.
+
 For target classification, scanner and ruleset integrity are evaluated before structure
 and counts. Structural eligibility, file presence, resource presence, suppression
 absence, occurrence sufficiency, and affirmative native target pass remain typed
 statuses. Operational uncertainty maps to `INCONCLUSIVE`; a zero candidate finding count
 maps to `FIXED` only when the affirmative target-pass status is `PASS`.
+
+Affirmative evidence is file- and artifact-domain-bound. When the protected target has
+multiple baseline occurrences, one generic `PASSED` evaluation does not close the
+multiset: complete stable occurrence tokens, distinct native evaluation scopes, or an
+independent complete-target oracle are required. Otherwise the reason is
+`OCCURRENCE_PASS_COVERAGE_INCOMPLETE`. Stable execution also requires equality of the
+scanner identity, version, launcher digest, environment digest, policy inventory digest,
+and invocation/config digest.
+
+D5 owns typed evaluations of `RULE_SUBSTITUTED`, `COVERAGE_DECREASED`,
+`DIAGNOSTIC_ADDED`, `DESTRUCTIVE_CHANGE`, and `POLICY_DRIFT`; D3 owns the other six
+delta classes. Every engine result contains exactly one evaluation for each D5 class.
+Unimplemented or uncertain checks are typed uncertainty, never Boolean absence. A
+baseline resource missing from the candidate inventory is `DESTRUCTIVE_CHANGE`; an
+unrelated deletion is a decisive regression. A new finding with `UNKNOWN` severity is
+`INCONCLUSIVE/NEW_FINDING_SEVERITY_UNKNOWN` unless a protected policy later defines a
+conservative failure rule.
+
+P0 is derived from the bound file/resource plans and reports their canonical digest.
+V4 records deterministic line, file, and resource changes; unavailable policy-file
+metrics are explicitly named. Suppression detection reports whether the detector ran
+successfully and emits target `SUPPRESSED` events separately. Policy consequence belongs
+to D6, so a legitimate exact exception is not defeated by a synthetic global failure.
 
 ---
 

@@ -14,6 +14,7 @@ from iac_guard_v.adapters.checkov import (
 from iac_guard_v.engine import (
     TargetObservation,
     VerificationRequest,
+    attest_checkov_scan_plan,
     classify_target,
     require_trusted_verification_result,
     run_checkov_verification,
@@ -108,11 +109,11 @@ def test_target_observation_rejects_malformed_evidence(changes) -> None:
         observation(**changes)
 
 
-def _scan_request(root: Path, executable: Path) -> CheckovScanRequest:
+def _scan_request(root: Path, executable: Path):
     root.mkdir()
     (root / "main.tf").write_text('resource "aws_x" "r" {}\n', encoding="utf-8")
     distribution = checkov_distribution_identity(executable, "3.3.0")
-    return CheckovScanRequest(
+    return attest_checkov_scan_plan(CheckovScanRequest(
         executable=executable,
         scan_root=root,
         workspace_root=root,
@@ -125,7 +126,7 @@ def _scan_request(root: Path, executable: Path) -> CheckovScanRequest:
         expected_resources=(ExpectedResource(
             "main.tf", "aws_x.r", ArtifactKind.TERRAFORM_HCL, "aws_x.r"
         ),),
-    )
+    ))
 
 
 def _executable(tmp_path: Path) -> Path:
@@ -191,7 +192,7 @@ def test_engine_invokes_adapter_and_factories_internally(monkeypatch, tmp_path: 
 
     def scan(_self, request):
         called.append(request.scan_root.name)
-        return _run(request, baseline=request is baseline)
+        return _run(request, baseline=request is baseline.request)
 
     monkeypatch.setattr(CheckovAdapter, "scan", scan)
     request = VerificationRequest(
@@ -217,7 +218,7 @@ def test_missing_gate_executor_is_explicitly_unsupported(monkeypatch, tmp_path: 
     candidate = _scan_request(tmp_path / "candidate", executable)
     monkeypatch.setattr(
         CheckovAdapter, "scan",
-        lambda _self, req: _run(req, baseline=req is baseline),
+        lambda _self, req: _run(req, baseline=req is baseline.request),
     )
     request = VerificationRequest(
         baseline, candidate, (Target(IDENTITY, 1),),
@@ -268,7 +269,7 @@ def test_gate_substitution_is_rejected(monkeypatch, tmp_path: Path) -> None:
     candidate = _scan_request(tmp_path / "candidate", executable)
     monkeypatch.setattr(
         CheckovAdapter, "scan",
-        lambda _self, req: _run(req, baseline=req is baseline),
+        lambda _self, req: _run(req, baseline=req is baseline.request),
     )
     request = VerificationRequest(
         baseline, candidate, (Target(IDENTITY, 1),),

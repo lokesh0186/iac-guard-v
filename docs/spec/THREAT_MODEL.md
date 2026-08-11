@@ -51,6 +51,10 @@ govern its own evaluation.
 | Downgrade the scanner version | V5 version contract; `RULE_OR_SCANNER_DRIFT` |
 | Shrink the scanned set | independently eligible files/resources reconciled against per-evaluation path/resource evidence |
 | Omit one resource while preserving file-level output | independent expected-resource inventory and separate resource coverage; missing/unexpected/count-mismatched resources cannot pass |
+| Submit a precomputed resource inventory that omits a protected or unrelated resource | D5 ignores caller inventory claims, detects resources from bounded no-follow file bytes, and admits only its private factory-attested plan |
+| Hide drift by changing only the scanner launcher or invocation configuration | D5 compares launcher, environment, policy-inventory, and invocation/config digests as one execution identity |
+| Turn unknown severity or incomplete occurrence-pass evidence into a pass | typed D5 uncertainty; neither condition can reach `FIXED` or a passing regression gate |
+| Delete an unrelated resource while repairing the named target | canonical baseline/candidate resource inventory comparison emits `DESTRUCTIVE_CHANGE` and fails regression |
 | Emit the same target as both passed and failed | evaluation-identity contradiction is a typed scanner error |
 
 ### T2 — Execute code on the runner

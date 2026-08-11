@@ -122,6 +122,21 @@ and substituted gate identities are rejected. A skipped regression or suppressio
 is nonblocking only when protected configuration explicitly marked that named gate
 optional. Policy results bind the verdict to its specified exit code.
 
+## Amendment, 2026-08-11: D5 affirmative completeness and engine events
+
+D5 no longer accepts a public resource inventory as structural truth. A private factory
+re-discovers bounded IaC bytes and supported resource identities, then binds the scan
+request and inventory before adapter execution. Stable execution comparison includes the
+launcher and invocation/config digests in addition to version, environment, and policy
+inventory.
+
+Unknown new-finding severity and incomplete positive evidence for multiple occurrences
+are uncertainty, never an implicit pass. The five scanner/plan/policy-derived delta
+classes are explicit typed evaluations, and missing baseline resources are destructive
+events. P0 and V4 are derived evidence rather than hardcoded claims. Suppression detector
+completion is deliberately distinct from the target suppression event: D6, not D5,
+decides the consequence of an exact protected exception.
+
 ## Alternatives considered
 
 **Retry on empty output and pass if the retry is clean.** Rejected: it converts an

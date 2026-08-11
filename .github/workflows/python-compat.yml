@@ -35,6 +35,9 @@ jobs:
       - name: Enforce D4 adapter coverage
         run: |
           PYTHONPATH=src python -m pytest tests/unit/test_checkov_adapter.py --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov --cov-report=term-missing --cov-fail-under=90 -q
+      - name: Enforce D5 engine coverage
+        run: |
+          PYTHONPATH=src python -m pytest tests/unit/test_engine.py tests/unit/test_engine_d51.py --cov=iac_guard_v.engine --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
 
   pinned-checkov-330:
     runs-on: ubuntu-latest

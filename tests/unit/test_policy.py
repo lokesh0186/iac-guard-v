@@ -6,10 +6,11 @@ from datetime import date
 import pytest
 
 import iac_guard_v.engine as ENGINE
-from iac_guard_v.engine import TargetOutcomeEvidence, VerificationResult
+from iac_guard_v.engine import EngineEventEvaluation, TargetOutcomeEvidence, VerificationResult
 from iac_guard_v.enums import (
     EXIT_CODES,
     ExceptionOrigin,
+    DeltaClass,
     Outcome,
     Status,
     Verdict,
@@ -51,7 +52,7 @@ def verified_engine(monkeypatch, tmp_path) -> VerificationResult:
     monkeypatch.setattr(
         CheckovAdapter,
         "scan",
-        lambda _self, request: _run(request, baseline=request is baseline),
+        lambda _self, request: _run(request, baseline=request is baseline.request),
     )
     request = VerificationRequest(
         baseline,
@@ -99,6 +100,21 @@ def _outcome(run: VerificationResult, outcome: Outcome) -> VerificationResult:
         _trusted_context=ENGINE._TRUSTED_ENGINE_CONTEXT,
     )
     return _replace_engine(run, target_outcomes=(evidence,))
+
+
+def _engine_event(run: VerificationResult, delta_class: DeltaClass, status: Status) -> VerificationResult:
+    events = tuple(
+        EngineEventEvaluation(
+            item.delta_class,
+            status if item.delta_class is delta_class else item.status,
+            "TEST_EVENT_STATE" if item.delta_class is delta_class else item.reason_code,
+            item.affected_resources,
+            item.affected_paths,
+            item.detail,
+        )
+        for item in run.engine_events
+    )
+    return _replace_engine(run, engine_events=events)
 
 
 def _record(
@@ -270,16 +286,18 @@ def test_uncertainty_dominates_real_failure(verified_engine) -> None:
 
 def test_policy_drift_is_definite_failure(verified_engine) -> None:
     assert _verdict(
-        _replace_engine(verified_engine, policy_drift=True)
+        _engine_event(verified_engine, DeltaClass.POLICY_DRIFT, Status.FAIL)
     ).verdict is Verdict.FAILED
 
 
-@pytest.mark.parametrize("field", [
-    "coverage_decreased_on_required_scanner",
-    "rule_substituted_on_required_target",
+@pytest.mark.parametrize("delta_class", [
+    DeltaClass.COVERAGE_DECREASED,
+    DeltaClass.RULE_SUBSTITUTED,
 ])
-def test_integrity_uncertainty_flags_are_inconclusive(verified_engine, field) -> None:
-    assert _verdict(_replace_engine(verified_engine, **{field: True})).verdict is Verdict.INCONCLUSIVE
+def test_integrity_uncertainty_flags_are_inconclusive(verified_engine, delta_class) -> None:
+    assert _verdict(
+        _engine_event(verified_engine, delta_class, Status.INCONCLUSIVE)
+    ).verdict is Verdict.INCONCLUSIVE
 
 
 def test_policy_output_is_canonical_and_input_order_independent(verified_engine) -> None:

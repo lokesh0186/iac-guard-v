@@ -803,6 +803,50 @@ derived tables: 7/7 SEMANTIC_MATCH
 frozen-scope diff: empty
 ```
 
+## D5.1 — Affirmative target completeness and engine events (2026-08-11)
+
+All Review-3 fail-open probes were first stored against the unmodified D6 parent. The
+literal failing-before result was:
+
+```text
+7 failed
+UNKNOWN new finding: regression PASS / NO_DECISIVE_REGRESSION
+two baseline occurrences + one generic PASSED evaluation: target FIXED
+launcher digest drift: scanner integrity PASS
+invocation/config digest drift: scanner integrity PASS
+real target suppression: suppression gate FAIL despite event-specific permission
+unrelated resource deletion: no DESTRUCTIVE_CHANGE engine event
+rule substitution: no typed engine event; Boolean default was false
+```
+
+After D5.1, the corresponding permanent properties report:
+
+```text
+UNKNOWN new finding: INCONCLUSIVE / NEW_FINDING_SEVERITY_UNKNOWN
+two baseline occurrences + one generic PASSED evaluation:
+  INCONCLUSIVE / OCCURRENCE_PASS_COVERAGE_INCOMPLETE
+complete native occurrence tokens: FIXED
+launcher or invocation/config digest drift: scanner integrity INCONCLUSIVE
+target suppression: detector PASS; SUPPRESSED event remains visible for D6
+unrelated resource deletion: DESTRUCTIVE_CHANGE / regression FAIL
+rule substitution: typed PASS, FAIL, UNSUPPORTED, or INCONCLUSIVE evaluation
+caller expected_resources: ignored and independently rebuilt from bound bytes
+P0: BOUND_SCAN_PLAN_VALIDATED with canonical plan digest
+V4: immutable line/file/resource metrics; unavailable fields named
+all eleven delta classes: six D3-owned plus five D5-owned typed evaluations
+focused D5 tests: 68 passed
+engine branch coverage: 90.66%
+Python 3.11 non-integration: 980 passed in 60.61s
+spec_lint: 23 documents, 98 enum values, PASS, zero warnings
+```
+
+The scan-plan factory uses bounded no-follow reads and independently extracts supported
+Terraform/Kubernetes resource identities. The adapter still revalidates and copies the
+same digest-bound inputs immediately before Checkov execution, so this attestation
+reduces TOCTOU exposure without claiming native execution is a sandbox. Final suite,
+specification, research-freeze, replay, and frozen-diff values are recorded at the D5.1
+commit gate.
+
 ---
 
 ## Gate D3.2 — Conservative occurrence ambiguity and multi-domain matching

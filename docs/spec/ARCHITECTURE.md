@@ -405,8 +405,12 @@ decoder for syntax, balance, and duplicate-key validation.
 ## 15. D5 verification engine
 
 `engine.py` owns the executable P0/V1--V7 orchestration boundary. Its serialized
-request contains two validated Checkov scan plans, structured targets, required gate
-identities, protected governed-configuration digests, and regression settings. It has no
+request contains two private-factory-attested Checkov scan plans, structured targets,
+required gate identities, protected governed-configuration evidence, and regression
+settings. A public Checkov request is only an untrusted discovery input: the factory
+ignores its resource inventory, performs bounded no-follow reads, detects supported
+Terraform and Kubernetes resource identities from those bytes, and binds the resulting
+inventory to a digest. It has no
 field for a scanner run, finding match, multiset comparison, matching ambiguity, delta,
 diff result, target evaluation, target outcome, or verdict.
 
@@ -421,9 +425,20 @@ explicitly `UNSUPPORTED`, never defaulted to `PASS`.
 Target classification uses typed statuses for integrity, ruleset stability, structural
 eligibility, file/resource presence, suppression absence, occurrence sufficiency, and
 affirmative target-pass evidence. It follows verification semantics section 4. A zero
-candidate count reaches `FIXED` only with affirmative native pass evidence. Matching
-ambiguity, a mismatched baseline occurrence count, or an unknown structural predicate
-yields `INCONCLUSIVE`. D5 emits evidence and events only; it cannot emit a verdict.
+candidate count reaches `FIXED` only with affirmative native pass evidence bound to the
+target file and artifact domain. More than one baseline occurrence requires complete
+native occurrence tokens or distinct positive evaluation scopes. Matching ambiguity, a
+mismatched baseline occurrence count, or an unknown structural predicate yields
+`INCONCLUSIVE`.
+
+Baseline/candidate scanner execution identity compares scanner, scanner version,
+launcher, installed environment, policy inventory, and invocation/config digests. D5
+derives a real P0 record from its bound plan, immutable V4 metrics, and typed evaluations
+for all five engine-owned delta classes. Unknown new-finding severity is uncertainty,
+not a value below the severity floor. Resource inventory loss is a visible destructive
+event. Suppression detector completion is separate from a target suppression event so
+that D6 can apply an exact protected exception. D5 emits evidence and events only; it
+cannot emit a verdict.
 
 ## 16. D6 policy layer
 
