@@ -691,6 +691,76 @@ spec_lint: documents inspected 23; enum values defined 102; PASS
 
 ---
 
+## Gate D4.5 — Complete Kubernetes artifact classification (2026-08-11)
+
+Parent: `c23c5c0115d2a0b0018b5ee38e4d423e7cbf4420`. D4.5 did not alter the
+frozen QRS scope and did not begin D5.3, D6.3, D7, D9, or Phase E.
+
+Literal failing-before evidence from an archive of the parent:
+
+```text
+pod.json eligible files -> ('main.tf', 'pod.yaml')
+pod.json present -> False
+GitHub Actions workflow -> DomainError: Kubernetes YAML rejected: unsafe/custom YAML tag
+```
+
+Literal passing-after evidence:
+
+```text
+pod.json -> KUBERNETES_RESOURCES / KUBERNETES_JSON
+pod.json eligible and copied to private scan view -> True
+Kubernetes List JSON -> each item retained as an exact expected resource
+ordinary JSON -> NON_KUBERNETES_JSON
+GitHub Actions workflow -> NON_KUBERNETES_YAML
+CloudFormation custom-tag document without Kubernetes identity -> NON_KUBERNETES_YAML
+duplicate/deep/malformed/Kubernetes-looking unsupported JSON -> typed DomainError before scan
+unsafe, nested, incomplete, or unsupported Kubernetes YAML -> typed DomainError before scan
+every inspected Terraform/YAML/JSON file -> digest-bound ArtifactClassification
+```
+
+Executable gates:
+
+```console
+$ PYTHONPATH=src pytest -q tests -m 'not integration'
+1117 passed in 167.28s (0:02:47)
+
+$ PYTHONPATH=src pytest -q tests/integration/test_checkov_integration.py
+6 passed in 98.82s (0:01:38)
+
+$ COVERAGE_FILE=/tmp/iacgv-d45-adapter-final.coverage PYTHONPATH=src pytest -q \
+    tests/unit/test_checkov_adapter.py tests/unit/test_checkov_adapter_d41.py \
+    tests/unit/test_checkov_adapter_d42.py tests/unit/test_checkov_adapter_d45.py \
+    --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov \
+    --cov-branch --cov-report=term --cov-fail-under=90
+116 passed; combined adapter branch coverage 90.83%
+
+$ COVERAGE_FILE=/tmp/iacgv-d45-engine.coverage PYTHONPATH=src pytest -q \
+    tests/unit/test_engine.py tests/unit/test_engine_d44.py \
+    tests/unit/test_engine_d45.py tests/unit/test_engine_d51.py \
+    tests/unit/test_engine_d52.py --cov=iac_guard_v.engine --cov-branch \
+    --cov-fail-under=90
+124 passed; engine branch coverage 90.65%
+
+$ python tools/spec_lint.py docs/spec/
+documents inspected: 23
+enum values defined: 105
+PASS
+```
+
+Python 3.11 clean-bytecode warning-as-error import passed in the declared dependency
+environment. Python 3.12 is installed locally but its environment lacks the declared
+`python-hcl2` dependency; Python 3.10 and 3.13 are not installed locally. Those three
+local compatibility legs are therefore **BLOCKED**; the 3.10–3.13 CI matrix and full
+dependency installation remain mandatory.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
+---
+
 ## Gate D5.2 — Protected configuration and exact evidence binding
 
 Literal failing-before probes on D4.4 with D5.1 unchanged:

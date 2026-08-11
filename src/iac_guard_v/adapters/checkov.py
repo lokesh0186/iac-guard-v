@@ -229,6 +229,8 @@ def _file_type(relative: str) -> str:
         return ArtifactKind.TERRAFORM_HCL.value
     if suffix in (".yaml", ".yml"):
         return ArtifactKind.KUBERNETES_YAML.value
+    if suffix == ".json" and not relative.lower().endswith(".tf.json"):
+        return ArtifactKind.KUBERNETES_JSON.value
     raise DomainError("eligible Checkov file has an unsupported artifact type")
 
 
@@ -465,7 +467,9 @@ class CheckovScanRequest:
             )
             if rebuilt.file_path not in eligible:
                 raise DomainError("expected resource must name an eligible file")
-            if rebuilt.artifact_kind is ArtifactKind.KUBERNETES_YAML:
+            if rebuilt.artifact_kind in {
+                ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON
+            }:
                 key = (rebuilt.file_path, rebuilt.scanner_native_lookup)
                 if kubernetes_lookup.get(key) != rebuilt.resource_address:
                     raise DomainError(
@@ -715,7 +719,12 @@ def _resource_evidence(
         address = identities[(file_path, resource)]
     except KeyError as exc:
         raise DomainError(AdapterReason.MISSING_RESOURCE_IDENTITY.value) from exc
-    return file_path, address, ArtifactKind.KUBERNETES_YAML
+    artifact = (
+        ArtifactKind.KUBERNETES_JSON
+        if Path(file_path).suffix.lower() == ".json"
+        else ArtifactKind.KUBERNETES_YAML
+    )
+    return file_path, address, artifact
 
 
 def _evaluation(

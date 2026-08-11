@@ -489,12 +489,13 @@ policy drift, unresolved targets, and failed regression/suppression gates yield
 `FAILED`; only the remaining fully evidenced state is `VERIFIED`. `PolicyResult` binds
 the closed verdict to exit code 0, 1, or 3 and carries private policy-factory provenance.
 
-## 17. D4.4 parser-backed discovery
+## 17. D4.5 parser-backed discovery
 
-The trusted scan-plan factory uses `python-hcl2` for every required `.tf` file and a
-duplicate-key-rejecting PyYAML safe loader for every Kubernetes YAML candidate. The YAML
-path supports quoted keys, flow/JSON syntax, multiple documents, and `List` expansion;
-it rejects aliases, custom tags, excessive depth/document/node counts, malformed UTF-8,
-and incomplete identities. `.tf.json` is explicitly unsupported in this phase. Both
-parsers consume only bytes read through the bounded no-follow detector path, so syntax
-representation cannot silently choose a narrower scan view.
+The trusted scan-plan factory uses `python-hcl2` for every required `.tf` file. YAML is
+first inspected as bounded syntax nodes so ordinary workflows and CloudFormation tags
+can be classified without Kubernetes-only construction; Kubernetes-like documents then
+receive duplicate-key, safe-tag, alias, depth/document/node, UTF-8, and identity checks.
+Generic JSON is strict, duplicate-free, depth-bounded, and expands Kubernetes `List`
+items. `.tf.json` remains explicitly unsupported. `TrustedScanPlan` records the digest,
+syntax, classification, and resource set of every inspected supported-extension file,
+including non-Kubernetes YAML/JSON that is not copied to the scan view.

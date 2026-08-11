@@ -313,11 +313,14 @@ the digest-bound hardened container. A current 3.2.517 native integration is not
 merely because the frozen research output has that version.
 
 Parser ambiguity is candidate-controlled input. The independent detector therefore uses
-safe bounded parsers rather than line prefixes. Supported quoted, flow, JSON-as-YAML,
-multi-document, and Kubernetes `List` forms enter the scan plan. Duplicate keys, aliases,
-unsafe tags, malformed/incomplete Kubernetes evidence, excessive structure, invalid HCL,
-and unsupported `.tf.json` fail preflight. This prevents surface syntax from removing a
-candidate resource from the scanner universe while retaining no-follow and byte caps.
+safe bounded parsers rather than line prefixes. Supported quoted, flow, multi-document,
+Kubernetes `List`, and strict Kubernetes JSON forms enter the scan plan. Syntax-node
+inspection classifies ordinary workflow/CloudFormation YAML before Kubernetes-only tag
+and identity rules apply. Duplicate keys, aliases, unsafe Kubernetes tags,
+malformed/incomplete Kubernetes evidence, excessive structure, invalid HCL, and
+unsupported `.tf.json` fail preflight. Digest-bound classification records prevent a
+supported-extension file from silently disappearing while retaining no-follow and byte
+caps.
 
 Verification policy is a separate trust boundary. Candidate/public input cannot select
 the severity floor, framework/gate set, scanner locks, limits, governed digests, or gate

@@ -50,6 +50,10 @@ specification may use these words in a normative sentence without pointing here.
 A boolean must never encode any of `ERROR`, `TIMEOUT`, `UNSUPPORTED`, `PARTIAL`, or
 `INCONCLUSIVE`. This is the direct remedy for audit finding F6.
 
+The closed `ArtifactKind` values are `TERRAFORM`, `KUBERNETES_YAML`, and
+`KUBERNETES_JSON`. JSON-syntax Terraform (`.tf.json`) remains explicitly unsupported
+in Phase D and therefore has no successful artifact-kind value.
+
 ### 1.2 Process execution reasons and group inspection
 
 `ProcessReason` is a closed execution-evidence vocabulary:
@@ -1052,15 +1056,18 @@ Second case: Checkov writes nothing to stdout because it crashed.
 
 Both rows of both tables are the reason this specification exists.
 
-## 13. D4.4 artifact-discovery closure
+## 13. D4.5 artifact-discovery closure
 
 Independent discovery is syntax-complete for the representations supported in Phase D,
-not a line-pattern heuristic. Strict HCL parsing governs `.tf`; strict bounded safe YAML
-parsing governs Kubernetes YAML and supports quoted/flow/JSON forms, multiple documents,
-and `List` objects. Duplicate keys, tags, aliases, excessive depth, malformed or
-incomplete Kubernetes identities, and currently unsupported `.tf.json` are explicit
-preflight failures. Definitively non-Kubernetes YAML may be excluded, but YAML carrying
-root Kubernetes identity evidence cannot disappear as non-IaC.
+not a line-pattern heuristic. Strict HCL parsing governs `.tf`. Bounded syntax-node
+inspection first separates ordinary YAML from Kubernetes-like YAML, after which strict
+Kubernetes construction supports quoted/flow forms, multiple documents, and `List`
+objects. Generic JSON receives strict duplicate-free, depth-bounded classification;
+Kubernetes objects and Lists enter the scan as `KUBERNETES_JSON`. Duplicate keys, unsafe
+Kubernetes tags, aliases, excessive depth, malformed or incomplete Kubernetes identity,
+and currently unsupported `.tf.json` are explicit preflight failures. Every inspected
+supported-extension file retains a path, byte digest, syntax kind, classification, and
+detected resources; non-Kubernetes YAML/JSON is visible rather than silently vanishing.
 
 ## 14. D5.2 protected configuration and exact target binding
 

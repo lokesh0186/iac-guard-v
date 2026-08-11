@@ -301,17 +301,25 @@ Plus two adapter-specific additions established above: for Checkov, the
 summary-only-no-`results` shape; for Trivy, a `Results` entry with no
 `Misconfigurations` key.
 
-## 7. Independent artifact-discovery contract (D4.4)
+## 7. Independent artifact-discovery contract (D4.5)
 
 Terraform `.tf` files are decoded as strict UTF-8 and parsed with the bounded
 `python-hcl2` grammar before resource addresses enter the expected inventory. Terraform
 JSON (`.tf.json`) is deliberately unsupported in Phase D and its presence under a
 required Terraform framework is an explicit preflight error, never an ignored file.
 
-Kubernetes `.yaml`/`.yml` files use a bounded PyYAML safe loader that rejects duplicate
-keys, custom tags, aliases, nesting above 64, more than 128 documents, excessive nodes,
-and malformed YAML. Quoted keys, flow maps, JSON-as-YAML, multiple documents, and
-Kubernetes `List` items are supported; absent namespace means `default`. Every YAML file
-is either a detected Kubernetes resource set, definitively non-Kubernetes YAML, or a
-fail-closed malformed/unsupported identity. Partial Kubernetes identity evidence cannot
-be silently omitted.
+Kubernetes `.yaml`/`.yml` files use a bounded syntax-node classifier before strict
+Kubernetes construction. This prevents YAML 1.1 scalar coercion or a non-Kubernetes
+custom tag from rejecting ordinary workflows and CloudFormation documents. Once root or
+nested `apiVersion`/`kind` evidence exists, duplicate keys, custom tags, aliases, nesting
+above 64, more than 128 documents, excessive nodes, malformed syntax, and incomplete
+identity fail closed. Quoted keys, flow maps, multiple documents, and Kubernetes `List`
+items are supported; absent namespace means `default`.
+
+When Kubernetes is required, generic `.json` files are decoded as strict UTF-8 and
+parsed with duplicate-key and deterministic depth rejection. Kubernetes objects and
+`List` items become `KUBERNETES_JSON` resources; ordinary JSON is classified but not
+scanned. `.tf.json` remains the explicit Terraform-JSON error and is never reinterpreted
+as Kubernetes. Every inspected `.tf`, `.yaml`, `.yml`, and relevant `.json` file has a
+digest-bound classification record even when it is non-Kubernetes and therefore absent
+from the private Checkov view.

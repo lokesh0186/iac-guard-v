@@ -319,11 +319,12 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 7. Verdicts and exit codes are closed and inseparable: `VERIFIED/0`, `FAILED/1`, and
    `INCONCLUSIVE/3`. Usage and internal error exits are outside `PolicyResult`.
 
-8. Phase-D artifact discovery is affirmative and parser-backed. Terraform `.tf` and
-   Kubernetes YAML—including quoted/flow/JSON syntax, multiple documents, and Kubernetes
-   Lists—cannot be silently removed from coverage by surface representation. Unsafe or
-   ambiguous YAML, invalid HCL, and unsupported `.tf.json` stop preflight rather than
-   permitting `VERIFIED`.
+8. Phase-D artifact discovery is affirmative and parser-backed. Terraform `.tf`,
+   Kubernetes YAML, and Kubernetes JSON—including quoted/flow YAML, multiple documents,
+   and Kubernetes Lists—cannot be silently removed from coverage by representation.
+   Ordinary YAML/JSON is classified without entering the Kubernetes scan. Unsafe or
+   ambiguous Kubernetes evidence, duplicate JSON keys, invalid HCL, and unsupported
+   `.tf.json` stop preflight rather than permitting `VERIFIED`.
 
 9. Protected verification configuration is one immutable factory-attested bundle, not
    ordinary request fields. It binds scanner/framework locks, limits, severity/location

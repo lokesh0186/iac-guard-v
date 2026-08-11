@@ -116,6 +116,7 @@ class ArtifactKind(str, Enum):
     TERRAFORM_PLAN_JSON = "terraform_plan_json"
     OPENTOFU_HCL = "opentofu_hcl"
     KUBERNETES_YAML = "kubernetes_yaml"
+    KUBERNETES_JSON = "kubernetes_json"
     HELM_RENDERED_YAML = "helm_rendered_yaml"
     CLOUDFORMATION = "cloudformation"
     UNKNOWN = "unknown"

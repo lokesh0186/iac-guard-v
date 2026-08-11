@@ -26,7 +26,7 @@ from yaml.events import (
     SequenceEndEvent,
     SequenceStartEvent,
 )
-from yaml.nodes import MappingNode
+from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
 from .adapters.checkov import (
     CheckovAdapter,
@@ -427,6 +427,61 @@ class ScanPlanFile:
         }
 
 
+_ARTIFACT_CLASSIFICATIONS = frozenset({
+    "TERRAFORM_RESOURCES",
+    "KUBERNETES_RESOURCES",
+    "NON_KUBERNETES_YAML",
+    "NON_KUBERNETES_JSON",
+})
+_ARTIFACT_SYNTAX_KINDS = frozenset({"terraform_hcl", "yaml", "json"})
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactClassification:
+    """Digest-bound classification for every independently inspected IaC-like file."""
+
+    file_path: str
+    sha256: str
+    size: int
+    syntax_kind: str
+    classification: str
+    resources: tuple = ()
+    reason: str = ""
+
+    def __post_init__(self) -> None:
+        from .models import canonical_repo_path
+
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        _digest(self.sha256, "artifact classification digest")
+        if type(self.size) is not int or self.size < 0:
+            raise DomainError("artifact classification size must be nonnegative")
+        if self.syntax_kind not in _ARTIFACT_SYNTAX_KINDS:
+            raise DomainError("artifact classification syntax kind is unsupported")
+        if self.classification not in _ARTIFACT_CLASSIFICATIONS:
+            raise DomainError("artifact classification is unsupported")
+        if type(self.resources) is not tuple or any(
+            type(item) is not ExpectedResource for item in self.resources
+        ):
+            raise DomainError("artifact classification resources must be typed")
+        if self.classification == "KUBERNETES_RESOURCES" and not self.resources:
+            raise DomainError("Kubernetes resource classification requires resources")
+        if self.classification.startswith("NON_KUBERNETES") and self.resources:
+            raise DomainError("non-Kubernetes classification cannot claim resources")
+        if type(self.reason) is not str:
+            raise DomainError("artifact classification reason must be a string")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "file_path": self.file_path,
+            "sha256": self.sha256,
+            "size": self.size,
+            "syntax_kind": self.syntax_kind,
+            "classification": self.classification,
+            "resources": [item.canonical_dict() for item in self.resources],
+            "reason": self.reason,
+        }
+
+
 @dataclass(frozen=True, slots=True)
 class TrustedScanPlan:
     """Private-factory scan plan whose resources were detected from bound bytes."""
@@ -435,6 +490,7 @@ class TrustedScanPlan:
     files: tuple
     resources: tuple
     inventory_sha256: str
+    classifications: tuple = ()
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -444,11 +500,51 @@ class TrustedScanPlan:
             raise DomainError("scan-plan files must be exact ScanPlanFile values")
         if type(self.resources) is not tuple or any(type(item) is not ExpectedResource for item in self.resources):
             raise DomainError("scan-plan resources must be exact ExpectedResource values")
-        _digest(self.inventory_sha256, "resource inventory digest")
+        if type(self.classifications) is not tuple or any(
+            type(item) is not ArtifactClassification for item in self.classifications
+        ):
+            raise DomainError("scan-plan classifications must be exact typed records")
         if tuple(self.request.expected_resources) != self.resources:
             raise DomainError("scan-plan resources disagree with its adapter request")
         if _trusted_context is not _TRUSTED_SCAN_PLAN_CONTEXT:
             raise DomainError("TrustedScanPlan requires independent detector provenance")
+        paths = [item.file_path for item in self.classifications]
+        if len(paths) != len(set(paths)):
+            raise DomainError("scan-plan classifications contain duplicate paths")
+        files_by_path = {item.file_path: item for item in self.files}
+        classified_eligible = {
+            item.file_path: item for item in self.classifications
+            if not item.classification.startswith("NON_KUBERNETES")
+        }
+        if set(files_by_path) != set(classified_eligible):
+            raise DomainError("eligible scan-plan files disagree with classifications")
+        for path, bound in files_by_path.items():
+            classified = classified_eligible[path]
+            if (classified.sha256, classified.size) != (bound.sha256, bound.size):
+                raise DomainError("scan-plan classification bytes disagree with file")
+        classified_resources = tuple(sorted(
+            (
+                resource for item in self.classifications
+                for resource in item.resources
+            ),
+            key=lambda item: item.canonical_key,
+        ))
+        if classified_resources != self.resources:
+            raise DomainError("scan-plan resources disagree with classifications")
+        _digest(self.inventory_sha256, "resource inventory digest")
+        inventory_payload = {
+            "resources": [item.canonical_dict() for item in self.resources],
+            "classifications": [
+                item.canonical_dict() for item in self.classifications
+            ],
+        }
+        computed_inventory = hashlib.sha256(
+            json.dumps(
+                inventory_payload, sort_keys=True, separators=(",", ":")
+            ).encode()
+        ).hexdigest()
+        if computed_inventory != self.inventory_sha256:
+            raise DomainError("scan-plan inventory digest is not canonical")
         object.__setattr__(self, "_trusted", True)
 
     @property
@@ -488,6 +584,9 @@ class TrustedScanPlan:
             "files": [item.canonical_dict() for item in self.files],
             "resources": [item.canonical_dict() for item in self.resources],
             "inventory_sha256": self.inventory_sha256,
+            "classifications": [
+                item.canonical_dict() for item in self.classifications
+            ],
         }
 
 
@@ -578,44 +677,8 @@ _StrictSafeLoader.add_constructor(
 )
 
 
-def _bounded_yaml_documents(content: bytes) -> tuple:
-    try:
-        text = content.decode("utf-8", errors="strict")
-    except UnicodeDecodeError as exc:
-        raise DomainError("Kubernetes YAML must be UTF-8") from exc
-    depth = 0
-    documents = 0
-    nodes = 0
-    try:
-        for event in yaml.parse(text, Loader=_StrictSafeLoader):
-            if isinstance(event, AliasEvent):
-                raise DomainError("Kubernetes YAML aliases are unsupported")
-            if isinstance(event, (MappingStartEvent, SequenceStartEvent)):
-                depth += 1
-                nodes += 1
-                if depth > _MAX_YAML_DEPTH:
-                    raise DomainError("Kubernetes YAML depth limit exceeded")
-                if nodes > _MAX_YAML_NODES:
-                    raise DomainError("Kubernetes YAML node limit exceeded")
-            elif isinstance(event, (MappingEndEvent, SequenceEndEvent)):
-                depth -= 1
-        values = tuple(yaml.load_all(text, Loader=_StrictSafeLoader))
-        documents = len(values)
-    except DomainError:
-        raise
-    except ConstructorError as exc:
-        message = str(exc).lower()
-        reason = "duplicate mapping key" if "duplicate" in message else "unsafe/custom YAML tag"
-        raise DomainError(f"Kubernetes YAML rejected: {reason}") from exc
-    except (yaml.YAMLError, RecursionError) as exc:
-        raise DomainError("Kubernetes YAML syntax is malformed or unsupported") from exc
-    if documents > _MAX_YAML_DOCUMENTS:
-        raise DomainError("Kubernetes YAML document limit exceeded")
-    return values
-
-
 def _kubernetes_identity(
-    relative: str, value: object
+    relative: str, value: object, artifact_kind: ArtifactKind
 ) -> tuple[ExpectedResource, CheckovKubernetesIdentity]:
     if type(value) is not dict:
         raise DomainError("unsupported Kubernetes identity shape")
@@ -647,19 +710,19 @@ def _kubernetes_identity(
     canonical = f"{api_version}/{kind}/{namespace}/{name}"
     native = f"{kind}.{namespace}.{name}"
     return (
-        ExpectedResource(relative, canonical, ArtifactKind.KUBERNETES_YAML, native),
+        ExpectedResource(relative, canonical, artifact_kind, native),
         CheckovKubernetesIdentity(
             relative, native, api_version, kind, namespace, name
         ),
     )
 
 
-def _kubernetes_resources(
-    relative: str, content: bytes
+def _resources_from_kubernetes_documents(
+    relative: str, documents: tuple, artifact_kind: ArtifactKind
 ) -> tuple[tuple[ExpectedResource, ...], tuple[CheckovKubernetesIdentity, ...]]:
     resources: list[ExpectedResource] = []
     identities: list[CheckovKubernetesIdentity] = []
-    for document in _bounded_yaml_documents(content):
+    for document in documents:
         if document is None:
             continue
         if type(document) is not dict:
@@ -676,11 +739,11 @@ def _kubernetes_resources(
             if type(items) is not list:
                 raise DomainError("unsupported Kubernetes List items shape")
             for item in items:
-                resource, identity = _kubernetes_identity(relative, item)
+                resource, identity = _kubernetes_identity(relative, item, artifact_kind)
                 resources.append(resource)
                 identities.append(identity)
         else:
-            resource, identity = _kubernetes_identity(relative, document)
+            resource, identity = _kubernetes_identity(relative, document, artifact_kind)
             resources.append(resource)
             identities.append(identity)
     keys = [item.canonical_key for item in resources]
@@ -689,6 +752,180 @@ def _kubernetes_resources(
     return (
         tuple(sorted(resources, key=lambda item: item.canonical_key)),
         tuple(sorted(identities, key=lambda item: (item.file_path, item.canonical_address))),
+    )
+
+
+_SAFE_YAML_TAGS = frozenset({
+    "tag:yaml.org,2002:null", "tag:yaml.org,2002:bool",
+    "tag:yaml.org,2002:int", "tag:yaml.org,2002:float",
+    "tag:yaml.org,2002:binary", "tag:yaml.org,2002:timestamp",
+    "tag:yaml.org,2002:omap", "tag:yaml.org,2002:pairs",
+    "tag:yaml.org,2002:set", "tag:yaml.org,2002:str",
+    "tag:yaml.org,2002:seq", "tag:yaml.org,2002:map",
+})
+
+
+def _validate_yaml_node(node: Node) -> None:
+    if isinstance(node, MappingNode):
+        seen: set[str] = set()
+        for key, value in node.value:
+            if not isinstance(key, ScalarNode):
+                raise DomainError("YAML mapping keys must be scalar strings")
+            raw = key.value
+            if raw in seen:
+                raise DomainError(f"duplicate YAML mapping key {raw!r}")
+            seen.add(raw)
+            _validate_yaml_node(value)
+    elif isinstance(node, SequenceNode):
+        for value in node.value:
+            _validate_yaml_node(value)
+
+
+def _yaml_node_has_identity(node: Node) -> bool:
+    if isinstance(node, MappingNode):
+        keys = {
+            key.value for key, _value in node.value if isinstance(key, ScalarNode)
+        }
+        if keys & {"apiVersion", "kind"}:
+            return True
+        return any(_yaml_node_has_identity(value) for _key, value in node.value)
+    if isinstance(node, SequenceNode):
+        return any(_yaml_node_has_identity(value) for value in node.value)
+    return False
+
+
+def _yaml_root_has_identity(node: Node) -> bool:
+    return isinstance(node, MappingNode) and any(
+        isinstance(key, ScalarNode)
+        and key.value in {"apiVersion", "kind"}
+        for key, _value in node.value
+    )
+
+
+def _bounded_yaml_documents(content: bytes) -> tuple:
+    """Classify first from syntax nodes; construct only Kubernetes-like documents."""
+    try:
+        text = content.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise DomainError("Kubernetes YAML must be UTF-8") from exc
+    depth = nodes = 0
+    try:
+        for event in yaml.parse(text, Loader=yaml.BaseLoader):
+            if isinstance(event, AliasEvent):
+                raise DomainError("Kubernetes YAML aliases are unsupported")
+            if isinstance(event, (MappingStartEvent, SequenceStartEvent)):
+                depth += 1
+                nodes += 1
+                if depth > _MAX_YAML_DEPTH:
+                    raise DomainError("Kubernetes YAML depth limit exceeded")
+                if nodes > _MAX_YAML_NODES:
+                    raise DomainError("Kubernetes YAML node limit exceeded")
+            elif isinstance(event, (MappingEndEvent, SequenceEndEvent)):
+                depth -= 1
+        composed = tuple(yaml.compose_all(text, Loader=yaml.BaseLoader))
+    except DomainError:
+        raise
+    except (yaml.YAMLError, RecursionError) as exc:
+        raise DomainError("Kubernetes YAML syntax is malformed or unsupported") from exc
+    if len(composed) > _MAX_YAML_DOCUMENTS:
+        raise DomainError("Kubernetes YAML document limit exceeded")
+    documents = []
+    for node in composed:
+        if node is None:
+            continue
+        _validate_yaml_node(node)
+        if not _yaml_node_has_identity(node):
+            continue
+        if not _yaml_root_has_identity(node):
+            raise DomainError("unsupported Kubernetes YAML document shape")
+        stack = [node]
+        while stack:
+            current = stack.pop()
+            if current.tag not in _SAFE_YAML_TAGS:
+                raise DomainError("Kubernetes YAML rejected: unsafe/custom YAML tag")
+            if isinstance(current, MappingNode):
+                stack.extend(part for pair in current.value for part in pair)
+            elif isinstance(current, SequenceNode):
+                stack.extend(current.value)
+        try:
+            rendered = yaml.serialize(node)
+            documents.append(yaml.load(rendered, Loader=_StrictSafeLoader))
+        except (yaml.YAMLError, RecursionError) as exc:
+            raise DomainError("Kubernetes YAML syntax is malformed or unsupported") from exc
+    return tuple(documents)
+
+
+def _kubernetes_resources(
+    relative: str, content: bytes
+) -> tuple[tuple[ExpectedResource, ...], tuple[CheckovKubernetesIdentity, ...]]:
+    return _resources_from_kubernetes_documents(
+        relative, _bounded_yaml_documents(content), ArtifactKind.KUBERNETES_YAML
+    )
+
+
+def _strict_json_document(content: bytes) -> object:
+    try:
+        text = content.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise DomainError("Kubernetes JSON must be UTF-8") from exc
+    in_string = escaped = False
+    depth = 0
+    for character in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > _MAX_YAML_DEPTH:
+                raise DomainError("Kubernetes JSON depth limit exceeded")
+        elif character in "]}":
+            depth -= 1
+            if depth < 0:
+                raise DomainError("Kubernetes JSON structure is unbalanced")
+
+    def unique_pairs(pairs: list[tuple[str, object]]) -> dict:
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise DomainError(f"duplicate Kubernetes JSON key {key!r}")
+            result[key] = value
+        return result
+
+    try:
+        return json.loads(text, object_pairs_hook=unique_pairs)
+    except DomainError:
+        raise
+    except (json.JSONDecodeError, RecursionError) as exc:
+        raise DomainError("Kubernetes JSON syntax is malformed or unsupported") from exc
+
+
+def _json_contains_identity(value: object) -> bool:
+    if type(value) is dict:
+        if set(value) & {"apiVersion", "kind"}:
+            return True
+        return any(_json_contains_identity(item) for item in value.values())
+    if type(value) is list:
+        return any(_json_contains_identity(item) for item in value)
+    return False
+
+
+def _kubernetes_json_resources(
+    relative: str, content: bytes
+) -> tuple[tuple[ExpectedResource, ...], tuple[CheckovKubernetesIdentity, ...]]:
+    document = _strict_json_document(content)
+    if not _json_contains_identity(document):
+        return (), ()
+    if type(document) is not dict:
+        raise DomainError("unsupported Kubernetes JSON document shape")
+    return _resources_from_kubernetes_documents(
+        relative, (document,), ArtifactKind.KUBERNETES_JSON
     )
 
 
@@ -750,39 +987,77 @@ def attest_checkov_scan_plan(
     resources: list[ExpectedResource] = []
     kubernetes: list[CheckovKubernetesIdentity] = []
     eligible: list[str] = []
+    classifications: list[ArtifactClassification] = []
     root = untrusted.scan_root
     total_bytes = 0
     for path in sorted(root.rglob("*")):
         is_tf_json = path.name.lower().endswith(".tf.json")
+        suffix = path.suffix.lower()
+        relevant = (
+            (suffix == ".tf" or is_tf_json) and "terraform" in frameworks
+        ) or (
+            suffix in {".yaml", ".yml", ".json"}
+            and not is_tf_json
+            and "kubernetes" in frameworks
+        )
         if path.is_symlink():
-            if path.suffix.lower() in {".tf", ".yaml", ".yml"} or is_tf_json:
+            if relevant:
                 raise DomainError("independent detector refuses symlinked IaC input")
             continue
         if not path.is_file():
             continue
+        if not relevant:
+            continue
         relative = path.relative_to(root).as_posix()
-        suffix = path.suffix.lower()
         if is_tf_json and "terraform" in frameworks:
             raise DomainError("Terraform JSON (.tf.json) is explicitly unsupported")
         content = _read_detector_file(path, root, max_file_bytes)
-        detected: tuple[ExpectedResource, ...] = ()
-        file_type = ""
-        if suffix == ".tf" and "terraform" in frameworks:
-            detected = _terraform_resources(relative, content)
-            file_type = ArtifactKind.TERRAFORM_HCL.value
-        elif suffix in {".yaml", ".yml"} and "kubernetes" in frameworks:
-            detected, identities = _kubernetes_resources(relative, content)
-            if not detected:
-                continue
-            kubernetes.extend(identities)
-            file_type = ArtifactKind.KUBERNETES_YAML.value
-        else:
-            continue
-        if len(eligible) >= max_files:
-            raise DomainError("independent detector input exceeds its eligible-file limit")
         total_bytes += len(content)
         if total_bytes > max_total_bytes:
             raise DomainError("independent detector input exceeds its total-byte limit")
+        detected: tuple[ExpectedResource, ...] = ()
+        file_type = ""
+        classification = ""
+        syntax_kind = ""
+        if suffix == ".tf" and "terraform" in frameworks:
+            detected = _terraform_resources(relative, content)
+            file_type = ArtifactKind.TERRAFORM_HCL.value
+            classification = "TERRAFORM_RESOURCES"
+            syntax_kind = "terraform_hcl"
+        elif suffix in {".yaml", ".yml"} and "kubernetes" in frameworks:
+            detected, identities = _kubernetes_resources(relative, content)
+            if not detected:
+                classification = "NON_KUBERNETES_YAML"
+            else:
+                kubernetes.extend(identities)
+                file_type = ArtifactKind.KUBERNETES_YAML.value
+                classification = "KUBERNETES_RESOURCES"
+            syntax_kind = "yaml"
+        elif suffix == ".json" and "kubernetes" in frameworks:
+            detected, identities = _kubernetes_json_resources(relative, content)
+            if not detected:
+                classification = "NON_KUBERNETES_JSON"
+            else:
+                kubernetes.extend(identities)
+                file_type = ArtifactKind.KUBERNETES_JSON.value
+                classification = "KUBERNETES_RESOURCES"
+            syntax_kind = "json"
+        else:
+            continue
+        classifications.append(
+            ArtifactClassification(
+                relative,
+                hashlib.sha256(content).hexdigest(),
+                len(content),
+                syntax_kind,
+                classification,
+                tuple(detected),
+            )
+        )
+        if not file_type:
+            continue
+        if len(eligible) >= max_files:
+            raise DomainError("independent detector input exceeds its eligible-file limit")
         eligible.append(relative)
         resources.extend(detected)
         files.append(
@@ -816,7 +1091,15 @@ def attest_checkov_scan_plan(
     ):
         raise DomainError("source bytes changed during independent scan-plan attestation")
     ordered_resources = tuple(sorted(resources, key=lambda item: item.canonical_key))
-    inventory_payload = [item.canonical_dict() for item in ordered_resources]
+    ordered_classifications = tuple(
+        sorted(classifications, key=lambda item: item.file_path)
+    )
+    inventory_payload = {
+        "resources": [item.canonical_dict() for item in ordered_resources],
+        "classifications": [
+            item.canonical_dict() for item in ordered_classifications
+        ],
+    }
     inventory_digest = hashlib.sha256(
         json.dumps(inventory_payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -825,6 +1108,7 @@ def attest_checkov_scan_plan(
         tuple(sorted(files, key=lambda item: item.file_path)),
         ordered_resources,
         inventory_digest,
+        ordered_classifications,
         _trusted_context=_TRUSTED_SCAN_PLAN_CONTEXT,
     )
 
@@ -1718,7 +2002,8 @@ def run_checkov_verification(
 
 
 __all__ = [
-    "ChangeMetrics", "EngineEventEvaluation", "GovernedConfigEvidence",
+    "ArtifactClassification", "ChangeMetrics", "EngineEventEvaluation",
+    "GovernedConfigEvidence",
     "ScanPlanFile", "TargetObservation",
     "TargetOutcomeEvidence", "TrustedScanPlan", "VerificationRequest",
     "TrustedGateRegistry", "TrustedVerificationConfigBundle", "VerificationResult",

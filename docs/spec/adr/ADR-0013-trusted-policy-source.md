@@ -161,6 +161,11 @@ view; malformed or unsupported identity evidence fails preflight. Candidate
 `.checkov.yml` remains excluded, and `.tf.json` remains explicitly unsupported until a
 tested contract exists.
 
+D4.5 extends this invariant to strict Kubernetes JSON and records a byte-bound
+classification for every inspected `.tf`, `.yaml`, `.yml`, and relevant `.json` file.
+Ordinary workflow or CloudFormation YAML is classified before Kubernetes-only safe-tag
+construction; Kubernetes-like but unsafe evidence remains fail-closed.
+
 ## Amendment, 2026-08-11: verification configuration is protected policy
 
 Severity, frameworks, scanner locks, limits, required gates, registry identity, and the
