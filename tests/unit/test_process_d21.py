@@ -333,10 +333,11 @@ class TestProbe09Redaction:
         assert "/Users/dev" not in result
         assert "[PATH]" in result
 
-    def test_redact_argv_preserves_executable(self) -> None:
+    def test_redact_argv_preserves_only_safe_executable_identity(self) -> None:
         argv = ("/usr/bin/checkov", "--token", "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijkl")
         result = redact_argv(argv)
-        assert result[0] == "/usr/bin/checkov"
+        assert result[0] == "checkov"
+        assert "/usr/bin" not in result[0]
         assert "ghp_" not in result[2]
 
 

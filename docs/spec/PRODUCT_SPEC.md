@@ -165,3 +165,29 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 7. **Mandatory workspace**: `workspace_root` is required when `cwd` is supplied.
 8. **Resolved executable audit**: The resolved binary path is recorded and included in
    canonical output (with machine paths redacted).
+
+## 13. D2.3 — Process-boundary closure requirements
+
+1. The Python 3.10–3.13 CI matrix performs a clean-bytecode import with warnings as
+   errors before running tests.
+2. Adapter-supplied sensitive option names and argument indices are validated,
+   canonicalized, frozen, transferred into execution evidence, and applied on every
+   command report surface.
+3. Complete tested POSIX and Windows local absolute paths, including absolute
+   executable arguments, are removed from canonical and logger-facing text without
+   corrupting URLs.
+4. A result is finalized once, after scratch cleanup, so spawn and cleanup failures can
+   coexist as typed evidence.
+5. `CommandResult` uses a closed reason vocabulary and an executable status/reason table;
+   malformed public constructions are rejected.
+6. Process-group absence is proven only by `ESRCH`; permission or inspection errors are
+   uncertainty. Unconfirmed cleanup overrides timeout/partial status while retaining the
+   original event as a typed secondary field.
+7. Executables must strictly resolve to executable regular files outside the evaluated
+   workspace. Symlinks resolving into the workspace are rejected.
+8. Workspace root, cwd, trusted helper directories, and executable identity are
+   revalidated immediately before spawn. This reduces TOCTOU exposure but does not make
+   native execution a sandbox.
+9. Reports record observed and retained byte counts per stream. Retained counts obey the
+   individual and combined caps, observed counts are never lower, and truncated-output
+   hashes are labelled as retained-byte hashes.

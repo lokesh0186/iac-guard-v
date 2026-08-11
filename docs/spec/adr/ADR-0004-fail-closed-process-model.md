@@ -148,3 +148,30 @@ Added to this decision:
 18. workspace_root is mandatory when cwd is supplied; if neither is supplied, the private
     scratch directory is used as cwd.
 19. The resolved executable path is recorded for auditability.
+
+## Amendment, 2026-08-10: D2.3 process-boundary closure
+
+Further independent probes showed that the D2.2 controls did not yet establish the
+complete properties recorded above. The decision is amended as follows:
+
+20. `ProcessReason` is closed, and an explicit status/reason table plus field invariants
+    rejects contradictory public `CommandResult` evidence.
+21. Adapter sensitivity metadata is exact-type validated, canonicalized, frozen, carried
+    into the result, and used by both display and canonical report rendering.
+22. Process-group existence is three-valued. `EPERM` and arbitrary inspection errors are
+    uncertainty, never proof of absence. Unconfirmed cleanup overrides timeout or output
+    truncation with `ERROR/PROCESS_GROUP_CLEANUP_FAILED`, preserving the original event.
+23. The final result is constructed only after scratch cleanup, so execution and cleanup
+    failures remain simultaneously visible.
+24. Absolute executables inside the evaluated workspace, including symlinks resolving
+    there, are refused. Workspace, cwd, helper directories, and executable identity are
+    revalidated immediately before spawn.
+25. Canonical evidence separates observed and retained bytes, and labels output hashes as
+    retained-byte hashes.
+26. Local path redaction covers the specified POSIX roots and both Windows separator
+    forms; absolute `argv[0]` becomes a basename/tool identity; cleanup logs pass through
+    the same redaction boundary.
+
+Spawn-time revalidation is defence in depth, not an atomic filesystem sandbox. The final
+check and `Popen` still form a native TOCTOU interval, and container isolation remains the
+required hostile-PR boundary.

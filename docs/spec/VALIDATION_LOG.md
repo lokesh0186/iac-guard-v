@@ -717,3 +717,182 @@ adjustments to match the new security constraints:
 1. `test_display_command_is_for_reports_only` — updated assertion for shlex-quoted output
 2. `test_the_working_directory_is_honoured` — added mandatory workspace_root parameter
 3. `test_scratch_cleanup_field_exists_on_result` — uses ERROR status (PASS+cleanup=False is now rejected)
+
+---
+
+## Gate D2.3 — Process-boundary closure
+
+Validated on branch `adoption/p2-hardened-core`, starting from
+`eba9b73baebcac689b69500da8e178f2fdca0815`. The starting working tree was clean.
+
+### D2.3.1 Literal failing-before and passing-after values
+
+All “before” values below were captured against the untouched starting commit before an
+implementation file was edited. All “after” values were captured from the D2.3 working
+tree only after the corresponding regression test passed.
+
+| Probe | Before (`eba9b73`) | After (D2.3) |
+| --- | --- | --- |
+| clean import, warnings as errors | `SyntaxError: "\\." is an invalid escape sequence` in `redaction.py` | Python 3.11, 3.12, and 3.14 each printed `PASS clean import` |
+| custom sensitive option: display | `option display contains secret: True` | `option display contains secret: False` |
+| custom sensitive option: canonical | `option canonical contains secret: True` | `option canonical contains secret: False` |
+| sensitive argument index: display | `index display contains secret: True` | `index display contains secret: False` |
+| sensitive argument index: canonical | `index canonical contains secret: True` | `index canonical contains secret: False` |
+| malformed indices `('x',)`, `(-1,)`, `(999,)`, `(1, 1)`, `(True,)` | each `ACCEPTED` | each `REJECTED ProcessPolicyError` |
+| malformed options `('',)`, `('token',)`, newline, NUL, bidi | each `ACCEPTED` | each `REJECTED ProcessPolicyError` |
+| `/opt/company/secret/file.tf` | original remained `True` | `[PATH]`, original remained `False` |
+| `/root/.aws/credentials` | original remained `True` | `[PATH]`, original remained `False` |
+| `/workspace/repo/main.tf` | original remained `True` | `[PATH]`, original remained `False` |
+| `C:/Users/Alice/secret.tf` | `C:[PATH]` (partial transformation) | `[PATH]`, original remained `False` |
+| `C:\\Users\\Alice\\secret.tf` | `[PATH]` | `[PATH]` |
+| absolute private executable in canonical argv | `canonical contains '/Users/person/private-venv/bin/checkov': True` | `False`; reported identity `checkov` |
+| spawn failure plus cleanup failure | `ERROR SPAWN_FAILED`, `scratch_cleanup_success: None`, cleanup absent from canonical | `ERROR SPAWN_FAILED False ['SCRATCH_CLEANUP_FAILED']`; canonical has both events `True` |
+| cleanup log path | `raw scratch path in logs: True` | `raw scratch path in canonical/logs: False` |
+| `PARTIAL/OUTPUT_LIMIT_EXCEEDED/truncated=False` | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| `ERROR/OUTPUT_LIMIT_EXCEEDED/truncated=False` | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| `TIMEOUT` with unrelated reason | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| blank/control reason | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| signal 0, negative, or outside platform set | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| signal without matching negative exit | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| negative exit without matching signal | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| `PASS` without resolved executable | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| deadline reason under `ERROR` | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| group-cleanup reason without failed cleanup | `ACCEPTED` | `REJECTED ProcessPolicyError` |
+| `PermissionError` during group probe | `False` (misreported absent) | `UNKNOWN` |
+| timeout plus unconfirmed cleanup | `TIMEOUT DEADLINE_EXCEEDED` | `ERROR PROCESS_GROUP_CLEANUP_FAILED DEADLINE_EXCEEDED False` |
+| truncation plus unconfirmed cleanup | `PARTIAL OUTPUT_LIMIT_EXCEEDED` | `ERROR PROCESS_GROUP_CLEANUP_FAILED OUTPUT_LIMIT_EXCEEDED False` |
+| absolute workspace executable | `PASS WORKSPACE_EXECUTED` | `ProcessPolicyError before spawn` |
+| cwd replaced by outside symlink | `PASS`, child cwd was the outside directory | `ProcessPolicyError before spawn` |
+| helper replaced by workspace symlink | `PASS HELPER_REPLACED_INTO_WORKSPACE` | `ProcessPolicyError before spawn` |
+| truncated byte evidence | only `stdout_bytes` / `stderr_bytes`; no hash-scope statement | `stdout_observed_bytes=5000`, `stdout_retained_bytes=1024`, `output_hashes_cover=retained_bytes_only` |
+
+Python 3.13 is not installed on this validation host, so the required local 3.13 command
+is **BLOCKED**, not passed. `.github/workflows/python-compat.yml` adds 3.10, 3.11, 3.12,
+and 3.13 jobs; every job deletes `__pycache__`, imports with `-W error`, then runs the
+suite. Local clean-bytecode imports passed under every installed relevant interpreter:
+
+```console
+== python3.11 ==
+PASS clean import
+== python3.12 ==
+PASS clean import
+== python3.14 ==
+PASS clean import
+```
+
+### D2.3.2 Tests and mutation-sensitive probes
+
+```console
+$ PYTHONPATH=src pytest tests -q
+660 passed in 58.65s
+```
+
+| Suite | Tests |
+| --- | ---: |
+| `tests/spec/test_semantics_truth_table.py` | 121 |
+| `tests/spec/test_domain_boundaries.py` | 84 |
+| `tests/spec/test_domain_immutability.py` | 62 |
+| `tests/spec/test_event_binding.py` | 36 |
+| `tests/unit/test_models_immutability.py` | 101 |
+| `tests/unit/test_domain_consistency.py` | 38 |
+| `tests/unit/test_process.py` | 46 |
+| `tests/unit/test_process_d21.py` | 30 |
+| `tests/unit/test_process_d22.py` | 27 |
+| `tests/unit/test_process_d23.py` | 67 |
+| `tests/research/test_qrs_regression.py` | 29 |
+| `tests/research/test_freeze_adversarial.py` | 19 |
+| **Total** | **660** |
+
+The 67 D2.3 tests are additive; all 593 tests present at the starting commit still pass.
+The D2.3 tests are mutation-sensitive at each material guard: they force custom metadata,
+each path family, simultaneous spawn/cleanup exceptions, every forbidden result state,
+`EPERM` and non-`ESRCH` inspection errors, typed cleanup failure overriding deadline and
+output-limit events, candidate executable resolution, cwd/helper replacement, and output
+overflow. Spawn-boundary tests patch `Popen` and assert it was never called; removing the
+corresponding guard therefore turns the assertion into a failure rather than merely
+changing an implementation detail.
+
+### D2.3.3 Specification gate
+
+```console
+$ python tools/spec_lint.py docs/spec/
+documents inspected:  23
+enum values defined:  54
+PASS
+
+$ python tools/spec_lint.py --require-section trusted-configuration \
+    docs/spec/VERIFICATION_SEMANTICS.md docs/spec/THREAT_MODEL.md
+documents inspected:  2
+enum values defined:  54
+PASS
+```
+
+Zero warnings were emitted. `spec_lint` now includes the closed process-reason and
+process-group-state families in its completeness gate.
+
+### D2.3.4 Research invariants and frozen scope
+
+```console
+$ git cat-file -t qrs-2026-replication-v1
+tag
+$ git rev-parse qrs-2026-replication-v1^{commit}
+7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5
+
+$ python research/verify_byte_manifest.py \
+    --manifest research/qrs2026-byte-manifest.jsonl --root . \
+    --tag qrs-2026-replication-v1 --expect-entries 4842 --strict
+files checked:          4842
+MANIFEST_ROOT computed: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+MANIFEST_ROOT recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+PASS
+```
+
+Replay output:
+
+```console
+frozen run records:        630/630
+committed rows matched:    True (630 rows, 0 unmatched)
+field comparisons:         10080/10080 equal (expected 10080)
+final_verdict_mismatches:   0
+SEMANTIC_MATCH main_results_with_ci.csv
+SEMANTIC_MATCH results_by_violation_class.csv
+SEMANTIC_MATCH cost_effectiveness.csv
+SEMANTIC_MATCH statistical_tests.csv
+SEMANTIC_MATCH convergence.csv
+SEMANTIC_MATCH difficulty_terraform.csv
+SEMANTIC_MATCH difficulty_kubernetes.csv
+PASS
+```
+
+Frozen-scope diff:
+
+```console
+$ git diff --stat qrs-2026-replication-v1 -- \
+    benchmark runs results prompts scanners scripts requirements.txt paper.pdf
+(no output)
+```
+
+No benchmark inference, provider call, model refresh, tag mutation, or frozen artifact
+write was performed.
+
+### D2.3.5 Changed-file inventory
+
+- `.github/workflows/python-compat.yml`
+- `docs/spec/ARCHITECTURE.md`
+- `docs/spec/PRODUCT_SPEC.md`
+- `docs/spec/THREAT_MODEL.md`
+- `docs/spec/VALIDATION_LOG.md`
+- `docs/spec/VERIFICATION_SEMANTICS.md`
+- `docs/spec/adr/ADR-0004-fail-closed-process-model.md`
+- `src/iac_guard_v/process.py`
+- `src/iac_guard_v/redaction.py`
+- `tests/unit/test_process.py`
+- `tests/unit/test_process_d21.py`
+- `tests/unit/test_process_d23.py`
+- `tools/spec_lint.py`
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```

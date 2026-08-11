@@ -295,3 +295,40 @@ private scratch is used as cwd.
 ### Resolved executable (Defect H)
 `resolved_executable` field on CommandResult. `canonical_dict` includes it with machine
 paths redacted but binary name preserved.
+
+The D2.2 statements above are the historical gate record. D2.3 supersedes their
+incomplete redaction, cleanup-finalisation, process-group uncertainty, result-invariant,
+and path-validation details.
+
+## 12. D2.3 Process-boundary closure
+
+`CommandRequest` accepts adapter-supplied sensitive option names and argument indices
+only after exact-type, bounds, duplicate, syntax, control-character, line-break, and bidi
+validation. Both forms are copied into `CommandResult`; `display_command()` and
+`canonical_dict()` use the same redaction metadata. Absolute executable arguments are
+reported as a basename/tool identity, never as an absolute `argv[0]`.
+
+The runner resolves the executable strictly to an executable regular file outside the
+evaluated workspace. Immediately before `Popen`, it re-resolves and identity-checks the
+workspace root, cwd, every trusted helper directory, and the executable. A changed path,
+cwd escape, helper moved into the workspace, workspace-contained executable, or symlink
+resolution into the workspace raises `ProcessPolicyError` before spawn.
+
+This revalidation reduces the interval and straightforward exploitability of TOCTOU path
+replacement. It does **not** make native execution a complete sandbox or remove the race
+between the final check and the kernel's path lookup. Hardened container execution remains
+required for hostile pull requests.
+
+One `CommandResult` is finalized after scratch cleanup. It carries a closed
+`ProcessReason`, the primary execution event, typed cleanup diagnostics, explicit
+process-group cleanup attempted/success fields, scratch cleanup success, and separate
+observed/retained byte counts. Output digests cover retained bytes only. The invariant
+table permits only executable status/reason combinations and rejects contradictory
+timeout, truncation, cleanup, signal, exit-code, and executable evidence.
+
+Process-group inspection has three values: `ABSENT` only for `ESRCH` /
+`ProcessLookupError`, `ALIVE` after a successful existence probe, and `UNKNOWN` for
+`EPERM` / `PermissionError` or any other inspection error. A timeout or output-limit
+event whose group cleanup is unconfirmed becomes
+`ERROR/PROCESS_GROUP_CLEANUP_FAILED`; the original event remains in
+`primary_execution_event`.

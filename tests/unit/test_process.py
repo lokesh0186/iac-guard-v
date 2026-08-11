@@ -309,7 +309,9 @@ def test_evidence_records_digests_rather_than_raw_output() -> None:
     assert payload["stdout_sha256"] == result.stdout_sha256
     assert payload["stdout_bytes"] == len(result.stdout)
     assert payload["status"] == "PASS"
-    assert payload["argv"] == list(result.argv)
+    assert payload["argv"][0] == Path(result.argv[0]).name
+    assert payload["argv"][1:] == list(result.argv[1:])
+    assert str(Path(result.argv[0]).parent) not in repr(payload["argv"])
 
 
 def test_stderr_is_captured_separately_from_stdout() -> None:

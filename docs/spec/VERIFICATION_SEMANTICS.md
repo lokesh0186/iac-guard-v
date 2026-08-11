@@ -50,7 +50,33 @@ specification may use these words in a normative sentence without pointing here.
 A boolean must never encode any of `ERROR`, `TIMEOUT`, `UNSUPPORTED`, `PARTIAL`, or
 `INCONCLUSIVE`. This is the direct remedy for audit finding F6.
 
-### 1.2 `Verdict` — the outcome of a whole verification
+### 1.2 Process execution reasons and group inspection
+
+`ProcessReason` is a closed execution-evidence vocabulary:
+
+`COMPLETED_WITHIN_CONTRACT` `EXECUTABLE_NOT_FOUND` `SPAWN_FAILED`
+`DEADLINE_EXCEEDED` `OUTPUT_LIMIT_EXCEEDED` `PROCESS_GROUP_CLEANUP_FAILED`
+`LINGERING_DESCENDANTS_TERMINATED` `NO_EXIT_STATUS` `KILLED_BY_SIGNAL`
+`EXIT_CODE_OUTSIDE_CONTRACT` `SCRATCH_CLEANUP_FAILED`
+
+The executable status/reason table is:
+
+| Status | Permitted process reasons |
+| --- | --- |
+| `PASS` | `COMPLETED_WITHIN_CONTRACT` |
+| `UNSUPPORTED` | `EXECUTABLE_NOT_FOUND` |
+| `TIMEOUT` | `DEADLINE_EXCEEDED` with `timed_out=true` |
+| `PARTIAL` | `OUTPUT_LIMIT_EXCEEDED` with `truncated=true` |
+| `ERROR` | `SPAWN_FAILED`, `PROCESS_GROUP_CLEANUP_FAILED`, `LINGERING_DESCENDANTS_TERMINATED`, `NO_EXIT_STATUS`, `KILLED_BY_SIGNAL`, `EXIT_CODE_OUTSIDE_CONTRACT`, `SCRATCH_CLEANUP_FAILED` |
+
+`ProcessGroupState` is `ABSENT`, `ALIVE`, or `UNKNOWN`. Only a positive existence
+probe yields `ALIVE`; only a not-found result yields `ABSENT`; permission and all other
+inspection failures yield `UNKNOWN`. When cleanup remains unknown after a timeout or
+output-limit event, the overall evidence is
+`ERROR` / `PROCESS_GROUP_CLEANUP_FAILED`, and `primary_execution_event` preserves
+`DEADLINE_EXCEEDED` or `OUTPUT_LIMIT_EXCEEDED`.
+
+### 1.3 `Verdict` — the outcome of a whole verification
 
 `VERIFIED` `FAILED` `INCONCLUSIVE`
 

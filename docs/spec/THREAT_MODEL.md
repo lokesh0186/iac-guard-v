@@ -247,3 +247,25 @@ Report-facing output is redacted through two layers:
 
 The `display_command` property on CommandRequest now returns a fully redacted,
 shlex.quote'd representation safe for logs and reports.
+
+## 8. D2.3 process-boundary controls and residual native risk
+
+D2.3 closes the remaining direct process-report and path-boundary bypasses:
+
+| Vector | Control |
+| --- | --- |
+| Adapter-specific secret flag or positional argument | Validated sensitivity metadata is applied identically to display and canonical report surfaces |
+| Absolute local paths in arguments, details, exceptions, or cleanup logs | `/Users`, `/home`, `/mnt`, `/private`, `/tmp`, `/var`, `/opt`, `/root`, `/workspace`, `C:\\...`, and `C:/...` forms are replaced; URLs are preserved |
+| Private absolute executable path in `argv[0]` | Reports retain only a sanitized basename/tool identity |
+| Spawn failure followed by scratch cleanup failure | The result is finalized after cleanup and carries both typed events |
+| Permission denied while checking a process group | `UNKNOWN`, never “absent”; unconfirmed cleanup is the stronger `ERROR` result |
+| Candidate executable under the evaluated workspace | Strict resolution and workspace containment rejection before spawn |
+| cwd/helper/executable path replacement after request construction | Resolution plus device/inode identity and containment are rechecked immediately before spawn |
+
+These checks narrow a TOCTOU window; they do not eliminate it. Native path lookup is not
+an atomic sandbox boundary, and a trusted host executable can still read host files or use
+the network. Container mode remains mandatory for hostile pull-request evaluation.
+
+Output evidence distinguishes bytes read from pipes (`*_observed_bytes`) from bytes kept
+under the per-stream and combined caps (`*_retained_bytes`). When truncated, hashes are
+explicitly labelled as covering retained bytes only.

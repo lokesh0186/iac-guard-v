@@ -46,6 +46,13 @@ IDENTITY_TIERS = ("EXACT", "RELOCATED", "SEMANTIC", "OCCURRENCE")
 AGREEMENT_STATES = ("AGREEMENT_PASS", "AGREEMENT_FAIL", "DISAGREEMENT",
                     "NOT_COMPARABLE")
 MAPPING_CONFIDENCE = ("EXACT", "OVERLAPPING", "RELATED", "NOT_COMPARABLE", "UNKNOWN")
+PROCESS_REASONS = (
+    "COMPLETED_WITHIN_CONTRACT", "EXECUTABLE_NOT_FOUND", "SPAWN_FAILED",
+    "DEADLINE_EXCEEDED", "OUTPUT_LIMIT_EXCEEDED", "PROCESS_GROUP_CLEANUP_FAILED",
+    "LINGERING_DESCENDANTS_TERMINATED", "NO_EXIT_STATUS", "KILLED_BY_SIGNAL",
+    "EXIT_CODE_OUTSIDE_CONTRACT", "SCRATCH_CLEANUP_FAILED",
+)
+PROCESS_GROUP_STATES = ("ABSENT", "ALIVE", "UNKNOWN")
 
 REQUIRED_SECTIONS = {
     "PRODUCT_SPEC.md": ["Problem", "Personas", "Functional requirements",
@@ -107,6 +114,8 @@ ALLOWLIST = DIAGNOSTIC_CODES | DECISION_LABELS | META_NAMES | {
     "ADR", "PDF", "CSV", "LF", "CRLF", "AM", "DOI", "SHA", "OIDC", "SBOM", "SLSA",
     "LICENSE", "NOTICE", "BASE", "HEAD", "ID", "AVD", "MisconfSummary",
     "SIGKILL", "SIGTERM", "TMPDIR", "TZ", "LANG", "LC_ALL",
+    "ESRCH", "EPERM",
+    "ACCEPTED", "REJECTED",
     "P0", "V1", "V2", "V3", "V4", "V5", "V6", "V7", "F1", "F2", "F3", "F4", "F5",
     "F6", "F12", "N", "A", "B", "C", "D", "E", "T1", "T2", "T3", "T4", "T5", "T6",
     "T7", "T8", "T9", "GHCR", "PyPI", "MCP", "OPA", "ARM", "CDK", "IDE",
@@ -163,6 +172,8 @@ def main() -> int:
         "IdentityTier": IDENTITY_TIERS,
         "AgreementState": AGREEMENT_STATES,
         "MappingConfidence": MAPPING_CONFIDENCE,
+        "ProcessReason": PROCESS_REASONS,
+        "ProcessGroupState": PROCESS_GROUP_STATES,
     }
     defined: set[str] = set()
     for family, members in families.items():
