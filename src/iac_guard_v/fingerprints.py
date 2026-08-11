@@ -1,9 +1,9 @@
 """Versioned IaC-Guard-V finding fingerprints.
 
 The primary fingerprint is stable across line drift, scanner prose/version changes,
-severity changes, and scan-root temporary-directory changes.  It deliberately changes
-when an identity component changes: scanner, rule, repository-relative path, resource,
-occurrence, or artifact kind.  Native scanner fingerprints remain separate evidence.
+severity changes, display-ordinal compaction, and scan-root temporary-directory changes.
+When a scanner supplies a stable native occurrence fingerprint it is bound as occurrence
+evidence. Native evidence remains separately reportable as well.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from .models import (
     require_exact_type,
 )
 
-FINGERPRINT_ALGORITHM = "iacgv1"
+FINGERPRINT_ALGORITHM = "iacgv2"
 _TF_IDENTIFIER = r"[A-Za-z_][A-Za-z0-9_-]*"
 _TF_INDEX = r"\[(?:[0-9]+|\"(?:[^\"\\]|\\.)*\")\]"
 _TERRAFORM_ADDRESS = re.compile(
@@ -94,7 +94,7 @@ def _fingerprint_payload(finding: Finding) -> bytes:
         "algorithm": FINGERPRINT_ALGORITHM,
         "artifact_kind": finding.artifact_kind.value,
         "file_path": finding.location.file_path,
-        "occurrence_index": finding.occurrence_index,
+        "native_occurrence_fingerprint": finding.native_fingerprint,
         "resource_address": finding.resource_address,
         "rule_id": finding.rule_id,
         "scanner": finding.scanner,

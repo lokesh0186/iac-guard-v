@@ -1,9 +1,8 @@
 """Normalisation helpers shared by scanner adapters.
 
 Adapters receive findings in whatever order a scanner emitted them, which is not a
-contract. `ScannerRun` rejects two findings with the same exact identity, because
-`occurrence_index` exists precisely to disambiguate repeated findings — so the index has
-to be assigned deterministically before construction, not left to chance.
+contract. `occurrence_index` is a deterministic display ordinal, not authoritative
+identity. Stable native evidence or constrained matching decides occurrence identity.
 
 The defect this prevents was measured: two findings sharing an exact key but differing in
 severity and message serialised as `["one", "two"]` or `["two", "one"]` depending purely
@@ -19,7 +18,7 @@ from .models import DomainError, Finding, require_exact_type
 
 
 def occurrence_group_key(finding: Finding) -> tuple:
-    """Findings that compete for an occurrence index within one group."""
+    """Findings that compete for a display occurrence ordinal within one group."""
     return (finding.scanner, finding.rule_id, finding.location.file_path,
             finding.resource_address)
 
@@ -48,11 +47,12 @@ def canonical_sort_key(finding: Finding) -> tuple:
 
 
 def assign_occurrence_indices(findings: Iterable[Finding]) -> tuple[Finding, ...]:
-    """Return findings with deterministic `occurrence_index` values.
+    """Return findings with deterministic display `occurrence_index` values.
 
     Findings are canonically sorted, then indexed from 0 within each
     `(scanner, rule_id, file_path, resource_address)` group. Two adapters given the same
-    set of native findings in different orders therefore produce identical output.
+    set of native findings in different orders therefore produce identical output. The
+    resulting ordinal is never consumed as authoritative matching identity.
 
     Identical findings — same canonical sort key in every respect — are a genuine
     duplicate rather than two occurrences, and are rejected: silently indexing them 0 and

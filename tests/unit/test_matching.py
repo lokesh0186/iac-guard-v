@@ -5,10 +5,16 @@ import dataclasses
 
 import pytest
 
-from iac_guard_v.diffing import FindingDelta
+from iac_guard_v.diffing import FindingDelta, FindingDiffResult, ScopeExpansionEvidence
 from iac_guard_v.enums import ArtifactKind, IdentityTier, Severity
-from iac_guard_v.matching import FindingMatch, FindingMultisetComparison, compare_finding_multisets
+from iac_guard_v.matching import (
+    FindingMatch,
+    FindingMultisetComparison,
+    MatchingAmbiguity,
+    compare_finding_multisets,
+)
 from iac_guard_v.models import DomainError, Finding, FindingLocation
+from iac_guard_v.normalisation import assign_occurrence_indices
 
 
 def finding(
@@ -16,32 +22,36 @@ def finding(
     *,
     path: str = "main.tf",
     start: int = 1,
-    end: int = 2,
+    end: int | None = None,
     occurrence: int = 0,
     version: str = "3.3.0",
     severity: Severity = Severity.HIGH,
     suppressed: bool = False,
+    native_fingerprint: str = "",
+    scanner: str = "checkov",
+    artifact_kind: ArtifactKind = ArtifactKind.TERRAFORM_HCL,
 ) -> Finding:
     return Finding(
-        scanner="checkov",
+        scanner=scanner,
         scanner_version=version,
         rule_id="CKV_AWS_18",
         resource_address=resource,
-        location=FindingLocation(path, start, end),
+        location=FindingLocation(path, start, start + 1 if end is None else end),
         occurrence_index=occurrence,
         severity=severity,
-        artifact_kind=ArtifactKind.TERRAFORM_HCL,
+        artifact_kind=artifact_kind,
         suppressed=suppressed,
+        native_fingerprint=native_fingerprint,
     )
 
 
-def test_exact_match_excludes_line_numbers_but_reports_location_change() -> None:
+def test_unique_line_move_without_native_identity_is_constrained_relocation() -> None:
     comparison = compare_finding_multisets(
         (finding("aws_s3_bucket.data", start=2, end=3),),
         (finding("aws_s3_bucket.data", start=200, end=201),),
     )
     assert len(comparison.matches) == 1
-    assert comparison.matches[0].tier is IdentityTier.EXACT
+    assert comparison.matches[0].tier is IdentityTier.RELOCATED
     assert comparison.matches[0].location_changed is True
     assert comparison.unmatched_baseline == ()
     assert comparison.unmatched_candidate == ()
@@ -66,8 +76,14 @@ def test_rule_move_to_different_resource_is_not_relocation() -> None:
 
 
 def test_occurrences_are_never_collapsed() -> None:
-    baseline = tuple(finding("aws_s3_bucket.data", occurrence=i) for i in range(3))
-    candidate = tuple(finding("aws_s3_bucket.data", occurrence=i) for i in range(2))
+    baseline = tuple(
+        finding("aws_s3_bucket.data", occurrence=i, native_fingerprint=f"native-{i}")
+        for i in range(3)
+    )
+    candidate = tuple(
+        finding("aws_s3_bucket.data", occurrence=i, native_fingerprint=f"native-{i}")
+        for i in range(2)
+    )
     comparison = compare_finding_multisets(baseline, candidate)
     assert len(comparison.matches) == 2
     assert [item.occurrence_index for item in comparison.unmatched_baseline] == [2]
@@ -87,6 +103,45 @@ def test_matching_is_deterministic_under_input_reordering() -> None:
     assert forward == reverse
 
 
+def test_dense_occurrence_index_compaction_cannot_mispair_retained_line() -> None:
+    baseline = assign_occurrence_indices(
+        (finding("aws_s3_bucket.data", start=10, end=10),
+         finding("aws_s3_bucket.data", start=20, end=20))
+    )
+    candidate = assign_occurrence_indices(
+        (finding("aws_s3_bucket.data", start=20, end=20),)
+    )
+    comparison = compare_finding_multisets(baseline, candidate)
+    assert [(match.baseline.location.start_line, match.candidate.location.start_line)
+            for match in comparison.matches] == [(20, 20)]
+    assert [item.location.start_line for item in comparison.unmatched_baseline] == [10]
+
+
+def test_equally_supported_occurrence_pairings_are_typed_inconclusive() -> None:
+    comparison = compare_finding_multisets(
+        (finding("aws_s3_bucket.data", start=10),
+         finding("aws_s3_bucket.data", start=20)),
+        (finding("aws_s3_bucket.data", start=30),),
+    )
+    assert comparison.matches == ()
+    assert comparison.unmatched_baseline == ()
+    assert comparison.unmatched_candidate == ()
+    assert len(comparison.ambiguities) == 1
+    assert comparison.ambiguities[0].reason.value == "MATCHING_INCONCLUSIVE"
+
+
+def test_ambiguity_canonical_output_is_input_order_independent() -> None:
+    baseline = (finding("aws_s3_bucket.data", start=10),
+                finding("aws_s3_bucket.data", start=20))
+    candidate = (finding("aws_s3_bucket.data", start=30),
+                 finding("aws_s3_bucket.data", start=40))
+    forward = compare_finding_multisets(baseline, candidate).canonical_dict()
+    reverse = compare_finding_multisets(
+        tuple(reversed(baseline)), tuple(reversed(candidate))
+    ).canonical_dict()
+    assert forward == reverse
+
+
 def test_duplicate_exact_identity_is_rejected_at_matching_boundary() -> None:
     duplicate = finding("aws_s3_bucket.data")
     with pytest.raises(DomainError, match="duplicate exact"):
@@ -99,8 +154,9 @@ def test_ambiguous_relocated_identity_is_rejected_not_guessed() -> None:
         finding("aws_s3_bucket.data", path="b.tf"),
     )
     candidate = (finding("aws_s3_bucket.data", path="new.tf"),)
-    with pytest.raises(DomainError, match="ambiguous relocated"):
-        compare_finding_multisets(baseline, candidate)
+    comparison = compare_finding_multisets(baseline, candidate)
+    assert comparison.matches == ()
+    assert len(comparison.ambiguities) == 1
 
 
 def test_multiple_unmatched_occurrences_need_no_relocation_guess() -> None:
@@ -175,6 +231,31 @@ def test_public_match_rejects_invalid_tier_and_keys() -> None:
         FindingMatch(baseline, candidate, IdentityTier.SEMANTIC)
 
 
+@pytest.mark.parametrize(
+    "candidate",
+    [
+        finding("aws_s3_bucket.a", version="3.2.517"),
+        finding("aws_s3_bucket.a", artifact_kind=ArtifactKind.CLOUDFORMATION),
+        finding("aws_s3_bucket.a", scanner="trivy"),
+    ],
+)
+def test_public_exact_match_rejects_incompatible_domains(candidate: Finding) -> None:
+    with pytest.raises(DomainError, match="match domain"):
+        FindingMatch(finding("aws_s3_bucket.a"), candidate, IdentityTier.EXACT)
+
+
+@pytest.mark.parametrize(
+    "candidate",
+    [
+        finding("aws_s3_bucket.a", scanner="trivy"),
+        finding("aws_s3_bucket.a", artifact_kind=ArtifactKind.CLOUDFORMATION),
+    ],
+)
+def test_comparison_rejects_cross_scanner_or_artifact_domains(candidate: Finding) -> None:
+    with pytest.raises(DomainError, match="match domain"):
+        compare_finding_multisets((finding("aws_s3_bucket.a"),), (candidate,))
+
+
 def test_public_comparison_requires_exact_tuple_fields() -> None:
     with pytest.raises(DomainError, match="matches must be an exact tuple"):
         FindingMultisetComparison([], (), ())
@@ -193,7 +274,17 @@ def test_forged_stored_fingerprint_is_rejected_by_matching() -> None:
         compare_finding_multisets((forged,), ())
 
 
-@pytest.mark.parametrize("cls", [FindingMatch, FindingMultisetComparison, FindingDelta])
+@pytest.mark.parametrize(
+    "cls",
+    [
+        FindingMatch,
+        FindingMultisetComparison,
+        MatchingAmbiguity,
+        FindingDelta,
+        FindingDiffResult,
+        ScopeExpansionEvidence,
+    ],
+)
 def test_d3_evidence_models_are_frozen_and_slotted(cls: type) -> None:
     assert dataclasses.is_dataclass(cls)
     assert cls.__dataclass_params__.frozen is True

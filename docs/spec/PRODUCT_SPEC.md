@@ -194,17 +194,18 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 
 ## 14. D3 — Fingerprints and multiset matching
 
-1. `iacgv1` fingerprints are deterministic, visibly versioned, stable across line,
-   message, severity, scanner-version, suppression-state, and temporary-root drift, and
-   change for every exact identity component.
+1. `iacgv2` fingerprints are deterministic, visibly versioned, stable across line,
+   message, severity, scanner-version, suppression-state, display-ordinal compaction,
+   and temporary-root drift. They bind stable native occurrence evidence when present.
 2. Scanner-native and IaC-Guard-V fingerprints coexist; a forged stored IaC-Guard-V
    fingerprint is rejected before matching or delta generation.
-3. Matching preserves every occurrence, is independent of caller order, matches exact
-   identity before relocation, and permits relocation only for the same resource.
+3. Matching preserves every occurrence, is independent of caller order, rejects
+   scanner/version/artifact domain drift, matches stable identity before constrained
+   relocation, and types equally supported pairings as `MATCHING_INCONCLUSIVE`.
 4. Line-only and file moves remain observable as `LOCATION_CHANGED`; moving a rule to a
    different resource produces `RESOLVED_FINDING` plus `NEW_FINDING`.
 5. Finding-only delta constructors cannot claim events that require later engine or
-   trusted-policy evidence.
+   trusted-policy evidence, and must prove the predicate of every delta they do expose.
 6. Fingerprint, matching, and diffing modules each maintain at least 90% executable test
    coverage in CI.
 

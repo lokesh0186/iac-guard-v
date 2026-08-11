@@ -668,6 +668,102 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
+---
+
+## Gate D3.1 — Occurrence identity and trusted-delta closure
+
+D3.1 started from clean parent
+`b8c0cbaa41427dbf33fc74565726997cf4a3224b` after independently rereading finding
+semantics §§3 and 5, architecture §13, product §14, ADR-0003, implementation, and tests.
+The preserved D2.3, D3, and D4 commits were not rewritten.
+
+Literal failing-before values on the parent commit:
+
+```text
+A matches [(10, 20, 'EXACT')] unmatched baseline [20]
+B deltas [('LOCATION_CHANGED', 10, 20), ('RESOLVED_FINDING', 20, None)]
+C deltas [('LOCATION_CHANGED', 10, 20), ('RESOLVED_FINDING', 20, None)]
+forged LOCATION_CHANGED ACCEPTED
+forged SEVERITY_INCREASED ACCEPTED
+forged SUPPRESSION_ADDED ACCEPTED
+cross scanner comparison: ordinary unmatched baseline plus unmatched candidate
+cross version exact EXACT
+cross artifact exact EXACT
+```
+
+The permanent regression tests failed on the preserved implementation: 18 failures and
+62 passes in the initial focused run. The failed properties included display-ordinal
+compaction, native occurrence binding, typed ambiguity, domain consistency, and each
+forged-delta predicate.
+
+Literal passing-after values:
+
+```text
+A matches [(20, 20, 'EXACT')] unmatched baseline [10]
+B deltas [('RESOLVED_FINDING', 10, None), ('SEVERITY_INCREASED', 20, 20)]
+C deltas [('RESOLVED_FINDING', 10, None), ('SUPPRESSION_ADDED', 20, 20)]
+forged LOCATION_CHANGED REJECTED LOCATION_CHANGED requires different file/start/end location
+forged SEVERITY_INCREASED REJECTED SEVERITY_INCREASED requires a strictly higher candidate severity
+forged SUPPRESSION_ADDED REJECTED SUPPRESSION_ADDED requires an unsuppressed-to-suppressed transition
+scope REJECTED SCOPE_EXPANDED requires complete resource-set evidence
+scanner REJECTED FindingMatch requires one scanner/version/artifact match domain
+version REJECTED FindingMatch requires one scanner/version/artifact match domain
+artifact REJECTED FindingMatch requires one scanner/version/artifact match domain
+```
+
+The successor primary fingerprint is visibly versioned:
+
+```text
+old: iacgv1:103a16c9e7eb2ed6a76a8acb10a3cc6aefeb0e1e9693999c0d0e403cde508871
+new: iacgv2:fe6442319649d2827b7334576a8eee3222bc466fe3d5fcad2546d96402b41b02
+```
+
+Focused executable evidence:
+
+```console
+$ PYTHONPATH=src pytest tests/unit/test_fingerprints.py \
+    tests/unit/test_matching.py tests/unit/test_diffing.py \
+    --cov=iac_guard_v.fingerprints --cov=iac_guard_v.matching \
+    --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q
+83 passed in 0.39s
+src/iac_guard_v/diffing.py          169     14    92%
+src/iac_guard_v/fingerprints.py      69      0   100%
+src/iac_guard_v/matching.py         187     11    94%
+TOTAL                               425     25    94%
+Required test coverage of 90% reached. Total coverage: 94.12%
+
+$ PYTHONPATH=src pytest tests -q
+810 passed in 71.32s (0:01:11)
+
+$ python tools/spec_lint.py docs/spec/
+documents inspected:  23
+enum values defined:  75
+PASS
+```
+
+Research gates at the D3.1 boundary:
+
+```text
+manifest files checked: 4842/4842
+MANIFEST_ROOT computed: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+MANIFEST_ROOT recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+manifest result: PASS
+frozen run records: 630/630
+field comparisons: 10080/10080 equal
+final verdict mismatches: 0
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff: empty
+```
+
+D3.1 modifies no frozen QRS artifact and performs no benchmark inference, model-provider
+call, or model refresh.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
 The third statement is now accurate: the model-refresh protocol is a Phase I
 deliverable and has not been written. "Prepared but not executed" will only be correct
 once Phase I actually creates it.

@@ -218,18 +218,19 @@ def _pair_sharing_an_exact_key() -> tuple[Finding, Finding]:
     return one, two
 
 
-def test_duplicate_exact_identities_are_rejected() -> None:
+def test_dense_ordinals_do_not_manufacture_distinct_authoritative_identities() -> None:
     one, two = _pair_sharing_an_exact_key()
-    with pytest.raises(DomainError) as exc:
-        ScannerRun("checkov", "3.2.517", Status.PASS, (one, two))
-    assert "duplicate exact finding identity" in str(exc.value)
+    run = ScannerRun("checkov", "3.2.517", Status.PASS, (one, two))
+    assert len(run.findings) == 2
+    assert len({item.exact_key for item in run.findings}) == 1
 
 
 def test_repeated_findings_receive_stable_distinct_occurrence_indices() -> None:
     one, two = _pair_sharing_an_exact_key()
     indexed = assign_occurrence_indices((one, two))
     assert sorted(f.occurrence_index for f in indexed) == [0, 1]
-    assert len({f.exact_key for f in indexed}) == 2
+    assert len({f.exact_key for f in indexed}) == 1
+    assert len({f.occurrence_index for f in indexed}) == 2
 
 
 def test_reversing_native_order_produces_identical_normalised_findings() -> None:

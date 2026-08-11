@@ -82,6 +82,12 @@ class IdentityTier(str, Enum):
     OCCURRENCE = "OCCURRENCE"
 
 
+class MatchingReason(str, Enum):
+    """Closed reasons why occurrence pairing could not be established."""
+
+    MATCHING_INCONCLUSIVE = "MATCHING_INCONCLUSIVE"
+
+
 class ArtifactKind(str, Enum):
     TERRAFORM_HCL = "terraform_hcl"
     TERRAFORM_PLAN_JSON = "terraform_plan_json"

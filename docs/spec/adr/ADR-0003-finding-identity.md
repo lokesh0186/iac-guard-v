@@ -18,8 +18,8 @@ Identity is tiered:
 
 | Tier | Key | Purpose |
 | --- | --- | --- |
-| `EXACT` | scanner + rule + file + resource address + occurrence index | same-scanner before/after |
-| `RELOCATED` | scanner + rule + resource address, tolerating file move and line drift | detect a moved finding rather than resolved-plus-new |
+| `EXACT` | scanner/version/artifact + rule + file + resource + stable occurrence evidence | same-domain before/after |
+| `RELOCATED` | same domain/rule/resource with native evidence, or one unique constrained pair | detect a moved finding rather than resolved-plus-new |
 | `SEMANTIC` | control id + resource + artifact kind | cross-scanner, `EXACT` mappings only |
 | `OCCURRENCE` | duplicates preserved | never collapse N violations into one |
 
@@ -66,3 +66,19 @@ fingerprint. A caller-supplied fingerprint must recompute exactly or it is rejec
 Same-scanner comparison matches exact occurrences first, then unambiguous relocated
 occurrences with the same resource. Ambiguous relocation is refused; different resources
 remain two facts rather than one match.
+
+## Amendment, 2026-08-10: D3.1 stable occurrence evidence
+
+The dense `occurrence_index` is demoted to a deterministic display ordinal. Removing an
+earlier occurrence compacts later ordinals, so using it as authority paired different
+line occurrences and hid severity and suppression changes. The successor algorithm is
+`iacgv2`; it replaces `occurrence_index` in the hashed payload with
+`native_occurrence_fingerprint`. Native evidence remains separately reported.
+
+When native occurrence evidence is unavailable, matching first consumes equal location
+evidence and then permits only a unique remaining same-resource pairing. Multiple
+equally supported pairings are stored as `MATCHING_INCONCLUSIVE` and cannot become
+ordinary resolved/new deltas. Scanner identity, scanner version, and artifact kind form
+one required match domain. Delta constructors independently enforce the location,
+severity, suppression, and resource-set predicates they claim. Validation uses
+`Counter`/set grouping rather than quadratic duplicate counting.

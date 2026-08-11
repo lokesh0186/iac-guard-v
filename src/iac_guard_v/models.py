@@ -30,6 +30,7 @@ from __future__ import annotations
 import hashlib
 import re
 import unicodedata
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from types import MappingProxyType
@@ -282,14 +283,62 @@ class Finding:
 
     @property
     def exact_key(self) -> tuple:
-        """`EXACT` identity: line numbers deliberately excluded (semantics §3.3)."""
-        return (self.scanner, self.rule_id, self.location.file_path,
-                self.resource_address, self.occurrence_index)
+        """Authoritative exact evidence, never the regenerated display ordinal.
+
+        A native occurrence fingerprint is stable evidence when present. Without one,
+        the current location is only constrained matching evidence; callers must not
+        infer that a changed location is the same occurrence without multiset context.
+        """
+        occurrence = (
+            ("native", self.native_fingerprint)
+            if self.native_fingerprint
+            else ("location", self.location.start_line, self.location.end_line)
+        )
+        return (
+            self.scanner,
+            self.scanner_version,
+            self.artifact_kind.value,
+            self.rule_id,
+            self.location.file_path,
+            self.resource_address,
+            occurrence,
+        )
 
     @property
     def relocated_key(self) -> tuple:
-        """`RELOCATED` identity: same resource, file and lines may move."""
-        return (self.scanner, self.rule_id, self.resource_address, self.occurrence_index)
+        """Same-resource group plus stable native evidence when it exists."""
+        return (
+            self.scanner,
+            self.scanner_version,
+            self.artifact_kind.value,
+            self.rule_id,
+            self.resource_address,
+            self.native_fingerprint,
+        )
+
+    @property
+    def match_domain_key(self) -> tuple[str, str, str]:
+        """Scanner/version/artifact domain in which ordinary matching is valid."""
+        return (self.scanner, self.scanner_version, self.artifact_kind.value)
+
+    @property
+    def canonical_order_key(self) -> tuple:
+        """Stable report order with the dense ordinal used only as a final tiebreaker."""
+        return (
+            self.exact_key,
+            self.severity.value,
+            self.suppressed,
+            self.native_fingerprint,
+            self.rule_name,
+            self.message,
+            self.occurrence_index,
+            self.iacgv_fingerprint,
+        )
+
+    @property
+    def evidence_record_key(self) -> tuple:
+        """All evidence except fields that can merely rename the stored occurrence."""
+        return self.canonical_order_key[:-2]
 
     def identity_key(self, tier: IdentityTier) -> tuple:
         require_enum(tier, IdentityTier, "tier")
@@ -397,17 +446,18 @@ class ScannerRun:
                     f"finding from {finding.scanner} {finding.scanner_version!r} cannot "
                     f"appear in a run of version {self.scanner_version!r}"
                 )
-        # occurrence_index exists to disambiguate repeated findings, so two findings with
-        # the same exact identity are a normalisation defect, not a tie to be broken by
-        # caller order. Left unresolved, canonical output depended on input order.
-        keys = [f.exact_key for f in rebuilt]
-        duplicates = sorted({k for k in keys if keys.count(k) > 1})
+        # The display ordinal cannot make duplicate evidence trustworthy. Count duplicate
+        # full evidence records in linear time, but retain distinguishable ambiguous
+        # records so matching can expose typed uncertainty instead of deleting facts.
+        keys = [f.evidence_record_key for f in rebuilt]
+        duplicates = sorted(k for k, count in Counter(keys).items() if count > 1)
         if duplicates:
             raise DomainError(
                 f"duplicate exact finding identity: {duplicates}. Assign distinct "
-                f"occurrence_index values; see normalisation.assign_occurrence_indices"
+                "stable native or distinct location evidence; a display occurrence_index "
+                "cannot manufacture identity"
             )
-        set_(self, "findings", tuple(sorted(rebuilt, key=lambda f: f.exact_key)))
+        set_(self, "findings", tuple(sorted(rebuilt, key=lambda f: f.canonical_order_key)))
         if type(self.diagnostics) not in (tuple, list):
             raise DomainError("diagnostics must be a tuple of strings")
         set_(self, "diagnostics",

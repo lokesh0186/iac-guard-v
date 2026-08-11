@@ -39,7 +39,7 @@ def finding(**overrides) -> Finding:
 def test_fingerprint_has_visible_algorithm_and_golden_value() -> None:
     value = compute_iacgv_fingerprint(finding())
     assert value.startswith(f"{FINGERPRINT_ALGORITHM}:")
-    assert value == "iacgv1:103a16c9e7eb2ed6a76a8acb10a3cc6aefeb0e1e9693999c0d0e403cde508871"
+    assert value == "iacgv2:fe6442319649d2827b7334576a8eee3222bc466fe3d5fcad2546d96402b41b02"
 
 
 def test_line_and_message_drift_do_not_change_primary_fingerprint() -> None:
@@ -60,13 +60,25 @@ def test_suppression_state_does_not_erase_finding_identity() -> None:
     )
 
 
+def test_dense_display_ordinal_does_not_define_primary_identity() -> None:
+    """A regenerated position in the current set is not stable occurrence evidence."""
+    assert compute_iacgv_fingerprint(finding(occurrence_index=0)) == (
+        compute_iacgv_fingerprint(finding(occurrence_index=99))
+    )
+
+
+def test_native_occurrence_evidence_is_bound_when_available() -> None:
+    assert compute_iacgv_fingerprint(finding(native_fingerprint="native-123")) != (
+        compute_iacgv_fingerprint(finding(native_fingerprint="native-456"))
+    )
+
+
 @pytest.mark.parametrize(
     "override",
     [
         {"rule_id": "CKV_AWS_19"},
         {"resource_address": "aws_s3_bucket.logs"},
         {"location": FindingLocation("other/main.tf", 10, 12)},
-        {"occurrence_index": 1},
         {"artifact_kind": ArtifactKind.CLOUDFORMATION},
         {"scanner": "trivy"},
     ],
@@ -82,7 +94,7 @@ def test_native_and_iacgv_fingerprints_are_both_preserved() -> None:
     assert attached.native_fingerprint == "native-123"
     assert attached.iacgv_fingerprint == compute_iacgv_fingerprint(attached)
     assert attached.canonical_dict()["native_fingerprint"] == "native-123"
-    assert attached.canonical_dict()["iacgv_fingerprint"].startswith("iacgv1:")
+    assert attached.canonical_dict()["iacgv_fingerprint"].startswith("iacgv2:")
 
 
 def test_occurrence_normalisation_attaches_fingerprint_after_indexing() -> None:

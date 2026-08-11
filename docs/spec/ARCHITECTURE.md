@@ -335,21 +335,25 @@ event whose group cleanup is unconfirmed becomes
 
 ## 13. D3 fingerprints, matching, and finding deltas
 
-`fingerprints.py` owns `iacgv1`, scan-root path canonicalisation, Terraform resource
+`fingerprints.py` owns the current `iacgv2` algorithm, scan-root path canonicalisation, Terraform resource
 address validation, and Kubernetes object identity construction. Temporary scan roots
-are removed before a finding is built. Deterministic occurrence indices are assigned
-before the fingerprint is attached, and a scanner-native fingerprint is retained in its
-own field.
+are removed before a finding is built. Deterministic occurrence indices remain display
+ordinals only and are excluded from authority. `iacgv2` binds stable native occurrence
+evidence when available, and that native fingerprint is also retained in its own field.
 
 `matching.py` accepts exact built-in finding collections, reconstructs their values, and
-rejects duplicate exact identities, forged stored fingerprints, and scanner-version
-drift. It matches exact occurrences first and then only unambiguous same-resource
-relocations. Results are frozen, slotted, canonically ordered evidence objects.
+rejects duplicate full evidence records, forged stored fingerprints, and match-domain
+drift across scanner identity, scanner version, or artifact kind. It matches stable
+native occurrence evidence first, then equal no-native location evidence, and permits
+only uniquely constrained same-resource relocation. Equally supported pairings are
+frozen, slotted, canonically ordered `MATCHING_INCONCLUSIVE` evidence objects.
 
-`diffing.py` projects that comparison into the six delta classes established by finding
-evidence alone. The five classes needing engine, coverage, plan, diagnostic, control-map,
-or policy inputs remain unavailable at this boundary and are deferred to D5. Different
-resource addresses never relocate: the old occurrence resolves and the new one is new.
+`diffing.py` projects proven matches into the six delta classes established by finding
+evidence alone and carries matching ambiguities beside the deltas. Each public delta
+constructor proves its semantic predicate, including complete resource-set evidence for
+scope expansion. The five classes needing engine, coverage, plan, diagnostic,
+control-map, or policy inputs remain unavailable at this boundary and are deferred to
+D5. Different resource addresses never relocate.
 
 ## 14. D4 Checkov adapter
 

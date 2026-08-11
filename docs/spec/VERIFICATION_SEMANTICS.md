@@ -76,7 +76,15 @@ output-limit event, the overall evidence is
 `ERROR` / `PROCESS_GROUP_CLEANUP_FAILED`, and `primary_execution_event` preserves
 `DEADLINE_EXCEEDED` or `OUTPUT_LIMIT_EXCEEDED`.
 
-### 1.3 `Verdict` — the outcome of a whole verification
+### 1.3 `MatchingReason` — occurrence-pairing uncertainty
+
+`MATCHING_INCONCLUSIVE`
+
+This is the only D3.1 matching-uncertainty reason. It means two or more occurrence
+pairings remain equally supported after native, location, and unique constrained
+matching. It must later map to the target outcome `INCONCLUSIVE`, never `FIXED`.
+
+### 1.4 `Verdict` — the outcome of a whole verification
 
 `VERIFIED` `FAILED` `INCONCLUSIVE`
 
@@ -286,11 +294,14 @@ A `ScannerRun` owns the provenance of its findings: every finding must carry the
 self-contradictory evidence, and rewriting the finding to match would destroy the
 contradiction instead of reporting it.
 
-`occurrence_index` is what makes exact finding identity unique, so two findings sharing an
-exact key are a normalisation defect rather than a tie to be broken by caller order. Left
-unresolved, canonical output depended on the order the adapter happened to pass findings
-in. Adapters therefore assign occurrence indices after a documented canonical sort, and
-`ScannerRun` rejects duplicates.
+`occurrence_index` is a canonical display ordinal only. It is regenerated from each
+current finding set and therefore cannot prove occurrence identity: after one duplicate
+is removed, a retained occurrence can inherit the removed occurrence's ordinal. Stable
+scanner-native occurrence evidence is authoritative when available. Without it, matching
+uses equal location evidence first, then only a unique constrained same-resource pairing;
+equally supported pairings become `MATCHING_INCONCLUSIVE`. Canonical sorting still makes
+report output independent of scanner emission order, and duplicate full evidence records
+are rejected with `Counter`-based validation rather than quadratic counting.
 
 ### 2.6.6 Arbitrary `Mapping` behaviour is not trusted
 
@@ -319,7 +330,7 @@ Therefore, for every persistent domain value:
 | frozen **and** slotted | no `__dict__` to write through, no attribute reassignment |
 | nested values reconstructed | records, findings and decisions are rebuilt from copied primitives, enums and dates — never aliased |
 | collections rebuilt into exact built-in types | a `tuple` subclass with a mutable `__iter__` cannot change a stored verdict |
-| canonical ordering | exceptions by `exception_id`, decisions by `(target_id, target_scope, outcome, exception_id)`, findings by exact-identity key |
+| canonical ordering | exceptions by `exception_id`, decisions by `(target_id, target_scope, outcome, exception_id)`, findings by full evidence order with display ordinal last |
 | exact types at security boundaries | `isinstance` is not used: a `TargetDecision` subclass reporting `FIXED` while storing `STILL_PRESENT` reached `VERIFIED` |
 
 Out of scope, stated plainly: trusted code that deliberately calls
@@ -352,8 +363,8 @@ A finding is not a rule ID. That representation is audit finding F3.
 
 | Tier | Key | Used for |
 | --- | --- | --- |
-| `EXACT` | scanner + rule_id + file_path + resource_address + occurrence_index | same-scanner before/after matching |
-| `RELOCATED` | scanner + rule_id + resource_address, allowing file move and line drift | detecting a moved finding instead of one resolved plus one new |
+| `EXACT` | scanner + version + artifact kind + rule_id + file_path + resource_address + stable native occurrence evidence; when native evidence is absent, equal start/end location is constrained evidence | same-domain before/after matching |
+| `RELOCATED` | same scanner/version/artifact/rule/resource and equal native occurrence evidence; without native evidence, only a unique remaining pairing | detecting a moved finding instead of one resolved plus one new |
 | `SEMANTIC` | control_id + resource_address + artifact_kind | cross-scanner comparison, `EXACT` mappings only |
 | `OCCURRENCE` | all of the above, preserving duplicates | never collapsing N violations of one rule into one |
 
@@ -369,14 +380,16 @@ A finding is not a rule ID. That representation is audit finding F3.
 - Both `native_fingerprint` and `iacgv_fingerprint` are stored. Neither replaces the
   other.
 
-The D3 primary algorithm is `iacgv1`: lowercase SHA-256 over canonical compact JSON
-containing exactly `algorithm`, `scanner`, `rule_id`, repository-relative `file_path`,
-canonical `resource_address`, `occurrence_index`, and `artifact_kind`, with keys sorted.
-The stored form is `iacgv1:<64 lowercase hex characters>`. Occurrence indices are
-assigned deterministically before this digest is attached. Scanner version, native
-fingerprint, line numbers, severity, suppression state, rule display name, and message
-are excluded; each remains separate evidence. A stored IaC-Guard-V fingerprint that
-does not recompute from its finding is malformed evidence and is rejected.
+The current D3.1 primary algorithm is `iacgv2`: lowercase SHA-256 over canonical compact
+JSON containing exactly `algorithm`, `scanner`, `rule_id`, repository-relative
+`file_path`, canonical `resource_address`, `native_occurrence_fingerprint`, and
+`artifact_kind`, with keys sorted. The stored form is
+`iacgv2:<64 lowercase hex characters>`. The regenerated `occurrence_index` is excluded.
+Scanner version, line numbers, severity, suppression state, rule display name, and
+message are excluded; each remains separate evidence. Native occurrence evidence is
+also retained in its own report field. A stored IaC-Guard-V fingerprint that does not
+recompute from its finding is malformed evidence and is rejected. `iacgv1` remains a
+historical algorithm identifier; D3.1 does not silently change its payload.
 
 ---
 
@@ -389,7 +402,7 @@ For one target `(scanner, rule_id, scope)` define:
 
 ```
 N = baseline occurrence count for the target        (N >= 1 by construction)
-M = candidate occurrence count matching the target at EXACT or RELOCATED tier
+M = candidate occurrence count proven at EXACT or RELOCATED tier
 ```
 
 `RELOCATED` means the **same resource address** with a changed file path or line
@@ -597,19 +610,29 @@ Both properties are required; neither is sacrificed to the other.
 
 Same-scanner comparison is an occurrence-preserving multiset operation:
 
-1. reject duplicate exact identities and scanner-version drift;
-2. match unique `EXACT` keys;
-3. among the remaining findings, match a `RELOCATED` key only when it is unique on both
-   sides;
-4. leave different resources unmatched, producing `RESOLVED_FINDING` plus
+1. require one equal scanner/version/artifact match domain and reject duplicate full
+   evidence records using linear `Counter` validation;
+2. match unique exact stable-native keys, or equal locations when native evidence is
+   unavailable;
+3. among the remaining findings, match equal stable-native same-resource keys, then a
+   no-native same-resource group only when exactly one occurrence remains on each side;
+4. emit typed `MATCHING_INCONCLUSIVE` evidence for equally supported pairings and remove
+   those occurrences from ordinary resolved/new classification;
+5. leave different resources unmatched, producing `RESOLVED_FINDING` plus
    `NEW_FINDING`;
-5. refuse ambiguous relocation rather than selecting by caller order.
+6. never use `occurrence_index` as an authoritative key.
 
 The D3 finding-only diff layer may establish `NEW_FINDING`, `LOCATION_CHANGED`,
 `SEVERITY_INCREASED`, `SCOPE_EXPANDED`, `SUPPRESSION_ADDED`, and
 `RESOLVED_FINDING`. `RULE_SUBSTITUTED`, `COVERAGE_DECREASED`, `DIAGNOSTIC_ADDED`,
 `DESTRUCTIVE_CHANGE`, and `POLICY_DRIFT` require engine, scanner, plan, or trusted-policy
 evidence and cannot be publicly forged as finding-only deltas.
+
+`FindingDelta` enforces each claim at construction: `LOCATION_CHANGED` requires proven
+pair identity and different file/start/end evidence; `SEVERITY_INCREASED` requires a
+strictly higher candidate severity rank; `SUPPRESSION_ADDED` requires `false -> true`;
+and `SCOPE_EXPANDED` requires complete same-domain rule groups proving a strict resource
+set superset. A false label is malformed domain evidence, not a harmless annotation.
 
 ## 6. Gates
 

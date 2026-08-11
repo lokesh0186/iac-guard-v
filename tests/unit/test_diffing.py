@@ -6,6 +6,7 @@ import pytest
 from iac_guard_v.diffing import FindingDelta, diff_findings
 from iac_guard_v.enums import ArtifactKind, DeltaClass, Severity
 from iac_guard_v.models import DomainError, Finding, FindingLocation
+from iac_guard_v.normalisation import assign_occurrence_indices
 
 
 def finding(
@@ -16,6 +17,7 @@ def finding(
     occurrence: int = 0,
     severity: Severity = Severity.MEDIUM,
     suppressed: bool = False,
+    native_fingerprint: str = "",
 ) -> Finding:
     return Finding(
         scanner="checkov",
@@ -27,6 +29,7 @@ def finding(
         severity=severity,
         artifact_kind=ArtifactKind.TERRAFORM_HCL,
         suppressed=suppressed,
+        native_fingerprint=native_fingerprint,
     )
 
 
@@ -84,9 +87,58 @@ def test_suppression_transition_is_reported_without_erasing_identity() -> None:
     assert classes(deltas) == [DeltaClass.SUPPRESSION_ADDED]
 
 
+def test_dense_compaction_cannot_hide_severity_increase() -> None:
+    baseline = assign_occurrence_indices(
+        (finding("aws_s3_bucket.data", start=10, severity=Severity.HIGH),
+         finding("aws_s3_bucket.data", start=20, severity=Severity.LOW))
+    )
+    candidate = assign_occurrence_indices(
+        (finding("aws_s3_bucket.data", start=20, severity=Severity.HIGH),)
+    )
+    result = diff_findings(baseline, candidate)
+    increased = [delta for delta in result
+                 if delta.delta_class is DeltaClass.SEVERITY_INCREASED]
+    assert len(increased) == 1
+    assert increased[0].baseline.location.start_line == 20
+    assert increased[0].candidate.location.start_line == 20
+
+
+def test_dense_compaction_cannot_hide_suppression_addition() -> None:
+    baseline = assign_occurrence_indices(
+        (finding("aws_s3_bucket.data", start=10, suppressed=True),
+         finding("aws_s3_bucket.data", start=20, suppressed=False))
+    )
+    candidate = assign_occurrence_indices(
+        (finding("aws_s3_bucket.data", start=20, suppressed=True),)
+    )
+    result = diff_findings(baseline, candidate)
+    added = [delta for delta in result
+             if delta.delta_class is DeltaClass.SUPPRESSION_ADDED]
+    assert len(added) == 1
+    assert added[0].baseline.location.start_line == 20
+    assert added[0].candidate.location.start_line == 20
+
+
+def test_ambiguous_diff_is_typed_and_does_not_guess_resolved_or_new() -> None:
+    result = diff_findings(
+        (finding("aws_s3_bucket.data", start=10),
+         finding("aws_s3_bucket.data", start=20)),
+        (finding("aws_s3_bucket.data", start=30),),
+    )
+    assert tuple(result) == ()
+    assert len(result.ambiguities) == 1
+    assert result.ambiguities[0].reason.value == "MATCHING_INCONCLUSIVE"
+
+
 def test_duplicate_occurrence_removal_is_one_resolved_finding() -> None:
-    baseline = tuple(finding("aws_s3_bucket.data", occurrence=i) for i in range(3))
-    candidate = tuple(finding("aws_s3_bucket.data", occurrence=i) for i in range(2))
+    baseline = tuple(
+        finding("aws_s3_bucket.data", occurrence=i, native_fingerprint=f"native-{i}")
+        for i in range(3)
+    )
+    candidate = tuple(
+        finding("aws_s3_bucket.data", occurrence=i, native_fingerprint=f"native-{i}")
+        for i in range(2)
+    )
     deltas = diff_findings(baseline, candidate)
     assert classes(deltas) == [DeltaClass.RESOLVED_FINDING]
     assert deltas[0].baseline.occurrence_index == 2
@@ -137,6 +189,35 @@ def test_delta_detail_rejects_report_spoofing_controls() -> None:
             candidate=finding("aws_s3_bucket.a"),
             detail="bad\nline",
         )
+
+
+@pytest.mark.parametrize(
+    "delta",
+    [
+        lambda: FindingDelta(
+            DeltaClass.LOCATION_CHANGED,
+            finding("aws_s3_bucket.data", start=10),
+            finding("aws_s3_bucket.data", start=10),
+        ),
+        lambda: FindingDelta(
+            DeltaClass.SEVERITY_INCREASED,
+            finding("aws_s3_bucket.data", severity=Severity.HIGH),
+            finding("aws_s3_bucket.data", severity=Severity.LOW),
+        ),
+        lambda: FindingDelta(
+            DeltaClass.SUPPRESSION_ADDED,
+            finding("aws_s3_bucket.data", suppressed=False),
+            finding("aws_s3_bucket.data", suppressed=False),
+        ),
+        lambda: FindingDelta(
+            DeltaClass.SCOPE_EXPANDED,
+            candidate=finding("aws_s3_bucket.data"),
+        ),
+    ],
+)
+def test_public_delta_rejects_false_predicates(delta) -> None:
+    with pytest.raises(DomainError):
+        delta()
 
 
 def test_forged_stored_fingerprint_is_rejected_by_delta() -> None:

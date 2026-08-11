@@ -174,7 +174,7 @@ def test_normal_object_with_findings_is_normalized_and_fingerprinted(tmp_path: P
     finding = run.findings[0]
     assert finding.resource_address == "aws_s3_bucket.bad"
     assert finding.location.file_path == "main.tf"
-    assert finding.iacgv_fingerprint.startswith("iacgv1:")
+    assert finding.iacgv_fingerprint.startswith("iacgv2:")
     assert run.coverage.checks_loaded == 3
     assert run.exit_code == 0
     assert run.stdout_sha256 == process().stdout_sha256
