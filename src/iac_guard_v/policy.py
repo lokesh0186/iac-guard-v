@@ -7,13 +7,14 @@ import os
 import shutil
 import stat
 import subprocess
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import InitVar, dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
 from .engine import (
     GovernedConfigEvidence,
+    TrustedVerificationConfigBundle,
     VerificationResult,
     require_trusted_verification_result,
 )
@@ -24,6 +25,7 @@ from .enums import (
     TRUSTED_EXCEPTION_ORIGINS,
     UNDECIDED_STATES,
     ExceptionOrigin,
+    ExecutionMode,
     ArtifactKind,
     Outcome,
     Status,
@@ -49,6 +51,7 @@ _TRUSTED_BUNDLE_CONTEXT = object()
 _TRUSTED_POLICY_CONTEXT = object()
 _TRUSTED_POLICY_EVIDENCE_CONTEXT = object()
 _TRUSTED_GIT_SOURCE_CONTEXT = object()
+_TRUSTED_EXECUTION_CONTEXT_CONTEXT = object()
 _OPTIONAL_GATE_NAMES = frozenset({"regression", "suppression"})
 _POLICY_FIELDS = frozenset({"exceptions", "optional_gates"})
 _EXCEPTION_FIELDS = frozenset({
@@ -124,6 +127,143 @@ def _require_git_repository_root(repository: Path) -> None:
         raise DomainError("Git repository root evidence is malformed") from exc
     if reported != repository:
         raise DomainError("Git policy source must name the canonical repository root")
+
+
+def _portable_repository_identity(repository: Path) -> str:
+    roots = _git_command(
+        repository, ("rev-list", "--max-parents=0", "--all")
+    ).decode("ascii", errors="strict").splitlines()
+    roots = sorted(item for item in roots if _GIT_SHA.fullmatch(item))
+    if not roots:
+        raise DomainError("Git repository has no portable root-object identity")
+    try:
+        remote = _git_command(
+            repository, ("config", "--get", "remote.origin.url")
+        ).decode("utf-8", errors="strict").strip()
+    except DomainError:
+        remote = ""
+    payload = json.dumps(
+        {"root_commits": roots, "protected_remote": remote},
+        sort_keys=True, separators=(",", ":"),
+    ).encode()
+    return "git_repo_v1_" + hashlib.sha256(payload).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedExecutionContext:
+    """Protected runtime roles, source authorization, and UTC clock evidence."""
+
+    mode: ExecutionMode
+    repository_root: Path | None
+    repository_identity: str
+    authorized_base_commit: str
+    candidate_root: Path
+    candidate_commit: str
+    protected_policy_repository: Path | None
+    protected_policy_repository_identity: str
+    protected_policy_commit: str
+    governed_paths: tuple
+    verification_config_sha256: str
+    context_identity: str
+    evaluated_at: datetime
+    clock_source: str
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        require_enum(self.mode, ExecutionMode, "execution mode")
+        if not isinstance(self.candidate_root, Path):
+            raise DomainError("candidate root must be pathlib.Path")
+        object.__setattr__(self, "candidate_root", self.candidate_root.resolve(strict=True))
+        paths = tuple(sorted(canonical_repo_path(item) for item in self.governed_paths))
+        if type(self.governed_paths) is not tuple or not paths or len(paths) != len(set(paths)):
+            raise DomainError("execution governed paths must be a nonempty unique tuple")
+        object.__setattr__(self, "governed_paths", paths)
+        for name in ("verification_config_sha256",):
+            value = getattr(self, name)
+            if type(value) is not str or not __import__("re").fullmatch(r"[0-9a-f]{64}", value):
+                raise DomainError(f"{name} must be a lowercase SHA-256 digest")
+        object.__setattr__(
+            self, "context_identity",
+            canonical_identifier(self.context_identity, "execution context identity"),
+        )
+        object.__setattr__(
+            self, "clock_source", canonical_identifier(self.clock_source, "clock source")
+        )
+        if type(self.evaluated_at) is not datetime or self.evaluated_at.tzinfo is None:
+            raise DomainError("trusted execution time must be timezone aware")
+        object.__setattr__(self, "evaluated_at", self.evaluated_at.astimezone(timezone.utc))
+        if self.mode is ExecutionMode.EXPLICIT_OPERATOR:
+            if any((self.repository_root, self.repository_identity, self.authorized_base_commit,
+                    self.candidate_commit, self.protected_policy_repository,
+                    self.protected_policy_repository_identity, self.protected_policy_commit)):
+                raise DomainError("operator execution context cannot claim protected Git roles")
+        else:
+            if not isinstance(self.repository_root, Path):
+                raise DomainError("protected execution context requires a repository root")
+            repository = self.repository_root.resolve(strict=True)
+            _require_git_repository_root(repository)
+            object.__setattr__(self, "repository_root", repository)
+            if self.repository_identity != _portable_repository_identity(repository):
+                raise DomainError("execution repository identity does not match Git objects")
+            for name in ("authorized_base_commit", "candidate_commit"):
+                value = getattr(self, name)
+                if not _GIT_SHA.fullmatch(value) or _resolve_git_commit(repository, value) != value:
+                    raise DomainError(f"{name} is not an exact repository commit")
+            if not _within(self.candidate_root, repository):
+                raise DomainError("execution candidate root is outside evaluated repository")
+            if self.mode is ExecutionMode.PR_BASE:
+                if any((self.protected_policy_repository,
+                        self.protected_policy_repository_identity,
+                        self.protected_policy_commit)):
+                    raise DomainError("PR-base context cannot claim a protected-policy repository")
+            else:
+                if not isinstance(self.protected_policy_repository, Path):
+                    raise DomainError("protected-policy mode requires its authorized repository")
+                protected = self.protected_policy_repository.resolve(strict=True)
+                _require_git_repository_root(protected)
+                object.__setattr__(self, "protected_policy_repository", protected)
+                if _within(protected, self.candidate_root) or _within(self.candidate_root, protected):
+                    raise DomainError("protected policy repository overlaps evaluated workspace")
+                if self.protected_policy_repository_identity != _portable_repository_identity(protected):
+                    raise DomainError("protected policy repository identity is not authorized")
+                if (
+                    not _GIT_SHA.fullmatch(self.protected_policy_commit)
+                    or _resolve_git_commit(protected, self.protected_policy_commit)
+                    != self.protected_policy_commit
+                ):
+                    raise DomainError("protected policy commit is not exactly pinned")
+        if _trusted_context is not _TRUSTED_EXECUTION_CONTEXT_CONTEXT:
+            raise DomainError("TrustedExecutionContext requires protected runtime provenance")
+        object.__setattr__(self, "_trusted", True)
+
+    @property
+    def evaluation_date(self) -> date:
+        return self.evaluated_at.date()
+
+
+def _default_governed_paths(config: TrustedVerificationConfigBundle) -> tuple[str, ...]:
+    return tuple(sorted({
+        ".iac-guard.json", ".iac-guard.yml", ".iac-guard.yaml",
+        *(item.file_path for item in config.governed_config),
+    }))
+
+
+def load_operator_execution_context(
+    config: TrustedVerificationConfigBundle,
+) -> TrustedExecutionContext:
+    """Create the only public context: explicit local/operator mode at current UTC."""
+    require_exact_type(config, TrustedVerificationConfigBundle, "verification config")
+    authorization = config.policy_source_authorization
+    if authorization.mode is not ExecutionMode.EXPLICIT_OPERATOR:
+        raise DomainError("operator context requires explicit-operator authorization")
+    return TrustedExecutionContext(
+        ExecutionMode.EXPLICIT_OPERATOR, None, "", "", config.candidate_root, "",
+        None, "", "", tuple(sorted(_default_governed_paths(config))),
+        config.config_sha256, authorization.context_identity,
+        datetime.now(timezone.utc), "system_utc_clock",
+        _trusted_context=_TRUSTED_EXECUTION_CONTEXT_CONTEXT,
+    )
 
 
 def _git_object_bytes(repository: Path, commit: str, relative: str) -> bytes:
@@ -322,9 +462,28 @@ def _canonical_payload(payload: Mapping) -> bytes:
     return encoded
 
 
-def _read_policy_bytes(path: Path, *, required: bool) -> bytes | None:
+def _read_policy_bytes(
+    path: Path, *, required: bool, trusted_root: Path | None = None
+) -> bytes | None:
     if not isinstance(path, Path):
         raise DomainError("policy source must be a pathlib.Path")
+    if trusted_root is not None:
+        root = trusted_root.resolve(strict=True)
+        try:
+            relative = path.relative_to(root)
+        except ValueError as exc:
+            raise DomainError("policy source is outside its trusted root") from exc
+        cursor = root
+        for component in relative.parts[:-1]:
+            cursor = cursor / component
+            try:
+                metadata = cursor.lstat()
+            except OSError as exc:
+                raise DomainError("policy parent path could not be inspected") from exc
+            if stat.S_ISLNK(metadata.st_mode):
+                raise DomainError("policy source has a symlinked parent component")
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise DomainError("policy parent component is not a directory")
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
     try:
         descriptor = os.open(path, flags)
@@ -455,14 +614,6 @@ def _parse_document(payload: Mapping, origin: ExceptionOrigin) -> tuple[Exceptio
     return ExceptionPolicy(records), optional
 
 
-def _capture_time(clock: Callable[[], datetime] | None) -> tuple[date, str, str]:
-    value = datetime.now(timezone.utc) if clock is None else clock()
-    if type(value) is not datetime or value.tzinfo is None or value.utcoffset() is None:
-        raise DomainError("trusted policy clock must return a timezone-aware datetime")
-    utc = value.astimezone(timezone.utc)
-    return utc.date(), "UTC", "trusted_execution_clock"
-
-
 @dataclass(frozen=True, slots=True)
 class TrustedPolicyBundle:
     """Immutable policy material carrying private loader provenance."""
@@ -481,6 +632,10 @@ class TrustedPolicyBundle:
     governed_config_evidence: tuple = ()
     source_repository: str = ""
     source_commit: str = ""
+    execution_mode: ExecutionMode = ExecutionMode.EXPLICIT_OPERATOR
+    execution_context_identity: str = "legacy_unbound_context"
+    verification_config_sha256: str = "0" * 64
+    candidate_root_identity: str = ""
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -553,6 +708,17 @@ class TrustedPolicyBundle:
                 raise DomainError("Git policy evidence requires repository identity")
         elif self.source_repository:
             raise DomainError("non-Git policy evidence cannot claim a repository")
+        require_enum(self.execution_mode, ExecutionMode, "policy execution mode")
+        object.__setattr__(
+            self, "execution_context_identity",
+            canonical_identifier(self.execution_context_identity, "execution context identity"),
+        )
+        if not __import__("re").fullmatch(r"[0-9a-f]{64}", self.verification_config_sha256):
+            raise DomainError("policy verification config digest is malformed")
+        object.__setattr__(
+            self, "candidate_root_identity",
+            canonical_identifier(self.candidate_root_identity or "operator_candidate", "candidate root identity"),
+        )
         if _trusted_context is not _TRUSTED_BUNDLE_CONTEXT:
             raise DomainError("TrustedPolicyBundle requires production loader provenance")
         object.__setattr__(self, "_trusted", True)
@@ -578,6 +744,10 @@ class TrustedPolicyBundle:
             ],
             "source_repository": self.source_repository,
             "source_commit": self.source_commit,
+            "execution_mode": self.execution_mode.value,
+            "execution_context_identity": self.execution_context_identity,
+            "verification_config_sha256": self.verification_config_sha256,
+            "candidate_root_identity": self.candidate_root_identity,
         }
 
 
@@ -589,7 +759,7 @@ def _bundle(
     origin: ExceptionOrigin,
     source_identity: str,
     governed_path: str,
-    clock: Callable[[], datetime] | None,
+    context: TrustedExecutionContext,
     *,
     governed_evidence: tuple = (),
     source_repository: str = "",
@@ -615,7 +785,12 @@ def _bundle(
         tuple(item.file_path for item in governed_evidence if item.state != "stable")
         if governed_evidence else (governed_path,) if differs else ()
     )
-    evaluated, zone, provenance = _capture_time(clock)
+    require_exact_type(context, TrustedExecutionContext, "trusted execution context")
+    if not context._trusted:
+        raise DomainError("trusted execution context lacks runtime provenance")
+    evaluated = context.evaluation_date
+    zone = "UTC"
+    provenance = context.clock_source
     return TrustedPolicyBundle(
         policy,
         optional,
@@ -631,6 +806,14 @@ def _bundle(
         governed_evidence,
         source_repository,
         source_commit,
+        context.mode,
+        context.context_identity,
+        context.verification_config_sha256,
+        (
+            f"git_candidate_{context.candidate_commit}"
+            if context.candidate_commit
+            else f"operator_candidate_{context.context_identity}"
+        ),
         _trusted_context=_TRUSTED_BUNDLE_CONTEXT,
     )
 
@@ -650,7 +833,10 @@ def _source_governed_evidence(source: TrustedGitSource) -> tuple:
     evidence = []
     for relative in source.governed_paths:
         trusted = _optional_git_object(source, relative)
-        candidate = _read_policy_bytes(source.candidate_root / relative, required=False)
+        candidate = _read_policy_bytes(
+            source.candidate_root / relative, required=False,
+            trusted_root=source.candidate_root,
+        )
         if trusted is None and candidate is None:
             continue
         trusted_digest = None if trusted is None else _sha256(trusted)
@@ -673,11 +859,40 @@ def _load_git_source_bundle(
     source: TrustedGitSource,
     origin: ExceptionOrigin,
     governed_path: str,
-    clock: Callable[[], datetime] | None,
+    context: TrustedExecutionContext,
 ) -> TrustedPolicyBundle:
     require_exact_type(source, TrustedGitSource, "attested Git policy source")
     if not source._trusted or source.source_origin is not origin:
         raise DomainError("Git policy source provenance does not match loader")
+    require_exact_type(context, TrustedExecutionContext, "trusted execution context")
+    if not context._trusted:
+        raise DomainError("trusted execution context lacks protected provenance")
+    expected_mode = (
+        ExecutionMode.PR_BASE if origin is ExceptionOrigin.TRUSTED_BASE
+        else ExecutionMode.PROTECTED_POLICY_REPOSITORY
+    )
+    if context.mode is not expected_mode:
+        raise DomainError("policy loader mode is not authorized by execution context")
+    expected_repository = (
+        context.repository_root if origin is ExceptionOrigin.TRUSTED_BASE
+        else context.protected_policy_repository
+    )
+    expected_commit = (
+        context.authorized_base_commit if origin is ExceptionOrigin.TRUSTED_BASE
+        else context.protected_policy_commit
+    )
+    expected_identity = (
+        context.repository_identity if origin is ExceptionOrigin.TRUSTED_BASE
+        else context.protected_policy_repository_identity
+    )
+    if (
+        source.repository_root != expected_repository
+        or source.commit_sha != expected_commit
+        or source.candidate_root != context.candidate_root
+        or source.governed_paths != context.governed_paths
+        or _portable_repository_identity(source.repository_root) != expected_identity
+    ):
+        raise DomainError("policy source role does not match authorized execution context")
     governed_path = canonical_repo_path(governed_path, "governed policy path")
     if governed_path not in source.governed_paths:
         raise DomainError("governed policy path is outside the attested Git source")
@@ -685,12 +900,11 @@ def _load_git_source_bundle(
         source.repository_root, source.commit_sha, governed_path
     )
     candidate_bytes = _read_policy_bytes(
-        source.candidate_root / governed_path, required=False
+        source.candidate_root / governed_path, required=False,
+        trusted_root=source.candidate_root,
     )
     candidate_state = "missing" if candidate_bytes is None else "present"
-    repository_identity = "git_repo_" + _sha256(
-        str(source.repository_root).encode("utf-8")
-    )
+    repository_identity = expected_identity
     return _bundle(
         _parse_policy_bytes(trusted_bytes),
         trusted_bytes,
@@ -699,7 +913,7 @@ def _load_git_source_bundle(
         origin,
         source.source_identity,
         governed_path,
-        clock,
+        context,
         governed_evidence=_source_governed_evidence(source),
         source_repository=repository_identity,
         source_commit=source.commit_sha,
@@ -707,35 +921,52 @@ def _load_git_source_bundle(
 
 
 def load_base_commit_policy(
-    source: TrustedGitSource,
+    context: TrustedExecutionContext,
     *,
     governed_path: str = ".iac-guard.json",
-    _clock: Callable[[], datetime] | None = None,
 ) -> TrustedPolicyBundle:
+    require_exact_type(context, TrustedExecutionContext, "trusted execution context")
+    if context.mode is not ExecutionMode.PR_BASE:
+        raise DomainError("base policy loader requires PR_BASE execution mode")
+    source = TrustedGitSource(
+        context.repository_root, context.authorized_base_commit,
+        context.candidate_root, context.governed_paths, ExceptionOrigin.TRUSTED_BASE,
+        _trusted_context=_TRUSTED_GIT_SOURCE_CONTEXT,
+    )
     return _load_git_source_bundle(
-        source, ExceptionOrigin.TRUSTED_BASE, governed_path, _clock
+        source, ExceptionOrigin.TRUSTED_BASE, governed_path, context
     )
 
 
 def load_protected_policy_repository(
-    source: TrustedGitSource,
+    context: TrustedExecutionContext,
     *,
     governed_path: str = ".iac-guard.json",
-    _clock: Callable[[], datetime] | None = None,
 ) -> TrustedPolicyBundle:
+    require_exact_type(context, TrustedExecutionContext, "trusted execution context")
+    if context.mode is not ExecutionMode.PROTECTED_POLICY_REPOSITORY:
+        raise DomainError("protected policy loader requires protected-repository mode")
+    source = TrustedGitSource(
+        context.protected_policy_repository, context.protected_policy_commit,
+        context.candidate_root, context.governed_paths,
+        ExceptionOrigin.PROTECTED_POLICY_REPO,
+        _trusted_context=_TRUSTED_GIT_SOURCE_CONTEXT,
+    )
     return _load_git_source_bundle(
-        source, ExceptionOrigin.PROTECTED_POLICY_REPO, governed_path, _clock
+        source, ExceptionOrigin.PROTECTED_POLICY_REPO, governed_path, context
     )
 
 
 def load_operator_policy(
     trusted_payload: Mapping,
     *,
-    source_identity: str,
+    context: TrustedExecutionContext,
     candidate_payload: Mapping | None = None,
     governed_path: str = ".iac-guard.json",
-    _clock: Callable[[], datetime] | None = None,
 ) -> TrustedPolicyBundle:
+    require_exact_type(context, TrustedExecutionContext, "trusted execution context")
+    if context.mode is not ExecutionMode.EXPLICIT_OPERATOR:
+        raise DomainError("operator policy requires explicit operator execution mode")
     trusted_bytes = _canonical_payload(trusted_payload)
     candidate_bytes = (
         None if candidate_payload is None else _canonical_payload(candidate_payload)
@@ -743,7 +974,8 @@ def load_operator_policy(
     candidate_state = "not_compared" if candidate_payload is None else "present"
     return _bundle(
         _parse_policy_bytes(trusted_bytes), trusted_bytes, candidate_bytes,
-        candidate_state, ExceptionOrigin.OPERATOR, source_identity, governed_path, _clock,
+        candidate_state, ExceptionOrigin.OPERATOR, context.context_identity,
+        governed_path, context,
     )
 
 
@@ -827,6 +1059,31 @@ class PolicyRequest:
         require_exact_type(self.policy_bundle, TrustedPolicyBundle, "TrustedPolicyBundle")
         if not self.policy_bundle._trusted:
             raise DomainError("TrustedPolicyBundle lacks loader provenance")
+        config = self.verification.verification_config
+        authorization = config.policy_source_authorization
+        if (
+            self.policy_bundle.execution_mode is not authorization.mode
+            or self.policy_bundle.execution_context_identity
+            != authorization.context_identity
+            or self.policy_bundle.verification_config_sha256 != config.config_sha256
+            or self.policy_bundle.candidate_root_identity
+            != authorization.candidate_identity
+        ):
+            raise DomainError("policy bundle is not authorized for this verification config")
+        expected_origin = {
+            ExecutionMode.EXPLICIT_OPERATOR: ExceptionOrigin.OPERATOR,
+            ExecutionMode.PR_BASE: ExceptionOrigin.TRUSTED_BASE,
+            ExecutionMode.PROTECTED_POLICY_REPOSITORY:
+                ExceptionOrigin.PROTECTED_POLICY_REPO,
+        }[authorization.mode]
+        if self.policy_bundle.source_origin is not expected_origin:
+            raise DomainError("policy origin does not match authorized execution mode")
+        if authorization.repository_identity:
+            if (
+                self.policy_bundle.source_repository != authorization.repository_identity
+                or self.policy_bundle.source_commit != authorization.commit_sha
+            ):
+                raise DomainError("policy repository/commit is not authorized by verification")
 
 
 def _permission_for(
@@ -984,9 +1241,10 @@ def require_trusted_policy_result(value: object) -> PolicyResult:
 
 __all__ = [
     "AppliedExceptionSource", "PolicyEvidence", "PolicyRequest", "PolicyResult",
-    "TrustedGitSource", "TrustedPolicyBundle", "attest_git_source",
+    "TrustedExecutionContext", "TrustedGitSource", "TrustedPolicyBundle", "attest_git_source",
     "attest_protected_policy_repository", "evaluate_policy", "load_base_commit_policy",
     "load_candidate_exception", "load_candidate_policy", "load_operator_policy",
+    "load_operator_execution_context",
     "load_protected_policy_repository", "load_trusted_exception",
     "require_trusted_policy_result",
 ]

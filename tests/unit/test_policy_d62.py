@@ -16,6 +16,7 @@ from iac_guard_v.models import ResolvedTargetBinding
 from test_engine import IDENTITY
 
 from test_policy import _outcome, _policy_payload, _record, verified_engine
+from test_policy_d61 import _base_context, _operator_context
 
 
 NOW = lambda: datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc)  # noqa: E731
@@ -53,7 +54,7 @@ def test_coarse_exception_without_resolved_target_cannot_authorise(
         target.pop(field)
     with pytest.raises(Exception, match="exact"):
         POLICY.load_operator_policy(
-            payload, source_identity="operator-coarse-record", _clock=NOW
+            payload, context=_operator_context(verified_engine.verification_config)
         )
 
 
@@ -68,8 +69,7 @@ def test_same_coarse_identity_wrong_file_exception_is_not_permission(
         _policy_payload(exceptions=(
             _record(Outcome.SUPPRESSED, resolved_target=wrong),
         )),
-        source_identity="operator-wrong-file",
-        _clock=NOW,
+        context=_operator_context(verified_engine.verification_config),
     )
     result = POLICY.evaluate_policy(POLICY.PolicyRequest(run, bundle))
     assert result.decisions[0].policy_permitted is False
@@ -120,7 +120,7 @@ def test_git_base_loader_reads_committed_object_not_candidate_bytes(
         (".iac-guard.json",),
     )
     bundle = POLICY.load_base_commit_policy(
-        source, governed_path=".iac-guard.json", _clock=NOW
+        _base_context(source), governed_path=".iac-guard.json"
     )
     assert bundle.source_origin is ExceptionOrigin.TRUSTED_BASE
     assert bundle.source_commit == base_sha
@@ -164,7 +164,7 @@ def test_git_bundle_retains_path_by_path_governed_policy_evidence(
         repo,
         (".iac-guard.json", "config/severity-policy.json"),
     )
-    bundle = POLICY.load_base_commit_policy(source, _clock=NOW)
+    bundle = POLICY.load_base_commit_policy(_base_context(source))
     assert bundle.policy_drift is True
     assert bundle.differing_governed_paths == ("config/severity-policy.json",)
     by_path = {
@@ -193,7 +193,7 @@ def test_git_policy_tree_entry_must_be_regular_not_symlink(tmp_path: Path) -> No
         repo, commit, repo, (".iac-guard.json",)
     )
     with pytest.raises(Exception, match="regular repository file"):
-        POLICY.load_base_commit_policy(source, _clock=NOW)
+        POLICY.load_base_commit_policy(_base_context(source))
 
 
 @pytest.mark.parametrize("bad_ref", ["", "-HEAD", "bad\nref", 1])
@@ -257,11 +257,11 @@ def test_git_loader_rejects_wrong_origin_or_unattested_path(tmp_path: Path) -> N
     source = POLICY.attest_git_source(
         repo, commit, repo, (".iac-guard.json",)
     )
-    with pytest.raises(Exception, match="provenance"):
-        POLICY.load_protected_policy_repository(source, _clock=NOW)
+    with pytest.raises(Exception, match="mode"):
+        POLICY.load_protected_policy_repository(_base_context(source))
     with pytest.raises(Exception, match="outside the attested"):
         POLICY.load_base_commit_policy(
-            source, governed_path="other.json", _clock=NOW
+            _base_context(source), governed_path="other.json"
         )
 
 
@@ -272,7 +272,7 @@ def test_candidate_only_governed_file_is_added_policy_drift(tmp_path: Path) -> N
     source = POLICY.attest_git_source(
         repo, base_commit, repo, (".iac-guard.json", ".checkov.yml")
     )
-    bundle = POLICY.load_base_commit_policy(source, _clock=NOW)
+    bundle = POLICY.load_base_commit_policy(_base_context(source))
     assert bundle.differing_governed_paths == (".checkov.yml",)
     checkov = next(
         item for item in bundle.governed_config_evidence
@@ -380,7 +380,7 @@ def test_governed_path_absent_on_both_sides_does_not_invent_drift(
     source = POLICY.attest_git_source(
         repo, commit, repo, (".iac-guard.json", "optional-missing.json")
     )
-    bundle = POLICY.load_base_commit_policy(source, _clock=NOW)
+    bundle = POLICY.load_base_commit_policy(_base_context(source))
     assert bundle.policy_drift is False
     assert tuple(
         item.file_path for item in bundle.governed_config_evidence

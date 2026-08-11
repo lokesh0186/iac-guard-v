@@ -56,7 +56,11 @@ govern its own evaluation.
 | Turn unknown severity or incomplete occurrence-pass evidence into a pass | typed D5 uncertainty; neither condition can reach `FIXED` or a passing regression gate |
 | Delete an unrelated resource while repairing the named target | canonical baseline/candidate resource inventory comparison emits `DESTRUCTIVE_CHANGE` and fails regression |
 | Declare `origin: trusted_base` inside candidate policy | serialized origin is ignored; base bytes are read from a mechanically resolved Git commit object, only a private loader-attested bundle can enter `PolicyRequest`, and candidate loading stamps `CANDIDATE_HEAD` |
-| Present candidate working-tree bytes as the base policy | base loading accepts an attested Git source and reads the governed path from the resolved commit tree; it accepts no arbitrary trusted path or caller-authored source identity |
+| Present candidate working-tree bytes as the base policy | base loading requires an authorized execution context and reads the governed path from its exact base commit tree; it accepts no arbitrary path, low-level caller-selected source, or caller-authored identity |
+| Select the candidate commit as the alleged base | high-level loading requires a protected execution context whose authorized base SHA and repository identity must match D5 authorization; low-level Git-object existence conveys no base role |
+| Supply policy from another repository or mode | policy aggregation rejects any context, repository-object identity, commit, or mode not authorized by the verification bundle |
+| Revive an expired exception with a historical clock | public loaders accept no clock/date injection; the protected context supplies UTC time and its provenance is reported |
+| Escape governed input through a symlinked parent | candidate governed reads inspect each parent with `lstat` and use a no-follow final descriptor |
 | Reuse a deletion/suppression exception for the same address in another root | exception permission compares the exact file, artifact kind, and scanner-native resource binding; an unrelated same-address event remains independent |
 | Backdate evaluation or declare a gate optional in candidate input | UTC date is captured by the trusted execution clock; optionality is loaded only from the protected policy document |
 | Hide candidate policy edits behind caller-supplied equal digests | D6 retains the trusted digest, candidate presence/digest evidence, and differing governed paths and treats loader-observed drift as decisive |

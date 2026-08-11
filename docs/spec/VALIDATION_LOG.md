@@ -935,6 +935,59 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
+---
+
+## D6.3 — Authorized source context and trusted clock (2026-08-11)
+
+Parent: `fd33c53a036a184cd6a27c2fdcc281be75ec8657`. Literal archived-parent
+reproduction:
+
+```text
+actual base commit -> 86ead68edcb432ae7a4d653a89296ca5e8a8783c
+caller-selected candidate commit -> bb9a6c178b65431f1d5c55dfe6c787db465cc062
+stamped source origin -> trusted_base
+trusted permissive records -> 1
+policy drift -> False
+base loader exposes _clock -> True
+operator loader exposes _clock -> True
+```
+
+Passing-after evidence:
+
+```text
+base loader input -> exact TrustedExecutionContext, not caller-selected TrustedGitSource
+authorized actual base -> source_commit equals actual base; candidate exception records 0
+candidate policy differs from actual base -> policy_drift True; final suppression FAILED
+caller-selected low-level candidate source -> rejected as not a trusted execution context
+foreign repository bundle -> PolicyRequest rejected: repository/commit unauthorized
+public base/operator loader _clock parameter -> absent
+expired exception under system UTC context -> FAILED; caller _clock argument TypeError
+operator context -> EXPLICIT_OPERATOR only; cannot claim PR/protected Git roles
+policy source identity -> portable git_repo_v1 object identity, no local path hash
+candidate policy with symlinked parent -> rejected before read
+```
+
+Executable focused gate:
+
+```console
+$ COVERAGE_FILE=/tmp/iacgv-d63-policy3.coverage PYTHONPATH=src pytest -q \
+    tests/unit/test_policy.py tests/unit/test_policy_d61.py \
+    tests/unit/test_policy_d62.py tests/unit/test_policy_d63.py \
+    tests/unit/test_engine_d51.py --cov=iac_guard_v.policy --cov-branch \
+    --cov-fail-under=90
+165 passed; policy branch coverage 90.25%
+```
+
+PR/protected context construction is intentionally unavailable to ordinary production
+callers until protected D7 workflow plumbing exists. That limitation is fail-closed and
+is not represented as a completed D7 interface.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
 ## D4.3 — Cross-version strict JSON depth (2026-08-11)
 
 The Review-3 reproduction on the D6 parent was stored before implementation:

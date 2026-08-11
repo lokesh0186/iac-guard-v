@@ -131,12 +131,17 @@ class PolicySourceAuthorization:
     mode: ExecutionMode
     repository_identity: str
     commit_sha: str
+    candidate_identity: str
     context_identity: str
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
     def __post_init__(self, _trusted_context: object) -> None:
         require_enum(self.mode, ExecutionMode, "execution mode")
+        object.__setattr__(
+            self, "candidate_identity",
+            canonical_identifier(self.candidate_identity, "authorized candidate identity"),
+        )
         object.__setattr__(
             self, "context_identity",
             canonical_identifier(self.context_identity, "execution context identity"),
@@ -162,6 +167,7 @@ class PolicySourceAuthorization:
             "mode": self.mode.value,
             "repository_identity": self.repository_identity,
             "commit_sha": self.commit_sha,
+            "candidate_identity": self.candidate_identity,
             "context_identity": self.context_identity,
         }
 
@@ -487,7 +493,8 @@ def load_operator_verification_config(
     }
     source_identity = "operator_" + hashlib.sha256(json.dumps(source_payload, sort_keys=True).encode()).hexdigest()
     authorization = PolicySourceAuthorization(
-        ExecutionMode.EXPLICIT_OPERATOR, "", "", source_identity,
+        ExecutionMode.EXPLICIT_OPERATOR, "", "",
+        f"operator_candidate_{source_identity}", source_identity,
         _trusted_context=_TRUSTED_POLICY_AUTHORIZATION_CONTEXT,
     )
     return TrustedVerificationConfigBundle(

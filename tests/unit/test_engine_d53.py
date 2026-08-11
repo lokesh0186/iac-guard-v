@@ -128,10 +128,10 @@ def test_registry_rejects_implementation_inventory_mismatch() -> None:
 @pytest.mark.parametrize(
     "values",
     [
-        (ExecutionMode.EXPLICIT_OPERATOR, "repo", "a" * 40, "context"),
-        (ExecutionMode.PR_BASE, "", "a" * 40, "context"),
-        (ExecutionMode.PR_BASE, "repo", "", "context"),
-        (ExecutionMode.PR_BASE, "repo", "bad", "context"),
+        (ExecutionMode.EXPLICIT_OPERATOR, "repo", "a" * 40, "candidate", "context"),
+        (ExecutionMode.PR_BASE, "", "a" * 40, "candidate", "context"),
+        (ExecutionMode.PR_BASE, "repo", "", "candidate", "context"),
+        (ExecutionMode.PR_BASE, "repo", "bad", "candidate", "context"),
     ],
 )
 def test_policy_source_authorization_mutation_guards(values) -> None:
@@ -141,7 +141,7 @@ def test_policy_source_authorization_mutation_guards(values) -> None:
         )
     with pytest.raises(Exception, match="protected provenance"):
         ENGINE.PolicySourceAuthorization(
-            ExecutionMode.EXPLICIT_OPERATOR, "", "", "context"
+            ExecutionMode.EXPLICIT_OPERATOR, "", "", "candidate", "context"
         )
 
 

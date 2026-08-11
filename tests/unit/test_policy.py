@@ -192,18 +192,23 @@ def _policy_payload(*, exceptions=None, optional_gates=frozenset()) -> dict:
     }
 
 
-def _bundle(*, exceptions=None, optional_gates=frozenset(), candidate_payload=None):
+def _bundle(*, config, exceptions=None, optional_gates=frozenset(), candidate_payload=None):
+    context = __import__(
+        "iac_guard_v.policy", fromlist=["load_operator_execution_context"]
+    ).load_operator_execution_context(config)
     return load_operator_policy(
         _policy_payload(exceptions=exceptions, optional_gates=optional_gates),
         candidate_payload=candidate_payload,
-        source_identity="operator-test-fixture",
-        _clock=_clock,
+        context=context,
     )
 
 
 def _verdict(run, *, exceptions=None, optional_gates=frozenset()):
     return evaluate_policy(PolicyRequest(
-        run, _bundle(exceptions=exceptions, optional_gates=optional_gates)
+        run, _bundle(
+            config=run.verification_config,
+            exceptions=exceptions, optional_gates=optional_gates,
+        )
     ))
 
 
@@ -389,7 +394,10 @@ def test_policy_boundary_rejects_invalid_optional_gate_provenance(verified_engin
     with pytest.raises(DomainError, match="TrustedPolicyBundle"):
         PolicyRequest(verified_engine, candidate)
     with pytest.raises(DomainError, match="unknown"):
-        _bundle(optional_gates=frozenset({"other"}))
+        _bundle(
+            config=verified_engine.verification_config,
+            optional_gates=frozenset({"other"}),
+        )
 
 
 def test_caller_cannot_construct_authoritative_policy_result() -> None:

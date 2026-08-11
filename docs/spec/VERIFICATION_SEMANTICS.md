@@ -947,8 +947,9 @@ decisions, raw `ExceptionRecord`, collections of records, caller-created
 `ExceptionPolicy`, candidate-policy parses, evaluation dates, optional gates, or origin
 enums as a substitute.
 
-The base-commit loader accepts a mechanically attested Git source, resolves the base ref
-to a commit SHA, and reads trusted bytes from the named Git tree object. It accepts no
+The base-commit loader requires a protected `TrustedExecutionContext` that names the
+authorized base commit, then reads trusted bytes from that Git tree object. A low-level
+caller-selected `TrustedGitSource` is insufficient authority. It accepts no
 caller-written source identity or arbitrary trusted filesystem path. The protected
 policy-repository loader likewise requires an exact pinned commit in a repository
 outside the evaluated workspace. The explicit operator loader remains a separate local
@@ -983,6 +984,22 @@ The three-step table above is implemented in the written order. `ERROR`, `TIMEOU
 cannot become either a pass or a real-negative verdict. An explicitly optional
 regression or suppression gate may be `SKIPPED` only when that optionality came from
 trusted configuration. Every policy result uses the closed verdict/exit mapping.
+
+#### D6.3 authorized source and clock
+
+The execution context binds mode, evaluated repository object identity, authorized base
+commit, candidate commit/root, governed paths, optional protected-repository pin,
+verification-config digest, and UTC clock source. The only public Phase-D context factory
+is explicit operator mode and captures the current system UTC clock. PR/protected
+context construction remains unavailable until protected D7 workflow plumbing exists;
+ordinary CLI/config/JSON cannot turn a ref or timestamp into that authority.
+
+`PolicyRequest` requires exact agreement between D5 authorization and D6 execution mode,
+context/config identity, repository-object identity, and commit. A bundle from another
+repository, base, candidate context, protected source, or operator mode is rejected.
+Repository identity derives from protected remote/root Git objects rather than a local
+absolute path. Candidate governed reads reject parent-component and final-component
+symlinks.
 
 ---
 

@@ -41,7 +41,10 @@ from iac_guard_v.models import (
     Target,
     TargetIdentity,
 )
-from iac_guard_v.policy import PolicyRequest, evaluate_policy, load_operator_policy
+from iac_guard_v.policy import (
+    PolicyRequest, evaluate_policy, load_operator_execution_context,
+    load_operator_policy,
+)
 
 from test_engine import IDENTITY, _config, _executable, _gate, _scan_request
 from test_checkov_adapter import request as adapter_request
@@ -175,8 +178,7 @@ def verdict(result, exceptions=None):
     } for record in policy.records]
     bundle = load_operator_policy(
         {"exceptions": records, "optional_gates": []},
-        source_identity="operator-test-fixture",
-        _clock=lambda: datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc),
+        context=load_operator_execution_context(result.verification_config),
     )
     return evaluate_policy(PolicyRequest(result, bundle))
 

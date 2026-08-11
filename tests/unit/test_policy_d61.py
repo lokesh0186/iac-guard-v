@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 import iac_guard_v.policy as POLICY
-from iac_guard_v.enums import ExceptionOrigin, Outcome, Status, Verdict
+from iac_guard_v.enums import ExecutionMode, ExceptionOrigin, Outcome, Status, Verdict
 from iac_guard_v.models import ExceptionPolicy, TargetIdentity
 
 from test_policy import (
@@ -54,6 +54,67 @@ def _git_policy_source(
         repository, commit, repository, (governed_path,)
     )
     return repository, commit, source
+
+
+def _base_context(
+    source: POLICY.TrustedGitSource,
+    when: datetime = datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc),
+) -> POLICY.TrustedExecutionContext:
+    return POLICY.TrustedExecutionContext(
+        ExecutionMode.PR_BASE,
+        source.repository_root,
+        POLICY._portable_repository_identity(source.repository_root),
+        source.commit_sha,
+        source.candidate_root,
+        source.commit_sha,
+        None, "", "",
+        source.governed_paths,
+        "a" * 64,
+        "protected_test_context",
+        when,
+        "private_test_clock",
+        _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
+    )
+
+
+def _protected_context(source: POLICY.TrustedGitSource) -> POLICY.TrustedExecutionContext:
+    workspace = source.candidate_root
+    _git(workspace, "init", "-q")
+    _git(workspace, "config", "user.name", "Test")
+    _git(workspace, "config", "user.email", "test@example.invalid")
+    marker = workspace / "README"
+    marker.write_text("candidate\n", encoding="utf-8")
+    _git(workspace, "add", "README")
+    _git(workspace, "commit", "-q", "-m", "candidate")
+    candidate_commit = _git(workspace, "rev-parse", "HEAD")
+    return POLICY.TrustedExecutionContext(
+        ExecutionMode.PROTECTED_POLICY_REPOSITORY,
+        workspace,
+        POLICY._portable_repository_identity(workspace),
+        candidate_commit,
+        workspace,
+        candidate_commit,
+        source.repository_root,
+        POLICY._portable_repository_identity(source.repository_root),
+        source.commit_sha,
+        source.governed_paths,
+        "a" * 64,
+        "protected_repository_test_context",
+        datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc),
+        "private_test_clock",
+        _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
+    )
+
+
+def _operator_context(config, when=None) -> POLICY.TrustedExecutionContext:
+    return POLICY.TrustedExecutionContext(
+        ExecutionMode.EXPLICIT_OPERATOR, None, "", "", config.candidate_root, "",
+        None, "", "", (".iac-guard.json",), config.config_sha256,
+        config.policy_source_authorization.context_identity,
+        when or datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc),
+        "private_test_clock",
+        _trusted_context=POLICY._TRUSTED_EXECUTION_CONTEXT_CONTEXT,
+    )
 
 
 def test_raw_self_declared_trusted_record_is_not_policy_material(verified_engine) -> None:
@@ -107,8 +168,8 @@ def test_loader_stamps_origin_and_ignores_serialized_claim() -> None:
         POLICY.load_trusted_exception(record_payload, ExceptionOrigin.CANDIDATE_HEAD)
 
 
-def test_direct_bundle_construction_cannot_create_loader_provenance() -> None:
-    bundle = _bundle()
+def test_direct_bundle_construction_cannot_create_loader_provenance(verified_engine) -> None:
+    bundle = _bundle(config=verified_engine.verification_config)
     with pytest.raises(Exception, match="production loader provenance"):
         POLICY.TrustedPolicyBundle(
             bundle.policy,
@@ -132,9 +193,7 @@ def test_base_loader_binds_bytes_source_and_governed_path(tmp_path) -> None:
         tmp_path, "base-loader", trusted_bytes, governed_path="config/policy.json"
     )
     bundle = POLICY.load_base_commit_policy(
-        source,
-        governed_path="config/policy.json",
-        _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
+        _base_context(source), governed_path="config/policy.json"
     )
     assert bundle.policy_drift is False
     assert bundle.source_origin is ExceptionOrigin.TRUSTED_BASE
@@ -146,9 +205,7 @@ def test_base_loader_binds_bytes_source_and_governed_path(tmp_path) -> None:
         json.dumps({**payload, "optional_gates": ["regression"]}), encoding="utf-8"
     )
     drift = POLICY.load_base_commit_policy(
-        source,
-        governed_path="config/policy.json",
-        _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
+        _base_context(source), governed_path="config/policy.json"
     )
     assert drift.policy_drift is True
     assert drift.differing_governed_paths == ("config/policy.json",)
@@ -164,10 +221,7 @@ def test_missing_candidate_policy_is_visible_drift(tmp_path) -> None:
     source = POLICY.attest_protected_policy_repository(
         repository, commit, workspace, (".iac-guard.json",)
     )
-    bundle = POLICY.load_protected_policy_repository(
-        source,
-        _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
-    )
+    bundle = POLICY.load_protected_policy_repository(_protected_context(source))
     assert bundle.policy_drift
     assert bundle.candidate_policy_state == "missing"
     assert bundle.candidate_policy_sha256 is None
@@ -180,18 +234,19 @@ def test_policy_drift_from_loader_is_reported_and_fails(verified_engine) -> None
     bundle = POLICY.load_operator_policy(
         trusted,
         candidate_payload=candidate,
-        source_identity="protected-workflow-input",
+        context=_operator_context(verified_engine.verification_config),
         governed_path="policy/iac-guard.json",
-        _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
     )
     result = POLICY.evaluate_policy(POLICY.PolicyRequest(verified_engine, bundle))
     assert result.verdict is Verdict.FAILED
     evidence = result.canonical_dict()["policy_evidence"]
-    assert evidence["source_identity"] == "protected-workflow-input"
+    assert evidence["source_identity"] == (
+        verified_engine.verification_config.policy_source_authorization.context_identity
+    )
     assert evidence["trusted_policy_sha256"] != evidence["candidate_policy_sha256"]
     assert evidence["differing_governed_paths"] == ["policy/iac-guard.json"]
     assert evidence["evaluation_timezone"] == "UTC"
-    assert evidence["evaluation_time_provenance"] == "trusted_execution_clock"
+    assert evidence["evaluation_time_provenance"] == "private_test_clock"
 
 
 def test_applied_exception_retains_exact_loader_source(verified_engine) -> None:
@@ -199,8 +254,7 @@ def test_applied_exception_retains_exact_loader_source(verified_engine) -> None:
     payload = _policy_payload(exceptions=(_record(Outcome.SUPPRESSED),))
     bundle = POLICY.load_operator_policy(
         payload,
-        source_identity="protected-operator-policy-v7",
-        _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
+        context=_operator_context(verified_engine.verification_config),
     )
     result = POLICY.evaluate_policy(POLICY.PolicyRequest(run, bundle))
     assert result.verdict is Verdict.VERIFIED
@@ -208,7 +262,7 @@ def test_applied_exception_retains_exact_loader_source(verified_engine) -> None:
     source = result.policy_evidence.applied_exception_sources[0]
     assert source.exception_id == "EX-1"
     assert source.source_origin is ExceptionOrigin.OPERATOR
-    assert source.source_identity == "protected-operator-policy-v7"
+    assert source.source_identity == bundle.source_identity
 
 
 def test_wrong_target_loader_record_remains_unpermitted(verified_engine) -> None:
@@ -218,8 +272,7 @@ def test_wrong_target_loader_record_remains_unpermitted(verified_engine) -> None
     )
     bundle = POLICY.load_operator_policy(
         _policy_payload(exceptions=(wrong,)),
-        source_identity="operator-wrong-target-test",
-        _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
+        context=_operator_context(verified_engine.verification_config),
     )
     result = POLICY.evaluate_policy(POLICY.PolicyRequest(
         _outcome(verified_engine, Outcome.SUPPRESSED), bundle
@@ -235,8 +288,10 @@ def test_loader_clock_applies_inclusive_exception_window(verified_engine, bounda
     instant = record.created if boundary == "created" else record.expires
     bundle = POLICY.load_operator_policy(
         payload,
-        source_identity="operator-window-test",
-        _clock=lambda: datetime(instant.year, instant.month, instant.day, tzinfo=timezone.utc),
+        context=_operator_context(
+            verified_engine.verification_config,
+            datetime(instant.year, instant.month, instant.day, tzinfo=timezone.utc),
+        ),
     )
     result = POLICY.evaluate_policy(POLICY.PolicyRequest(
         _outcome(verified_engine, Outcome.SUPPRESSED), bundle
@@ -253,22 +308,21 @@ def test_candidate_optionality_cannot_govern_policy(verified_engine) -> None:
     bundle = POLICY.load_operator_policy(
         trusted,
         candidate_payload=candidate,
-        source_identity="protected-workflow-input",
-        _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
+        context=_operator_context(verified_engine.verification_config),
     )
     assert POLICY.evaluate_policy(POLICY.PolicyRequest(skipped, bundle)).verdict is not Verdict.VERIFIED
 
 
-def test_policy_payload_cannot_supply_evaluation_time() -> None:
+def test_policy_payload_cannot_supply_evaluation_time(verified_engine) -> None:
+    context = _operator_context(verified_engine.verification_config)
     with pytest.raises(Exception, match="unknown policy fields"):
         POLICY.load_operator_policy(
             {**_policy_payload(), "evaluation_date": "2099-01-01"},
-            source_identity="operator-time-test",
+            context=context,
         )
-    with pytest.raises(Exception, match="timezone-aware"):
+    with pytest.raises(TypeError):
         POLICY.load_operator_policy(
-            _policy_payload(),
-            source_identity="operator-time-test",
+            _policy_payload(), context=context,
             _clock=lambda: datetime(2026, 8, 11),
         )
 
@@ -278,13 +332,13 @@ def test_file_loader_rejects_duplicate_keys_depth_and_symlink(tmp_path) -> None:
         tmp_path, "duplicate", b'{"exceptions":[],"exceptions":[]}'
     )
     with pytest.raises(Exception, match="duplicate"):
-        POLICY.load_base_commit_policy(duplicate)
+        POLICY.load_base_commit_policy(_base_context(duplicate))
 
     _repo, _commit, deep = _git_policy_source(
         tmp_path, "deep", ("[" * 65 + "]" * 65).encode("utf-8")
     )
     with pytest.raises(Exception, match="depth"):
-        POLICY.load_base_commit_policy(deep)
+        POLICY.load_base_commit_policy(_base_context(deep))
 
     repository, _commit, linked_source = _git_policy_source(
         tmp_path, "symlink", json.dumps(_policy_payload()).encode("utf-8")
@@ -294,7 +348,7 @@ def test_file_loader_rejects_duplicate_keys_depth_and_symlink(tmp_path) -> None:
     (repository / ".iac-guard.json").unlink()
     (repository / ".iac-guard.json").symlink_to(real)
     with pytest.raises(Exception, match="no-follow"):
-        POLICY.load_base_commit_policy(linked_source)
+        POLICY.load_base_commit_policy(_base_context(linked_source))
 
 
 @pytest.mark.parametrize(
@@ -307,10 +361,13 @@ def test_file_loader_rejects_duplicate_keys_depth_and_symlink(tmp_path) -> None:
         ({"surprise": True}, "unknown policy fields"),
     ],
 )
-def test_policy_document_shape_mutations_are_rejected(mutation, message) -> None:
+def test_policy_document_shape_mutations_are_rejected(
+    mutation, message, verified_engine
+) -> None:
     with pytest.raises(Exception, match=message):
         POLICY.load_operator_policy(
-            {**_policy_payload(), **mutation}, source_identity="operator-shape-test"
+            {**_policy_payload(), **mutation},
+            context=_operator_context(verified_engine.verification_config),
         )
 
 
@@ -327,23 +384,25 @@ def test_policy_document_shape_mutations_are_rejected(mutation, message) -> None
         ({"surprise": True}, "unknown exception fields"),
     ],
 )
-def test_exception_payload_mutations_are_rejected(mutation, message) -> None:
+def test_exception_payload_mutations_are_rejected(
+    mutation, message, verified_engine
+) -> None:
     record = _policy_payload(exceptions=(_record(Outcome.SUPPRESSED),))["exceptions"][0]
     with pytest.raises(Exception, match=message):
         POLICY.load_operator_policy(
             {"exceptions": [{**record, **mutation}], "optional_gates": []},
-            source_identity="operator-record-test",
+            context=_operator_context(verified_engine.verification_config),
         )
 
 
 def test_policy_source_type_size_and_json_shape_guards(tmp_path) -> None:
-    with pytest.raises(Exception, match="TrustedGitSource"):
+    with pytest.raises(Exception, match="trusted execution context"):
         POLICY.load_base_commit_policy("not-an-attested-source")
     _repo, _commit, oversized = _git_policy_source(
         tmp_path, "oversized", b" " * (1024 * 1024 + 1)
     )
     with pytest.raises(Exception, match="byte limit"):
-        POLICY.load_base_commit_policy(oversized)
+        POLICY.load_base_commit_policy(_base_context(oversized))
     for name, content, message in (
         ("empty.json", b"", "nonempty"),
         ("malformed.json", b"{", "strict JSON"),
@@ -352,10 +411,10 @@ def test_policy_source_type_size_and_json_shape_guards(tmp_path) -> None:
     ):
         _repo, _commit, source = _git_policy_source(tmp_path, name, content)
         with pytest.raises(Exception, match=message):
-            POLICY.load_base_commit_policy(source)
+            POLICY.load_base_commit_policy(_base_context(source))
 
 
-def test_candidate_policy_path_and_source_type_are_typed(tmp_path) -> None:
+def test_candidate_policy_path_and_source_type_are_typed(tmp_path, verified_engine) -> None:
     path = tmp_path / "candidate.json"
     payload = _policy_payload(exceptions=(
         _record(Outcome.SUPPRESSED, origin=ExceptionOrigin.TRUSTED_BASE),
@@ -366,10 +425,13 @@ def test_candidate_policy_path_and_source_type_are_typed(tmp_path) -> None:
     with pytest.raises(Exception, match="dict or pathlib.Path"):
         POLICY.load_candidate_policy([])
     with pytest.raises(Exception, match="exact dict"):
-        POLICY.load_operator_policy([], source_identity="operator-type-test")
+        POLICY.load_operator_policy(
+            [], context=_operator_context(verified_engine.verification_config)
+        )
     with pytest.raises(Exception, match="JSON values"):
         POLICY.load_operator_policy(
-            {"exceptions": set()}, source_identity="operator-value-test"
+            {"exceptions": set()},
+            context=_operator_context(verified_engine.verification_config),
         )
 
 
@@ -384,8 +446,8 @@ def test_candidate_policy_path_and_source_type_are_typed(tmp_path) -> None:
         ({"evaluation_timezone": "local"}, "timezone"),
     ],
 )
-def test_trusted_bundle_invariant_mutations_are_rejected(changes, message) -> None:
-    bundle = _bundle()
+def test_trusted_bundle_invariant_mutations_are_rejected(changes, message, verified_engine) -> None:
+    bundle = _bundle(config=verified_engine.verification_config)
     with pytest.raises(Exception, match=message):
         replace(
             bundle,
@@ -394,8 +456,8 @@ def test_trusted_bundle_invariant_mutations_are_rejected(changes, message) -> No
         )
 
 
-def test_policy_evidence_rejects_caller_and_duplicate_sources() -> None:
-    bundle = _bundle()
+def test_policy_evidence_rejects_caller_and_duplicate_sources(verified_engine) -> None:
+    bundle = _bundle(config=verified_engine.verification_config)
     source = POLICY.AppliedExceptionSource(
         "EX-1", ExceptionOrigin.OPERATOR, "operator-test-fixture"
     )

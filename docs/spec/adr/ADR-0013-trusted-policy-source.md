@@ -194,3 +194,19 @@ resource address, file, artifact kind, and scanner-native lookup identity. D6 co
 that binding to the engine classification before applying an exception. Therefore an
 exception for one module cannot authorise a same-address deletion or suppression in a
 different module.
+
+## Amendment, 2026-08-11: authorization is above Git resolution
+
+Resolving a caller-selected ref proves only that an object exists. D6.3 therefore makes
+`TrustedGitSource` low-level evidence and requires `TrustedExecutionContext` at the
+base/protected loaders. The context binds execution mode, portable evaluated-repository
+identity, authorized base and candidate commits/root, governed catalog, optional pinned
+protected repository, verification-config digest, and trusted UTC clock provenance.
+
+Only explicit operator context has a public Phase-D factory; it derives identity from
+the D5 operator bundle and captures the current system UTC clock. PR/protected context
+construction stays behind protected runtime plumbing until D7. Public policy loaders
+accept no ref, source-identity, date, or `_clock` override. `PolicyRequest` rejects a
+bundle whose mode/context/config/repository/commit differs from D5 authorization.
+Portable repository identity uses protected remote/root Git-object evidence, and
+candidate governed reads reject symlinks in parent components as well as the final file.

@@ -492,6 +492,15 @@ exception. Loader-observed policy drift is a definite failure even when an earli
 caller-supplied digest claimed stability. A completed suppression detector does not fail
 merely because it emitted `SUPPRESSED`; D6 applies the exact event-specific disposition.
 
+D6.3 inserts `TrustedExecutionContext` above the Git-object reader. It is the authority
+for execution mode, evaluated repository identity, exact base/candidate commits,
+governed paths, protected-repository pin, verification-config identity, and UTC clock.
+The base loader no longer accepts `TrustedGitSource`; that type proves object existence
+only. Policy aggregation cross-checks the D6 context/repository/commit against D5's
+factory-bound authorization. Repository identity is portable Git-object evidence, not a
+hash of a local absolute path, and candidate policy reads inspect every parent component
+for symlinks.
+
 The section-7 order is executable: any operational uncertainty dominates a definite
 negative result and yields `INCONCLUSIVE`; validators/oracles that affirmatively fail,
 policy drift, unresolved targets, and failed regression/suppression gates yield

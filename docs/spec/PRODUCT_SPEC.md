@@ -318,26 +318,31 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    if a caller-supplied upstream digest claimed equality.
 7. Verdicts and exit codes are closed and inseparable: `VERIFIED/0`, `FAILED/1`, and
    `INCONCLUSIVE/3`. Usage and internal error exits are outside `PolicyResult`.
+8. A protected execution context, not a caller-selected existing Git object, authorizes
+   PR-base and protected-repository policy. It binds repository/base/candidate roles,
+   governed paths, verification configuration, and current UTC clock. Policy from a
+   different context, repository, commit, mode, or clock is rejected before disposition.
+   Explicit operator mode remains separately labelled and cannot masquerade as PR mode.
 
-8. Phase-D artifact discovery is affirmative and parser-backed. Terraform `.tf`,
+9. Phase-D artifact discovery is affirmative and parser-backed. Terraform `.tf`,
    Kubernetes YAML, and Kubernetes JSON—including quoted/flow YAML, multiple documents,
    and Kubernetes Lists—cannot be silently removed from coverage by representation.
    Ordinary YAML/JSON is classified without entering the Kubernetes scan. Unsafe or
    ambiguous Kubernetes evidence, duplicate JSON keys, invalid HCL, and unsupported
    `.tf.json` stop preflight rather than permitting `VERIFIED`.
 
-9. Protected verification configuration is one immutable factory-attested bundle, not
+10. Protected verification configuration is one immutable factory-attested bundle, not
    ordinary request fields. It binds scanner/framework locks, limits, severity/location
    policy, validator/oracle ids, the gate registry, governed paths, and provenance.
    Targets resolve uniquely to file/artifact/native identity; same-address resources in
    other roots remain separate destructive events.
 
-10. Differential direction is protected evidence: baseline and candidate roots are
+11. Differential direction is protected evidence: baseline and candidate roots are
     distinct and role-bound, and every role-specific plan carries a file-manifest and
     configuration digest. Reversed, same-root, cross-role, or stale-snapshot plans are
     usage errors before execution.
-11. Production gate selection uses only packaged implementations with recorded version,
+12. Production gate selection uses only packaged implementations with recorded version,
     code digest, and artifact support. The operator loader has no callback parameter.
-12. `.iac-guard.json` and the complete protected scanner/ignore/custom-check/oracle/
+13. `.iac-guard.json` and the complete protected scanner/ignore/custom-check/oracle/
     catalog/severity/exception/gate catalog participate in path-specific policy drift.
     Positive and failed Checkov evidence share one context-bound occurrence token.
