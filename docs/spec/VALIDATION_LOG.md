@@ -792,6 +792,63 @@ engine branch coverage -> 90.36% (103 passed)
 
 ---
 
+## Gate D5.3 — Role-bound configuration and closed gate registry (2026-08-11)
+
+Parent: `d8f1ec29fe05d5c466cc942a6ac3af1d980795c6`. Literal archived-parent
+reproductions before modification:
+
+```text
+swapped request -> OLD_SWAP_ACCEPTED candidate baseline
+production loader callback parameter -> True
+candidate .iac-guard.json -> policy drift paths ()
+same root on both sides -> OLD_SAME_ROOT_ACCEPTED True
+failed native token -> checkov-eval-v1:<sha256>
+positive occurrence evidence -> raw evaluated_keys tuple (different domain)
+```
+
+Passing-after evidence:
+
+```text
+swapped roots -> DomainError: baseline scan root does not match protected baseline role
+same roots -> DomainError: baseline and candidate roots must be distinct
+opposite role-bound plan reuse -> rejected before adapter execution
+role plan -> role + snapshot_sha256 + config_sha256
+production loader callback parameter -> absent; supplied callback raises TypeError
+production registry -> packaged id/version/code digest/artifact-kind evidence
+candidate .iac-guard.json -> POLICY_DRIFT path ('.iac-guard.json',), state added
+failed and positive evidence -> identical checkov-occurrence-v1 token domain
+two exact token-covered occurrences -> FIXED
+two unrelated positive keys -> OCCURRENCE_PASS_COVERAGE_INCOMPLETE
+policy source authorization -> factory-bound EXPLICIT_OPERATOR for operator mode
+```
+
+Executable focused gate:
+
+```console
+$ COVERAGE_FILE=/tmp/iacgv-d53-engine2.coverage PYTHONPATH=src pytest -q \
+    tests/unit/test_engine.py tests/unit/test_engine_d44.py \
+    tests/unit/test_engine_d45.py tests/unit/test_engine_d51.py \
+    tests/unit/test_engine_d52.py tests/unit/test_engine_d53.py \
+    --cov=iac_guard_v.engine --cov-branch --cov-fail-under=90
+145 passed; engine branch coverage 90.21%
+
+$ python tools/spec_lint.py docs/spec/
+documents inspected: 23
+enum values defined: 111
+PASS
+```
+
+No D6.3, D7, D9, Phase E, benchmark inference, provider call, or model refresh occurred
+in this commit.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
+---
+
 ## D6.2 — Git-object policy provenance and exact event permission (2026-08-11)
 
 Parent: `2c35692143077aaf58a95a05b725700a23a8f547`. D6.2 did not alter the

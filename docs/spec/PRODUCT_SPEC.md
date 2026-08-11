@@ -331,3 +331,13 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    policy, validator/oracle ids, the gate registry, governed paths, and provenance.
    Targets resolve uniquely to file/artifact/native identity; same-address resources in
    other roots remain separate destructive events.
+
+10. Differential direction is protected evidence: baseline and candidate roots are
+    distinct and role-bound, and every role-specific plan carries a file-manifest and
+    configuration digest. Reversed, same-root, cross-role, or stale-snapshot plans are
+    usage errors before execution.
+11. Production gate selection uses only packaged implementations with recorded version,
+    code digest, and artifact support. The operator loader has no callback parameter.
+12. `.iac-guard.json` and the complete protected scanner/ignore/custom-check/oracle/
+    catalog/severity/exception/gate catalog participate in path-specific policy drift.
+    Positive and failed Checkov evidence share one context-bound occurrence token.

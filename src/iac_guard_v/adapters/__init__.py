@@ -10,6 +10,7 @@ from .checkov import (
     CheckovScanRequest,
     CheckovTargetEvidence,
     checkov_distribution_identity,
+    checkov_occurrence_token,
     evaluate_checkov_target,
     require_trusted_checkov_target_evidence,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "CheckovTargetEvidence",
     "ScannerContract",
     "checkov_distribution_identity",
+    "checkov_occurrence_token",
     "evaluate_checkov_target",
     "require_trusted_checkov_target_evidence",
 ]

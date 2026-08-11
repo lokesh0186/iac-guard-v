@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import difflib
 import hashlib
+import inspect
 import json
 import os
 import stat
@@ -43,7 +44,7 @@ from .enums import (
     Outcome,
     SEVERITY_ORDER,
     Severity,
-    Status,
+    Status, ScanRole, ExecutionMode,
 )
 from .models import (
     DomainError,
@@ -65,10 +66,14 @@ _TRUSTED_ENGINE_CONTEXT = object()
 _TRUSTED_SCAN_PLAN_CONTEXT = object()
 _TRUSTED_CONFIG_CONTEXT = object()
 _TRUSTED_GATE_REGISTRY_CONTEXT = object()
+_TRUSTED_POLICY_AUTHORIZATION_CONTEXT = object()
 _SHA256 = __import__("re").compile(r"^[0-9a-f]{64}$")
 _GOVERNED_FILE_NAMES = frozenset({
-    ".iac-guard.yml", ".iac-guard.yaml", ".checkov.yml", ".checkov.yaml",
-    ".trivyignore", ".tflint.hcl", ".kics.yaml", ".kics.yml",
+    ".iac-guard.yml", ".iac-guard.yaml", ".iac-guard.json",
+    ".checkov.yml", ".checkov.yaml", ".checkovignore",
+    ".trivyignore", ".trivy.yaml", ".trivy.yml", "trivy.yaml", "trivy.yml",
+    ".tflint.hcl", ".tflint.json", ".kics.yaml", ".kics.yml", ".kics-config",
+    ".terraformrc", "terraform.rc", ".terraform.lock.hcl",
     "iac-guard.lock.yml", "exceptions.json", "control-catalog.json",
     "oracle-policy.json", "severity-policy.json", "gate-policy.json",
 })
@@ -119,7 +124,78 @@ class GovernedConfigEvidence:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class PolicySourceAuthorization:
+    """Non-serializable authorization for the policy source accepted by D6."""
+
+    mode: ExecutionMode
+    repository_identity: str
+    commit_sha: str
+    context_identity: str
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        require_enum(self.mode, ExecutionMode, "execution mode")
+        object.__setattr__(
+            self, "context_identity",
+            canonical_identifier(self.context_identity, "execution context identity"),
+        )
+        if self.repository_identity:
+            object.__setattr__(
+                self, "repository_identity",
+                canonical_identifier(self.repository_identity, "authorized repository identity"),
+            )
+        if self.commit_sha and not __import__("re").fullmatch(r"[0-9a-f]{40,64}", self.commit_sha):
+            raise DomainError("authorized policy commit must be a full Git SHA")
+        if self.mode is ExecutionMode.EXPLICIT_OPERATOR:
+            if self.repository_identity or self.commit_sha:
+                raise DomainError("operator policy authorization cannot claim Git identity")
+        elif not self.repository_identity or not self.commit_sha:
+            raise DomainError("Git policy authorization requires repository and commit")
+        if _trusted_context is not _TRUSTED_POLICY_AUTHORIZATION_CONTEXT:
+            raise DomainError("policy source authorization requires protected provenance")
+        object.__setattr__(self, "_trusted", True)
+
+    def canonical_dict(self) -> dict:
+        return {
+            "mode": self.mode.value,
+            "repository_identity": self.repository_identity,
+            "commit_sha": self.commit_sha,
+            "context_identity": self.context_identity,
+        }
+
+
 GateExecutor = Callable[[str, str, Path], GateResult]
+
+
+@dataclass(frozen=True, slots=True)
+class GateImplementation:
+    gate_id: str
+    kind: str
+    version: str
+    code_sha256: str
+    artifact_kinds: tuple
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "gate_id", canonical_identifier(self.gate_id, "gate id"))
+        if self.kind not in {"validator", "oracle"}:
+            raise DomainError("gate implementation kind is unsupported")
+        object.__setattr__(self, "version", canonical_identifier(self.version, "gate version"))
+        _digest(self.code_sha256, "gate implementation digest")
+        if type(self.artifact_kinds) is not tuple or any(
+            type(item) is not ArtifactKind for item in self.artifact_kinds
+        ):
+            raise DomainError("gate artifact kinds must be exact ArtifactKind values")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "gate_id": self.gate_id,
+            "kind": self.kind,
+            "version": self.version,
+            "code_sha256": self.code_sha256,
+            "artifact_kinds": [item.value for item in self.artifact_kinds],
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -129,6 +205,7 @@ class TrustedGateRegistry:
     identity: str
     validator_ids: tuple
     oracle_ids: tuple
+    implementations: tuple
     _executor: Callable = field(repr=False, compare=False)
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
@@ -143,6 +220,19 @@ class TrustedGateRegistry:
             if len(rebuilt) != len(set(rebuilt)):
                 raise DomainError(f"{name} contains duplicate gate ids")
             object.__setattr__(self, name, tuple(sorted(rebuilt)))
+        if type(self.implementations) is not tuple or any(
+            type(item) is not GateImplementation for item in self.implementations
+        ):
+            raise DomainError("gate implementations must be exact typed records")
+        implementation_ids = {
+            (item.kind, item.gate_id) for item in self.implementations
+        }
+        expected_ids = {
+            *(("validator", item) for item in self.validator_ids),
+            *(("oracle", item) for item in self.oracle_ids),
+        }
+        if implementation_ids != expected_ids or len(implementation_ids) != len(self.implementations):
+            raise DomainError("gate implementation evidence disagrees with registry ids")
         if not callable(self._executor):
             raise DomainError("gate registry executor must be callable")
         if _trusted_context is not _TRUSTED_GATE_REGISTRY_CONTEXT:
@@ -165,7 +255,7 @@ def _production_gate_executor(kind: str, gate_id: str, root: Path) -> GateResult
         return GateResult(gate_id, Status.UNSUPPORTED, "ORACLE_IMPLEMENTATION_UNAVAILABLE")
     suffixes = (
         {".tf"} if gate_id == "terraform_hcl_parse"
-        else {".yaml", ".yml"} if gate_id == "kubernetes_yaml_parse"
+        else {".yaml", ".yml", ".json"} if gate_id == "kubernetes_yaml_parse"
         else set()
     )
     try:
@@ -177,6 +267,8 @@ def _production_gate_executor(kind: str, gate_id: str, root: Path) -> GateResult
             content = _read_detector_file(path, root, 10 * 1024 * 1024)
             if gate_id == "terraform_hcl_parse":
                 _terraform_resources(relative, content)
+            elif path.suffix.lower() == ".json":
+                _kubernetes_json_resources(relative, content)
             else:
                 _kubernetes_resources(relative, content)
             checked += 1
@@ -186,25 +278,26 @@ def _production_gate_executor(kind: str, gate_id: str, root: Path) -> GateResult
 
 
 def production_gate_registry() -> TrustedGateRegistry:
+    code_digest = hashlib.sha256(
+        inspect.getsource(_production_gate_executor).encode("utf-8")
+    ).hexdigest()
     return TrustedGateRegistry(
         "iac_guard_v_phase_d_registry_v1",
         ("kubernetes_yaml_parse", "terraform_hcl_parse"),
         (),
+        (
+            GateImplementation(
+                "kubernetes_yaml_parse", "validator", "1", code_digest,
+                (ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON),
+            ),
+            GateImplementation(
+                "terraform_hcl_parse", "validator", "1", code_digest,
+                (ArtifactKind.TERRAFORM_HCL,),
+            ),
+        ),
         _production_gate_executor,
         _trusted_context=_TRUSTED_GATE_REGISTRY_CONTEXT,
     )
-
-
-def _test_gate_registry(executor: GateExecutor) -> TrustedGateRegistry:
-    """Private test capability; production requests never accept a callback."""
-    return TrustedGateRegistry(
-        "iac_guard_v_test_registry_v1",
-        ("kubernetes_yaml_parse", "terraform_hcl_parse", "validator"),
-        ("oracle", "target_oracle"),
-        executor,
-        _trusted_context=_TRUSTED_GATE_REGISTRY_CONTEXT,
-    )
-
 
 def _governed_file(path: Path, relative: str) -> bool:
     parts = Path(relative).parts
@@ -264,6 +357,7 @@ class TrustedVerificationConfigBundle:
     governed_config: tuple
     source_identity: str
     source_provenance: str
+    policy_source_authorization: PolicySourceAuthorization
     gate_registry: TrustedGateRegistry = field(repr=False, compare=False)
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
@@ -277,6 +371,8 @@ class TrustedVerificationConfigBundle:
             if not isinstance(value, Path):
                 raise DomainError(f"{name} must be pathlib.Path")
             object.__setattr__(self, name, value.resolve(strict=True))
+        if self.baseline_root == self.candidate_root:
+            raise DomainError("baseline and candidate roots must be distinct")
         if not isinstance(self.scanner_executable, Path):
             raise DomainError("scanner_executable must be pathlib.Path")
         object.__setattr__(self, "scanner_executable", self.scanner_executable.resolve(strict=True))
@@ -303,12 +399,22 @@ class TrustedVerificationConfigBundle:
         object.__setattr__(self, "expected_version", canonical_identifier(self.expected_version, "scanner version"))
         object.__setattr__(self, "source_identity", canonical_identifier(self.source_identity, "config source identity"))
         object.__setattr__(self, "source_provenance", canonical_identifier(self.source_provenance, "config source provenance"))
+        require_exact_type(
+            self.policy_source_authorization, PolicySourceAuthorization,
+            "policy source authorization",
+        )
+        if not self.policy_source_authorization._trusted:
+            raise DomainError("policy source authorization lacks protected provenance")
         if type(self.governed_config) is not tuple or any(type(item) is not GovernedConfigEvidence for item in self.governed_config):
             raise DomainError("governed_config must contain exact evidence records")
         require_exact_type(self.gate_registry, TrustedGateRegistry, "trusted gate registry")
         if not self.gate_registry._trusted:
             raise DomainError("gate registry lacks factory provenance")
         payload = {
+            "role_roots": {
+                "baseline": str(self.baseline_root),
+                "candidate": str(self.candidate_root),
+            },
             "frameworks": list(frameworks),
             "version": self.expected_version,
             "launcher": self.expected_executable_sha256,
@@ -320,7 +426,13 @@ class TrustedVerificationConfigBundle:
             "limits": [self.timeout_seconds, self.max_output_bytes, self.max_eligible_files, self.max_file_bytes, self.max_total_eligible_bytes],
             "governed_config": [item.canonical_dict() for item in self.governed_config],
             "source": [self.source_identity, self.source_provenance],
-            "gate_registry": self.gate_registry.identity,
+            "policy_source_authorization": self.policy_source_authorization.canonical_dict(),
+            "gate_registry": {
+                "identity": self.gate_registry.identity,
+                "implementations": [
+                    item.canonical_dict() for item in self.gate_registry.implementations
+                ],
+            },
         }
         object.__setattr__(self, "config_sha256", hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
         object.__setattr__(self, "_trusted", True)
@@ -334,6 +446,7 @@ class TrustedVerificationConfigBundle:
             "config_sha256": self.config_sha256,
             "source_identity": self.source_identity,
             "source_provenance": self.source_provenance,
+            "policy_source_authorization": self.policy_source_authorization.canonical_dict(),
             "frameworks": list(self.frameworks),
             "severity_floor": self.severity_floor.value,
             "fail_on_location_change": self.fail_on_location_change,
@@ -351,7 +464,6 @@ def load_operator_verification_config(
     severity_floor: Severity = Severity.HIGH,
     fail_on_location_change: bool = False,
     frameworks: tuple | None = None,
-    _test_executor: GateExecutor | None = None,
 ) -> TrustedVerificationConfigBundle:
     """Explicit local/operator loader; future PR mode uses a Git-attested source."""
     require_exact_type(baseline_request, CheckovScanRequest, "baseline Checkov request")
@@ -364,7 +476,7 @@ def load_operator_verification_config(
     )
     if any(getattr(baseline_request, name) != getattr(candidate_request, name) for name in lock_fields):
         raise DomainError("baseline and candidate scanner lock inputs differ")
-    registry = _test_gate_registry(_test_executor) if _test_executor else production_gate_registry()
+    registry = production_gate_registry()
     selected_frameworks = frameworks if frameworks is not None else baseline_request.frameworks
     source_payload = {
         "mode": "operator",
@@ -374,6 +486,10 @@ def load_operator_verification_config(
         "gate_registry": registry.identity,
     }
     source_identity = "operator_" + hashlib.sha256(json.dumps(source_payload, sort_keys=True).encode()).hexdigest()
+    authorization = PolicySourceAuthorization(
+        ExecutionMode.EXPLICIT_OPERATOR, "", "", source_identity,
+        _trusted_context=_TRUSTED_POLICY_AUTHORIZATION_CONTEXT,
+    )
     return TrustedVerificationConfigBundle(
         baseline_request.scan_root,
         candidate_request.scan_root,
@@ -394,6 +510,7 @@ def load_operator_verification_config(
         _governed_comparison(baseline_request.scan_root, candidate_request.scan_root),
         source_identity,
         "operator",
+        authorization,
         registry,
         _trusted_context=_TRUSTED_CONFIG_CONTEXT,
     )
@@ -491,6 +608,9 @@ class TrustedScanPlan:
     resources: tuple
     inventory_sha256: str
     classifications: tuple = ()
+    role: ScanRole = ScanRole.DISCOVERY
+    snapshot_sha256: str = ""
+    config_sha256: str = ""
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -504,6 +624,7 @@ class TrustedScanPlan:
             type(item) is not ArtifactClassification for item in self.classifications
         ):
             raise DomainError("scan-plan classifications must be exact typed records")
+        require_enum(self.role, ScanRole, "scan-plan role")
         if tuple(self.request.expected_resources) != self.resources:
             raise DomainError("scan-plan resources disagree with its adapter request")
         if _trusted_context is not _TRUSTED_SCAN_PLAN_CONTEXT:
@@ -545,6 +666,20 @@ class TrustedScanPlan:
         ).hexdigest()
         if computed_inventory != self.inventory_sha256:
             raise DomainError("scan-plan inventory digest is not canonical")
+        computed_snapshot = hashlib.sha256(json.dumps(
+            {
+                "root_files": [item.canonical_dict() for item in self.classifications],
+                "eligible_files": [item.canonical_dict() for item in self.files],
+            }, sort_keys=True, separators=(",", ":"),
+        ).encode()).hexdigest()
+        if self.snapshot_sha256 and self.snapshot_sha256 != computed_snapshot:
+            raise DomainError("scan-plan snapshot digest is not canonical")
+        object.__setattr__(self, "snapshot_sha256", computed_snapshot)
+        if self.role is ScanRole.DISCOVERY:
+            if self.config_sha256:
+                raise DomainError("discovery scan plan cannot claim a config identity")
+        else:
+            _digest(self.config_sha256, "scan-plan config digest")
         object.__setattr__(self, "_trusted", True)
 
     @property
@@ -584,6 +719,9 @@ class TrustedScanPlan:
             "files": [item.canonical_dict() for item in self.files],
             "resources": [item.canonical_dict() for item in self.resources],
             "inventory_sha256": self.inventory_sha256,
+            "role": self.role.value,
+            "snapshot_sha256": self.snapshot_sha256,
+            "config_sha256": self.config_sha256,
             "classifications": [
                 item.canonical_dict() for item in self.classifications
             ],
@@ -963,15 +1101,24 @@ def _read_detector_file(path: Path, root: Path, max_bytes: int) -> bytes:
 def attest_checkov_scan_plan(
     untrusted: CheckovScanRequest,
     config: TrustedVerificationConfigBundle | None = None,
+    role: ScanRole = ScanRole.DISCOVERY,
 ) -> TrustedScanPlan:
     """Re-discover bytes/resources; production calls provide protected config."""
     require_exact_type(untrusted, CheckovScanRequest, "unattested Checkov request")
+    require_enum(role, ScanRole, "scan-plan role")
     if config is not None:
         require_exact_type(config, TrustedVerificationConfigBundle, "verification config")
         if not config._trusted:
             raise DomainError("verification config lacks loader provenance")
-        if untrusted.scan_root not in {config.baseline_root, config.candidate_root}:
-            raise DomainError("scan root is outside the protected verification config")
+        expected_root = (
+            config.baseline_root if role is ScanRole.BASELINE
+            else config.candidate_root if role is ScanRole.CANDIDATE
+            else None
+        )
+        if expected_root is None:
+            raise DomainError("protected scan-plan attestation requires an exact role")
+        if untrusted.scan_root != expected_root:
+            raise DomainError("scan root does not match its protected baseline/candidate role")
         frameworks = config.frameworks
         max_file_bytes = config.max_file_bytes
         max_total_bytes = config.max_total_eligible_bytes
@@ -1109,6 +1256,9 @@ def attest_checkov_scan_plan(
         ordered_resources,
         inventory_digest,
         ordered_classifications,
+        role,
+        "",
+        config.config_sha256 if config is not None else "",
         _trusted_context=_TRUSTED_SCAN_PLAN_CONTEXT,
     )
 
@@ -1130,8 +1280,35 @@ class VerificationRequest:
         require_exact_type(self.config, TrustedVerificationConfigBundle, "verification config")
         if not self.config._trusted:
             raise DomainError("verification config lacks loader provenance")
-        baseline = attest_checkov_scan_plan(self.baseline_scan.request, self.config)
-        candidate = attest_checkov_scan_plan(self.candidate_scan.request, self.config)
+        if self.config.baseline_root == self.config.candidate_root:
+            raise DomainError("differential verification requires distinct roots")
+        if self.baseline_scan.scan_root != self.config.baseline_root:
+            raise DomainError("baseline scan root does not match the protected baseline role")
+        if self.candidate_scan.scan_root != self.config.candidate_root:
+            raise DomainError("candidate scan root does not match the protected candidate role")
+        if self.baseline_scan.role is ScanRole.CANDIDATE:
+            raise DomainError("candidate-attested scan plan cannot be reused as baseline")
+        if self.candidate_scan.role is ScanRole.BASELINE:
+            raise DomainError("baseline-attested scan plan cannot be reused as candidate")
+        for supplied in (self.baseline_scan, self.candidate_scan):
+            if supplied.role is not ScanRole.DISCOVERY and supplied.config_sha256 != self.config.config_sha256:
+                raise DomainError("role-bound scan plan belongs to a different trusted config")
+        baseline = attest_checkov_scan_plan(
+            self.baseline_scan.request, self.config, ScanRole.BASELINE
+        )
+        candidate = attest_checkov_scan_plan(
+            self.candidate_scan.request, self.config, ScanRole.CANDIDATE
+        )
+        if (
+            self.baseline_scan.role is ScanRole.BASELINE
+            and self.baseline_scan.snapshot_sha256 != baseline.snapshot_sha256
+        ):
+            raise DomainError("baseline role snapshot changed after attestation")
+        if (
+            self.candidate_scan.role is ScanRole.CANDIDATE
+            and self.candidate_scan.snapshot_sha256 != candidate.snapshot_sha256
+        ):
+            raise DomainError("candidate role snapshot changed after attestation")
         object.__setattr__(self, "baseline_scan", baseline)
         object.__setattr__(self, "candidate_scan", candidate)
         if type(self.targets) is not tuple or not self.targets:
@@ -1581,9 +1758,7 @@ def _occurrence_complete_pass(
     baseline_tokens = {
         item.native_fingerprint for item in baseline_findings if item.native_fingerprint
     }
-    evaluated_tokens = {
-        key for item in passed for key in item.evaluated_keys if key
-    }
+    evaluated_tokens = {item.occurrence_token for item in passed if item.occurrence_token}
     if len(baseline_tokens) == target.baseline_occurrences:
         return baseline_tokens <= evaluated_tokens
     return False
@@ -2003,6 +2178,7 @@ def run_checkov_verification(
 
 __all__ = [
     "ArtifactClassification", "ChangeMetrics", "EngineEventEvaluation",
+    "GateImplementation", "PolicySourceAuthorization",
     "GovernedConfigEvidence",
     "ScanPlanFile", "TargetObservation",
     "TargetOutcomeEvidence", "TrustedScanPlan", "VerificationRequest",

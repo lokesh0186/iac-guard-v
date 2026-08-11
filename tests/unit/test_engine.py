@@ -5,6 +5,7 @@ import hashlib
 from pathlib import Path
 
 import pytest
+import iac_guard_v.engine as ENGINE
 
 from iac_guard_v.adapters.checkov import (
     CheckovAdapter,
@@ -12,8 +13,11 @@ from iac_guard_v.adapters.checkov import (
     checkov_distribution_identity,
 )
 from iac_guard_v.engine import (
+    GateImplementation,
     TargetObservation,
     VerificationRequest,
+    TrustedGateRegistry,
+    TrustedVerificationConfigBundle,
     attest_checkov_scan_plan,
     classify_target,
     load_operator_verification_config,
@@ -193,14 +197,46 @@ def _config(
     executor=_gate,
     severity_floor: Severity = Severity.HIGH,
     fail_on_location_change: bool = False,
+    frameworks: tuple | None = None,
 ):
-    return load_operator_verification_config(
+    config = load_operator_verification_config(
         baseline.request,
         candidate.request,
         required_gates=gates,
         severity_floor=severity_floor,
         fail_on_location_change=fail_on_location_change,
-        _test_executor=executor,
+        frameworks=frameworks,
+    )
+    if executor is None:
+        return config
+    digest = "f" * 64
+    implementations = tuple(
+        GateImplementation(item, "validator", "test", digest, ())
+        for item in gates.validator_ids
+    ) + tuple(
+        GateImplementation(item, "oracle", "test", digest, ())
+        for item in gates.oracle_ids
+    )
+    registry = TrustedGateRegistry(
+        "iac_guard_v_private_test_registry_v1",
+        gates.validator_ids,
+        gates.oracle_ids,
+        implementations,
+        executor,
+        _trusted_context=ENGINE._TRUSTED_GATE_REGISTRY_CONTEXT,
+    )
+    return TrustedVerificationConfigBundle(
+        config.baseline_root, config.candidate_root, config.scanner_executable,
+        config.frameworks, config.expected_version,
+        config.expected_executable_sha256,
+        config.expected_scanner_environment_sha256,
+        config.expected_policy_inventory_sha256, config.required_gates,
+        config.severity_floor, config.fail_on_location_change,
+        config.timeout_seconds, config.max_output_bytes, config.max_eligible_files,
+        config.max_file_bytes, config.max_total_eligible_bytes,
+        config.governed_config, config.source_identity, "private_test",
+        config.policy_source_authorization,
+        registry, _trusted_context=ENGINE._TRUSTED_CONFIG_CONTEXT,
     )
 
 

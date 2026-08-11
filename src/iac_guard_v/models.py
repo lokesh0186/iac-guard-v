@@ -514,6 +514,7 @@ class CheckEvaluation:
     native_result: CheckEvaluationResult
     evaluated_keys: tuple = ()
     source_bucket: str = ""
+    occurrence_token: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "scanner", canonical_identifier(self.scanner, "scanner"))
@@ -545,6 +546,13 @@ class CheckEvaluation:
             "source_bucket",
             canonical_identifier(self.source_bucket, "source_bucket"),
         )
+        if type(self.occurrence_token) is not str:
+            raise DomainError("occurrence_token must be a string")
+        if self.occurrence_token:
+            object.__setattr__(
+                self, "occurrence_token",
+                canonical_identifier(self.occurrence_token, "occurrence_token"),
+            )
 
     @property
     def canonical_key(self) -> tuple:
@@ -557,6 +565,7 @@ class CheckEvaluation:
             self.native_result.value,
             self.evaluated_keys,
             self.source_bucket,
+            self.occurrence_token,
         )
 
     @property
@@ -581,6 +590,7 @@ class CheckEvaluation:
             "native_result": self.native_result.value,
             "evaluated_keys": list(self.evaluated_keys),
             "source_bucket": self.source_bucket,
+            "occurrence_token": self.occurrence_token,
         }
 
 
@@ -755,6 +765,7 @@ class ScannerRun:
                 evaluation.native_result,
                 evaluation.evaluated_keys,
                 evaluation.source_bucket,
+                evaluation.occurrence_token,
             )
             if (
                 rebuilt_evaluation.scanner != self.scanner

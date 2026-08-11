@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from iac_guard_v.adapters.checkov import CheckovAdapter
+from iac_guard_v.adapters.checkov import CheckovAdapter, checkov_occurrence_token
 from iac_guard_v.engine import (
     ChangeMetrics,
     EngineEventEvaluation,
@@ -78,6 +78,7 @@ def evaluation(
     resource: str = "aws_x.r",
     *,
     evaluated_keys: tuple = (),
+    occurrence_token: str = "",
 ) -> CheckEvaluation:
     bucket = {
         CheckEvaluationResult.PASSED: "passed_checks",
@@ -87,7 +88,7 @@ def evaluation(
     }[result]
     return CheckEvaluation(
         "checkov", "3.3.0", "CKV_X", resource, "main.tf", result,
-        evaluated_keys, bucket,
+        evaluated_keys, bucket, occurrence_token,
     )
 
 
@@ -334,12 +335,13 @@ def test_caller_inventory_is_ignored_and_rebuilt_from_file_bytes(tmp_path: Path)
     assert {item.resource_address for item in rebuilt.resources} == {
         "aws_x.r", "aws_x.hidden",
     }
+    other = _scan_request(tmp_path / "other", executable)
     with pytest.raises(Exception, match="trusted scan plan"):
         VerificationRequest(
             plan.request,
-            rebuilt,
+            other,
             (Target(IDENTITY, 1),),
-            _config(plan, rebuilt, RequiredGates(("validator",))),
+            _config(rebuilt, other, RequiredGates(("validator",))),
         )
     with pytest.raises(Exception, match="detector provenance"):
         TrustedScanPlan(
@@ -434,21 +436,31 @@ def test_two_occurrences_can_close_with_complete_native_tokens(
     monkeypatch, tmp_path: Path
 ) -> None:
     baseline_request, candidate_request = requests(tmp_path)
+    tokens = tuple(
+        checkov_occurrence_token(
+            "3.3.0", ArtifactKind.TERRAFORM_HCL, "main.tf", "CKV_X",
+            "aws_x.r", (key,),
+        )
+        for key in ("native-a", "native-b")
+    )
     baseline = scanner_run(
         baseline_request,
         findings=(
-            finding("aws_x.r", line=1, native="native-a"),
-            finding("aws_x.r", line=2, native="native-b"),
+            finding("aws_x.r", line=1, native=tokens[0]),
+            finding("aws_x.r", line=2, native=tokens[1]),
         ),
         evaluations=(evaluation(CheckEvaluationResult.FAILED),),
     )
     candidate = scanner_run(
         candidate_request,
         findings=(),
-        evaluations=(evaluation(
-            CheckEvaluationResult.PASSED,
-            evaluated_keys=("native-a", "native-b"),
-        ),),
+        evaluations=tuple(
+            evaluation(
+                CheckEvaluationResult.PASSED,
+                evaluated_keys=(key,), occurrence_token=token,
+            )
+            for key, token in zip(("native-a", "native-b"), tokens)
+        ),
     )
     result = execute(
         monkeypatch, baseline_request, candidate_request, baseline, candidate, count=2

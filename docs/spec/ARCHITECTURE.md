@@ -449,6 +449,15 @@ deletion cannot erase an unrelated same-address deletion. Governed paths are has
 mechanically, and the production runner calls only the versioned Terraform/Kubernetes
 gate registry; no arbitrary callback is exposed.
 
+D5.3 makes comparison direction part of the evidence. The configuration binds distinct
+baseline/candidate roots; role-specific re-attestation binds each `TrustedScanPlan` to
+its role, byte-manifest digest, and configuration digest. Swaps and same-root requests
+are rejected before adapter execution. The production registry is a closed table of
+packaged gates with implementation version/code digests and artifact support; callable
+injection exists only in test code. Checkov failed and positive evaluations use the same
+context-bound `checkov-occurrence-v1` token. The configuration also carries a
+factory-attested policy-source authorization that D6 must match.
+
 ## 16. D6 policy layer
 
 `policy.py` is the only layer that constructs `Verdict`. Its request requires a

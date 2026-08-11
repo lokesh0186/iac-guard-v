@@ -60,6 +60,9 @@ govern its own evaluation.
 | Reuse a deletion/suppression exception for the same address in another root | exception permission compares the exact file, artifact kind, and scanner-native resource binding; an unrelated same-address event remains independent |
 | Backdate evaluation or declare a gate optional in candidate input | UTC date is captured by the trusted execution clock; optionality is loaded only from the protected policy document |
 | Hide candidate policy edits behind caller-supplied equal digests | D6 retains the trusted digest, candidate presence/digest evidence, and differing governed paths and treats loader-observed drift as decisive |
+| Reverse baseline and candidate semantics | protected roots are distinct and role-specific plan attestation rejects swaps, cross-role reuse, and stale snapshot/config digests before execution |
+| Manufacture a validator pass with a callback | production configuration has no callback parameter and selects only code-digest-bound packaged gate implementations |
+| Add `.iac-guard.json` outside drift inventory | the protected governed-path catalog includes all IaC-Guard formats and candidate-only additions are path-specific `POLICY_DRIFT` |
 | Emit the same target as both passed and failed | evaluation-identity contradiction is a typed scanner error |
 
 ### T2 — Execute code on the runner

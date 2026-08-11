@@ -54,6 +54,11 @@ The closed `ArtifactKind` values are `TERRAFORM`, `KUBERNETES_YAML`, and
 `KUBERNETES_JSON`. JSON-syntax Terraform (`.tf.json`) remains explicitly unsupported
 in Phase D and therefore has no successful artifact-kind value.
 
+The closed `ScanRole` values are `DISCOVERY`, `BASELINE`, and `CANDIDATE`. A
+`DISCOVERY` plan is not differential evidence; a protected request re-attests it as the
+exact configured side. The closed `ExecutionMode` values are `PR_BASE`,
+`PROTECTED_POLICY_REPOSITORY`, and `EXPLICIT_OPERATOR`.
+
 ### 1.2 Process execution reasons and group inspection
 
 `ProcessReason` is a closed execution-evidence vocabulary:
@@ -1085,3 +1090,22 @@ resource, file, artifact kind, and native lookup; repeated addresses require a f
 module selector. Destructive events retain complete `ExpectedResource` records and a
 target deletion exempts only its exact key. Production gates come from the versioned
 Terraform/Kubernetes registry; the runner exposes no arbitrary callback.
+
+### 14.1 D5.3 role and implementation binding
+
+The protected bundle binds distinct canonical baseline and candidate roots. Reversing
+them, using one root twice, reusing a role-bound plan on the other side, changing its
+snapshot manifest, or presenting a plan from another configuration is invalid before
+execution. Each plan records role, byte-manifest digest, and configuration digest.
+
+The production operator loader accepts gate identifiers only. Its closed packaged
+registry records each gate's id, implementation version, code digest, and supported
+artifact kinds; no callback parameter exists. Test executors are assembled only inside
+the test suite. Governed-path comparison includes `.iac-guard.json` and the protected
+scanner, ignore, custom-check, Terraform/OpenTofu, oracle, catalog, severity, exception,
+and required-gate configuration catalog. Candidate-only files are `POLICY_DRIFT`.
+
+`checkov-occurrence-v1` is the sole positive/negative Checkov occurrence-token domain.
+It binds scanner version, artifact kind, file, rule, resource, evaluated keys, and any
+native fingerprint. Multiple occurrences close only by exact token-set coverage or a
+complete independent oracle.

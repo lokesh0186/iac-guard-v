@@ -324,14 +324,11 @@ def test_protected_framework_set_overrides_narrow_caller_scan_universe(
     gates = RequiredGates(("validator",))
     # The raw requests selected Terraform only. Protected configuration expands the
     # required universe and the factory must rediscover the Kubernetes input.
-    from iac_guard_v.engine import load_operator_verification_config
-
-    config = load_operator_verification_config(
-        baseline_plan.request,
-        candidate_plan.request,
-        required_gates=gates,
+    config = _config(
+        baseline_plan,
+        candidate_plan,
+        gates,
         frameworks=("terraform", "kubernetes"),
-        _test_executor=_gate,
     )
     request = VerificationRequest(
         baseline_plan, candidate_plan, (Target(IDENTITY, 1),), config
@@ -374,6 +371,11 @@ def test_gate_registry_mutation_guards(changes) -> None:
         "identity": "registry",
         "validator_ids": ("validator",),
         "oracle_ids": (),
+        "implementations": (
+            ENGINE.GateImplementation(
+                "validator", "validator", "test", "f" * 64, ()
+            ),
+        ),
         "_executor": _gate,
         "_trusted_context": ENGINE._TRUSTED_GATE_REGISTRY_CONTEXT,
     }
@@ -389,7 +391,7 @@ def test_provenance_and_governed_evidence_mutations(tmp_path: Path) -> None:
     with pytest.raises(Exception, match="contradicts"):
         GovernedConfigEvidence("config.json", digest, digest, "changed")
     with pytest.raises(Exception, match="factory provenance"):
-        TrustedGateRegistry("registry", (), (), _gate)
+        TrustedGateRegistry("registry", (), (), (), _gate)
     assert ENGINE._production_gate_executor(
         "oracle", "oracle", tmp_path
     ).status is Status.UNSUPPORTED

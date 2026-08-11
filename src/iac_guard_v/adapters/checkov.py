@@ -671,22 +671,35 @@ def _severity(raw: Any) -> Severity:
         raise DomainError("Checkov severity is outside the closed severity vocabulary") from exc
 
 
-def _native_fingerprint(check: dict) -> str:
-    native_raw = check.get("fingerprint")
-    if native_raw:
-        return canonical_identifier(native_raw, "Checkov fingerprint")
-    check_result = check.get("check_result")
-    if check_result is None:
-        return ""
-    if type(check_result) is not dict:
-        raise DomainError("Checkov check_result must be a JSON object")
-    evaluated = check_result.get("evaluated_keys")
-    if evaluated is None:
-        return ""
-    if type(evaluated) is not list or any(type(item) is not str for item in evaluated):
-        raise DomainError("Checkov evaluated_keys must be a JSON string array")
-    payload = json.dumps(evaluated, ensure_ascii=False, separators=(",", ":")).encode()
-    return f"checkov-eval-v1:{hashlib.sha256(payload).hexdigest()}"
+def checkov_occurrence_token(
+    scanner_version: str,
+    artifact_kind: ArtifactKind,
+    file_path: str,
+    rule_id: str,
+    resource_address: str,
+    evaluated_keys: tuple[str, ...],
+    native_fingerprint: str = "",
+) -> str:
+    """Return one context-bound token shared by failed and positive evidence."""
+    if type(evaluated_keys) is not tuple or any(type(item) is not str for item in evaluated_keys):
+        raise DomainError("Checkov occurrence evaluated_keys must be an exact string tuple")
+    payload = {
+        "scanner": "checkov",
+        "scanner_version": canonical_identifier(scanner_version, "Checkov version"),
+        "artifact_kind": artifact_kind.value,
+        "file_path": file_path,
+        "rule_id": canonical_identifier(rule_id, "Checkov check_id"),
+        "resource_address": resource_address,
+        "evaluated_keys": sorted(set(evaluated_keys)),
+        "native_fingerprint": (
+            canonical_identifier(native_fingerprint, "Checkov fingerprint")
+            if native_fingerprint else ""
+        ),
+    }
+    digest = hashlib.sha256(
+        json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return f"checkov-occurrence-v1:{digest}"
 
 
 def _evaluated_keys(check: dict) -> tuple[str, ...]:
@@ -741,9 +754,10 @@ def _evaluation(
     check_result = check.get("check_result")
     if type(check_result) is not dict or check_result.get("result") != expected_result.value:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
-    file_path, resource_address, _ = _resource_evidence(
+    file_path, resource_address, artifact_kind = _resource_evidence(
         check, check_type, request, native_scan_root
     )
+    evaluated_keys = _evaluated_keys(check)
     return CheckEvaluation(
         scanner="checkov",
         scanner_version=version,
@@ -751,8 +765,14 @@ def _evaluation(
         resource_address=resource_address,
         file_path=file_path,
         native_result=expected_result,
-        evaluated_keys=_evaluated_keys(check),
+        evaluated_keys=evaluated_keys,
         source_bucket=source_bucket,
+        occurrence_token=checkov_occurrence_token(
+            version, artifact_kind, file_path,
+            canonical_identifier(check.get("check_id"), "Checkov check_id"),
+            resource_address, evaluated_keys,
+            check.get("fingerprint") or "",
+        ),
     )
 
 
@@ -781,7 +801,10 @@ def _finding(
         location=FindingLocation(file_path, start, end),
         severity=_severity(check.get("severity")),
         rule_name=rule_name,
-        native_fingerprint=_native_fingerprint(check),
+        native_fingerprint=checkov_occurrence_token(
+            version, artifact_kind, file_path, rule_id, resource_address,
+            _evaluated_keys(check), check.get("fingerprint") or "",
+        ),
         artifact_kind=artifact_kind,
         suppressed=suppressed,
     )
@@ -1516,6 +1539,7 @@ __all__ = [
     "CheckovScanRequest",
     "CheckovTargetEvidence",
     "checkov_distribution_identity",
+    "checkov_occurrence_token",
     "evaluate_checkov_target",
     "require_trusted_checkov_target_evidence",
 ]

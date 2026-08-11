@@ -109,3 +109,12 @@ The target selector may begin as scanner/rule/resource, but D5 and authorisation
 resolved binding containing file, artifact kind, and scanner-native lookup. Repeated
 addresses across roots are ambiguous without a file/module selector. Destructive events
 retain complete expected-resource keys; address-only deduplication is forbidden.
+
+## Amendment, 2026-08-11: shared Checkov occurrence tokens
+
+Failed findings and positive evaluations now derive `checkov-occurrence-v1` through one
+function. The token binds Checkov version, artifact kind, canonical file, rule, resource,
+canonical evaluated-key set, and any native fingerprint. Raw evaluated keys and an
+independently hashed native-fingerprint string are never compared as though they were
+one domain. Multi-occurrence repair requires exact token-set coverage or a complete
+independent target oracle.

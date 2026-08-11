@@ -122,6 +122,20 @@ class ArtifactKind(str, Enum):
     UNKNOWN = "unknown"
 
 
+class ScanRole(str, Enum):
+    """Attested semantic side of a differential verification."""
+
+    DISCOVERY = "discovery"
+    BASELINE = "baseline"
+    CANDIDATE = "candidate"
+
+
+class ExecutionMode(str, Enum):
+    PR_BASE = "pr_base"
+    PROTECTED_POLICY_REPOSITORY = "protected_policy_repository"
+    EXPLICIT_OPERATOR = "explicit_operator"
+
+
 class Severity(str, Enum):
     CRITICAL = "CRITICAL"
     HIGH = "HIGH"
