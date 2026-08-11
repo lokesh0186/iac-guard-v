@@ -12,7 +12,7 @@ import os
 import shutil
 import stat
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -87,8 +87,12 @@ class CheckovTargetEvidence:
     status: Status
     reason: CheckTargetReason
     evaluations: tuple
+    _trusted_context: InitVar[object] = None
+    _trusted_adapter_evidence: bool = field(
+        init=False, default=False, repr=False, compare=False
+    )
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _trusted_context: object) -> None:
         if type(self.status) is not Status:
             raise DomainError("target evidence status must be an exact Status")
         if type(self.reason) is not CheckTargetReason:
@@ -98,6 +102,31 @@ class CheckovTargetEvidence:
         for item in self.evaluations:
             if type(item) is not CheckEvaluation:
                 raise DomainError("target evaluations must contain CheckEvaluation")
+        if _trusted_context is _TRUSTED_CHECKOV_TARGET_CONTEXT:
+            object.__setattr__(self, "_trusted_adapter_evidence", True)
+
+
+_TRUSTED_CHECKOV_TARGET_CONTEXT = object()
+
+
+def _target_evidence(
+    status: Status, reason: CheckTargetReason, evaluations: tuple
+) -> CheckovTargetEvidence:
+    return CheckovTargetEvidence(
+        status,
+        reason,
+        evaluations,
+        _trusted_context=_TRUSTED_CHECKOV_TARGET_CONTEXT,
+    )
+
+
+def require_trusted_checkov_target_evidence(value: object) -> CheckovTargetEvidence:
+    """D5 boundary: accept only target evidence derived from a trusted run."""
+    if type(value) is not CheckovTargetEvidence:
+        raise DomainError("target evidence must be an exact CheckovTargetEvidence")
+    if not value._trusted_adapter_evidence:
+        raise DomainError("CheckovTargetEvidence is caller-authored, not trusted evidence")
+    return value
 
 
 def _sha256_manifest(files: list[tuple[str, Path]]) -> str:
@@ -441,7 +470,7 @@ def _reason_run(
     evaluations: tuple = (),
 ) -> ScannerRun:
     diagnostic_values = (reason.value, *diagnostics)
-    return ScannerRun(
+    return ScannerRun._from_adapter(
         scanner="checkov",
         scanner_version=version or request.expected_version,
         status=status,
@@ -844,7 +873,7 @@ def _normalize(
         )
     status = Status.PARTIAL if partial_diagnostics else Status.PASS
     diagnostics = tuple(partial_diagnostics or [AdapterReason.COMPLETED.value])
-    return ScannerRun(
+    return ScannerRun._from_adapter(
         scanner="checkov",
         scanner_version=probed_version,
         status=status,
@@ -890,27 +919,27 @@ def evaluate_checkov_target(
     )
     results = {item.native_result for item in scoped}
     if CheckEvaluationResult.FAILED in results:
-        return CheckovTargetEvidence(Status.FAIL, CheckTargetReason.TARGET_FAILED, scoped)
+        return _target_evidence(Status.FAIL, CheckTargetReason.TARGET_FAILED, scoped)
     if CheckEvaluationResult.SKIPPED in results:
-        return CheckovTargetEvidence(
+        return _target_evidence(
             Status.INCONCLUSIVE, CheckTargetReason.TARGET_SUPPRESSED, scoped
         )
     if CheckEvaluationResult.UNKNOWN in results:
-        return CheckovTargetEvidence(
+        return _target_evidence(
             Status.INCONCLUSIVE,
             CheckTargetReason.TARGET_EVALUATION_UNKNOWN,
             scoped,
         )
     if CheckEvaluationResult.PASSED in results:
         if run.status is not Status.PASS or run.ruleset_integrity is not Status.PASS:
-            return CheckovTargetEvidence(
+            return _target_evidence(
                 Status.INCONCLUSIVE, CheckTargetReason.SCANNER_RUN_NOT_PASS, scoped
             )
-        return CheckovTargetEvidence(
+        return _target_evidence(
             Status.PASS, CheckTargetReason.AFFIRMATIVE_TARGET_PASS, scoped
         )
     if run.coverage.evaluations_reported > len(run.evaluations):
-        return CheckovTargetEvidence(
+        return _target_evidence(
             Status.INCONCLUSIVE, CheckTargetReason.AGGREGATE_ONLY_EVIDENCE, ()
         )
     resources = {
@@ -920,14 +949,14 @@ def evaluate_checkov_target(
         item_resource == resource and (path is None or item_path == path)
         for item_path, item_resource in resources
     ):
-        return CheckovTargetEvidence(
+        return _target_evidence(
             Status.INCONCLUSIVE, CheckTargetReason.RESOURCE_NOT_OBSERVED, ()
         )
     if not any(item.rule_id == rule for item in run.evaluations):
-        return CheckovTargetEvidence(
+        return _target_evidence(
             Status.INCONCLUSIVE, CheckTargetReason.RULE_NOT_OBSERVED, ()
         )
-    return CheckovTargetEvidence(
+    return _target_evidence(
         Status.INCONCLUSIVE, CheckTargetReason.TARGET_NOT_EVALUATED, ()
     )
 

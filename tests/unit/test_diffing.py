@@ -96,11 +96,9 @@ def test_dense_compaction_cannot_hide_severity_increase() -> None:
         (finding("aws_s3_bucket.data", start=20, severity=Severity.HIGH),)
     )
     result = diff_findings(baseline, candidate)
-    increased = [delta for delta in result
-                 if delta.delta_class is DeltaClass.SEVERITY_INCREASED]
-    assert len(increased) == 1
-    assert increased[0].baseline.location.start_line == 20
-    assert increased[0].candidate.location.start_line == 20
+    assert result.deltas == ()
+    assert len(result.ambiguities) == 1
+    assert result.ambiguities[0].reason.value == "MATCHING_INCONCLUSIVE"
 
 
 def test_dense_compaction_cannot_hide_suppression_addition() -> None:
@@ -112,11 +110,9 @@ def test_dense_compaction_cannot_hide_suppression_addition() -> None:
         (finding("aws_s3_bucket.data", start=20, suppressed=True),)
     )
     result = diff_findings(baseline, candidate)
-    added = [delta for delta in result
-             if delta.delta_class is DeltaClass.SUPPRESSION_ADDED]
-    assert len(added) == 1
-    assert added[0].baseline.location.start_line == 20
-    assert added[0].candidate.location.start_line == 20
+    assert result.deltas == ()
+    assert len(result.ambiguities) == 1
+    assert result.ambiguities[0].reason.value == "MATCHING_INCONCLUSIVE"
 
 
 def test_ambiguous_diff_is_typed_and_does_not_guess_resolved_or_new() -> None:

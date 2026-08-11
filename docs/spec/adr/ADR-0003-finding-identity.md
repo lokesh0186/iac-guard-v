@@ -82,3 +82,23 @@ ordinary resolved/new deltas. Scanner identity, scanner version, and artifact ki
 one required match domain. Delta constructors independently enforce the location,
 severity, suppression, and resource-set predicates they claim. Validation uses
 `Counter`/set grouping rather than quadratic duplicate counting.
+
+## Amendment, 2026-08-11: D3.2 conservative churn and multi-domain runs
+
+Equal no-native locations are not intrinsically stable occurrence identifiers. After
+native matches are consumed, no-native rule/resource groups with multiplicity greater
+than one may pair locations only when cardinality and the unique location multiset are
+identical. Otherwise the entire affected group is `MATCHING_INCONCLUSIVE`; consuming a
+reused location could hide a moved occurrence's severity or suppression transition.
+One-to-one relocation remains supported, and stable native occurrence evidence remains
+authoritative through churn.
+
+Scanner and version identify the comparison run. Artifact kind identifies a partition
+within that run, so Checkov Terraform and Kubernetes findings compare independently.
+Scanner/version drift remains an integrity error; an artifact domain appearing on only
+one side remains canonical unmatched evidence and cannot cross-match.
+
+Matching and diff objects are factory-bound with private noncanonical provenance.
+Adapter scanner/target evidence distinguishes internal production from ordinary public
+model construction. This prevents a CLI/config/JSON caller from supplying precomputed
+`NEW_FINDING` or `RESOLVED_FINDING` claims to D5; D5 must invoke the trusted factories.

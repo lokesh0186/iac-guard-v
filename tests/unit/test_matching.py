@@ -112,9 +112,11 @@ def test_dense_occurrence_index_compaction_cannot_mispair_retained_line() -> Non
         (finding("aws_s3_bucket.data", start=20, end=20),)
     )
     comparison = compare_finding_multisets(baseline, candidate)
-    assert [(match.baseline.location.start_line, match.candidate.location.start_line)
-            for match in comparison.matches] == [(20, 20)]
-    assert [item.location.start_line for item in comparison.unmatched_baseline] == [10]
+    assert comparison.matches == ()
+    assert comparison.unmatched_baseline == ()
+    assert comparison.unmatched_candidate == ()
+    assert len(comparison.ambiguities) == 1
+    assert comparison.ambiguities[0].reason.value == "MATCHING_INCONCLUSIVE"
 
 
 def test_equally_supported_occurrence_pairings_are_typed_inconclusive() -> None:
@@ -248,12 +250,20 @@ def test_public_exact_match_rejects_incompatible_domains(candidate: Finding) -> 
     "candidate",
     [
         finding("aws_s3_bucket.a", scanner="trivy"),
-        finding("aws_s3_bucket.a", artifact_kind=ArtifactKind.CLOUDFORMATION),
     ],
 )
-def test_comparison_rejects_cross_scanner_or_artifact_domains(candidate: Finding) -> None:
+def test_comparison_rejects_cross_scanner_domains(candidate: Finding) -> None:
     with pytest.raises(DomainError, match="match domain"):
         compare_finding_multisets((finding("aws_s3_bucket.a"),), (candidate,))
+
+
+def test_one_sided_artifact_domain_is_unmatched_not_cross_matched() -> None:
+    baseline = finding("aws_s3_bucket.a")
+    candidate = finding("aws_s3_bucket.a", artifact_kind=ArtifactKind.CLOUDFORMATION)
+    comparison = compare_finding_multisets((baseline,), (candidate,))
+    assert comparison.matches == ()
+    assert comparison.unmatched_baseline == (baseline,)
+    assert comparison.unmatched_candidate == (candidate,)
 
 
 def test_public_comparison_requires_exact_tuple_fields() -> None:

@@ -31,7 +31,7 @@ import hashlib
 import re
 import unicodedata
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from datetime import date, datetime
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -52,6 +52,9 @@ from .enums import (
 
 class DomainError(ValueError):
     """A value outside the specified domain. Raised, never classified."""
+
+
+_TRUSTED_ADAPTER_CONTEXT = object()
 
 
 class InvalidRequestError(DomainError):
@@ -531,8 +534,12 @@ class ScannerRun:
     input_files: tuple = ()
     duration_ms: int = 0
     diagnostics: tuple = ()
+    _trusted_context: InitVar[object] = None
+    _trusted_adapter_evidence: bool = field(
+        init=False, default=False, repr=False, compare=False
+    )
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _trusted_context: object) -> None:
         set_ = object.__setattr__
         set_(self, "scanner", canonical_identifier(self.scanner, "scanner"))
         set_(self, "scanner_version",
@@ -655,6 +662,13 @@ class ScannerRun:
                 "resolved_launcher_path",
                 redact_detail(self.resolved_launcher_path),
             )
+        if _trusted_context is _TRUSTED_ADAPTER_CONTEXT:
+            set_(self, "_trusted_adapter_evidence", True)
+
+    @classmethod
+    def _from_adapter(cls, **kwargs: Any) -> "ScannerRun":
+        """Construct adapter-owned evidence; not a deserialisation API."""
+        return cls(_trusted_context=_TRUSTED_ADAPTER_CONTEXT, **kwargs)
 
     def canonical_dict(self) -> dict:
         return {
@@ -675,6 +689,14 @@ class ScannerRun:
             "input_files": [item.canonical_dict() for item in self.input_files],
             "diagnostics": list(self.diagnostics),
         }
+
+
+def require_trusted_scanner_run(value: object) -> ScannerRun:
+    """D5 boundary: caller-created ScannerRun objects are never authoritative."""
+    require_exact_type(value, ScannerRun, "scanner run")
+    if not value._trusted_adapter_evidence:
+        raise DomainError("ScannerRun is caller-authored, not trusted adapter evidence")
+    return value
 
 
 # --------------------------------------------------------------------------- #

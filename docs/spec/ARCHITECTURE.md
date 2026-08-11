@@ -342,11 +342,13 @@ ordinals only and are excluded from authority. `iacgv2` binds stable native occu
 evidence when available, and that native fingerprint is also retained in its own field.
 
 `matching.py` accepts exact built-in finding collections, reconstructs their values, and
-rejects duplicate full evidence records, forged stored fingerprints, and match-domain
-drift across scanner identity, scanner version, or artifact kind. It matches stable
-native occurrence evidence first, then equal no-native location evidence, and permits
-only uniquely constrained same-resource relocation. Equally supported pairings are
-frozen, slotted, canonically ordered `MATCHING_INCONCLUSIVE` evidence objects.
+rejects duplicate full evidence records, forged stored fingerprints, and scanner/version
+run-identity drift. A Checkov run may contain several artifact domains; each equal domain
+is matched independently and a one-sided domain remains unmatched. Stable native
+occurrence evidence is consumed first. Remaining no-native multiplicities use location
+only when equal cardinality and an identical unique location multiset prove the pairing;
+cardinality/location churn makes the whole group `MATCHING_INCONCLUSIVE`, even if one old
+location is reused.
 
 `diffing.py` projects proven matches into the six delta classes established by finding
 evidence alone and carries matching ambiguities beside the deltas. Each public delta
@@ -354,6 +356,12 @@ constructor proves its semantic predicate, including complete resource-set evide
 scope expansion. The five classes needing engine, coverage, plan, diagnostic,
 control-map, or policy inputs remain unavailable at this boundary and are deferred to
 D5. Different resource addresses never relocate.
+
+Derived matching/diffing objects carry noncanonical factory provenance, and adapter-owned
+scanner/target evidence is marked separately from caller-created model objects. The D5
+production API must accept paths, target identities, and protected policy/configuration,
+then invoke adapters and comparison internally; it has no field for caller-precomputed
+scanner runs, matches, ambiguities, deltas, or target evidence.
 
 ## 14. D4 Checkov adapter
 

@@ -200,14 +200,19 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 2. Scanner-native and IaC-Guard-V fingerprints coexist; a forged stored IaC-Guard-V
    fingerprint is rejected before matching or delta generation.
 3. Matching preserves every occurrence, is independent of caller order, rejects
-   scanner/version/artifact domain drift, matches stable identity before constrained
-   relocation, and types equally supported pairings as `MATCHING_INCONCLUSIVE`.
+   scanner/version drift, partitions valid multi-artifact runs, matches stable identity
+   before constrained relocation, and types equally supported pairings as
+   `MATCHING_INCONCLUSIVE`. Reused no-native locations cannot defeat multiplicity-churn
+   ambiguity.
 4. Line-only and file moves remain observable as `LOCATION_CHANGED`; moving a rule to a
    different resource produces `RESOLVED_FINDING` plus `NEW_FINDING`.
 5. Finding-only delta constructors cannot claim events that require later engine or
    trusted-policy evidence, and must prove the predicate of every delta they do expose.
 6. Fingerprint, matching, and diffing modules each maintain at least 90% executable test
    coverage in CI.
+7. D5-facing evidence is factory-bound: public requests contain paths, targets, and
+   protected configuration/policy, never caller-authored scanner runs, matches,
+   ambiguities, deltas, diff results, or target-evaluation evidence.
 
 ## 15. D4 — Checkov-only adapter
 

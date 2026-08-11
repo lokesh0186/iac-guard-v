@@ -2,11 +2,15 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass, field
 
 from .enums import DeltaClass, SEVERITY_ORDER
 from .fingerprints import compute_iacgv_fingerprint
-from .matching import MatchingAmbiguity, compare_finding_multisets
+from .matching import (
+    MatchingAmbiguity,
+    compare_finding_multisets,
+    require_trusted_comparison,
+)
 from .models import (
     MAX_MESSAGE_LENGTH,
     DomainError,
@@ -27,6 +31,7 @@ _FINDING_DELTA_CLASSES = frozenset(
         DeltaClass.RESOLVED_FINDING,
     }
 )
+_TRUSTED_DIFF_CONTEXT = object()
 
 
 def _location(finding: Finding) -> tuple[str, int, int]:
@@ -110,8 +115,10 @@ class FindingDelta:
     candidate: Finding | None = None
     detail: str = ""
     scope_evidence: ScopeExpansionEvidence | None = None
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _trusted_context: object) -> None:
         require_enum(self.delta_class, DeltaClass, "delta_class")
         if self.delta_class not in _FINDING_DELTA_CLASSES:
             raise DomainError(
@@ -186,6 +193,11 @@ class FindingDelta:
                 raise DomainError("SCOPE_EXPANDED candidate is absent from its evidence set")
         elif self.scope_evidence is not None:
             raise DomainError("scope_evidence is valid only for SCOPE_EXPANDED")
+        if _trusted_context is not _TRUSTED_DIFF_CONTEXT:
+            raise DomainError(
+                f"{self.delta_class.value} requires complete trusted comparison context"
+            )
+        object.__setattr__(self, "_trusted", True)
 
     @property
     def canonical_key(self) -> tuple:
@@ -207,8 +219,10 @@ class FindingDelta:
 class FindingDiffResult(Sequence[FindingDelta]):
     deltas: tuple
     ambiguities: tuple = ()
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _trusted_context: object) -> None:
         for name, expected in (("deltas", FindingDelta), ("ambiguities", MatchingAmbiguity)):
             raw = getattr(self, name)
             if type(raw) is not tuple:
@@ -221,6 +235,13 @@ class FindingDiffResult(Sequence[FindingDelta]):
             "ambiguities",
             tuple(sorted(self.ambiguities, key=lambda item: item.canonical_key)),
         )
+        if _trusted_context is not _TRUSTED_DIFF_CONTEXT:
+            raise DomainError("FindingDiffResult requires complete trusted comparison context")
+        if any(not item._trusted for item in self.deltas):
+            raise DomainError("FindingDiffResult contains caller-authored delta evidence")
+        if any(not item._trusted for item in self.ambiguities):
+            raise DomainError("FindingDiffResult contains caller-authored ambiguity evidence")
+        object.__setattr__(self, "_trusted", True)
 
     def __len__(self) -> int:
         return len(self.deltas)
@@ -248,18 +269,52 @@ def diff_findings(
     baseline_snapshot = tuple(baseline)
     candidate_snapshot = tuple(candidate)
     comparison = compare_finding_multisets(baseline_snapshot, candidate_snapshot)
+    require_trusted_comparison(comparison)
     deltas: list[FindingDelta] = []
     for match in comparison.matches:
         if match.location_changed:
-            deltas.append(FindingDelta(DeltaClass.LOCATION_CHANGED, match.baseline, match.candidate))
+            deltas.append(
+                FindingDelta(
+                    DeltaClass.LOCATION_CHANGED,
+                    match.baseline,
+                    match.candidate,
+                    _trusted_context=_TRUSTED_DIFF_CONTEXT,
+                )
+            )
         if match.severity_increased:
-            deltas.append(FindingDelta(DeltaClass.SEVERITY_INCREASED, match.baseline, match.candidate))
+            deltas.append(
+                FindingDelta(
+                    DeltaClass.SEVERITY_INCREASED,
+                    match.baseline,
+                    match.candidate,
+                    _trusted_context=_TRUSTED_DIFF_CONTEXT,
+                )
+            )
         if not match.baseline.suppressed and match.candidate.suppressed:
-            deltas.append(FindingDelta(DeltaClass.SUPPRESSION_ADDED, match.baseline, match.candidate))
+            deltas.append(
+                FindingDelta(
+                    DeltaClass.SUPPRESSION_ADDED,
+                    match.baseline,
+                    match.candidate,
+                    _trusted_context=_TRUSTED_DIFF_CONTEXT,
+                )
+            )
     for finding in comparison.unmatched_candidate:
-        deltas.append(FindingDelta(DeltaClass.NEW_FINDING, candidate=finding))
+        deltas.append(
+            FindingDelta(
+                DeltaClass.NEW_FINDING,
+                candidate=finding,
+                _trusted_context=_TRUSTED_DIFF_CONTEXT,
+            )
+        )
     for finding in comparison.unmatched_baseline:
-        deltas.append(FindingDelta(DeltaClass.RESOLVED_FINDING, baseline=finding))
+        deltas.append(
+            FindingDelta(
+                DeltaClass.RESOLVED_FINDING,
+                baseline=finding,
+                _trusted_context=_TRUSTED_DIFF_CONTEXT,
+            )
+        )
 
     baseline_groups: dict[tuple, list[Finding]] = {}
     candidate_groups: dict[tuple, list[Finding]] = {}
@@ -290,9 +345,22 @@ def diff_findings(
                         candidate=candidate_finding,
                         detail=f"{group[0][0]}:{group[1]} added resource {resource}",
                         scope_evidence=evidence,
+                        _trusted_context=_TRUSTED_DIFF_CONTEXT,
                     )
                 )
-    return FindingDiffResult(tuple(deltas), comparison.ambiguities)
+    return FindingDiffResult(
+        tuple(deltas),
+        comparison.ambiguities,
+        _trusted_context=_TRUSTED_DIFF_CONTEXT,
+    )
+
+
+def require_trusted_diff_result(value: object) -> FindingDiffResult:
+    """D5 boundary: reject caller-created deltas and aggregate result objects."""
+    require_exact_type(value, FindingDiffResult, "finding diff result")
+    if not value._trusted:
+        raise DomainError("finding diff result is caller-authored, not trusted evidence")
+    return value
 
 
 __all__ = [
@@ -300,4 +368,5 @@ __all__ = [
     "FindingDiffResult",
     "ScopeExpansionEvidence",
     "diff_findings",
+    "require_trusted_diff_result",
 ]

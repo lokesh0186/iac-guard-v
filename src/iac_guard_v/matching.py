@@ -9,11 +9,14 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import InitVar, dataclass, field
 
 from .enums import IdentityTier, MatchingReason, SEVERITY_ORDER
 from .fingerprints import compute_iacgv_fingerprint
 from .models import DomainError, Finding, _rebuild_finding, require_enum, require_exact_type
+
+
+_TRUSTED_MATCHING_CONTEXT = object()
 
 
 def _location_key(finding: Finding) -> tuple[str, int, int]:
@@ -62,8 +65,10 @@ class FindingMatch:
     baseline: Finding
     candidate: Finding
     tier: IdentityTier
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _trusted_context: object) -> None:
         require_exact_type(self.baseline, Finding, "baseline finding")
         require_exact_type(self.candidate, Finding, "candidate finding")
         require_enum(self.tier, IdentityTier, "matching tier")
@@ -89,8 +94,11 @@ class FindingMatch:
             raise DomainError("same-scanner multiset matching permits EXACT or RELOCATED only")
         if not _same_occurrence_relation(baseline, candidate):
             raise DomainError("FindingMatch requires compatible stable occurrence evidence")
+        if _trusted_context is not _TRUSTED_MATCHING_CONTEXT:
+            raise DomainError("FindingMatch requires trusted comparison context")
         object.__setattr__(self, "baseline", baseline)
         object.__setattr__(self, "candidate", candidate)
+        object.__setattr__(self, "_trusted", True)
 
     @property
     def location_changed(self) -> bool:
@@ -121,8 +129,10 @@ class MatchingAmbiguity:
     baseline: tuple
     candidate: tuple
     reason: MatchingReason = MatchingReason.MATCHING_INCONCLUSIVE
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _trusted_context: object) -> None:
         require_enum(self.reason, MatchingReason, "matching ambiguity reason")
         for name in ("baseline", "candidate"):
             raw = getattr(self, name)
@@ -136,6 +146,9 @@ class MatchingAmbiguity:
         domains = {item.match_domain_key for item in (*self.baseline, *self.candidate)}
         if len(domains) != 1:
             raise DomainError("ambiguous findings must remain within one match domain")
+        if _trusted_context is not _TRUSTED_MATCHING_CONTEXT:
+            raise DomainError("MatchingAmbiguity requires trusted comparison context")
+        object.__setattr__(self, "_trusted", True)
 
     @property
     def canonical_key(self) -> tuple:
@@ -159,8 +172,10 @@ class FindingMultisetComparison:
     unmatched_baseline: tuple
     unmatched_candidate: tuple
     ambiguities: tuple = ()
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
-    def __post_init__(self) -> None:
+    def __post_init__(self, _trusted_context: object) -> None:
         for name, expected in (
             ("matches", FindingMatch),
             ("unmatched_baseline", Finding),
@@ -172,17 +187,33 @@ class FindingMultisetComparison:
                 raise DomainError(f"{name} must be an exact tuple")
             for value in raw:
                 require_exact_type(value, expected, f"{name} entry")
-        matches = tuple(FindingMatch(item.baseline, item.candidate, item.tier) for item in self.matches)
+        matches = tuple(
+            FindingMatch(
+                item.baseline,
+                item.candidate,
+                item.tier,
+                _trusted_context=_TRUSTED_MATCHING_CONTEXT,
+            )
+            for item in self.matches
+        )
         baseline = tuple(_rebuild_finding(item) for item in self.unmatched_baseline)
         candidate = tuple(_rebuild_finding(item) for item in self.unmatched_candidate)
         ambiguities = tuple(
-            MatchingAmbiguity(item.baseline, item.candidate, item.reason)
+            MatchingAmbiguity(
+                item.baseline,
+                item.candidate,
+                item.reason,
+                _trusted_context=_TRUSTED_MATCHING_CONTEXT,
+            )
             for item in self.ambiguities
         )
         object.__setattr__(self, "matches", tuple(sorted(matches, key=lambda item: item.canonical_key)))
         object.__setattr__(self, "unmatched_baseline", tuple(sorted(baseline, key=_finding_order_key)))
         object.__setattr__(self, "unmatched_candidate", tuple(sorted(candidate, key=_finding_order_key)))
         object.__setattr__(self, "ambiguities", tuple(sorted(ambiguities, key=lambda item: item.canonical_key)))
+        if _trusted_context is not _TRUSTED_MATCHING_CONTEXT:
+            raise DomainError("FindingMultisetComparison requires trusted comparison context")
+        object.__setattr__(self, "_trusted", True)
 
     def canonical_dict(self) -> dict:
         return {
@@ -216,24 +247,26 @@ def _validated_findings(raw: object, label: str) -> tuple[Finding, ...]:
     return tuple(sorted(findings, key=_finding_order_key))
 
 
-def _validate_match_domain(
+def _validate_run_identity(
     baseline: tuple[Finding, ...], candidate: tuple[Finding, ...]
 ) -> None:
-    baseline_domains = {item.match_domain_key for item in baseline}
-    candidate_domains = {item.match_domain_key for item in candidate}
-    for side, domains in (("baseline", baseline_domains), ("candidate", candidate_domains)):
-        if len(domains) > 1:
+    """Allow many artifact domains, but never blur scanner/version integrity."""
+    baseline_runs = {(item.scanner, item.scanner_version) for item in baseline}
+    candidate_runs = {(item.scanner, item.scanner_version) for item in candidate}
+    for side, runs in (("baseline", baseline_runs), ("candidate", candidate_runs)):
+        if len(runs) > 1:
             raise DomainError(
-                f"{side} contains multiple versions or scanner/artifact match domains"
+                f"{side} contains multiple versions or scanner identities in one run"
             )
-    if baseline_domains and candidate_domains and baseline_domains != candidate_domains:
-        before = next(iter(baseline_domains))
-        after = next(iter(candidate_domains))
-        prefix = "scanner version drift violates match domain: " if (
-            before[0] == after[0] and before[1] != after[1] and before[2] == after[2]
-        ) else "comparison requires one equal scanner/version/artifact match domain: "
+    if baseline_runs and candidate_runs and baseline_runs != candidate_runs:
+        before = next(iter(baseline_runs))
+        after = next(iter(candidate_runs))
+        if before[0] != after[0]:
+            raise DomainError(
+                f"scanner identity drift violates match domain integrity: {before} -> {after}"
+            )
         raise DomainError(
-            prefix + f"{sorted(baseline_domains)} -> {sorted(candidate_domains)}"
+            f"scanner version drift violates match domain integrity: {before} -> {after}"
         )
 
 
@@ -251,71 +284,135 @@ def compare_finding_multisets(
     """Match stable evidence, then unique constraints, typing every unresolved tie."""
     baseline_items = _validated_findings(baseline, "baseline")
     candidate_items = _validated_findings(candidate, "candidate")
-    _validate_match_domain(baseline_items, candidate_items)
+    _validate_run_identity(baseline_items, candidate_items)
     baseline_remaining = set(range(len(baseline_items)))
     candidate_remaining = set(range(len(candidate_items)))
     matches: list[FindingMatch] = []
     ambiguities: list[MatchingAmbiguity] = []
 
-    def consume_pairs(key, tier: IdentityTier, stable_only: bool = False) -> None:
-        baseline_indices = sorted(baseline_remaining)
-        candidate_indices = sorted(candidate_remaining)
-        if stable_only:
-            baseline_indices = [i for i in baseline_indices if baseline_items[i].native_fingerprint]
-            candidate_indices = [i for i in candidate_indices if candidate_items[i].native_fingerprint]
-        baseline_groups = _buckets(baseline_indices, baseline_items, key)
-        candidate_groups = _buckets(candidate_indices, candidate_items, key)
-        for group in sorted(set(baseline_groups) & set(candidate_groups)):
-            left = baseline_groups[group]
-            right = candidate_groups[group]
+    baseline_domains = _buckets(
+        sorted(baseline_remaining), baseline_items, lambda item: item.match_domain_key
+    )
+    candidate_domains = _buckets(
+        sorted(candidate_remaining), candidate_items, lambda item: item.match_domain_key
+    )
+    for domain in sorted(set(baseline_domains) & set(candidate_domains)):
+        domain_baseline = set(baseline_domains[domain])
+        domain_candidate = set(candidate_domains[domain])
+
+        # Stable native occurrence evidence is authoritative despite multiplicity churn.
+        native_baseline = _buckets(
+            sorted(i for i in domain_baseline if baseline_items[i].native_fingerprint),
+            baseline_items,
+            lambda item: (item.rule_id, item.resource_address, item.native_fingerprint),
+        )
+        native_candidate = _buckets(
+            sorted(i for i in domain_candidate if candidate_items[i].native_fingerprint),
+            candidate_items,
+            lambda item: (item.rule_id, item.resource_address, item.native_fingerprint),
+        )
+        for key in sorted(set(native_baseline) & set(native_candidate)):
+            left = native_baseline[key]
+            right = native_candidate[key]
             if len(left) == len(right) == 1:
                 bi, ci = left[0], right[0]
-                matches.append(FindingMatch(baseline_items[bi], candidate_items[ci], tier))
+                tier = (
+                    IdentityTier.EXACT
+                    if baseline_items[bi].exact_key == candidate_items[ci].exact_key
+                    else IdentityTier.RELOCATED
+                )
+                matches.append(
+                    FindingMatch(
+                        baseline_items[bi],
+                        candidate_items[ci],
+                        tier,
+                        _trusted_context=_TRUSTED_MATCHING_CONTEXT,
+                    )
+                )
+                domain_baseline.remove(bi)
+                domain_candidate.remove(ci)
                 baseline_remaining.remove(bi)
                 candidate_remaining.remove(ci)
-            elif tier is IdentityTier.EXACT:
+            else:
                 ambiguities.append(
                     MatchingAmbiguity(
                         tuple(baseline_items[i] for i in left),
                         tuple(candidate_items[i] for i in right),
+                        _trusted_context=_TRUSTED_MATCHING_CONTEXT,
                     )
                 )
+                domain_baseline.difference_update(left)
+                domain_candidate.difference_update(right)
                 baseline_remaining.difference_update(left)
                 candidate_remaining.difference_update(right)
 
-    consume_pairs(lambda item: item.exact_key, IdentityTier.EXACT)
-    consume_pairs(lambda item: item.relocated_key, IdentityTier.RELOCATED, stable_only=True)
-
-    baseline_groups = _buckets(
-        sorted(baseline_remaining),
-        baseline_items,
-        lambda item: item.relocated_key[:-1],
-    )
-    candidate_groups = _buckets(
-        sorted(candidate_remaining),
-        candidate_items,
-        lambda item: item.relocated_key[:-1],
-    )
-    for group in sorted(set(baseline_groups) & set(candidate_groups)):
-        left = baseline_groups[group]
-        right = candidate_groups[group]
-        if len(left) == len(right) == 1:
-            bi, ci = left[0], right[0]
-            baseline_item = baseline_items[bi]
-            candidate_item = candidate_items[ci]
-            if baseline_item.native_fingerprint or candidate_item.native_fingerprint:
-                ambiguities.append(MatchingAmbiguity((baseline_item,), (candidate_item,)))
-            else:
-                matches.append(FindingMatch(baseline_item, candidate_item, IdentityTier.RELOCATED))
-            baseline_remaining.remove(bi)
-            candidate_remaining.remove(ci)
-        else:
-            ambiguities.append(
-                MatchingAmbiguity(
-                    tuple(baseline_items[i] for i in left),
-                    tuple(candidate_items[i] for i in right),
+        # No-native occurrences are judged as a complete rule/resource group. Reusing
+        # one old location during cardinality churn does not establish identity.
+        no_native_baseline = _buckets(
+            sorted(i for i in domain_baseline if not baseline_items[i].native_fingerprint),
+            baseline_items,
+            lambda item: (item.rule_id, item.resource_address),
+        )
+        no_native_candidate = _buckets(
+            sorted(i for i in domain_candidate if not candidate_items[i].native_fingerprint),
+            candidate_items,
+            lambda item: (item.rule_id, item.resource_address),
+        )
+        for key in sorted(set(no_native_baseline) & set(no_native_candidate)):
+            left = no_native_baseline[key]
+            right = no_native_candidate[key]
+            if len(left) == len(right) == 1:
+                bi, ci = left[0], right[0]
+                tier = (
+                    IdentityTier.EXACT
+                    if baseline_items[bi].exact_key == candidate_items[ci].exact_key
+                    else IdentityTier.RELOCATED
                 )
-            )
+                matches.append(
+                    FindingMatch(
+                        baseline_items[bi],
+                        candidate_items[ci],
+                        tier,
+                        _trusted_context=_TRUSTED_MATCHING_CONTEXT,
+                    )
+                )
+            else:
+                left_locations = [_location_key(baseline_items[i]) for i in left]
+                right_locations = [_location_key(candidate_items[i]) for i in right]
+                location_pairing_proven = (
+                    len(left) == len(right)
+                    and len(set(left_locations)) == len(left_locations)
+                    and len(set(right_locations)) == len(right_locations)
+                    and set(left_locations) == set(right_locations)
+                )
+                if location_pairing_proven:
+                    left_by_location = {
+                        _location_key(baseline_items[i]): i for i in left
+                    }
+                    right_by_location = {
+                        _location_key(candidate_items[i]): i for i in right
+                    }
+                    for location in sorted(left_by_location):
+                        bi = left_by_location[location]
+                        ci = right_by_location[location]
+                        matches.append(
+                            FindingMatch(
+                                baseline_items[bi],
+                                candidate_items[ci],
+                                IdentityTier.EXACT,
+                                _trusted_context=_TRUSTED_MATCHING_CONTEXT,
+                            )
+                        )
+                else:
+                    ambiguities.append(
+                        MatchingAmbiguity(
+                            tuple(baseline_items[i] for i in left),
+                            tuple(candidate_items[i] for i in right),
+                            _trusted_context=_TRUSTED_MATCHING_CONTEXT,
+                        )
+                    )
+            domain_baseline.difference_update(left)
+            domain_candidate.difference_update(right)
             baseline_remaining.difference_update(left)
             candidate_remaining.difference_update(right)
 
@@ -324,7 +421,16 @@ def compare_finding_multisets(
         tuple(baseline_items[i] for i in sorted(baseline_remaining)),
         tuple(candidate_items[i] for i in sorted(candidate_remaining)),
         tuple(ambiguities),
+        _trusted_context=_TRUSTED_MATCHING_CONTEXT,
     )
+
+
+def require_trusted_comparison(value: object) -> FindingMultisetComparison:
+    """D5 boundary: accept only output created by this module's matcher."""
+    require_exact_type(value, FindingMultisetComparison, "finding comparison")
+    if not value._trusted:
+        raise DomainError("finding comparison is caller-authored, not trusted evidence")
+    return value
 
 
 __all__ = [
@@ -332,4 +438,5 @@ __all__ = [
     "FindingMultisetComparison",
     "MatchingAmbiguity",
     "compare_finding_multisets",
+    "require_trusted_comparison",
 ]

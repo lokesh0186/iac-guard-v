@@ -670,6 +670,89 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Gate D3.2 — Conservative occurrence ambiguity and multi-domain matching
+
+D3.2 started from clean parent
+`f3f08afe16e0249b59c90d05bf86b849a53431b1`; D3.1 and D4.1 were not rewritten.
+The matching, diffing, model, adapter-evidence boundary, D3 specifications, and existing
+security tests were independently reread before modification. D5/D6 were not started.
+
+Literal failing-before evidence on the parent implementation:
+
+```text
+reused-location matches: [('occ-B', 'occ-A', 'EXACT')]
+reused-location ambiguities: 0
+reused-location deltas: [('RESOLVED_FINDING', 'occ-A', None)]
+mixed Terraform/Kubernetes: DomainError baseline contains multiple versions or scanner/artifact match domains
+caller NEW_FINDING: ACCEPTED
+focused regression: 5 failed, 5 passed
+```
+
+Literal passing-after evidence:
+
+```text
+reused-location matches: []
+reused-location ambiguities: 1 MATCHING_INCONCLUSIVE
+reused-location deltas: []
+native retained pairing: [('occ-A', 'occ-A', 'EXACT')]
+native deltas: ['LOCATION_CHANGED', 'RESOLVED_FINDING', 'SEVERITY_INCREASED', 'SUPPRESSION_ADDED']
+mixed domains: 2 exact matches ['kubernetes_yaml', 'terraform_hcl']
+one-sided kubernetes domain: canonical unmatched baseline evidence
+scanner/version drift: REJECTED
+caller NEW_FINDING: REJECTED complete trusted comparison context
+caller ScannerRun/CheckovTargetEvidence: REJECTED caller-authored
+input-order canonical equality: True
+```
+
+The three earlier dense-compaction tests remain present but now assert the stronger
+D3.2 property: no-native multiplicity/cardinality churn is typed ambiguity rather than
+an exact same-location pairing. No security test was deleted, skipped, or xfailed.
+
+Executable gates:
+
+```console
+$ COVERAGE_FILE=/private/tmp/iacgv-d32.coverage PYTHONPATH=src:tests/unit \
+    pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py \
+    tests/unit/test_matching_d32.py tests/unit/test_diffing.py \
+    --cov=iac_guard_v.fingerprints --cov=iac_guard_v.matching \
+    --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q
+94 passed in 0.55s
+src/iac_guard_v/diffing.py          190     16    92%
+src/iac_guard_v/fingerprints.py      69      0   100%
+src/iac_guard_v/matching.py         217     12    94%
+TOTAL                               476     28    94%
+Required test coverage of 90% reached. Total coverage: 94.12%
+
+$ PYTHONPATH=src:tests/unit pytest tests -q
+845 passed in 152.04s (0:02:32)
+
+$ python3 tools/spec_lint.py docs/spec/
+documents inspected:  23
+enum values defined:  90
+PASS
+```
+
+Research gates:
+
+```text
+manifest files checked: 4842/4842
+MANIFEST_ROOT computed: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+MANIFEST_ROOT recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+manifest result: PASS
+frozen run records: 630/630
+field comparisons: 10080/10080 equal
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff: empty
+```
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
+---
+
 ## Gate D3.1 — Occurrence identity and trusted-delta closure
 
 D3.1 started from clean parent

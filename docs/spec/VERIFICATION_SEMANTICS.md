@@ -626,18 +626,23 @@ Both properties are required; neither is sacrificed to the other.
 
 ### 5.3 D3 matching and finding-derived delta boundary
 
-Same-scanner comparison is an occurrence-preserving multiset operation:
+Same-scanner comparison is an occurrence-preserving, multi-artifact multiset operation:
 
-1. require one equal scanner/version/artifact match domain and reject duplicate full
-   evidence records using linear `Counter` validation;
-2. match unique exact stable-native keys, or equal locations when native evidence is
-   unavailable;
-3. among the remaining findings, match equal stable-native same-resource keys, then a
-   no-native same-resource group only when exactly one occurrence remains on each side;
-4. emit typed `MATCHING_INCONCLUSIVE` evidence for equally supported pairings and remove
+1. require one scanner/version run identity on each side, reject scanner/version drift,
+   partition by artifact match domain, and reject duplicate full evidence records using
+   linear `Counter` validation;
+2. within every equal artifact domain, match stable-native rule/resource/occurrence keys
+   before considering location evidence;
+3. group remaining no-native findings by rule and resource. A one-to-one group may
+   relocate. A multiple-occurrence group may pair by location only when cardinality is
+   equal and both sides have the same unique location multiset. Cardinality or location
+   churn makes the complete affected group inconclusive; a reused location is not
+   consumed greedily;
+4. emit typed `MATCHING_INCONCLUSIVE` evidence for unsupported pairings and remove
    those occurrences from ordinary resolved/new classification;
-5. leave different resources unmatched, producing `RESOLVED_FINDING` plus
-   `NEW_FINDING`;
+5. leave different resources and artifact domains present on only one side unmatched,
+   producing canonical `RESOLVED_FINDING`/`NEW_FINDING` evidence without cross-domain
+   pairing;
 6. never use `occurrence_index` as an authoritative key.
 
 The D3 finding-only diff layer may establish `NEW_FINDING`, `LOCATION_CHANGED`,
@@ -651,6 +656,12 @@ pair identity and different file/start/end evidence; `SEVERITY_INCREASED` requir
 strictly higher candidate severity rank; `SUPPRESSION_ADDED` requires `false -> true`;
 and `SCOPE_EXPANDED` requires complete same-domain rule groups proving a strict resource
 set superset. A false label is malformed domain evidence, not a harmless annotation.
+Set-derived matching and delta objects also carry private in-process factory provenance.
+Public JSON/configuration cannot submit `ScannerRun`, `FindingMatch`,
+`FindingMultisetComparison`, `MatchingAmbiguity`, `FindingDelta`, `FindingDiffResult`,
+or `CheckovTargetEvidence` as authoritative evidence. D5 accepts only adapter output and
+matching/diffing results it invokes internally. This boundary protects deserialisation;
+it is not a defence against arbitrary Python code already executing in the verifier.
 
 ## 6. Gates
 
