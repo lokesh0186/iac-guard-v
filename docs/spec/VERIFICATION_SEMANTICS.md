@@ -804,6 +804,11 @@ Additional D4.1 reasons are `INPUT_CHANGED_DURING_SCAN_PREPARATION`,
 `UNKNOWN_RESULT_BUCKET`, `AGGREGATE_ONLY_EVIDENCE`,
 `SCANNER_ENVIRONMENT_MISMATCH`, and `POLICY_INVENTORY_MISMATCH`.
 
+D4.3 adds `JSON_DEPTH_EXCEEDED`. Checkov JSON nesting is capped at 128 before the
+interpreter JSON decoder runs. Structural brackets inside strings do not count. This
+makes the rejection reason deterministic across the supported Python matrix rather than
+depending on an interpreter recursion threshold.
+
 ### V6 — Independent oracle
 
 Optional for routine CI. **Required** before any case may be labelled a validated

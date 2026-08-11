@@ -253,6 +253,9 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 15. Portable input JSON excludes device/inode; empty scope is typed `SKIPPED`; and
     trusted file-count/per-file/total-byte limits are enforced by streaming preparation
     and bound into invocation identity.
+16. Checkov JSON nesting is capped deterministically before parsing. Depth above 128 is
+    `ERROR/JSON_DEPTH_EXCEEDED` on every supported Python version; brackets inside JSON
+    strings do not consume the depth budget.
 
 ## 16. D5 — Verification engine
 

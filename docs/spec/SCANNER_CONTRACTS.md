@@ -152,6 +152,12 @@ D4.2 adds `RESOURCE_INVENTORY_MISSING`, `RESOURCE_COUNT_MISMATCH`,
 `INPUT_TOTAL_BYTES_EXCEEDED`. Input count, per-file bytes, and total bytes are trusted
 request limits included in `invocation_config_digest` and enforced before spawn.
 
+D4.3 adds `JSON_DEPTH_EXCEEDED`. Before invoking `json.loads`, the adapter enforces a
+fixed maximum nesting depth of 128 over structural brackets outside JSON strings. The
+scanner is independent of CPython's recursion threshold: depth 128 is accepted for
+parsing, depth 129 is rejected with the same typed error on Python 3.10--3.13, and a raw
+`RecursionError` remains contained as malformed scanner output.
+
 `ruleset_integrity` is reason-mapped: policy or installed-environment mismatch is
 `FAIL`; version mismatch, unsupported version, or failed version probe is
 `INCONCLUSIVE`. Ordinary output failures retain `PASS` inventory evidence only because

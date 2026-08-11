@@ -8,7 +8,11 @@ from pathlib import Path
 
 import pytest
 
-from iac_guard_v.adapters.checkov import CheckovAdapter
+from iac_guard_v.adapters.checkov import (
+    CHECKOV_MAX_JSON_NESTING_DEPTH,
+    CheckovAdapter,
+    _enforce_json_nesting_depth,
+)
 from iac_guard_v.enums import ArtifactKind, Status
 from iac_guard_v.models import DomainError, ExpectedResource, ScannerRun
 
@@ -95,7 +99,26 @@ def test_deep_json_failure_is_typed_not_raised(tmp_path: Path) -> None:
         raw, request(tmp_path), command_result(("/bin/sh",)), "3.3.0"
     )
     assert run.status is Status.ERROR
-    assert run.diagnostics == ("MALFORMED_JSON",)
+    assert run.diagnostics == ("JSON_DEPTH_EXCEEDED",)
+
+
+def test_deep_json_has_interpreter_independent_depth_diagnostic(tmp_path: Path) -> None:
+    raw = ("[" * 2000 + "{}" + "]" * 2000).encode()
+    run = CheckovAdapter().normalize(
+        raw, request(tmp_path), command_result(("/bin/sh",)), "3.3.0"
+    )
+    assert run.status is Status.ERROR
+    assert run.diagnostics == ("JSON_DEPTH_EXCEEDED",)
+
+
+def test_json_depth_limit_has_exact_boundary_and_ignores_string_brackets() -> None:
+    _enforce_json_nesting_depth("[" * CHECKOV_MAX_JSON_NESTING_DEPTH + "]" * CHECKOV_MAX_JSON_NESTING_DEPTH)
+    _enforce_json_nesting_depth(r'{"value":"[[[\\\"{{{]]]"}')
+    with pytest.raises(DomainError, match="JSON_DEPTH_EXCEEDED"):
+        _enforce_json_nesting_depth(
+            "[" * (CHECKOV_MAX_JSON_NESTING_DEPTH + 1)
+            + "]" * (CHECKOV_MAX_JSON_NESTING_DEPTH + 1)
+        )
 
 
 def test_nonempty_scan_without_independent_resource_inventory_is_partial(

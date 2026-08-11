@@ -88,7 +88,7 @@ govern its own evaluation.
 | Pathological HCL/YAML causing hangs | per-scan deadline; process-group termination on timeout |
 | Enormous output | output size cap (default 25 MB) with `PARTIAL` classification |
 | Oversized eligible source set | trusted file-count, per-file-byte, and total-byte limits checked before spawn; descriptor bytes are streamed rather than accumulated |
-| Deep scanner JSON | recursion/depth failure is typed malformed output, never a raw adapter exception |
+| Deep scanner JSON | a fixed string-aware depth cap rejects nesting above 128 as `JSON_DEPTH_EXCEEDED`, independent of interpreter recursion behavior; no raw adapter exception escapes |
 | Zip bombs, deep trees, huge repos | independent detector budgets plus scanner-input limits; over-budget requests fail before execution |
 | Fork bombs from a scanner | `--pids-limit`, `--memory`, `--cpus` on the container path |
 | Orphan processes | kill the whole process group, then verify termination |

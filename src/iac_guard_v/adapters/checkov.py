@@ -778,6 +778,38 @@ def _finding(
     )
 
 
+CHECKOV_MAX_JSON_NESTING_DEPTH = 128
+
+
+def _enforce_json_nesting_depth(decoded: str) -> None:
+    """Reject excessive JSON depth before CPython's parser-dependent recursion path.
+
+    Brackets inside JSON strings are data. Escaped quotes and backslashes are tracked so
+    the same byte sequence receives the same decision on every supported interpreter.
+    Syntax and delimiter balance remain the strict JSON decoder's responsibility.
+    """
+    depth = 0
+    in_string = False
+    escaped = False
+    for character in decoded:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif character == "\\":
+                escaped = True
+            elif character == '"':
+                in_string = False
+            continue
+        if character == '"':
+            in_string = True
+        elif character in "[{":
+            depth += 1
+            if depth > CHECKOV_MAX_JSON_NESTING_DEPTH:
+                raise DomainError(AdapterReason.JSON_DEPTH_EXCEEDED.value)
+        elif character in "]}":
+            depth = max(0, depth - 1)
+
+
 def _decode_documents(raw_output: bytes) -> list[dict]:
     if type(raw_output) is not bytes:
         raise DomainError("raw Checkov output must be bytes")
@@ -785,6 +817,7 @@ def _decode_documents(raw_output: bytes) -> list[dict]:
         raise DomainError(AdapterReason.EMPTY_OUTPUT.value)
     try:
         decoded = raw_output.decode("utf-8", errors="strict")
+        _enforce_json_nesting_depth(decoded)
         def strict_object(pairs):
             result = {}
             for key, value in pairs:

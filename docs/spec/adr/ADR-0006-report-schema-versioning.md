@@ -50,3 +50,11 @@ Device and inode remain private runtime race checks and do not serialize. Scanne
 also carry `resource_coverage` separately from file/evaluation counters. These are
 pre-release schema corrections: host filesystem allocation must not make otherwise
 identical canonical reports differ.
+
+## Amendment, 2026-08-11: deterministic scanner-JSON depth
+
+Checkov result JSON is rejected above a fixed nesting depth of 128 before CPython's JSON
+decoder runs. The report diagnostic is `JSON_DEPTH_EXCEEDED`, not whichever parser error
+or top-level shape happens to result on a particular interpreter. Structural brackets
+inside strings are ignored by the depth counter; syntax and duplicate-key checks remain
+the strict decoder's responsibility.

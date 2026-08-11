@@ -668,6 +668,44 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
+## D4.3 — Cross-version strict JSON depth (2026-08-11)
+
+The Review-3 reproduction on the D6 parent was stored before implementation:
+
+```text
+deeply nested JSON expected JSON_DEPTH_EXCEEDED
+actual diagnostic on Python 3.11: MALFORMED_JSON
+focused regression: 1 failed
+independent Python 3.13 review result: UNEXPECTED_TOP_LEVEL
+```
+
+After D4.3, a string-aware structural pass enforces the same limit before `json.loads`:
+
+```text
+maximum nesting depth: 128
+depth 128: accepted by the depth guard
+depth 129: JSON_DEPTH_EXCEEDED
+depth 2001: ERROR / JSON_DEPTH_EXCEEDED
+brackets and escaped quotes inside JSON strings: do not consume depth
+focused depth tests: 3 passed
+raw RecursionError: still contained, never escapes the adapter
+```
+
+The Python 3.10--3.13 workflow retains clean warning-as-error import and full
+non-integration test jobs. Locally available interpreter legs and the final D4.3 suite,
+coverage, lint, freeze, and replay gates are recorded at the commit gate.
+
+```text
+adapter-focused suite: 105 passed; adapter coverage 90.50%
+Python 3.11 non-integration: 943 passed in 60.12s
+Python 3.12 clean warning-as-error import: PASS
+Python 3.12 non-integration: 943 passed in 75.81s
+Python 3.10 local leg: BLOCKED (interpreter not installed)
+Python 3.13 local leg: BLOCKED (interpreter not installed)
+CI matrix retained: 3.10, 3.11, 3.12, 3.13
+spec_lint: 23 documents, 98 enum values, PASS, zero warnings
+```
+
 ## D5 — Verification engine (2026-08-11)
 
 The production verification module did not exist before D5. The literal clean import

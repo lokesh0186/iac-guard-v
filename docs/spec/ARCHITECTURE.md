@@ -397,6 +397,11 @@ resource-count disagreement, absent independent inventory, or contradictory eval
 claims cannot pass. Empty independent scope is skipped. Trusted input count/byte limits
 are part of invocation identity and enforced through streaming preparation.
 
+D4.3 makes strict JSON depth a byte-level adapter contract: a string-aware structural
+scan rejects nesting beyond 128 with `JSON_DEPTH_EXCEEDED` before `json.loads`. This
+removes dependence on CPython's version-specific recursion behavior while retaining the
+decoder for syntax, balance, and duplicate-key validation.
+
 ## 15. D5 verification engine
 
 `engine.py` owns the executable P0/V1--V7 orchestration boundary. Its serialized
