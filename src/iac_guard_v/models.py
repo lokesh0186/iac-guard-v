@@ -981,6 +981,7 @@ class ExceptionRecord:
     expires: date
     origin: ExceptionOrigin
     permitted_outcomes: frozenset
+    resolved_target: ResolvedTargetBinding | None = None
 
     def __post_init__(self) -> None:
         set_ = object.__setattr__
@@ -993,6 +994,12 @@ class ExceptionRecord:
         require_enum(self.origin, ExceptionOrigin, "origin")
         set_(self, "permitted_outcomes",
              validate_permitted_outcomes(self.permitted_outcomes))
+        if self.resolved_target is not None:
+            require_exact_type(
+                self.resolved_target, ResolvedTargetBinding, "exception resolved target"
+            )
+            if self.resolved_target.identity.canonical_key != self.target.canonical_key:
+                raise DomainError("exception resolved target disagrees with target identity")
         if self.created > self.expires:
             raise DomainError(
                 f"exception {self.exception_id}: created {self.created} is after expires "
@@ -1007,6 +1014,10 @@ class ExceptionRecord:
             "created": self.created.isoformat(), "expires": self.expires.isoformat(),
             "origin": self.origin.value,
             "permitted_outcomes": sorted(o.value for o in self.permitted_outcomes),
+            "resolved_target": (
+                None if self.resolved_target is None
+                else self.resolved_target.canonical_dict()
+            ),
         }
 
 
@@ -1022,6 +1033,20 @@ def rebuild_exception_record(record: Any) -> ExceptionRecord:
         expires=date(record.expires.year, record.expires.month, record.expires.day),
         origin=ExceptionOrigin(record.origin.value),
         permitted_outcomes=frozenset(Outcome(o.value) for o in record.permitted_outcomes),
+        resolved_target=(
+            None if record.resolved_target is None
+            else ResolvedTargetBinding(
+                TargetIdentity(
+                    record.resolved_target.identity.scanner,
+                    record.resolved_target.identity.rule_id,
+                    record.resolved_target.identity.scope,
+                ),
+                record.resolved_target.file_path,
+                record.resolved_target.artifact_kind,
+                record.resolved_target.scanner_native_lookup,
+                record.resolved_target.baseline_occurrences,
+            )
+        ),
     )
 
 
@@ -1303,12 +1328,19 @@ class TargetDecision:
     policy_permitted: bool = False
     exception_id: str | None = None
     rejection_reason: str = ""
+    resolved_target: ResolvedTargetBinding | None = None
 
     def __post_init__(self) -> None:
         set_ = object.__setattr__
         require_target_identity(self.identity)
         require_enum(self.outcome, Outcome, "outcome")
         require_bool(self.policy_permitted, "policy_permitted")
+        if self.resolved_target is not None:
+            require_exact_type(
+                self.resolved_target, ResolvedTargetBinding, "decision resolved target"
+            )
+            if self.resolved_target.identity.canonical_key != self.identity.canonical_key:
+                raise DomainError("decision resolved target disagrees with identity")
         if self.exception_id is not None:
             set_(self, "exception_id",
                  canonical_identifier(self.exception_id, "exception_id"))
@@ -1323,14 +1355,19 @@ class TargetDecision:
 
     @property
     def canonical_key(self) -> tuple:
-        return (*self.identity.canonical_key, self.outcome.value, self.exception_id or "")
+        binding = () if self.resolved_target is None else self.resolved_target.resource_key
+        return (*self.identity.canonical_key, *binding, self.outcome.value, self.exception_id or "")
 
     def canonical_dict(self) -> dict:
         return {"identity": self.identity.canonical_dict(),
                 "outcome": self.outcome.value,
                 "policy_permitted": self.policy_permitted,
                 "exception_id": self.exception_id or "",
-                "rejection_reason": self.rejection_reason}
+                "rejection_reason": self.rejection_reason,
+                "resolved_target": (
+                    None if self.resolved_target is None
+                    else self.resolved_target.canonical_dict()
+                )}
 
 
 def rebuild_target_decision(decision: Any) -> TargetDecision:
@@ -1343,6 +1380,7 @@ def rebuild_target_decision(decision: Any) -> TargetDecision:
         policy_permitted=bool(decision.policy_permitted),
         exception_id=None if decision.exception_id is None else str(decision.exception_id),
         rejection_reason=str(decision.rejection_reason),
+        resolved_target=decision.resolved_target,
     )
 
 

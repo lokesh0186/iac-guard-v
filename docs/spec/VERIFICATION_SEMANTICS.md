@@ -938,23 +938,28 @@ decisions, raw `ExceptionRecord`, collections of records, caller-created
 `ExceptionPolicy`, candidate-policy parses, evaluation dates, optional gates, or origin
 enums as a substitute.
 
-The base-commit, protected-policy-repository, and operator loaders read or receive bytes
-through their trusted execution channel and stamp origin independently of any serialized
-`origin` field. Candidate loading always stamps `CANDIDATE_HEAD` and cannot create a
-trusted bundle. Bounded file loaders use no-follow regular-file descriptors. Policy JSON
-is strict: duplicate keys, excessive nesting, unknown fields, malformed dates, duplicate
-outcomes, and unknown gate names are rejected. Optional gate names come from the same
-trusted document as the exceptions.
+The base-commit loader accepts a mechanically attested Git source, resolves the base ref
+to a commit SHA, and reads trusted bytes from the named Git tree object. It accepts no
+caller-written source identity or arbitrary trusted filesystem path. The protected
+policy-repository loader likewise requires an exact pinned commit in a repository
+outside the evaluated workspace. The explicit operator loader remains a separate local
+mode and reports `OPERATOR`; it is not a PR-mode fallback. Candidate loading always
+stamps `CANDIDATE_HEAD` and cannot create a trusted bundle. Candidate comparisons use
+bounded no-follow regular-file descriptors. Committed policy paths must be regular Git
+tree entries. Policy JSON is strict: duplicate keys, excessive nesting, unknown fields,
+malformed dates, duplicate outcomes, and unknown gate names are rejected. Optional gate
+names come from the same trusted document as the exceptions.
 
 The evaluation date is captured from a trusted timezone-aware execution clock, converted
 to UTC, and stored with timezone and provenance. Repository/config/JSON input has no
-evaluation-time field. Policy evidence retains trusted source identity and origin,
-trusted digest, candidate presence and digest when present, concrete differing governed paths, and the loader
-source of each applied exception.
+evaluation-time field. Policy evidence retains the mechanically resolved source commit
+and repository identity, trusted source identity and origin, trusted digest, candidate
+presence and digest when present, path-by-path added/removed/changed/stable governed
+evidence, and the loader source of each applied exception.
 
 For each engine target classification, D6 derives a fresh decision. A permission exists
-only when one record matches the structured scanner/rule/scope identity, names that exact
-exception-eligible outcome, has trusted loader-stamped origin, and satisfies
+only when one record matches the resolved scanner/rule/resource/file/artifact/native
+identity, names that exact exception-eligible outcome, has trusted loader-stamped origin, and satisfies
 `created <= evaluation_date <= expires`. The event remains unchanged and visible.
 
 Suppression detector operation and suppression policy disposition are separate. A real

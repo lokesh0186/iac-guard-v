@@ -4,13 +4,19 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import stat
+import subprocess
 from collections.abc import Callable, Mapping
 from dataclasses import InitVar, dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
 
-from .engine import VerificationResult, require_trusted_verification_result
+from .engine import (
+    GovernedConfigEvidence,
+    VerificationResult,
+    require_trusted_verification_result,
+)
 from .enums import (
     EXIT_CODES,
     INCONCLUSIVE_OUTCOMES,
@@ -18,6 +24,7 @@ from .enums import (
     TRUSTED_EXCEPTION_ORIGINS,
     UNDECIDED_STATES,
     ExceptionOrigin,
+    ArtifactKind,
     Outcome,
     Status,
     Verdict,
@@ -26,6 +33,7 @@ from .models import (
     DomainError,
     ExceptionPolicy,
     ExceptionRecord,
+    ResolvedTargetBinding,
     TargetDecision,
     TargetIdentity,
     canonical_identifier,
@@ -40,16 +48,214 @@ from .models import (
 _TRUSTED_BUNDLE_CONTEXT = object()
 _TRUSTED_POLICY_CONTEXT = object()
 _TRUSTED_POLICY_EVIDENCE_CONTEXT = object()
+_TRUSTED_GIT_SOURCE_CONTEXT = object()
 _OPTIONAL_GATE_NAMES = frozenset({"regression", "suppression"})
 _POLICY_FIELDS = frozenset({"exceptions", "optional_gates"})
 _EXCEPTION_FIELDS = frozenset({
     "exception_id", "target", "reason", "owner", "created", "expires", "origin",
     "permitted_outcomes",
 })
-_TARGET_FIELDS = frozenset({"scanner", "rule_id", "scope"})
+_TARGET_FIELDS = frozenset({
+    "scanner", "rule_id", "scope", "file_path", "artifact_kind",
+    "scanner_native_lookup",
+})
 _MAX_POLICY_BYTES = 1024 * 1024
 _MAX_POLICY_JSON_DEPTH = 64
 _CANDIDATE_POLICY_STATES = frozenset({"present", "missing", "not_compared"})
+_GIT_SHA = __import__("re").compile(r"^[0-9a-f]{40,64}$")
+
+
+def _within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _git_command(repository: Path, arguments: tuple[str, ...]) -> bytes:
+    executable = shutil.which("git")
+    if executable is None:
+        raise DomainError("git executable is unavailable for source attestation")
+    try:
+        result = subprocess.run(
+            [
+                executable,
+                "-c", "core.hooksPath=/dev/null",
+                "-c", "credential.helper=",
+                *arguments,
+            ],
+            cwd=repository,
+            env={"PATH": "/usr/bin:/bin", "LANG": "C", "LC_ALL": "C"},
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise DomainError("git policy-source attestation failed") from exc
+    if result.returncode != 0:
+        raise DomainError("git policy-source object could not be resolved")
+    return result.stdout
+
+
+def _resolve_git_commit(repository: Path, ref: str) -> str:
+    if type(ref) is not str or not ref or ref.startswith("-") or any(
+        ord(char) < 0x20 or char == "\x7f" for char in ref
+    ):
+        raise DomainError("git base ref is malformed")
+    output = _git_command(
+        repository, ("rev-parse", "--verify", "--end-of-options", f"{ref}^{{commit}}")
+    ).decode("ascii", errors="strict").strip()
+    if not _GIT_SHA.fullmatch(output):
+        raise DomainError("git base ref did not resolve to a commit SHA")
+    return output
+
+
+def _require_git_repository_root(repository: Path) -> None:
+    try:
+        reported = Path(
+            _git_command(repository, ("rev-parse", "--show-toplevel"))
+            .decode("utf-8", errors="strict")
+            .strip()
+        ).resolve(strict=True)
+    except (OSError, UnicodeError) as exc:
+        raise DomainError("Git repository root evidence is malformed") from exc
+    if reported != repository:
+        raise DomainError("Git policy source must name the canonical repository root")
+
+
+def _git_object_bytes(repository: Path, commit: str, relative: str) -> bytes:
+    relative = canonical_repo_path(relative, "Git governed path")
+    object_name = f"{commit}:{relative}"
+    tree_entry = _git_command(
+        repository, ("ls-tree", "-z", commit, "--", relative)
+    )
+    if not tree_entry.endswith(b"\x00") or b"\t" not in tree_entry:
+        raise DomainError("Git policy object has no exact tree entry")
+    metadata, recorded_path = tree_entry[:-1].split(b"\t", 1)
+    fields = metadata.split()
+    if (
+        len(fields) != 3
+        or fields[0] not in {b"100644", b"100755"}
+        or fields[1] != b"blob"
+        or recorded_path.decode("utf-8", errors="strict") != relative
+    ):
+        raise DomainError("Git policy object must be a regular repository file")
+    size_raw = _git_command(repository, ("cat-file", "-s", object_name))
+    try:
+        size = int(size_raw.decode("ascii", errors="strict").strip())
+    except ValueError as exc:
+        raise DomainError("Git policy object size is malformed") from exc
+    if size <= 0:
+        raise DomainError("Git policy object must be nonempty")
+    if size > _MAX_POLICY_BYTES:
+        raise DomainError("Git policy object exceeds the trusted byte limit")
+    payload = _git_command(repository, ("cat-file", "blob", object_name))
+    if len(payload) != size:
+        raise DomainError("Git policy object size changed during read")
+    return payload
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedGitSource:
+    """Mechanically resolved Git source capability for policy loaders."""
+
+    repository_root: Path
+    commit_sha: str
+    candidate_root: Path
+    governed_paths: tuple
+    source_origin: ExceptionOrigin
+    _trusted_context: InitVar[object] = None
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        if _trusted_context is not _TRUSTED_GIT_SOURCE_CONTEXT:
+            raise DomainError("TrustedGitSource requires mechanical attestation")
+        for name in ("repository_root", "candidate_root"):
+            value = getattr(self, name)
+            if not isinstance(value, Path):
+                raise DomainError(f"{name} must be pathlib.Path")
+            object.__setattr__(self, name, value.resolve(strict=True))
+        if not _GIT_SHA.fullmatch(self.commit_sha):
+            raise DomainError("trusted Git commit must be a full commit SHA")
+        if type(self.governed_paths) is not tuple or not self.governed_paths:
+            raise DomainError("trusted Git governed paths must be a nonempty tuple")
+        paths = tuple(sorted({canonical_repo_path(item) for item in self.governed_paths}))
+        if len(paths) != len(self.governed_paths):
+            raise DomainError("trusted Git governed paths contain duplicates")
+        object.__setattr__(self, "governed_paths", paths)
+        require_enum(self.source_origin, ExceptionOrigin, "Git policy source origin")
+        if self.source_origin not in {
+            ExceptionOrigin.TRUSTED_BASE, ExceptionOrigin.PROTECTED_POLICY_REPO
+        }:
+            raise DomainError("Git policy source origin is not protected")
+        object.__setattr__(self, "_trusted", True)
+
+    @property
+    def source_identity(self) -> str:
+        prefix = (
+            "git_commit" if self.source_origin is ExceptionOrigin.TRUSTED_BASE
+            else "protected_git_commit"
+        )
+        return f"{prefix}_{self.commit_sha}"
+
+
+def attest_git_source(
+    repository_root: Path,
+    base_ref: str,
+    candidate_root: Path,
+    governed_paths: tuple,
+) -> TrustedGitSource:
+    """Resolve a base ref to an actual commit and stamp a non-serializable capability."""
+    if not isinstance(repository_root, Path) or not isinstance(candidate_root, Path):
+        raise DomainError("Git source roots must be pathlib.Path")
+    try:
+        repository = repository_root.resolve(strict=True)
+        candidate = candidate_root.resolve(strict=True)
+    except OSError as exc:
+        raise DomainError("Git source root could not be strictly resolved") from exc
+    if not _within(candidate, repository):
+        raise DomainError("candidate root must be inside the attested Git repository")
+    _require_git_repository_root(repository)
+    commit = _resolve_git_commit(repository, base_ref)
+    return TrustedGitSource(
+        repository, commit, candidate, governed_paths, ExceptionOrigin.TRUSTED_BASE,
+        _trusted_context=_TRUSTED_GIT_SOURCE_CONTEXT,
+    )
+
+
+def attest_protected_policy_repository(
+    repository_root: Path,
+    pinned_commit_sha: str,
+    evaluated_workspace: Path,
+    governed_paths: tuple,
+) -> TrustedGitSource:
+    """Attest an exact protected-repository commit outside evaluated workspace."""
+    if not isinstance(repository_root, Path) or not isinstance(evaluated_workspace, Path):
+        raise DomainError("protected policy roots must be pathlib.Path")
+    try:
+        repository = repository_root.resolve(strict=True)
+        workspace = evaluated_workspace.resolve(strict=True)
+    except OSError as exc:
+        raise DomainError("protected policy roots could not be strictly resolved") from exc
+    if _within(repository, workspace) or _within(workspace, repository):
+        raise DomainError("protected policy repository must be outside evaluated workspace")
+    _require_git_repository_root(repository)
+    if not _GIT_SHA.fullmatch(pinned_commit_sha):
+        raise DomainError("protected policy commit must be a pinned full SHA")
+    try:
+        resolved = _resolve_git_commit(repository, pinned_commit_sha)
+    except DomainError as exc:
+        raise DomainError("protected policy pinned commit could not be resolved") from exc
+    if resolved != pinned_commit_sha:
+        raise DomainError("protected policy repository did not resolve the pinned commit")
+    return TrustedGitSource(
+        repository, resolved, workspace, governed_paths,
+        ExceptionOrigin.PROTECTED_POLICY_REPO,
+        _trusted_context=_TRUSTED_GIT_SOURCE_CONTEXT,
+    )
 
 
 def _sha256(payload: bytes) -> str:
@@ -181,16 +387,30 @@ def _build_exception(payload: Mapping, origin: ExceptionOrigin) -> ExceptionReco
         raise DomainError(f"unknown exception fields: {sorted(unknown)}")
     target = payload.get("target")
     if type(target) is not dict or set(target) != _TARGET_FIELDS:
-        raise DomainError("exception target must contain scanner, rule_id, and scope")
+        raise DomainError(
+            "exception target must contain exact scanner/rule/resource/file/artifact/native identity"
+        )
+    identity = TargetIdentity(target["scanner"], target["rule_id"], target["scope"])
+    try:
+        artifact_kind = ArtifactKind(target["artifact_kind"])
+    except (TypeError, ValueError) as exc:
+        raise DomainError("exception target artifact_kind is unsupported") from exc
+    binding = ResolvedTargetBinding(
+        identity,
+        target["file_path"],
+        artifact_kind,
+        target["scanner_native_lookup"],
+    )
     return ExceptionRecord(
         exception_id=payload.get("exception_id", ""),
-        target=TargetIdentity(target["scanner"], target["rule_id"], target["scope"]),
+        target=identity,
         reason=payload.get("reason", ""),
         owner=payload.get("owner", ""),
         created=_parse_date(payload.get("created"), "exception created"),
         expires=_parse_date(payload.get("expires"), "exception expires"),
         origin=origin,
         permitted_outcomes=_parse_outcomes(payload.get("permitted_outcomes")),
+        resolved_target=binding,
     )
 
 
@@ -258,6 +478,9 @@ class TrustedPolicyBundle:
     evaluation_date: date
     evaluation_timezone: str
     evaluation_time_provenance: str
+    governed_config_evidence: tuple = ()
+    source_repository: str = ""
+    source_commit: str = ""
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -287,10 +510,14 @@ class TrustedPolicyBundle:
         paths = tuple(sorted({canonical_repo_path(item) for item in self.differing_governed_paths}))
         object.__setattr__(self, "differing_governed_paths", paths)
         drift_expected = (
-            self.candidate_policy_state == "missing"
-            or (
-                self.candidate_policy_state == "present"
-                and self.trusted_policy_sha256 != self.candidate_policy_sha256
+            any(item.state != "stable" for item in self.governed_config_evidence)
+            if self.governed_config_evidence
+            else (
+                self.candidate_policy_state == "missing"
+                or (
+                    self.candidate_policy_state == "present"
+                    and self.trusted_policy_sha256 != self.candidate_policy_sha256
+                )
             )
         )
         if drift_expected != bool(paths):
@@ -305,6 +532,27 @@ class TrustedPolicyBundle:
         )
         if any(record.origin is not self.source_origin for record in self.policy.records):
             raise DomainError("exception origin disagrees with its policy loader")
+        if any(record.resolved_target is None for record in self.policy.records):
+            raise DomainError("trusted exceptions require exact resolved target binding")
+        if type(self.governed_config_evidence) is not tuple or any(
+            type(item) is not GovernedConfigEvidence
+            for item in self.governed_config_evidence
+        ):
+            raise DomainError("governed policy evidence must be an exact typed tuple")
+        if self.governed_config_evidence:
+            evidence_paths = tuple(sorted(
+                item.file_path for item in self.governed_config_evidence
+                if item.state != "stable"
+            ))
+            if evidence_paths != self.differing_governed_paths:
+                raise DomainError("governed policy evidence contradicts differing paths")
+        if self.source_commit:
+            if not _GIT_SHA.fullmatch(self.source_commit):
+                raise DomainError("policy source commit must be a full Git SHA")
+            if not self.source_repository:
+                raise DomainError("Git policy evidence requires repository identity")
+        elif self.source_repository:
+            raise DomainError("non-Git policy evidence cannot claim a repository")
         if _trusted_context is not _TRUSTED_BUNDLE_CONTEXT:
             raise DomainError("TrustedPolicyBundle requires production loader provenance")
         object.__setattr__(self, "_trusted", True)
@@ -325,6 +573,11 @@ class TrustedPolicyBundle:
             "evaluation_date": self.evaluation_date.isoformat(),
             "evaluation_timezone": self.evaluation_timezone,
             "evaluation_time_provenance": self.evaluation_time_provenance,
+            "governed_config_evidence": [
+                item.canonical_dict() for item in self.governed_config_evidence
+            ],
+            "source_repository": self.source_repository,
+            "source_commit": self.source_commit,
         }
 
 
@@ -337,6 +590,10 @@ def _bundle(
     source_identity: str,
     governed_path: str,
     clock: Callable[[], datetime] | None,
+    *,
+    governed_evidence: tuple = (),
+    source_repository: str = "",
+    source_commit: str = "",
 ) -> TrustedPolicyBundle:
     require_enum(origin, ExceptionOrigin, "policy loader origin")
     if origin not in TRUSTED_EXCEPTION_ORIGINS:
@@ -354,7 +611,10 @@ def _bundle(
         candidate_state == "missing"
         or (candidate_state == "present" and candidate_digest != trusted_digest)
     )
-    differing = (governed_path,) if differs else ()
+    differing = (
+        tuple(item.file_path for item in governed_evidence if item.state != "stable")
+        if governed_evidence else (governed_path,) if differs else ()
+    )
     evaluated, zone, provenance = _capture_time(clock)
     return TrustedPolicyBundle(
         policy,
@@ -368,52 +628,103 @@ def _bundle(
         evaluated,
         zone,
         provenance,
+        governed_evidence,
+        source_repository,
+        source_commit,
         _trusted_context=_TRUSTED_BUNDLE_CONTEXT,
     )
 
 
-def _load_path_bundle(
-    trusted_path: Path,
-    candidate_path: Path,
+def _optional_git_object(source: TrustedGitSource, relative: str) -> bytes | None:
+    relative = canonical_repo_path(relative)
+    entry = _git_command(
+        source.repository_root,
+        ("ls-tree", "-z", source.commit_sha, "--", relative),
+    )
+    if entry == b"":
+        return None
+    return _git_object_bytes(source.repository_root, source.commit_sha, relative)
+
+
+def _source_governed_evidence(source: TrustedGitSource) -> tuple:
+    evidence = []
+    for relative in source.governed_paths:
+        trusted = _optional_git_object(source, relative)
+        candidate = _read_policy_bytes(source.candidate_root / relative, required=False)
+        if trusted is None and candidate is None:
+            continue
+        trusted_digest = None if trusted is None else _sha256(trusted)
+        candidate_digest = None if candidate is None else _sha256(candidate)
+        state = (
+            "added" if trusted is None
+            else "removed" if candidate is None
+            else "stable" if trusted_digest == candidate_digest
+            else "changed"
+        )
+        evidence.append(
+            GovernedConfigEvidence(
+                relative, trusted_digest, candidate_digest, state
+            )
+        )
+    return tuple(evidence)
+
+
+def _load_git_source_bundle(
+    source: TrustedGitSource,
     origin: ExceptionOrigin,
-    source_identity: str,
     governed_path: str,
     clock: Callable[[], datetime] | None,
 ) -> TrustedPolicyBundle:
-    trusted_bytes = _read_policy_bytes(trusted_path, required=True)
-    candidate_bytes = _read_policy_bytes(candidate_path, required=False)
+    require_exact_type(source, TrustedGitSource, "attested Git policy source")
+    if not source._trusted or source.source_origin is not origin:
+        raise DomainError("Git policy source provenance does not match loader")
+    governed_path = canonical_repo_path(governed_path, "governed policy path")
+    if governed_path not in source.governed_paths:
+        raise DomainError("governed policy path is outside the attested Git source")
+    trusted_bytes = _git_object_bytes(
+        source.repository_root, source.commit_sha, governed_path
+    )
+    candidate_bytes = _read_policy_bytes(
+        source.candidate_root / governed_path, required=False
+    )
     candidate_state = "missing" if candidate_bytes is None else "present"
+    repository_identity = "git_repo_" + _sha256(
+        str(source.repository_root).encode("utf-8")
+    )
     return _bundle(
-        _parse_policy_bytes(trusted_bytes), trusted_bytes, candidate_bytes,
-        candidate_state, origin, source_identity, governed_path, clock,
+        _parse_policy_bytes(trusted_bytes),
+        trusted_bytes,
+        candidate_bytes,
+        candidate_state,
+        origin,
+        source.source_identity,
+        governed_path,
+        clock,
+        governed_evidence=_source_governed_evidence(source),
+        source_repository=repository_identity,
+        source_commit=source.commit_sha,
     )
 
 
 def load_base_commit_policy(
-    trusted_path: Path,
-    candidate_path: Path,
+    source: TrustedGitSource,
     *,
-    source_identity: str,
     governed_path: str = ".iac-guard.json",
     _clock: Callable[[], datetime] | None = None,
 ) -> TrustedPolicyBundle:
-    return _load_path_bundle(
-        trusted_path, candidate_path, ExceptionOrigin.TRUSTED_BASE, source_identity,
-        governed_path, _clock
+    return _load_git_source_bundle(
+        source, ExceptionOrigin.TRUSTED_BASE, governed_path, _clock
     )
 
 
 def load_protected_policy_repository(
-    trusted_path: Path,
-    candidate_path: Path,
+    source: TrustedGitSource,
     *,
-    source_identity: str,
     governed_path: str = ".iac-guard.json",
     _clock: Callable[[], datetime] | None = None,
 ) -> TrustedPolicyBundle:
-    return _load_path_bundle(
-        trusted_path, candidate_path, ExceptionOrigin.PROTECTED_POLICY_REPO,
-        source_identity, governed_path, _clock,
+    return _load_git_source_bundle(
+        source, ExceptionOrigin.PROTECTED_POLICY_REPO, governed_path, _clock
     )
 
 
@@ -519,14 +830,15 @@ class PolicyRequest:
 
 
 def _permission_for(
-    identity: TargetIdentity,
+    binding: ResolvedTargetBinding,
     outcome: Outcome,
     policy: ExceptionPolicy,
     evaluation_date: date,
 ) -> TargetDecision:
     matching = tuple(
         record for record in policy.records
-        if record.target.canonical_key == identity.canonical_key
+        if record.resolved_target is not None
+        and record.resolved_target.canonical_key == binding.canonical_key
         and outcome in record.permitted_outcomes
     )
     rejection = ""
@@ -540,10 +852,16 @@ def _permission_for(
         if evaluation_date > record.expires:
             rejection = "exception is expired"
             continue
-        return TargetDecision(identity, outcome, True, record.exception_id)
+        return TargetDecision(
+            binding.identity, outcome, True, record.exception_id,
+            resolved_target=binding,
+        )
     if not rejection and outcome is not Outcome.FIXED:
         rejection = "no trusted target-scoped exception authorises this outcome"
-    return TargetDecision(identity, outcome, False, rejection_reason=rejection)
+    return TargetDecision(
+        binding.identity, outcome, False, rejection_reason=rejection,
+        resolved_target=binding,
+    )
 
 
 def _gate_undecided(status: Status, name: str, optional: frozenset) -> bool:
@@ -569,7 +887,11 @@ class PolicyResult:
             raise DomainError("policy decisions must be a nonempty exact tuple")
         if any(type(item) is not TargetDecision for item in self.decisions):
             raise DomainError("policy decisions must contain exact TargetDecision values")
-        keys = [item.identity.canonical_key for item in self.decisions]
+        keys = [
+            item.identity.canonical_key
+            if item.resolved_target is None else item.resolved_target.canonical_key
+            for item in self.decisions
+        ]
         if len(keys) != len(set(keys)):
             raise DomainError("policy decisions contain duplicate target identities")
         require_exact_type(self.policy_evidence, PolicyEvidence, "policy evidence")
@@ -601,7 +923,7 @@ def evaluate_policy(request: PolicyRequest) -> PolicyResult:
     bundle = request.policy_bundle
     decisions = tuple(
         _permission_for(
-            item.identity, item.outcome, bundle.policy, bundle.evaluation_date
+            item.binding, item.outcome, bundle.policy, bundle.evaluation_date
         )
         for item in engine.target_outcomes
     )
@@ -662,7 +984,8 @@ def require_trusted_policy_result(value: object) -> PolicyResult:
 
 __all__ = [
     "AppliedExceptionSource", "PolicyEvidence", "PolicyRequest", "PolicyResult",
-    "TrustedPolicyBundle", "evaluate_policy", "load_base_commit_policy",
+    "TrustedGitSource", "TrustedPolicyBundle", "attest_git_source",
+    "attest_protected_policy_repository", "evaluate_policy", "load_base_commit_policy",
     "load_candidate_exception", "load_candidate_policy", "load_operator_policy",
     "load_protected_policy_repository", "load_trusted_exception",
     "require_trusted_policy_result",

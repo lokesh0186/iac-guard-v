@@ -293,10 +293,14 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    `TrustedPolicyBundle` carrying private loader provenance. It rejects raw records,
    record collections, caller-created `ExceptionPolicy`, candidate-policy parses,
    caller evaluation dates, and caller gate optionality.
-2. Base-commit, protected-policy-repository, and operator loaders stamp origin from the
-   selected source rather than a serialized `origin` field. Candidate loading always
-   stamps `CANDIDATE_HEAD` and can never create an authoritative bundle.
-3. Exceptions may permit only the exact structured target and exact eligible outcome
+2. The base-commit loader resolves a real Git commit and reads the governed policy from
+   that tree object; it accepts neither arbitrary trusted paths nor a caller-written
+   source identity. A protected-policy repository requires an exact pinned commit and a
+   repository outside the evaluated workspace. Explicit operator loading remains a
+   separately reported local mode. Candidate loading always stamps `CANDIDATE_HEAD` and
+   can never create an authoritative bundle.
+3. Exceptions may permit only the exact scanner/rule/resource/file/artifact/native
+   target binding and exact eligible outcome
    named by an in-force loader-stamped record. The inclusive evaluation date is captured
    from a trusted timezone-aware execution clock, and optional gates come from the same
    trusted policy document. Permission is derived by the policy layer, never believed
@@ -307,8 +311,9 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    rule substitution produce `INCONCLUSIVE` before definite-negative evaluation.
    Validator/oracle failure, policy drift, unresolved targets, and regression or
    suppression failure then produce `FAILED`; otherwise the result is `VERIFIED`.
-6. Policy evidence records trusted source identity and origin, trusted digest, candidate
-   presence state and digest when present, differing governed paths, UTC evaluation-time provenance, and the exact
+6. Policy evidence records the resolved source commit/repository, trusted source identity
+   and origin, trusted digest, candidate presence/digest and path-by-path governed state,
+   UTC evaluation-time provenance, and the exact
    loader source for every applied exception. Candidate policy drift is decisive even
    if a caller-supplied upstream digest claimed equality.
 7. Verdicts and exit codes are closed and inseparable: `VERIFIED/0`, `FAILED/1`, and

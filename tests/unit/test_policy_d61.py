@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from pathlib import Path
 
 import pytest
 
@@ -21,6 +23,37 @@ from test_policy import (
     verified_engine,
 )
 from iac_guard_v.models import GateResult
+
+
+def _git(repository: Path, *arguments: str) -> str:
+    result = subprocess.run(
+        ["git", *arguments], cwd=repository, check=True, capture_output=True, text=True
+    )
+    return result.stdout.strip()
+
+
+def _git_policy_source(
+    tmp_path: Path,
+    name: str,
+    content: bytes,
+    *,
+    governed_path: str = ".iac-guard.json",
+) -> tuple[Path, str, POLICY.TrustedGitSource]:
+    repository = tmp_path / name
+    repository.mkdir()
+    _git(repository, "init", "-q")
+    _git(repository, "config", "user.name", "Test")
+    _git(repository, "config", "user.email", "test@example.invalid")
+    policy_path = repository / governed_path
+    policy_path.parent.mkdir(parents=True, exist_ok=True)
+    policy_path.write_bytes(content)
+    _git(repository, "add", governed_path)
+    _git(repository, "commit", "-q", "-m", "trusted policy")
+    commit = _git(repository, "rev-parse", "HEAD")
+    source = POLICY.attest_git_source(
+        repository, commit, repository, (governed_path,)
+    )
+    return repository, commit, source
 
 
 def test_raw_self_declared_trusted_record_is_not_policy_material(verified_engine) -> None:
@@ -94,28 +127,26 @@ def test_direct_bundle_construction_cannot_create_loader_provenance() -> None:
 
 def test_base_loader_binds_bytes_source_and_governed_path(tmp_path) -> None:
     payload = _policy_payload()
-    trusted = tmp_path / "base.json"
-    candidate = tmp_path / "head.json"
-    trusted.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
-    candidate.write_bytes(trusted.read_bytes())
+    trusted_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
+    repository, commit, source = _git_policy_source(
+        tmp_path, "base-loader", trusted_bytes, governed_path="config/policy.json"
+    )
     bundle = POLICY.load_base_commit_policy(
-        trusted,
-        candidate,
-        source_identity="base-commit-0123456789abcdef",
+        source,
         governed_path="config/policy.json",
         _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
     )
     assert bundle.policy_drift is False
     assert bundle.source_origin is ExceptionOrigin.TRUSTED_BASE
-    assert bundle.source_identity == "base-commit-0123456789abcdef"
+    assert bundle.source_identity == f"git_commit_{commit}"
     assert bundle.evaluation_date == TODAY
     assert bundle.evaluation_timezone == "UTC"
 
-    candidate.write_text(json.dumps({**payload, "optional_gates": ["regression"]}), encoding="utf-8")
+    (repository / "config/policy.json").write_text(
+        json.dumps({**payload, "optional_gates": ["regression"]}), encoding="utf-8"
+    )
     drift = POLICY.load_base_commit_policy(
-        trusted,
-        candidate,
-        source_identity="base-commit-0123456789abcdef",
+        source,
         governed_path="config/policy.json",
         _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
     )
@@ -125,12 +156,16 @@ def test_base_loader_binds_bytes_source_and_governed_path(tmp_path) -> None:
 
 
 def test_missing_candidate_policy_is_visible_drift(tmp_path) -> None:
-    trusted = tmp_path / "base.json"
-    trusted.write_text(json.dumps(_policy_payload()), encoding="utf-8")
+    repository, commit, _source = _git_policy_source(
+        tmp_path, "protected-policy", json.dumps(_policy_payload()).encode("utf-8")
+    )
+    workspace = tmp_path / "candidate-workspace"
+    workspace.mkdir()
+    source = POLICY.attest_protected_policy_repository(
+        repository, commit, workspace, (".iac-guard.json",)
+    )
     bundle = POLICY.load_protected_policy_repository(
-        trusted,
-        tmp_path / "missing.json",
-        source_identity="protected-policy-repository-v1",
+        source,
         _clock=lambda: datetime(2026, 8, 11, tzinfo=timezone.utc),
     )
     assert bundle.policy_drift
@@ -239,30 +274,27 @@ def test_policy_payload_cannot_supply_evaluation_time() -> None:
 
 
 def test_file_loader_rejects_duplicate_keys_depth_and_symlink(tmp_path) -> None:
-    candidate = tmp_path / "candidate.json"
-    candidate.write_text("{}", encoding="utf-8")
-    duplicate = tmp_path / "duplicate.json"
-    duplicate.write_text('{"exceptions":[],"exceptions":[]}', encoding="utf-8")
+    _repo, _commit, duplicate = _git_policy_source(
+        tmp_path, "duplicate", b'{"exceptions":[],"exceptions":[]}'
+    )
     with pytest.raises(Exception, match="duplicate"):
-        POLICY.load_base_commit_policy(
-            duplicate, candidate, source_identity="base-duplicate-test"
-        )
+        POLICY.load_base_commit_policy(duplicate)
 
-    deep = tmp_path / "deep.json"
-    deep.write_text("[" * 65 + "]" * 65, encoding="utf-8")
+    _repo, _commit, deep = _git_policy_source(
+        tmp_path, "deep", ("[" * 65 + "]" * 65).encode("utf-8")
+    )
     with pytest.raises(Exception, match="depth"):
-        POLICY.load_base_commit_policy(
-            deep, candidate, source_identity="base-depth-test"
-        )
+        POLICY.load_base_commit_policy(deep)
 
-    real = tmp_path / "real.json"
+    repository, _commit, linked_source = _git_policy_source(
+        tmp_path, "symlink", json.dumps(_policy_payload()).encode("utf-8")
+    )
+    real = tmp_path / "candidate-real.json"
     real.write_text(json.dumps(_policy_payload()), encoding="utf-8")
-    linked = tmp_path / "linked.json"
-    linked.symlink_to(real)
+    (repository / ".iac-guard.json").unlink()
+    (repository / ".iac-guard.json").symlink_to(real)
     with pytest.raises(Exception, match="no-follow"):
-        POLICY.load_base_commit_policy(
-            linked, candidate, source_identity="base-symlink-test"
-        )
+        POLICY.load_base_commit_policy(linked_source)
 
 
 @pytest.mark.parametrize(
@@ -305,38 +337,22 @@ def test_exception_payload_mutations_are_rejected(mutation, message) -> None:
 
 
 def test_policy_source_type_size_and_json_shape_guards(tmp_path) -> None:
-    candidate = tmp_path / "candidate.json"
-    candidate.write_text("{}", encoding="utf-8")
-    with pytest.raises(Exception, match="pathlib.Path"):
-        POLICY.load_base_commit_policy(
-            "not-a-path", candidate, source_identity="base-type-test"
-        )
-    with pytest.raises(Exception, match="does not exist"):
-        POLICY.load_base_commit_policy(
-            tmp_path / "missing.json", candidate, source_identity="base-missing-test"
-        )
-    with pytest.raises(Exception, match="regular file"):
-        POLICY.load_base_commit_policy(
-            tmp_path, candidate, source_identity="base-directory-test"
-        )
-    oversized = tmp_path / "oversized.json"
-    oversized.write_bytes(b" " * (1024 * 1024 + 1))
+    with pytest.raises(Exception, match="TrustedGitSource"):
+        POLICY.load_base_commit_policy("not-an-attested-source")
+    _repo, _commit, oversized = _git_policy_source(
+        tmp_path, "oversized", b" " * (1024 * 1024 + 1)
+    )
     with pytest.raises(Exception, match="byte limit"):
-        POLICY.load_base_commit_policy(
-            oversized, candidate, source_identity="base-size-test"
-        )
+        POLICY.load_base_commit_policy(oversized)
     for name, content, message in (
         ("empty.json", b"", "nonempty"),
         ("malformed.json", b"{", "strict JSON"),
         ("array.json", b"[]", "JSON object"),
         ("unbalanced.json", b"}", "unbalanced"),
     ):
-        path = tmp_path / name
-        path.write_bytes(content)
+        _repo, _commit, source = _git_policy_source(tmp_path, name, content)
         with pytest.raises(Exception, match=message):
-            POLICY.load_base_commit_policy(
-                path, candidate, source_identity=f"base-{name}"
-            )
+            POLICY.load_base_commit_policy(source)
 
 
 def test_candidate_policy_path_and_source_type_are_typed(tmp_path) -> None:

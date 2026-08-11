@@ -457,16 +457,21 @@ factory-proven D5 `VerificationResult` and a private-loader-attested
 record or policy, optional gates, optional-gate origin, target outcomes, deltas, or
 scanner evidence.
 
-Base-commit, protected-policy-repository, and operator loaders bind the trusted policy
-bytes, stamp source origin independently of serialized claims, capture the current UTC
-date from a trusted execution clock, and load optionality from that same protected
-document. Candidate loading always stamps `CANDIDATE_HEAD` and returns no trusted
-bundle. The bundle records source identity, trusted digest, candidate state/digest, and
-exact differing governed paths. File loaders use bounded no-follow regular-file reads and strict JSON
-with duplicate-key and nesting controls.
+The base-commit loader binds bytes from a mechanically resolved Git commit object, not
+an arbitrary path bearing a caller-written label. The protected-policy-repository loader
+requires an exact pinned commit and a repository outside the evaluated workspace.
+Explicit operator loading remains a distinct `OPERATOR` mode and is never auto-selected
+for PR verification. These loaders stamp source origin independently of serialized
+claims, capture the current UTC date from a trusted execution clock, and load optionality
+from that same protected document. Candidate loading always stamps `CANDIDATE_HEAD` and
+returns no trusted bundle. The bundle records commit/repository identity, trusted digest,
+candidate state/digest, and path-by-path governed evidence. Candidate file reads are
+bounded and no-follow; Git policy entries must be regular files; JSON is duplicate-free
+and depth-bounded.
 
 The policy layer independently rebuilds decisions from engine classifications. It finds
-an exact structured target, event-specific, loader-stamped, in-force exception; permission is
+an exact file/artifact/native-resource-bound target, event-specific, loader-stamped,
+in-force exception; permission is
 never copied from a caller-authored decision. A permitted event remains in the result
 with its outcome and exception id. Missing, wrong-event, wrong-target, untrusted,
 not-yet-valid, and expired records remain visible as unpermitted decisions.

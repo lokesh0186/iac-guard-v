@@ -20,7 +20,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install project and test runner
-        run: python -m pip install -e . "pytest>=8,<10" "pytest-cov>=5,<8"
+        run: python -m pip install -e ".[compat-test]"
       - name: Clean-bytecode import
         run: |
           find src -name __pycache__ -type d -prune -exec rm -rf {} +
@@ -29,18 +29,18 @@ jobs:
         run: PYTHONPATH=src python -m pytest tests --ignore=tests/integration -q
       - name: Enforce D3 core coverage
         run: |
-          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.fingerprints --cov-report=term-missing --cov-fail-under=90 -q
-          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.matching --cov-report=term-missing --cov-fail-under=90 -q
-          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_matching_d32.py tests/unit/test_diffing.py --cov=iac_guard_v.fingerprints --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_matching_d32.py tests/unit/test_diffing.py --cov=iac_guard_v.matching --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_matching_d32.py tests/unit/test_diffing.py --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D4 adapter coverage
         run: |
-          PYTHONPATH=src python -m pytest tests/unit/test_checkov_adapter.py --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_checkov_adapter.py tests/unit/test_checkov_adapter_d41.py tests/unit/test_checkov_adapter_d42.py --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D5 engine coverage
         run: |
           PYTHONPATH=src python -m pytest tests/unit/test_engine.py tests/unit/test_engine_d44.py tests/unit/test_engine_d51.py tests/unit/test_engine_d52.py --cov=iac_guard_v.engine --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D6 policy coverage
         run: |
-          PYTHONPATH=src python -m pytest tests/unit/test_policy.py tests/unit/test_policy_d61.py tests/unit/test_engine_d51.py --cov=iac_guard_v.policy --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_policy.py tests/unit/test_policy_d61.py tests/unit/test_policy_d62.py tests/unit/test_engine_d51.py --cov=iac_guard_v.policy --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
 
   pinned-checkov-330:
     runs-on: ubuntu-latest

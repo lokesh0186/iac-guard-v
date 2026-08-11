@@ -55,7 +55,9 @@ govern its own evaluation.
 | Hide drift by changing only the scanner launcher or invocation configuration | D5 compares launcher, environment, policy-inventory, and invocation/config digests as one execution identity |
 | Turn unknown severity or incomplete occurrence-pass evidence into a pass | typed D5 uncertainty; neither condition can reach `FIXED` or a passing regression gate |
 | Delete an unrelated resource while repairing the named target | canonical baseline/candidate resource inventory comparison emits `DESTRUCTIVE_CHANGE` and fails regression |
-| Declare `origin: trusted_base` inside candidate policy | serialized origin is ignored; only a private loader-attested bundle can enter `PolicyRequest`, and candidate loading stamps `CANDIDATE_HEAD` |
+| Declare `origin: trusted_base` inside candidate policy | serialized origin is ignored; base bytes are read from a mechanically resolved Git commit object, only a private loader-attested bundle can enter `PolicyRequest`, and candidate loading stamps `CANDIDATE_HEAD` |
+| Present candidate working-tree bytes as the base policy | base loading accepts an attested Git source and reads the governed path from the resolved commit tree; it accepts no arbitrary trusted path or caller-authored source identity |
+| Reuse a deletion/suppression exception for the same address in another root | exception permission compares the exact file, artifact kind, and scanner-native resource binding; an unrelated same-address event remains independent |
 | Backdate evaluation or declare a gate optional in candidate input | UTC date is captured by the trusted execution clock; optionality is loaded only from the protected policy document |
 | Hide candidate policy edits behind caller-supplied equal digests | D6 retains the trusted digest, candidate presence/digest evidence, and differing governed paths and treats loader-observed drift as decisive |
 | Emit the same target as both passed and failed | evaluation-identity contradiction is a typed scanner error |
@@ -140,7 +142,9 @@ source defined in the verification semantics: an operator-supplied path, a prote
 workflow input or policy repository, or the base commit of the comparison. Never from
 the candidate.
 
-The candidate's copies are read solely to be compared. A difference emits
+In PR mode, trusted bytes are read from the mechanically resolved base Git object. A
+protected policy repository must be outside the evaluated workspace and locked to an
+exact commit. The candidate's copies are read solely to be compared. A difference emits
 `POLICY_DRIFT`, names the files and the nature of the change, records both digests as
 evidence, and fails by default. Nothing in the candidate takes effect during the run
 that evaluates it.
@@ -151,6 +155,11 @@ the record's location in the trusted source, optionally strengthened by a config
 worked example this defends against is a pull request that adds an exception scoped to
 `**` with `owner: security-team` and an expiry in 2099: well-formed, self-granted, and
 inert.
+
+Exception scope includes the resolved file, artifact kind, and scanner-native resource
+identity. A permission for `aws_x.r` in one Terraform root does not authorise the same
+address in another root. Operator policy is an explicit local trust mode and cannot be
+silently substituted for base-commit policy in PR mode.
 
 Local `repair` mode is exempt, because the operator and the author are the same person
 and no privilege boundary is being crossed.

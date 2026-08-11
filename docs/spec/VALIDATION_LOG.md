@@ -668,8 +668,6 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
----
-
 ## Gate D4.4 — Strict independent artifact discovery
 
 Literal failing-before probes on `f9fe391b88b07676dbbab68124da04ac15bd13e3`:
@@ -720,6 +718,94 @@ trusted HIGH floor + caller CRITICAL override -> rejected; new HIGH -> regressio
 protected terraform+kubernetes universe + caller terraform-only request ->
   pod.yaml included as v1/Pod/default/p
 engine branch coverage -> 90.36% (103 passed)
+```
+
+---
+
+## D6.2 — Git-object policy provenance and exact event permission (2026-08-11)
+
+Parent: `2c35692143077aaf58a95a05b725700a23a8f547`. D6.2 did not alter the
+frozen QRS scope and did not begin D7, D9, or Phase E.
+
+Literal failing-before evidence on the D6.1 parent:
+
+```text
+load_base_commit_policy parameters -> trusted_path, candidate_path, source_identity
+candidate policy passed as trusted_path and candidate_path -> origin trusted_base
+candidate-as-base policy drift -> False
+candidate suppression exception policy_permitted -> True
+candidate-as-base final verdict -> VERIFIED
+same scanner/rule/address exception in another file -> policy_permitted True
+focused source/exact-binding mutations -> 3 failed
+```
+
+Literal passing-after evidence:
+
+```text
+old arbitrary-path call -> TypeError: load_base_commit_policy() got an unexpected keyword argument 'source_identity'
+base source identity -> git_commit_<mechanically-resolved-commit-sha>
+trusted policy bytes -> Git commit tree object, not candidate working-tree bytes
+candidate exception absent from base object -> trusted records 0
+candidate policy differs from base object -> policy_drift True
+same scanner/rule/address but other/main.tf -> policy_permitted False; verdict FAILED
+candidate-only .checkov.yml -> governed state added; differing path .checkov.yml
+committed policy symlink -> rejected: Git policy object must be a regular repository file
+protected repository inside workspace -> rejected
+protected repository unpinned commit -> rejected
+```
+
+Executable focused gates:
+
+```console
+$ PYTHONPATH=src pytest -q tests/unit/test_policy.py tests/unit/test_policy_d61.py \
+    tests/unit/test_policy_d62.py tests/unit/test_engine_d51.py
+149 passed
+
+$ COVERAGE_FILE=/tmp/iacgv-d62.coverage PYTHONPATH=src pytest \
+    tests/unit/test_policy.py tests/unit/test_policy_d61.py \
+    tests/unit/test_policy_d62.py tests/unit/test_engine_d51.py \
+    --cov=iac_guard_v.policy --cov-branch --cov-report=term-missing \
+    --cov-fail-under=90 -q
+149 passed
+policy.py: 548 statements, 216 branches, 90.84% branch coverage
+Required test coverage of 90% reached
+```
+
+Final D6.2 gate values:
+
+```text
+Python 3.11 clean-bytecode warning-as-error import: PASS
+Python 3.11 non-integration suite: 1079 passed
+Python 3.12 clean-bytecode warning-as-error import: PASS
+Python 3.12 non-integration suite: 1079 passed
+Python 3.10 local leg: BLOCKED (interpreter not installed)
+Python 3.13 local leg: BLOCKED (interpreter not installed)
+CI matrix retained: 3.10, 3.11, 3.12, 3.13
+live Checkov 3.3.0 integration: 5 passed
+D3 fingerprints/matching/diffing coverage: 100.00% / 90.32% / 91.58%
+D4 adapter coverage: 90.50%
+D5 engine branch coverage: 90.36%
+D6 policy branch coverage: 90.84%
+spec_lint: 23 documents, 102 enum values, PASS, zero warnings
+manifest files checked: 4842/4842 PASS
+MANIFEST_ROOT computed/recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+frozen runs: 630/630
+field comparisons: 10080/10080 equal
+final-verdict mismatches: 0
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff: empty
+```
+
+The compatibility workflow installs the full replay-test dependencies for each declared
+interpreter. Python 3.13 uses NumPy 2 because NumPy 1 has no Python 3.13 wheel; the frozen
+research environment and `requirements.txt` remain unchanged and continue to govern the
+research replay. No benchmark inference, provider call, model refresh, D7, D9, or Phase E
+work occurred.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
 ## D4.3 — Cross-version strict JSON depth (2026-08-11)

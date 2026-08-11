@@ -9,6 +9,7 @@ import iac_guard_v.engine as ENGINE
 from iac_guard_v.engine import EngineEventEvaluation, TargetOutcomeEvidence, VerificationResult
 from iac_guard_v.enums import (
     EXIT_CODES,
+    ArtifactKind,
     ExceptionOrigin,
     DeltaClass,
     Outcome,
@@ -20,6 +21,7 @@ from iac_guard_v.models import (
     ExceptionPolicy,
     ExceptionRecord,
     GateResult,
+    ResolvedTargetBinding,
     TargetDecision,
 )
 from iac_guard_v.policy import (
@@ -138,7 +140,12 @@ def _record(
     origin: ExceptionOrigin = ExceptionOrigin.TRUSTED_BASE,
     created: date = date(2026, 1, 1),
     expires: date = date(2026, 12, 31),
+    resolved_target=None,
 ) -> ExceptionRecord:
+    if resolved_target is None:
+        resolved_target = ResolvedTargetBinding(
+            identity, "main.tf", ArtifactKind.TERRAFORM_HCL, identity.scope
+        )
     return ExceptionRecord(
         exception_id,
         identity,
@@ -148,6 +155,7 @@ def _record(
         expires,
         origin,
         frozenset({outcome}),
+        resolved_target,
     )
 
 
@@ -165,6 +173,9 @@ def _policy_payload(*, exceptions=None, optional_gates=frozenset()) -> dict:
                 "scanner": record.target.scanner,
                 "rule_id": record.target.rule_id,
                 "scope": record.target.scope,
+                "file_path": record.resolved_target.file_path,
+                "artifact_kind": record.resolved_target.artifact_kind.value,
+                "scanner_native_lookup": record.resolved_target.scanner_native_lookup,
             },
             "reason": record.reason,
             "owner": record.owner,

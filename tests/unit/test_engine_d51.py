@@ -161,6 +161,9 @@ def verdict(result, exceptions=None):
             "scanner": record.target.scanner,
             "rule_id": record.target.rule_id,
             "scope": record.target.scope,
+            "file_path": record.resolved_target.file_path,
+            "artifact_kind": record.resolved_target.artifact_kind.value,
+            "scanner_native_lookup": record.resolved_target.scanner_native_lookup,
         },
         "reason": record.reason,
         "owner": record.owner,
@@ -267,6 +270,7 @@ def test_real_target_suppression_does_not_create_global_policy_failure(
         "EX-SUPPRESS", IDENTITY, "accepted suppression", "security-team",
         date(2026, 1, 1), date(2026, 12, 31), ExceptionOrigin.TRUSTED_BASE,
         frozenset({Outcome.SUPPRESSED}),
+        result.target_outcomes[0].binding,
     )
     decision = verdict(result, ExceptionPolicy((exception,)))
     assert result.target_outcomes[0].outcome is Outcome.SUPPRESSED

@@ -168,3 +168,24 @@ governed-file inventory are stamped into `TrustedVerificationConfigBundle`; they
 absent from `VerificationRequest` as caller fields. Exact added/removed/changed paths
 drive `POLICY_DRIFT`. Targets resolve to file/artifact/native identity before policy, so
 same-address resources do not share authority.
+
+## Amendment, 2026-08-11: Git-object source attestation and exact permission
+
+Calling a function named “base loader” is not evidence that arbitrary path bytes came
+from a base commit. The production base loader now accepts only a `TrustedGitSource`
+created by strict repository/ref resolution. Trusted policy bytes are read from the
+resolved commit tree with argument-array Git plumbing; the loader computes source
+identity from that SHA and accepts no caller-written source identity. A committed policy
+entry must be a regular file, not a symlink. Candidate bytes are separately read from
+the evaluated root with no-follow safeguards.
+
+Protected policy repositories require a full pinned commit and a canonical repository
+outside the evaluated workspace. Explicit operator policy remains `OPERATOR` mode; it is
+never an implicit substitute for the base source in PR verification. Reports retain the
+source commit, repository identity, and per-path trusted/candidate digest state.
+
+Every trusted exception now contains the exact `ResolvedTargetBinding`: scanner, rule,
+resource address, file, artifact kind, and scanner-native lookup identity. D6 compares
+that binding to the engine classification before applying an exception. Therefore an
+exception for one module cannot authorise a same-address deletion or suppression in a
+different module.
