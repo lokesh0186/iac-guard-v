@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Iterable
 
+from .fingerprints import attach_iacgv_fingerprint
 from .models import DomainError, Finding, require_exact_type
 
 
@@ -82,5 +83,6 @@ def assign_occurrence_indices(findings: Iterable[Finding]) -> tuple[Finding, ...
         group = occurrence_group_key(finding)
         index = counters.get(group, 0)
         counters[group] = index + 1
-        result.append(replace(finding, occurrence_index=index))
+        indexed = replace(finding, occurrence_index=index)
+        result.append(attach_iacgv_fingerprint(indexed))
     return tuple(result)

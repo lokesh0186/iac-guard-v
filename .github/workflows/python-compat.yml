@@ -24,6 +24,11 @@ jobs:
           find src -name __pycache__ -type d -prune -exec rm -rf {} +
           PYTHONPATH=src python -W error -c "import iac_guard_v"
       - name: Install test runner
-        run: python -m pip install "pytest>=8,<10"
+        run: python -m pip install "pytest>=8,<10" "pytest-cov>=5,<8"
       - name: Run tests
         run: PYTHONPATH=src python -m pytest tests -q
+      - name: Enforce D3 core coverage
+        run: |
+          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.fingerprints --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.matching --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_diffing.py --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q

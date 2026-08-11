@@ -12,6 +12,25 @@ from __future__ import annotations
 
 __version__ = "0.1.0a1"
 
-from . import enums, models, normalisation, process, redaction  # noqa: F401
+from . import (  # noqa: F401
+    diffing,
+    enums,
+    fingerprints,
+    matching,
+    models,
+    normalisation,
+    process,
+    redaction,
+)
 
-__all__ = ["__version__", "enums", "models", "normalisation", "process", "redaction"]
+__all__ = [
+    "__version__",
+    "diffing",
+    "enums",
+    "fingerprints",
+    "matching",
+    "models",
+    "normalisation",
+    "process",
+    "redaction",
+]

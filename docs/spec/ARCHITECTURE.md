@@ -332,3 +332,21 @@ Process-group inspection has three values: `ABSENT` only for `ESRCH` /
 event whose group cleanup is unconfirmed becomes
 `ERROR/PROCESS_GROUP_CLEANUP_FAILED`; the original event remains in
 `primary_execution_event`.
+
+## 13. D3 fingerprints, matching, and finding deltas
+
+`fingerprints.py` owns `iacgv1`, scan-root path canonicalisation, Terraform resource
+address validation, and Kubernetes object identity construction. Temporary scan roots
+are removed before a finding is built. Deterministic occurrence indices are assigned
+before the fingerprint is attached, and a scanner-native fingerprint is retained in its
+own field.
+
+`matching.py` accepts exact built-in finding collections, reconstructs their values, and
+rejects duplicate exact identities, forged stored fingerprints, and scanner-version
+drift. It matches exact occurrences first and then only unambiguous same-resource
+relocations. Results are frozen, slotted, canonically ordered evidence objects.
+
+`diffing.py` projects that comparison into the six delta classes established by finding
+evidence alone. The five classes needing engine, coverage, plan, diagnostic, control-map,
+or policy inputs remain unavailable at this boundary and are deferred to D5. Different
+resource addresses never relocate: the old occurrence resolves and the new one is new.

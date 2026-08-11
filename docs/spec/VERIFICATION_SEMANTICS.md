@@ -369,6 +369,15 @@ A finding is not a rule ID. That representation is audit finding F3.
 - Both `native_fingerprint` and `iacgv_fingerprint` are stored. Neither replaces the
   other.
 
+The D3 primary algorithm is `iacgv1`: lowercase SHA-256 over canonical compact JSON
+containing exactly `algorithm`, `scanner`, `rule_id`, repository-relative `file_path`,
+canonical `resource_address`, `occurrence_index`, and `artifact_kind`, with keys sorted.
+The stored form is `iacgv1:<64 lowercase hex characters>`. Occurrence indices are
+assigned deterministically before this digest is attached. Scanner version, native
+fingerprint, line numbers, severity, suppression state, rule display name, and message
+are excluded; each remains separate evidence. A stored IaC-Guard-V fingerprint that
+does not recompute from its finding is malformed evidence and is rejected.
+
 ---
 
 ## 4. Target outcomes
@@ -583,6 +592,24 @@ location_changed  = identity_match AND (
 
 Line numbers stay out of the stable fingerprint, and location drift stays observable.
 Both properties are required; neither is sacrificed to the other.
+
+### 5.3 D3 matching and finding-derived delta boundary
+
+Same-scanner comparison is an occurrence-preserving multiset operation:
+
+1. reject duplicate exact identities and scanner-version drift;
+2. match unique `EXACT` keys;
+3. among the remaining findings, match a `RELOCATED` key only when it is unique on both
+   sides;
+4. leave different resources unmatched, producing `RESOLVED_FINDING` plus
+   `NEW_FINDING`;
+5. refuse ambiguous relocation rather than selecting by caller order.
+
+The D3 finding-only diff layer may establish `NEW_FINDING`, `LOCATION_CHANGED`,
+`SEVERITY_INCREASED`, `SCOPE_EXPANDED`, `SUPPRESSION_ADDED`, and
+`RESOLVED_FINDING`. `RULE_SUBSTITUTED`, `COVERAGE_DECREASED`, `DIAGNOSTIC_ADDED`,
+`DESTRUCTIVE_CHANGE`, and `POLICY_DRIFT` require engine, scanner, plan, or trusted-policy
+evidence and cannot be publicly forged as finding-only deltas.
 
 ## 6. Gates
 

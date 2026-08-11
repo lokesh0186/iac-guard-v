@@ -896,3 +896,48 @@ NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
+
+---
+
+## Gate D3 — Versioned fingerprints and multiset matching
+
+D3 began only after D2.3 commit
+`70739cb068211876b0264f91d046adc568e8046c` passed its mandatory gates. Before
+implementation, verification semantics §§3 and 5, ADR-0003, architecture boundaries,
+the domain model, and occurrence normalisation were reread.
+
+Implemented evidence:
+
+- golden `iacgv1` fingerprint:
+  `iacgv1:103a16c9e7eb2ed6a76a8acb10a3cc6aefeb0e1e9693999c0d0e403cde508871`;
+- line, message, severity, scanner-version, suppression-state, and temp-root changes keep
+  that identity stable;
+- scanner, rule, path, resource, occurrence, or artifact-kind changes alter it;
+- exact matching precedes relocation; occurrences never collapse;
+- a resource move is `NEW_FINDING` plus `RESOLVED_FINDING`, not relocation;
+- forged fingerprints, duplicate exact keys, version drift, ambiguous relocation,
+  collection subclasses, and engine-only delta claims are rejected.
+
+Focused test and coverage output:
+
+```console
+$ PYTHONPATH=src pytest tests/unit/test_fingerprints.py \
+    tests/unit/test_matching.py tests/unit/test_diffing.py \
+    --cov=iac_guard_v.fingerprints --cov=iac_guard_v.matching \
+    --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q
+64 passed in 0.19s
+src/iac_guard_v/diffing.py           92      3    97%
+src/iac_guard_v/fingerprints.py      69      0   100%
+src/iac_guard_v/matching.py         131      1    99%
+TOTAL                               292      4    99%
+Required test coverage of 90% reached. Total coverage: 98.63%
+```
+
+Complete suite:
+
+```console
+$ PYTHONPATH=src pytest tests -q
+724 passed in 58.88s
+```
+
+D3 adds 64 tests; the 660 tests at the D2.3 commit remain green.

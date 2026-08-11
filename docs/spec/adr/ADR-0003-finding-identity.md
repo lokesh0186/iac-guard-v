@@ -51,3 +51,18 @@ this both misses real regressions and invents fake ones.
 
 **Native scanner fingerprint only.** Rejected: not all scanners provide one, definitions
 differ across tools and versions, and it is unusable for cross-scanner work.
+
+## Amendment, 2026-08-10: D3 executable identity algorithm
+
+The first production algorithm is `iacgv1`. It hashes canonical compact JSON with sorted
+keys over the algorithm id, scanner, rule id, scan-root-relative path, canonical resource
+address, occurrence index, and artifact kind. Its stored form prefixes the lowercase
+SHA-256 with `iacgv1:`. The algorithm excludes line numbers, scanner version, display
+prose, severity, suppression state, and native fingerprint so those independently
+reported facts cannot destabilize primary identity.
+
+Occurrence indices are assigned by the canonical normalizer before attaching the
+fingerprint. A caller-supplied fingerprint must recompute exactly or it is rejected.
+Same-scanner comparison matches exact occurrences first, then unambiguous relocated
+occurrences with the same resource. Ambiguous relocation is refused; different resources
+remain two facts rather than one match.

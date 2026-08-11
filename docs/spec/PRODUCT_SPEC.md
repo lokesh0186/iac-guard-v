@@ -191,3 +191,19 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 9. Reports record observed and retained byte counts per stream. Retained counts obey the
    individual and combined caps, observed counts are never lower, and truncated-output
    hashes are labelled as retained-byte hashes.
+
+## 14. D3 — Fingerprints and multiset matching
+
+1. `iacgv1` fingerprints are deterministic, visibly versioned, stable across line,
+   message, severity, scanner-version, suppression-state, and temporary-root drift, and
+   change for every exact identity component.
+2. Scanner-native and IaC-Guard-V fingerprints coexist; a forged stored IaC-Guard-V
+   fingerprint is rejected before matching or delta generation.
+3. Matching preserves every occurrence, is independent of caller order, matches exact
+   identity before relocation, and permits relocation only for the same resource.
+4. Line-only and file moves remain observable as `LOCATION_CHANGED`; moving a rule to a
+   different resource produces `RESOLVED_FINDING` plus `NEW_FINDING`.
+5. Finding-only delta constructors cannot claim events that require later engine or
+   trusted-policy evidence.
+6. Fingerprint, matching, and diffing modules each maintain at least 90% executable test
+   coverage in CI.

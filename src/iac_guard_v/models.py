@@ -247,6 +247,7 @@ class Finding:
     rule_name: str = ""
     message: str = ""
     native_fingerprint: str = ""
+    iacgv_fingerprint: str = ""
     artifact_kind: ArtifactKind = ArtifactKind.UNKNOWN
     suppressed: bool = False
 
@@ -272,6 +273,12 @@ class Finding:
         if self.native_fingerprint:
             set_(self, "native_fingerprint",
                  canonical_identifier(self.native_fingerprint, "native_fingerprint"))
+        if self.iacgv_fingerprint:
+            if not re.fullmatch(r"iacgv[1-9][0-9]*:[0-9a-f]{64}", self.iacgv_fingerprint):
+                raise DomainError(
+                    "iacgv_fingerprint must contain a visible iacgv algorithm version "
+                    "and a lowercase SHA-256 digest"
+                )
 
     @property
     def exact_key(self) -> tuple:
@@ -300,6 +307,7 @@ class Finding:
             "occurrence_index": self.occurrence_index,
             "location": self.location.canonical_dict(),
             "message": self.message, "native_fingerprint": self.native_fingerprint,
+            "iacgv_fingerprint": self.iacgv_fingerprint,
             "artifact_kind": self.artifact_kind.value, "suppressed": self.suppressed,
         }
 
@@ -315,6 +323,7 @@ def _rebuild_finding(finding: Any) -> Finding:
         occurrence_index=int(finding.occurrence_index),
         rule_name=str(finding.rule_name), message=str(finding.message),
         native_fingerprint=str(finding.native_fingerprint),
+        iacgv_fingerprint=str(finding.iacgv_fingerprint),
         artifact_kind=ArtifactKind(finding.artifact_kind.value),
         suppressed=bool(finding.suppressed),
     )
