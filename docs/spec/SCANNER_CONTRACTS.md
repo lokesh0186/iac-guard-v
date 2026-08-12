@@ -416,3 +416,11 @@ absent on disk.
 Both version probing and scanning set `PYTHONDONTWRITEBYTECODE=1`; the environment is
 revalidated after execution so newly created executable content becomes
 `SCANNER_ENVIRONMENT_MISMATCH`, never clean evidence.
+
+### 3.5 E2.1 signed cache and contradiction contract
+
+The Trivy cache is accepted only through the signed E0.3 physical-inventory verifier
+and its exact subtree is revalidated on both sides of execution. An identical scanner,
+version, artifact, rule, file, resource and occurrence identity appearing as both pass
+and fail is contradictory evidence. `ReportID` and `CreatedAt` are validated execution
+metadata; semantic hashing omits them and raw-output hashing binds their exact bytes.

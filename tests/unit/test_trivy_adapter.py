@@ -11,7 +11,12 @@ import pytest
 
 import iac_guard_v.adapters.trivy as trivy_module
 from iac_guard_v.adapters.base import AdapterReason
-from iac_guard_v.adapters.phase_e_lock import LockedContainerIdentity, load_locked_container_identity
+from iac_guard_v.adapters.phase_e_lock import (
+    LockedContainerIdentity,
+    _create_test_protected_checks_cache_identity,
+    load_locked_container_identity,
+    load_protected_checks_cache_identity,
+)
 from iac_guard_v.adapters.trivy import TRIVY_CONTRACT, TrivyAdapter, create_trivy_scan_request
 from iac_guard_v.enums import ArtifactKind, Status
 from iac_guard_v.models import BoundInputFile, DomainError, ExpectedResource
@@ -93,7 +98,8 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
         hashlib.sha256(source.read_bytes()).hexdigest(), metadata.st_dev, metadata.st_ino,
     )
     identity = load_locked_container_identity(LOCK, "trivy", "linux/arm64")
-    cache = tmp_path / "cache"
+    protected = tmp_path / "protected"
+    cache = protected / "runtime-v2/trivy-cache"
     (cache / "policy/content/policies").mkdir(parents=True)
     (cache / "policy/metadata.json").write_text(
         json.dumps({"Digest": identity.checks_manifest_digest, "MajorVersion": 2}),
@@ -108,7 +114,10 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
             "aws_s3_bucket.demo",
         ),) if expected else (),
         "docker_executable": Path(shutil.which("docker") or "/usr/bin/true"),
-        "external_checks_cache": cache, "locked_identity": identity,
+        "protected_checks_cache": _create_test_protected_checks_cache_identity(
+            cache, identity
+        ),
+        "locked_identity": identity,
     }
     values.update(overrides)
     return create_trivy_scan_request(**values)
@@ -149,11 +158,11 @@ def test_valid_empty_result_passes_without_inventing_evaluations(tmp_path: Path)
 
 def test_external_bundle_absence_and_change_are_rejected(tmp_path: Path) -> None:
     request = _request(tmp_path)
-    (request.external_checks_cache / "policy/metadata.json").unlink()
+    (request.protected_checks_cache.cache_root / "policy/metadata.json").unlink()
     with pytest.raises(DomainError, match=AdapterReason.EXTERNAL_CHECKS_MISSING.value):
         TrivyAdapter()._revalidate(request)
     other = _request(tmp_path / "other")
-    (other.external_checks_cache / "policy/metadata.json").write_text(
+    (other.protected_checks_cache.cache_root / "policy/metadata.json").write_text(
         json.dumps({"Digest": "sha256:" + "0" * 64}), encoding="utf-8"
     )
     with pytest.raises(DomainError, match=AdapterReason.EXTERNAL_CHECKS_CHANGED.value):
@@ -228,7 +237,7 @@ def test_binary_and_checks_drift_are_distinguishable(tmp_path: Path) -> None:
     binary = LockedContainerIdentity(**canonical)
     with pytest.raises(DomainError, match="reviewed Phase-E lock"):
         _request(tmp_path / "binary", locked_identity=binary)
-    (request.external_checks_cache / "policy/content/policies/rule.rego").write_text("changed\n")
+    (request.protected_checks_cache.cache_root / "policy/content/policies/rule.rego").write_text("changed\n")
     with pytest.raises(DomainError, match=AdapterReason.CACHE_CHANGED_DURING_EXECUTION.value):
         TrivyAdapter()._revalidate(request)
 
@@ -239,6 +248,38 @@ def test_canonical_output_is_order_independent(tmp_path: Path) -> None:
     a = _normalize(tmp_path / "a", _document(items=[first, second]))
     b = _normalize(tmp_path / "b", _document(items=[second, first]))
     assert a.scanner_run.canonical_dict() == b.scanner_run.canonical_dict()
+
+
+def test_volatile_report_metadata_does_not_change_semantic_hash(tmp_path: Path) -> None:
+    first = _document(items=[_misconfiguration()])
+    second = _document(items=[_misconfiguration()])
+    second["ReportID"] = "11111111-1111-1111-1111-111111111111"
+    second["CreatedAt"] = "2026-08-12T12:34:56Z"
+    a = _normalize(tmp_path / "a", first)
+    b = _normalize(tmp_path / "b", second)
+    assert a.canonical_output_sha256 == b.canonical_output_sha256
+    assert a.scanner_run.raw_output_sha256 == b.scanner_run.raw_output_sha256
+    assert a.native_output_bytes_sha256 != b.native_output_bytes_sha256
+
+
+def test_pass_and_fail_for_one_evaluation_identity_fail_closed(tmp_path: Path) -> None:
+    failed = _misconfiguration(Status="FAIL")
+    passed = _misconfiguration(Status="PASS")
+    evidence = _normalize(tmp_path, _document(items=[failed, passed]))
+    assert evidence.scanner_run.status is Status.ERROR
+    assert evidence.scanner_run.ruleset_integrity is Status.FAIL
+    assert (
+        AdapterReason.CONTRADICTORY_EVALUATION_EVIDENCE.value
+        in evidence.scanner_run.diagnostics
+    )
+
+
+def test_arbitrary_cache_cannot_be_stamped_protected(tmp_path: Path) -> None:
+    arbitrary = tmp_path / "arbitrary"
+    arbitrary.mkdir()
+    (arbitrary / "rule.rego").write_text("package attacker\n", encoding="utf-8")
+    with pytest.raises(DomainError, match="physical inventory"):
+        load_protected_checks_cache_identity(LOCK, arbitrary)
 
 
 def test_timeout_is_typed(tmp_path: Path) -> None:
@@ -263,6 +304,7 @@ def test_execution_evidence_is_immutable_and_trusted(tmp_path: Path) -> None:
             checks_cache_identity="cache", checks_cache_content_sha256="0" * 64,
             invocation_identity="0" * 64, source="external", fallback_used=False,
             network_disabled=True, updates_disabled=True, canonical_output_sha256="0" * 64,
+            native_output_bytes_sha256="0" * 64,
         )
 
 
@@ -293,7 +335,7 @@ def test_direct_request_and_untrusted_adapter_inputs_are_rejected(tmp_path: Path
         name: getattr(request, name)
         for name in (
             "workspace_root", "scan_root", "files_eligible", "eligible_file_evidence",
-            "expected_resources", "docker_executable", "external_checks_cache",
+            "expected_resources", "docker_executable", "protected_checks_cache",
             "locked_identity",
         )
     }
@@ -319,7 +361,7 @@ def test_request_path_and_launcher_boundaries(tmp_path: Path) -> None:
             eligible_file_evidence=request.eligible_file_evidence,
             expected_resources=request.expected_resources,
             docker_executable=request.docker_executable,
-            external_checks_cache=request.external_checks_cache,
+            protected_checks_cache=request.protected_checks_cache,
             locked_identity=request.locked_identity,
         )
     with pytest.raises(DomainError, match="cannot be resolved"):
@@ -332,18 +374,18 @@ def test_request_path_and_launcher_boundaries(tmp_path: Path) -> None:
 
 def test_cache_rejects_symlink_and_special_entries(tmp_path: Path) -> None:
     request = _request(tmp_path)
-    target = request.external_checks_cache / "policy/content/policies/rule.rego"
+    target = request.protected_checks_cache.cache_root / "policy/content/policies/rule.rego"
     target.unlink()
     target.symlink_to(request.scan_root / "main.tf")
-    with pytest.raises(DomainError, match=AdapterReason.EXTERNAL_CHECKS_CHANGED.value):
+    with pytest.raises(DomainError, match=AdapterReason.CACHE_CHANGED_DURING_EXECUTION.value):
         TrivyAdapter()._revalidate(request)
     other = _request(tmp_path / "fifo")
-    special = other.external_checks_cache / "policy/content/policies/pipe"
+    special = other.protected_checks_cache.cache_root / "policy/content/policies/pipe"
     os.mkfifo(special)
     with pytest.raises(DomainError, match=AdapterReason.EXTERNAL_CHECKS_CHANGED.value):
-        trivy_module._cache_manifest(other.external_checks_cache)
+        trivy_module._cache_manifest(other.protected_checks_cache.cache_root)
     link = tmp_path / "cache-link"
-    link.symlink_to(other.external_checks_cache, target_is_directory=True)
+    link.symlink_to(other.protected_checks_cache.cache_root, target_is_directory=True)
     with pytest.raises(DomainError, match=AdapterReason.EXTERNAL_CHECKS_MISSING.value):
         trivy_module._cache_manifest(link)
 
@@ -475,7 +517,7 @@ def test_scan_builds_private_view_and_revalidates_cache(tmp_path: Path, monkeypa
     changed = _request(tmp_path / "changed")
     _mock_container_run(
         monkeypatch, _document(items=[_misconfiguration()]),
-        mutate_cache=changed.external_checks_cache,
+            mutate_cache=changed.protected_checks_cache.cache_root,
     )
     evidence = TrivyAdapter().scan(changed)
     assert evidence.scanner_run.status is Status.ERROR

@@ -1364,3 +1364,9 @@ The E2 reason extension is closed over `EXTERNAL_CHECKS_MISSING`,
 `EXTERNAL_CHECKS_CHANGED`, `EMBEDDED_CHECKS_FALLBACK`,
 `CACHE_CHANGED_DURING_EXECUTION`, and `MISSING_MISCONFIGURATIONS` in addition to the
 shared adapter reasons.
+
+E2.1 evaluation identity excludes the result and contains scanner, version, artifact,
+rule, file, resource, and occurrence token. Incompatible results are
+`CONTRADICTORY_EVALUATION_EVIDENCE`. Cache/bundle contradiction fails ruleset integrity;
+unavailable signed cache evidence is inconclusive. Volatile report metadata is not a
+semantic finding difference.

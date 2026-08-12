@@ -1,5 +1,25 @@
 # Validation Log
 
+## 2026-08-12 — E2.1 protected Trivy cache and native consistency
+
+Failing-before probes accepted correct `metadata.json` beside arbitrary Rego, accepted
+one exact evaluation as both PASS and FAIL, and changed semantic hashes when only
+`ReportID`/`CreatedAt` changed. Passing-after results: arbitrary cache rejected by the
+signed E0.3 physical inventory; contradictory evaluation returned
+`ERROR / CONTRADICTORY_EVALUATION_EVIDENCE` with ruleset integrity `FAIL`; volatile
+metadata produced equal semantic hashes and different raw-byte hashes.
+
+```text
+Trivy unit tests: 56 passed
+Trivy branch coverage: 90%
+E2.1 plus E0.2 cache-lock tests: 70 passed
+```
+
+The protected cache identity binds the signed manifest root, Trivy subtree root,
+external OCI manifest and layer, metadata digest, and cache-attestation identity. No
+benchmark inference, model-provider call, consensus implementation, or model refresh
+was executed.
+
 ## 2026-08-12 — E1.1 complete KICS contract
 
 Failing-before at `6da9073d`: exits were `(0, 40)`, locked argv omitted `--pull never`,

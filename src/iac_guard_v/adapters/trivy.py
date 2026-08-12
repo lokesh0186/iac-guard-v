@@ -8,7 +8,9 @@ import re
 import shutil
 import stat
 import tempfile
+import uuid
 from dataclasses import InitVar, dataclass, field
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -33,7 +35,11 @@ from ..normalisation import assign_occurrence_indices
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
 from .base import AdapterReason, ScannerContract
 from .kics import _read_bound, _strict_json
-from .phase_e_lock import LockedContainerIdentity, require_locked_identity
+from .phase_e_lock import (
+    LockedContainerIdentity,
+    ProtectedChecksCacheIdentity,
+    require_locked_identity,
+)
 
 
 TRIVY_CONTRACT = ScannerContract(
@@ -127,7 +133,7 @@ class TrivyScanRequest:
     eligible_file_evidence: tuple
     expected_resources: tuple
     docker_executable: Path
-    external_checks_cache: Path
+    protected_checks_cache: ProtectedChecksCacheIdentity
     locked_identity: LockedContainerIdentity
     timeout_seconds: int = 180
     max_output_bytes: int = 16 * 1024 * 1024
@@ -147,7 +153,6 @@ class TrivyScanRequest:
             workspace = self.workspace_root.resolve(strict=True)
             scan_root = self.scan_root.resolve(strict=True)
             docker = self.docker_executable.resolve(strict=True)
-            checks = self.external_checks_cache.resolve(strict=True)
         except OSError as exc:
             raise DomainError("Trivy request path cannot be resolved") from exc
         if not workspace.is_dir() or not scan_root.is_dir():
@@ -192,12 +197,25 @@ class TrivyScanRequest:
                 raise DomainError(f"{name} must be > 0")
         if sum(item.size for item in evidence) > self.max_total_eligible_bytes:
             raise DomainError(AdapterReason.INPUT_TOTAL_BYTES_EXCEEDED.value)
+        checks_identity = self.protected_checks_cache
+        if (
+            type(checks_identity) is not ProtectedChecksCacheIdentity
+            or not checks_identity._trusted_cache_evidence
+        ):
+            raise DomainError(
+                "Trivy checks cache must come from the E0.3 signed-cache verifier"
+            )
+        if (
+            checks_identity.external_manifest_digest != identity.checks_manifest_digest
+            or checks_identity.external_layer_digest != identity.checks_layer_digest
+        ):
+            raise DomainError(AdapterReason.EXTERNAL_CHECKS_CHANGED.value)
+        checks = checks_identity.cache_root
         _external_metadata(checks, identity)
-        cache_digest = _cache_manifest(checks)
+        cache_digest = checks_identity.revalidate()
         object.__setattr__(self, "workspace_root", workspace)
         object.__setattr__(self, "scan_root", scan_root)
         object.__setattr__(self, "docker_executable", docker)
-        object.__setattr__(self, "external_checks_cache", checks)
         object.__setattr__(self, "eligible_file_evidence", tuple(evidence))
         object.__setattr__(self, "expected_resources", tuple(sorted(resources, key=lambda item: item.canonical_key)))
         object.__setattr__(self, "_cache_content_sha256", cache_digest)
@@ -225,6 +243,7 @@ class TrivyExecutionEvidence:
     network_disabled: bool
     updates_disabled: bool
     canonical_output_sha256: str
+    native_output_bytes_sha256: str
     _trusted_context: InitVar[object] = None
     _trusted_evidence: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -242,7 +261,7 @@ class TrivyExecutionEvidence:
                 raise DomainError(f"{name} must be a prefixed SHA-256")
         for name in (
             "checks_cache_content_sha256", "invocation_identity",
-            "canonical_output_sha256",
+            "canonical_output_sha256", "native_output_bytes_sha256",
         ):
             value = getattr(self, name)
             if type(value) is not str or _SHA.fullmatch(value) is None:
@@ -277,6 +296,7 @@ class TrivyExecutionEvidence:
             "network_disabled": self.network_disabled,
             "updates_disabled": self.updates_disabled,
             "canonical_output_sha256": self.canonical_output_sha256,
+            "native_output_bytes_sha256": self.native_output_bytes_sha256,
         }
 
 
@@ -301,6 +321,9 @@ def _canonical_native_hash(raw: bytes) -> str:
     except DomainError:
         return hashlib.sha256(raw).hexdigest()
     canonical = dict(payload)
+    # These values identify one execution, not the semantic findings graph.
+    canonical.pop("ReportID", None)
+    canonical.pop("CreatedAt", None)
     results = canonical.get("Results")
     if type(results) is list:
         rebuilt = []
@@ -402,8 +425,10 @@ def _reason_run(
         ruleset_integrity=(
             Status.FAIL if reason in {
                 AdapterReason.EXTERNAL_CHECKS_CHANGED,
+                AdapterReason.CACHE_CHANGED_DURING_EXECUTION,
                 AdapterReason.EMBEDDED_CHECKS_FALLBACK,
                 AdapterReason.LOCK_IDENTITY_MISMATCH,
+                AdapterReason.CONTRADICTORY_EVALUATION_EVIDENCE,
             } else Status.INCONCLUSIVE if reason is AdapterReason.EXTERNAL_CHECKS_MISSING
             else Status.PASS
         ),
@@ -441,6 +466,16 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
     version = payload.get("Trivy")
     if type(version) is not dict or version.get("Version") != request.locked_identity.version:
         raise DomainError(AdapterReason.VERSION_MISMATCH.value)
+    report_id = payload.get("ReportID")
+    created_at = payload.get("CreatedAt")
+    try:
+        if type(report_id) is not str or str(uuid.UUID(report_id)) != report_id:
+            raise ValueError
+        if type(created_at) is not str or not created_at.endswith("Z"):
+            raise ValueError
+        datetime.fromisoformat(created_at[:-1] + "+00:00")
+    except ValueError as exc:
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value) from exc
     results = payload.get("Results")
     if type(results) is not list:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
@@ -450,6 +485,7 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
     observed_resources: set[tuple[str, str]] = set()
     summary_success = 0
     summary_failure = 0
+    evaluation_results: dict[tuple, CheckEvaluationResult] = {}
     for result in results:
         if type(result) is not dict or not {"Target", "Class", "Type", "MisconfSummary"} <= set(result):
             raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
@@ -519,6 +555,22 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
             native = "trivy-misconf-v1:" + hashlib.sha256(
                 json.dumps(native_payload, sort_keys=True, separators=(",", ":")).encode()
             ).hexdigest()
+            native_result = (
+                CheckEvaluationResult.FAILED
+                if status == "FAIL" else CheckEvaluationResult.PASSED
+            )
+            evaluation_identity = (
+                request.locked_identity.version, artifact.value, rule_id,
+                file_path, resource, native,
+            )
+            previous = evaluation_results.get(evaluation_identity)
+            if previous is not None:
+                if previous is not native_result:
+                    raise DomainError(
+                        AdapterReason.CONTRADICTORY_EVALUATION_EVIDENCE.value
+                    )
+                raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+            evaluation_results[evaluation_identity] = native_result
             if status == "FAIL":
                 findings.append(Finding(
                     scanner="trivy", scanner_version=request.locked_identity.version,
@@ -532,10 +584,7 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
             evaluations.append(CheckEvaluation(
                 scanner="trivy", scanner_version=request.locked_identity.version,
                 rule_id=rule_id, resource_address=resource, file_path=file_path,
-                native_result=(
-                    CheckEvaluationResult.FAILED
-                    if status == "FAIL" else CheckEvaluationResult.PASSED
-                ),
+                native_result=native_result,
                 evaluated_keys=(native,), source_bucket="Misconfigurations",
                 occurrence_token=native,
             ))
@@ -594,6 +643,7 @@ def _evidence(
         source="embedded_fallback" if fallback_used else "external",
         fallback_used=fallback_used, network_disabled=True, updates_disabled=True,
         canonical_output_sha256=canonical_output, _trusted_context=_RESULT_CONTEXT,
+        native_output_bytes_sha256=hashlib.sha256(raw or b"").hexdigest(),
     )
 
 
@@ -606,8 +656,10 @@ class TrivyAdapter:
     @staticmethod
     def _revalidate(request: TrivyScanRequest) -> str:
         require_locked_identity(request.locked_identity, "trivy")
-        _external_metadata(request.external_checks_cache, request.locked_identity)
-        cache = _cache_manifest(request.external_checks_cache)
+        if not request.protected_checks_cache._trusted_cache_evidence:
+            raise DomainError(AdapterReason.EXTERNAL_CHECKS_MISSING.value)
+        _external_metadata(request.protected_checks_cache.cache_root, request.locked_identity)
+        cache = request.protected_checks_cache.revalidate()
         if cache != request._cache_content_sha256:
             raise DomainError(AdapterReason.CACHE_CHANGED_DURING_EXECUTION.value)
         for relative, expected in zip(request.files_eligible, request.eligible_file_evidence):
@@ -689,7 +741,7 @@ class TrivyAdapter:
                 "--security-opt", "no-new-privileges", "--pids-limit", "128",
                 "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
                 "-e", "TRIVY_CACHE_DIR=/cache",
-                "-v", f"{request.external_checks_cache}:/cache:ro",
+                "-v", f"{request.protected_checks_cache.cache_root}:/cache:ro",
                 "-v", f"{view}:/work:ro", "-v", f"{output}:/out:rw",
                 "-w", "/work", request.locked_identity.execution_reference,
                 "config", "--format", "json", "--output", "/out/results.json",

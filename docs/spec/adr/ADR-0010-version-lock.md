@@ -120,3 +120,9 @@ and `--skip-check-update` prevent the runtime from silently selecting a moving b
 
 KICS uses `--pull never`; a missing locked image is operational uncertainty. Exit codes
 `0/20/30/40/50/60` are the complete v2.1.20 result-bearing contract.
+
+## Amendment, 2026-08-12: E2.1 cache capability
+
+The signed E0.3 verifier constructs the Trivy cache capability. Manifest root, subtree
+root, OCI manifest/layer, metadata digest, and attestation identity remain separate and
+are revalidated around each execution.

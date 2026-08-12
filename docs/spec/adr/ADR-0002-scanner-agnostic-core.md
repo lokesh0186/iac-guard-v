@@ -117,3 +117,9 @@ multi-scanner agreement or policy consequence was added.
 All official result exits are output-bearing; native types/arithmetic fail closed;
 TRACE is separate BOM evidence; optional metadata remains optional; and `--pull never`
 keeps locked execution offline. KICS supplies no affirmative target PASS.
+
+## Amendment, 2026-08-12: E2.1 protected Trivy evidence
+
+Cache provenance is factory-bound to the signed E0.3 physical inventory. Contradictory
+native evaluation identities fail closed, and volatile report metadata is separated
+from exact native-byte identity.

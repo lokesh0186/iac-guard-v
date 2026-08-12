@@ -140,3 +140,10 @@ validators, production containers, or Actions.
 The E0.3 KICS image now runs with `--pull never` and the complete severity/result exit
 family. Summary arithmetic, TRACE/BOM separation, and optional native fields are bound
 without authorizing consensus.
+
+## E2.1 physical-cache amendment
+
+Raw cache paths are not trusted scanner configuration. The signed cache verifier must
+construct the immutable capability, and E2.1 verifies its exact Trivy subtree before
+and after scanning. Metadata-only substitution and pass/fail contradictions are
+integrity failures.

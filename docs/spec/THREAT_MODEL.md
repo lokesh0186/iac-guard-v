@@ -431,3 +431,8 @@ loaded. Missing/changed cache or embedded fallback is non-PASS and distinguishab
 binary drift. Strict duplicate-key JSON handling, unknown-category uncertainty, and
 independent file/resource coverage prevent malformed or incomplete native evidence from
 becoming success. Trivy remains advisory until consensus is separately authorized.
+
+E2.1 closes metadata-only cache substitution by comparing signed manifest evidence to
+every physical subtree entry, rejecting links, special files, additions, removals, and
+byte changes. Current cache, invocation, update, network, and diagnostics jointly prove
+external source selection; a stored fallback Boolean alone is insufficient.

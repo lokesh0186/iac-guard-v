@@ -761,3 +761,9 @@ Only exact per-file/resource records establish coverage; repository-global posit
 remain aggregate evidence. Missing or changed cache, embedded fallback, malformed or
 unknown output, and incomplete coverage are typed non-PASS. E2 does not alter the final
 policy verdict or implement multi-scanner consensus.
+
+E2.1 replaces a caller-selected cache directory with a signed-cache identity created by
+the E0.3 physical verifier. The complete Trivy subtree is compared before and after
+execution. Contradictory pass/fail records for one evaluation identity fail closed.
+Validated volatile report metadata is omitted from the semantic digest while exact
+native bytes retain a separate hash.

@@ -456,3 +456,8 @@ bound. Embedded fallback, cache mutation, binary/check drift, malformed/duplicat
 unknown categories, and incomplete file/resource coverage cannot become `PASS`.
 Per-file native PASS records can establish positive evidence; global aggregate PASS
 counts cannot. E2 has no policy or consensus consequence.
+
+E2.1 requires E0.3-signed physical cache provenance. Correct metadata beside arbitrary
+policy bytes is insufficient. Missing external evidence is inconclusive; manifest,
+layer, subtree, or evaluation contradiction fails integrity. Native semantic and exact
+byte hashes remain distinct.
