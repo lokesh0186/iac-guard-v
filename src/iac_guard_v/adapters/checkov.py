@@ -40,6 +40,7 @@ from ..models import (
     Finding,
     FindingLocation,
     ResourceCoverage,
+    ScannerEnvironmentComponents,
     ScannerRun,
     canonical_identifier,
     canonical_repo_path,
@@ -82,6 +83,7 @@ class CheckovDistributionIdentity:
     installed_distribution_digest: str = ""
     dependency_lock_digest: str = ""
     custom_check_digest: str = ""
+    environment_components: ScannerEnvironmentComponents | None = None
 
     def __post_init__(self) -> None:
         for name in (
@@ -93,6 +95,15 @@ class CheckovDistributionIdentity:
             if len(value) != 64 or any(char not in "0123456789abcdef" for char in value):
                 raise DomainError(f"{name} must be a lowercase SHA-256")
         object.__setattr__(self, "source", canonical_identifier(self.source, "distribution source"))
+        if type(self.environment_components) is not ScannerEnvironmentComponents:
+            raise DomainError("Checkov distribution identity requires component evidence")
+        if (
+            self.environment_components.environment_digest
+            != self.scanner_environment_digest
+            or self.environment_components.policy_inventory_digest
+            != self.policy_inventory_digest
+        ):
+            raise DomainError("Checkov environment component manifest is inconsistent")
 
 
 @dataclass(frozen=True, slots=True)
@@ -346,14 +357,17 @@ def checkov_distribution_identity(
     dependency_digest = _manifest_digest([
         ("installed-dependency-tree", bytes.fromhex(_sha256_manifest(dependency_files))),
         ("wheel-record-closure", bytes.fromhex(record_digest)),
-        ("runtime-interpreter", interpreter_digest),
     ])
     custom_check_digest = _manifest_digest([("custom-checks", b"disabled")])
-    environment_digest = _manifest_digest([
-        ("non-policy-package", bytes.fromhex(_sha256_manifest(package_without_policy))),
-        ("dependency-lock", bytes.fromhex(dependency_digest)),
-        ("custom-checks", bytes.fromhex(custom_check_digest)),
-    ])
+    components = ScannerEnvironmentComponents(
+        non_policy_package_digest=_sha256_manifest(package_without_policy),
+        installed_distribution_digest=distribution_digest,
+        dependency_closure_digest=dependency_digest,
+        custom_check_digest=custom_check_digest,
+        policy_inventory_digest=policy_digest,
+        runtime_interpreter_digest=interpreter_digest.hex(),
+    )
+    environment_digest = components.environment_digest
     return CheckovDistributionIdentity(
         environment_digest,
         policy_digest,
@@ -361,6 +375,7 @@ def checkov_distribution_identity(
         distribution_digest,
         dependency_digest,
         custom_check_digest,
+        components,
     )
 
 
@@ -794,6 +809,7 @@ def _reason_run(
         ),
         dependency_lock_digest=request._distribution_identity.dependency_lock_digest,
         custom_check_digest=request._distribution_identity.custom_check_digest,
+        environment_components=request._distribution_identity.environment_components,
         ruleset_integrity=ruleset_integrity,
         evaluations=evaluations,
         input_files=request.eligible_file_evidence,
@@ -1296,6 +1312,7 @@ def _normalize(
         ),
         dependency_lock_digest=request._distribution_identity.dependency_lock_digest,
         custom_check_digest=request._distribution_identity.custom_check_digest,
+        environment_components=request._distribution_identity.environment_components,
         ruleset_integrity=Status.PASS,
         evaluations=tuple(evaluations),
         input_files=request.eligible_file_evidence,

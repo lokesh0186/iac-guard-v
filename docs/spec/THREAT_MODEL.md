@@ -35,6 +35,14 @@ case bundles from third parties| the frozen research artifact
 Everything on the left is data. None of it may become instructions, and none of it may
 govern its own evaluation.
 
+Public report JSON is also untrusted input. D7.5 does not accept a serialized target
+outcome as proof of the underlying event: it re-derives suppression, deletion,
+continued presence, partial repair, scope loss, and scanner uncertainty from the
+sealed scanner/snapshot graph. It similarly re-derives supported and governed path
+membership, so an omitted FIFO, symlink, device, or rejected artifact cannot be hidden
+behind caller-authored booleans. Scanner environment component claims are children of
+one recomputed digest and cannot drift independently.
+
 ## 3. Attacker goals and controls
 
 ### T1 — Obtain a false `VERIFIED`

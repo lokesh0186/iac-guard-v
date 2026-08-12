@@ -1100,6 +1100,10 @@ class TrustedVerificationConfigBundle:
         )
         object.__setattr__(self, "baseline_source_snapshot_sha256", baseline_state)
         object.__setattr__(self, "candidate_source_snapshot_sha256", candidate_state)
+        if baseline_state == candidate_state:
+            raise DomainError(
+                "differential verification requires distinct role snapshot identities"
+            )
         observed_governed = _governed_comparison_from_entries(
             baseline_entries, candidate_entries
         )
@@ -1271,6 +1275,8 @@ _ARTIFACT_CLASSIFICATIONS = frozenset({
     "KUBERNETES_RESOURCES",
     "NON_KUBERNETES_YAML",
     "NON_KUBERNETES_JSON",
+    "REJECTED_ARTIFACT_ENTRY",
+    "OUT_OF_SCOPE_ARTIFACT",
 })
 _ARTIFACT_SYNTAX_KINDS = frozenset({"terraform_hcl", "yaml", "json"})
 
@@ -1304,8 +1310,16 @@ class ArtifactClassification:
             raise DomainError("artifact classification resources must be typed")
         if self.classification == "KUBERNETES_RESOURCES" and not self.resources:
             raise DomainError("Kubernetes resource classification requires resources")
-        if self.classification.startswith("NON_KUBERNETES") and self.resources:
+        if self.classification in {
+            "NON_KUBERNETES_YAML", "NON_KUBERNETES_JSON",
+            "REJECTED_ARTIFACT_ENTRY",
+            "OUT_OF_SCOPE_ARTIFACT",
+        } and self.resources:
             raise DomainError("non-Kubernetes classification cannot claim resources")
+        if self.classification == "REJECTED_ARTIFACT_ENTRY" and not self.reason:
+            raise DomainError("rejected artifact classification requires a reason")
+        if self.classification == "OUT_OF_SCOPE_ARTIFACT" and not self.reason:
+            raise DomainError("out-of-scope artifact classification requires a reason")
         if type(self.reason) is not str:
             raise DomainError("artifact classification reason must be a string")
 
@@ -1457,11 +1471,15 @@ class TrustedScanPlan:
             raise DomainError("scan-plan classifications contain duplicate paths")
         files_by_path = {item.file_path: item for item in self.files}
         inspected_by_path = {item.file_path: item for item in self.inspected_files}
-        if set(inspected_by_path) != set(paths):
+        rejected_paths = {
+            item.file_path for item in self.classifications
+            if item.classification == "REJECTED_ARTIFACT_ENTRY"
+        }
+        if set(inspected_by_path) != set(paths) - rejected_paths:
             raise DomainError("scan-plan inspected bytes disagree with classifications")
         classified_eligible = {
             item.file_path: item for item in self.classifications
-            if not item.classification.startswith("NON_KUBERNETES")
+            if item.classification in {"TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES"}
         }
         if set(files_by_path) != set(classified_eligible):
             raise DomainError("eligible scan-plan files disagree with classifications")
@@ -1528,7 +1546,7 @@ class TrustedScanPlan:
                 computed_artifact_manifest,
                 self.inventory_sha256,
                 self.config_sha256,
-                self.inspected_files,
+                self.files,
                 self.classifications,
                 self.resources,
                 self.governed_paths,
@@ -2023,8 +2041,51 @@ def attest_checkov_scan_plan(
             and "kubernetes" in frameworks
         )
         if entry.kind != "REGULAR_FILE":
+            if relevant:
+                syntax_kind = (
+                    "terraform_hcl" if suffix == ".tf" or is_tf_json
+                    else "yaml" if suffix in {".yaml", ".yml"}
+                    else "json"
+                )
+                entry_payload = entry.canonical_dict()
+                classifications.append(ArtifactClassification(
+                    entry.file_path,
+                    hashlib.sha256(json.dumps(
+                        entry_payload, sort_keys=True, separators=(",", ":"),
+                    ).encode("utf-8")).hexdigest(),
+                    entry.size,
+                    syntax_kind,
+                    "REJECTED_ARTIFACT_ENTRY",
+                    (),
+                    entry.rejection_reason or "UNSUPPORTED_ARTIFACT_PATH_TYPE",
+                ))
             if relevant and config is None:
                 raise DomainError("independent detector refuses symlinked IaC input")
+            continue
+        if entry.supported and not relevant:
+            if entry.content is None:
+                raise DomainError("shared source inventory omitted regular-file bytes")
+            syntax_kind = (
+                "terraform_hcl" if suffix == ".tf" or is_tf_json
+                else "yaml" if suffix in {".yaml", ".yml"}
+                else "json"
+            )
+            classifications.append(ArtifactClassification(
+                entry.file_path,
+                entry.sha256 or hashlib.sha256(entry.content).hexdigest(),
+                entry.size,
+                syntax_kind,
+                "OUT_OF_SCOPE_ARTIFACT",
+                (),
+                "FRAMEWORK_NOT_REQUIRED",
+            ))
+            inspected_files.append(ScanPlanFile(
+                entry.file_path,
+                f"classified_{syntax_kind}",
+                entry.size,
+                entry.sha256 or hashlib.sha256(entry.content).hexdigest(),
+                entry.content,
+            ))
             continue
         if not relevant:
             continue

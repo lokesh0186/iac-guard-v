@@ -1,5 +1,17 @@
 # Product Specification
 
+## D7.5 public outcome release condition
+
+All ten target outcomes in a public report are derived from exact rule, resource,
+file, artifact, scanner-version, snapshot, and evaluation evidence. Policy exceptions
+may change the disposition of a proven event only. They cannot create a suppression or
+deletion event. Identical role snapshots cannot claim a differential repair.
+
+Every supported or governed filesystem entry, including rejected non-regular entries,
+is represented in the sealed artifact graph. A public `PASS` preflight is impossible
+when that graph contains unresolved or rejected input. Native scanner execution
+identity is recomputed from a complete canonical component manifest.
+
 ## D7.3 report-graph release condition
 
 A public verification report is accepted only when its complete canonical evidence

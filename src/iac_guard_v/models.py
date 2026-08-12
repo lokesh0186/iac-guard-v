@@ -28,6 +28,7 @@ Statuses stay typed to the report. Nothing here reduces `ERROR`, `TIMEOUT`, `PAR
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import unicodedata
 from collections import Counter
@@ -682,6 +683,48 @@ class ResourceCoverage:
 
 
 @dataclass(frozen=True, slots=True)
+class ScannerEnvironmentComponents:
+    """Canonical child evidence that completely derives one scanner environment."""
+
+    non_policy_package_digest: str
+    installed_distribution_digest: str
+    dependency_closure_digest: str
+    custom_check_digest: str
+    policy_inventory_digest: str
+    runtime_interpreter_digest: str
+    contract: str = "checkov-native-environment-v1"
+
+    def __post_init__(self) -> None:
+        if self.contract != "checkov-native-environment-v1":
+            raise DomainError("scanner environment component contract is unsupported")
+        for name in (
+            "non_policy_package_digest", "installed_distribution_digest",
+            "dependency_closure_digest", "custom_check_digest",
+            "policy_inventory_digest", "runtime_interpreter_digest",
+        ):
+            value = getattr(self, name)
+            if type(value) is not str or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+                raise DomainError(f"scanner environment {name} must be a SHA-256")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "contract": self.contract,
+            "non_policy_package_digest": self.non_policy_package_digest,
+            "installed_distribution_digest": self.installed_distribution_digest,
+            "dependency_closure_digest": self.dependency_closure_digest,
+            "custom_check_digest": self.custom_check_digest,
+            "policy_inventory_digest": self.policy_inventory_digest,
+            "runtime_interpreter_digest": self.runtime_interpreter_digest,
+        }
+
+    @property
+    def environment_digest(self) -> str:
+        return hashlib.sha256(json.dumps(
+            self.canonical_dict(), sort_keys=True, separators=(",", ":"),
+        ).encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
 class ScannerRun:
     """One scanner execution. Carries a `Status`, never a boolean, and no verdict."""
 
@@ -703,6 +746,7 @@ class ScannerRun:
     installed_distribution_digest: str = ""
     dependency_lock_digest: str = ""
     custom_check_digest: str = ""
+    environment_components: ScannerEnvironmentComponents | None = None
     ruleset_integrity: Status = Status.INCONCLUSIVE
     evaluations: tuple = ()
     input_files: tuple = ()
@@ -837,6 +881,26 @@ class ScannerRun:
                 "scanner distribution identity must include distribution, dependency, "
                 "and custom-check digests"
             )
+        if self.environment_components is not None:
+            require_exact_type(
+                self.environment_components, ScannerEnvironmentComponents,
+                "scanner environment components",
+            )
+            components = ScannerEnvironmentComponents(
+                **self.environment_components.canonical_dict()
+            )
+            set_(self, "environment_components", components)
+            if (
+                self.scanner_environment_digest != components.environment_digest
+                or self.policy_inventory_digest != components.policy_inventory_digest
+                or self.installed_distribution_digest
+                != components.installed_distribution_digest
+                or self.dependency_lock_digest != components.dependency_closure_digest
+                or self.custom_check_digest != components.custom_check_digest
+            ):
+                raise DomainError(
+                    "scanner environment digest disagrees with its component manifest"
+                )
         if (
             self.status is Status.PASS
             and any(identity_values)
@@ -874,6 +938,10 @@ class ScannerRun:
             "installed_distribution_digest": self.installed_distribution_digest,
             "dependency_lock_digest": self.dependency_lock_digest,
             "custom_check_digest": self.custom_check_digest,
+            "environment_components": (
+                None if self.environment_components is None
+                else self.environment_components.canonical_dict()
+            ),
             "ruleset_integrity": self.ruleset_integrity.value,
             "coverage": self.coverage.canonical_dict(),
             "resource_coverage": self.resource_coverage.canonical_dict(),
@@ -1458,6 +1526,6 @@ PERSISTENT_MODELS: tuple = (
     FindingLocation, BoundInputFile, ExpectedResource, ResolvedTargetBinding,
     Finding, CheckEvaluation,
     CoverageCounters, ResourceCoverage,
-    ScannerRun, GateResult, RequiredGates,
+    ScannerEnvironmentComponents, ScannerRun, GateResult, RequiredGates,
     ExceptionRecord, ExceptionPolicy, TargetIdentity, Target, TargetDecision,
 )

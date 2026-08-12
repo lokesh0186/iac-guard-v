@@ -126,3 +126,15 @@ public semantic validator re-derives finding, regression, engine-event, governed
 metric, scanner-diagnostic, and exception edges. Private test registry identities are
 accepted only by the private unit-test validator and are rejected by all public report
 consumers.
+
+## D7.5 derived-outcome amendment
+
+`report-v1` continues at the same schema version, but public acceptance no longer
+treats any serialized non-fix target outcome as authoritative. Each outcome is
+re-derived from the exact scanner and sealed-snapshot graph before exception policy is
+considered. Role snapshots in an ordinary differential report are distinct.
+
+The schema now exposes the canonical scanner-environment component manifest. Runtime
+validation recomputes its aggregate digest and reconciles every component alias. The
+artifact graph includes typed rejected and out-of-scope classifications so unsafe or
+unresolved supported entries cannot disappear from a passing report.

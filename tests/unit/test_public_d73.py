@@ -23,7 +23,11 @@ ENGINE_CLASSES = {
 
 
 def _report(engine: VerificationResult) -> dict:
-    return VerificationReportV1(engine, _verdict(engine)).canonical_dict()
+    from test_public_d74 import _publicize
+
+    return _publicize(
+        VerificationReportV1(engine, _verdict(engine)).canonical_dict()
+    )
 
 
 def _duplicate_target(payload: dict) -> None:

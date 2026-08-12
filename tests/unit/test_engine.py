@@ -119,7 +119,10 @@ def test_target_observation_rejects_malformed_evidence(changes) -> None:
 
 def _scan_request(root: Path, executable: Path):
     root.mkdir()
-    (root / "main.tf").write_text('resource "aws_x" "r" {}\n', encoding="utf-8")
+    content = 'resource "aws_x" "r" {}\n'
+    if root.name == "candidate":
+        content += "# candidate snapshot\n"
+    (root / "main.tf").write_text(content, encoding="utf-8")
     distribution = checkov_distribution_identity(executable, "3.3.0")
     return attest_checkov_scan_plan(CheckovScanRequest(
         executable=executable,

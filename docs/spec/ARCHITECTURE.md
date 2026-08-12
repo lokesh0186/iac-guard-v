@@ -1,5 +1,20 @@
 # Architecture
 
+## D7.5 derived target and artifact boundary
+
+Public `report-v1` acceptance derives every target outcome from scanner evidence and
+the two sealed snapshots. An exception can permit a proven non-fix event, but cannot
+manufacture suppression, resource deletion, file deletion, scope loss, scanner drift,
+or uncertainty. Ordinary differential reports require distinct role snapshot
+identities.
+
+The public validator also reconstructs the supported/governed filesystem scope from
+the protected product catalog. Every supported or governed entry has exactly one
+classification or governed record; unsafe entries and rejection reasons prevent a
+passing preflight. Scanner identity is a canonical manifest of package, installed
+distribution, dependency closure, custom-check, policy, and interpreter components,
+not an independently asserted digest.
+
 ## D7.3 canonical report graph boundary
 
 `report-v1` validation is a graph validation, not independent validation of JSON

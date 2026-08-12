@@ -2633,3 +2633,31 @@ accepted; and private test registry provenance returns exit `2`. The permanent D
 regression suite records `51 passed`. The complete public-boundary suite under a clean
 Python 3.13 declared-dependency environment records `174 passed` and 90.55% combined
 branch-aware coverage.
+
+## 2026-08-12 — D7.5 derived targets and snapshot/artifact provenance
+
+Failing-before probes against `5b29d702` returned these literal old values:
+
+- `SUPPRESSED` plus trusted exception with only `PASSED` native evaluation:
+  public validation `ACCEPTED`;
+- `RESOURCE_DELETED` while the exact resource remained in the candidate snapshot:
+  public validation `ACCEPTED`;
+- `FILE_DELETED_OR_RENAMED` while the exact candidate file remained:
+  public validation `ACCEPTED`;
+- identical baseline/candidate snapshot SHA values with failed-versus-passed scanner
+  evidence: public validation `ACCEPTED`;
+- supported FIFO `evil.tf` omitted from classifications with preflight `PASS`: public
+  validation `ACCEPTED`;
+- private-test provenance disguised by changing only the registry id: public
+  validation `ACCEPTED`;
+- installed-distribution, dependency-lock, and custom-check child hashes changed under
+  an unchanged scanner-environment digest: public validation `ACCEPTED`.
+
+Passing-after values are: every forged report raises `DomainError`; role-identical
+differential scan plans are rejected; every rejected supported entry is bound into the
+snapshot graph and prevents preflight `PASS`; and scanner-environment child evidence
+recomputes one canonical aggregate digest. The permanent D7.5 focused regression file
+records `20 passed`; the combined D7.4/D7.5 regression set records `71 passed`. The
+complete D7 public-boundary suite in a clean Python 3.11 wheel environment records
+`194 passed` and 91.22% combined branch-aware coverage. The complete non-integration
+suite in that environment records `1489 passed`.

@@ -37,9 +37,42 @@ def _rehash_config(payload: dict) -> None:
 
 
 def _publicize(payload: dict) -> dict:
-    """Convert private synthetic gate provenance to a public-registry graph."""
+    """Replace private fixture evidence with a complete public contract graph."""
     config = payload["verification"]["verification_config"]
     config["gate_registry_identity"] = "iac_guard_v_phase_d_registry_v4"
+    config["source_provenance"] = "operator"
+    for implementation in config["gate_implementations"]:
+        implementation.update({
+            "version": "4", "contract_version": "4",
+            "code_sha256": "e" * 64, "product_build_digest": "e" * 64,
+            "dependency_identity": "d" * 64,
+            "parser_dependency_digest": "d" * 64,
+            "schema_loader_contract_digest": "c" * 64,
+            "artifact_kinds": ["terraform_hcl"],
+        })
+    payload["verification"]["gate_implementations"] = copy.deepcopy(
+        config["gate_implementations"]
+    )
+    components = {
+        "contract": "checkov-native-environment-v1",
+        "non_policy_package_digest": "1" * 64,
+        "installed_distribution_digest": "2" * 64,
+        "dependency_closure_digest": "3" * 64,
+        "custom_check_digest": "4" * 64,
+        "policy_inventory_digest": "5" * 64,
+        "runtime_interpreter_digest": "6" * 64,
+    }
+    environment_digest = _digest(components)
+    config["scanner_identity"]["scanner_environment_digest"] = environment_digest
+    config["scanner_identity"]["policy_inventory_digest"] = "5" * 64
+    for role in ("baseline", "candidate"):
+        run = payload["verification"][f"{role}_run"]
+        run["scanner_environment_digest"] = environment_digest
+        run["policy_inventory_digest"] = "5" * 64
+        run["installed_distribution_digest"] = "2" * 64
+        run["dependency_lock_digest"] = "3" * 64
+        run["custom_check_digest"] = "4" * 64
+        run["environment_components"] = copy.deepcopy(components)
     _rehash_config(payload)
     validate_report_payload(payload)
     return payload
@@ -165,7 +198,12 @@ def test_permitted_decision_requires_exact_applied_exception_source(
     policy = _verdict(
         suppressed, exceptions=(_record(Outcome.SUPPRESSED),)
     )
-    payload = _publicize(VerificationReportV1(suppressed, policy).canonical_dict())
+    payload = VerificationReportV1(suppressed, policy).canonical_dict()
+    evaluation = payload["verification"]["candidate_run"]["evaluations"][0]
+    evaluation["native_result"] = "SKIPPED"
+    evaluation["source_bucket"] = "skipped_checks"
+    payload["verification"]["targets"][0]["target_reason"] = "TARGET_SUPPRESSED"
+    payload = _publicize(payload)
     payload["policy"]["policy_evidence"]["applied_exception_sources"] = []
     with pytest.raises(DomainError, match="applied exception sources"):
         validate_report_payload(payload)
@@ -333,7 +371,7 @@ def _reduced_hostile(payload: dict) -> None:
 
 
 def _line_metric_mismatch(payload: dict) -> None:
-    payload["verification"]["change_metrics"]["lines_changed"] = 1
+    payload["verification"]["change_metrics"]["lines_changed"] = 99
 
 
 def _policy_metric_mismatch(payload: dict) -> None:

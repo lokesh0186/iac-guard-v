@@ -1305,3 +1305,22 @@ policy, and `POLICY_DRIFT` evidence. Exception-permitted outcomes require one ma
 trusted source and one exact resolved-target exception record. Resource and governed
 change metrics are re-derived from sealed inventories. Any broken edge makes the report
 invalid; a digest-shaped replacement does not repair it.
+
+## D7.5 target-outcome and artifact derivation
+
+For public reports, all target outcomes are predicates over the exact resolved target,
+scanner domain, sealed artifact classifications, resource inventory, findings, and
+native evaluations. `SUPPRESSED` requires exact skipped evidence with no contradictory
+pass. `RESOURCE_DELETED` and `FILE_DELETED_OR_RENAMED` require absence of the exact
+sealed resource or path. `STILL_PRESENT` and `PARTIALLY_FIXED` are derived from matching
+occurrence counts. `OUT_OF_SCOPE`, scanner drift/error, and uncertainty require their
+corresponding typed evidence. A trusted exception affects policy disposition only; it
+does not supply any outcome predicate.
+
+Ordinary differential verification requires distinct baseline and candidate snapshot
+identities. Each supported or governed filesystem entry has exactly one artifact or
+governed classification. A non-regular supported entry or any nonempty rejection
+reason makes passing preflight evidence contradictory. Scanner environment identity is
+the SHA-256 of a canonical component manifest binding the non-policy package,
+installed distribution, dependency closure, custom checks, policy inventory, and
+runtime interpreter.

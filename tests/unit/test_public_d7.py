@@ -68,8 +68,12 @@ def test_explicit_reduced_isolation_runs_only_internal_evidence_pipeline(
     monkeypatch, tmp_path,
 ) -> None:
     baseline, candidate = _roots(tmp_path)
-    for root in (baseline, candidate):
-        (root / "main.tf").write_text('resource "aws_x" "r" {}\n', encoding="utf-8")
+    (baseline / "main.tf").write_text(
+        'resource "aws_x" "r" {}\n', encoding="utf-8"
+    )
+    (candidate / "main.tf").write_text(
+        'resource "aws_x" "r" {}\n# candidate snapshot\n', encoding="utf-8"
+    )
     executable = _executable(tmp_path)
     monkeypatch.setattr(
         CheckovAdapter,

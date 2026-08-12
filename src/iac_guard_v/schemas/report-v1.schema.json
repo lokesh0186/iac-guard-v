@@ -264,7 +264,9 @@
             "TERRAFORM_RESOURCES",
             "KUBERNETES_RESOURCES",
             "NON_KUBERNETES_YAML",
-            "NON_KUBERNETES_JSON"
+            "NON_KUBERNETES_JSON",
+            "REJECTED_ARTIFACT_ENTRY",
+            "OUT_OF_SCOPE_ARTIFACT"
           ]
         },
         "resources": {
@@ -1030,6 +1032,7 @@
         "installed_distribution_digest",
         "dependency_lock_digest",
         "custom_check_digest",
+        "environment_components",
         "ruleset_integrity",
         "coverage",
         "resource_coverage",
@@ -1088,6 +1091,16 @@
         "custom_check_digest": {
           "type": "string"
         },
+        "environment_components": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/scannerEnvironmentComponents"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "ruleset_integrity": {
           "$ref": "#/$defs/status"
         },
@@ -1120,6 +1133,42 @@
           "items": {
             "type": "string"
           }
+        }
+      }
+    },
+    "scannerEnvironmentComponents": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract",
+        "non_policy_package_digest",
+        "installed_distribution_digest",
+        "dependency_closure_digest",
+        "custom_check_digest",
+        "policy_inventory_digest",
+        "runtime_interpreter_digest"
+      ],
+      "properties": {
+        "contract": {
+          "const": "checkov-native-environment-v1"
+        },
+        "non_policy_package_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "installed_distribution_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "dependency_closure_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "custom_check_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "policy_inventory_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "runtime_interpreter_digest": {
+          "$ref": "#/$defs/sha256"
         }
       }
     },
