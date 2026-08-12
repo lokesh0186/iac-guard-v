@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import base64
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
@@ -53,6 +54,15 @@ def request(tmp_path: Path, *, frameworks: tuple = ("terraform",), **overrides) 
     executable.write_text(f"#!{interpreter}\n")
     executable.chmod(0o755)
     policy.write_text("RULES = (\"CKV_AWS_18\",)\n")
+    metadata = policy.parents[4] / "checkov-3.3.0.dist-info"
+    metadata.mkdir(exist_ok=True)
+    payload = policy.read_bytes()
+    encoded = base64.urlsafe_b64encode(hashlib.sha256(payload).digest()).rstrip(b"=").decode()
+    relative_policy = policy.relative_to(metadata.parent).as_posix()
+    (metadata / "RECORD").write_text(
+        f"{relative_policy},sha256={encoded},{len(payload)}\n"
+        "checkov-3.3.0.dist-info/RECORD,,\n"
+    )
     distribution = checkov_distribution_identity(executable, "3.3.0")
     final_eligible = tuple(overrides.get("files_eligible", tuple(eligible)))
     expected_resources = []

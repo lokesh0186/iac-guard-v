@@ -1,6 +1,8 @@
 """D4.7 complete no-follow artifact and scanner-environment inventory."""
 from __future__ import annotations
 
+import base64
+import hashlib
 import os
 import shutil
 import socket
@@ -156,8 +158,20 @@ def test_dependency_code_bytes_are_bound_not_only_dist_info(tmp_path: Path) -> N
     )
     dependency.parent.mkdir()
     dependency.write_text("VALUE = 1\n", encoding="utf-8")
+    metadata = dependency.parents[1] / "dependency-pkg-1.0.dist-info"
+    metadata.mkdir()
+    def write_record() -> None:
+        payload = dependency.read_bytes()
+        encoded = base64.urlsafe_b64encode(hashlib.sha256(payload).digest()).rstrip(b"=").decode()
+        (metadata / "RECORD").write_text(
+            f"dependency_pkg/dependency.py,sha256={encoded},{len(payload)}\n"
+            "dependency-pkg-1.0.dist-info/RECORD,,\n",
+            encoding="utf-8",
+        )
+    write_record()
     before = CHECKOV.checkov_distribution_identity(executable, "3.3.0")
     dependency.write_text("VALUE = 2\n", encoding="utf-8")
+    write_record()
     after = CHECKOV.checkov_distribution_identity(executable, "3.3.0")
     assert before.dependency_lock_digest != after.dependency_lock_digest
     assert before.scanner_environment_digest != after.scanner_environment_digest

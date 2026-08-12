@@ -329,9 +329,9 @@ from the private Checkov view.
 `checkov-adapter-contract-v3` changes whenever invocation flags, supported parser or
 artifact semantics, coverage reconciliation, policy inputs, or output normalisation
 change. Identity fields are deliberately separate: resolved launcher digest, installed
-Checkov package manifest digest, dependency/runtime lock digest (wheel metadata where
-available), built-in policy inventory digest, custom-check digest, combined environment
-digest, and invocation-config digest. `__pycache__` and `.pyc` are excluded. A symlink or
+Checkov package manifest digest, dependency/runtime lock digest (verified wheel RECORD
+closure), built-in policy inventory digest, custom-check digest, combined environment
+digest, and invocation-config digest. `__pycache__`, `.pyc`, and `.pyo` are rejected. A symlink or
 non-regular entry under the installed Checkov package, checks, or policies is rejected;
 it is never silently skipped.
 
@@ -350,7 +350,16 @@ non-regular entries are typed rejected evidence, not absent files. The scan-view
 snapshot root and report bind the inventory entry and any rejection reason.
 
 Native Checkov identity hashes actual regular bytes across the installed dependency
-closure, not only `.dist-info` metadata. It excludes `__pycache__` and `.pyc` consistently
+closure, not only `.dist-info` metadata. It rejects `__pycache__`, `.pyc`, and `.pyo`
 and rejects missing, symlinked, escaping or non-regular executable/package/policy/
 dependency content. Failure to establish this complete native identity is operational
 uncertainty and cannot support a final `VERIFIED` result.
+
+## 10. Executable native environment closure (D4.8)
+
+Every executable installed file must be present in a wheel `RECORD` with a matching
+SHA-256 and size. Missing files, extra executable code, escaping records, editable or
+otherwise unverifiable installs, symlinks, and bytecode/cache content are rejected.
+Both version probing and scanning set `PYTHONDONTWRITEBYTECODE=1`; the environment is
+revalidated after execution so newly created executable content becomes
+`SCANNER_ENVIRONMENT_MISMATCH`, never clean evidence.

@@ -147,7 +147,7 @@ ALLOWLIST = DIAGNOSTIC_CODES | DECISION_LABELS | META_NAMES | {
     "ALLOW_EXTERNAL_SUBMISSIONS", "GITHUB_TOKEN", "AVDID", "CKV", "OK", "JSON",
     "SARIF", "YAML", "HCL", "URL", "API", "CLI", "UID", "PID", "SDK", "OS", "PR",
     "ADR", "PDF", "CSV", "LF", "CRLF", "AM", "DOI", "SHA", "OIDC", "SBOM", "SLSA",
-    "LICENSE", "NOTICE", "BASE", "HEAD", "ID", "AVD", "MisconfSummary",
+    "LICENSE", "NOTICE", "BASE", "HEAD", "ID", "AVD", "MisconfSummary", "RECORD",
     "SIGKILL", "SIGTERM", "TMPDIR", "TZ", "LANG", "LC_ALL",
     "ESRCH", "EPERM",
     "NON_KUBERNETES_YAML", "NON_KUBERNETES_JSON",

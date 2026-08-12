@@ -368,6 +368,14 @@ attacker may also alter dependency code without changing distribution metadata; 
 native scanner identity therefore hashes actual dependency-tree bytes and rejects
 indirections rather than treating metadata alone as execution integrity.
 
+### D4.8 bytecode and incomplete-wheel substitution
+
+Python may execute timestamp-valid `.pyc` content even when corresponding source looks
+benign. Native scanner eligibility therefore rejects all bytecode/cache entries, verifies
+executable installed files against wheel RECORD hashes and sizes, disables bytecode
+writing, and revalidates after execution. An incomplete, editable, or otherwise
+unverifiable closure is operational uncertainty and cannot support `VERIFIED`.
+
 ### D5.5 incomplete gate and report provenance
 
 A dispatcher-only hash can remain stable while a parser helper changes. The gate

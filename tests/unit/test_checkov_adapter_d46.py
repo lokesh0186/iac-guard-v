@@ -1,6 +1,8 @@
 """D4.6 scanner-environment and mixed-repository classification closure."""
 from __future__ import annotations
 
+import base64
+import hashlib
 import inspect
 from pathlib import Path
 
@@ -41,7 +43,7 @@ def test_distribution_identity_records_separate_contracts(tmp_path: Path) -> Non
         identity.policy_inventory_digest,
         identity.custom_check_digest,
     }) > 1
-    assert identity.source.startswith("installed-manifest-v2-")
+    assert identity.source.startswith("verified-wheel-record-manifest-v3-")
 
 
 def test_dependency_record_changes_only_dependency_environment_identity(
@@ -52,11 +54,24 @@ def test_dependency_record_changes_only_dependency_environment_identity(
         tmp_path
         / "trusted/libexec/lib/python3.11/site-packages/checkov-3.3.0.dist-info"
     )
+    metadata = metadata.parent / "foreign-1.0.dist-info"
     metadata.mkdir()
+    data = metadata.parent / "foreign" / "data.txt"
+    data.parent.mkdir()
+    data.write_text("one", encoding="utf-8")
     record = metadata / "RECORD"
-    record.write_text("checkov/__init__.py,,\n", encoding="utf-8")
+    def write_record() -> None:
+        payload = data.read_bytes()
+        encoded = base64.urlsafe_b64encode(hashlib.sha256(payload).digest()).rstrip(b"=").decode()
+        record.write_text(
+            f"foreign/data.txt,sha256={encoded},{len(payload)}\n"
+            "foreign-1.0.dist-info/RECORD,,\n",
+            encoding="utf-8",
+        )
+    write_record()
     before = CHECKOV.checkov_distribution_identity(executable, "3.3.0")
-    record.write_text("checkov/__init__.py,sha256=changed,7\n", encoding="utf-8")
+    data.write_text("two", encoding="utf-8")
+    write_record()
     after = CHECKOV.checkov_distribution_identity(executable, "3.3.0")
     assert before.installed_distribution_digest == after.installed_distribution_digest
     assert before.policy_inventory_digest == after.policy_inventory_digest
@@ -109,7 +124,7 @@ def test_symlinked_dependency_metadata_and_interpreter_are_rejected(
         CHECKOV.checkov_distribution_identity(executable, "3.3.0")
 
 
-def test_bytecode_cache_does_not_change_distribution_identity(tmp_path: Path) -> None:
+def test_bytecode_cache_is_rejected_from_distribution_identity(tmp_path: Path) -> None:
     executable = _executable(tmp_path)
     before = CHECKOV.checkov_distribution_identity(executable, "3.3.0")
     cache = (
@@ -118,8 +133,8 @@ def test_bytecode_cache_does_not_change_distribution_identity(tmp_path: Path) ->
     )
     cache.mkdir()
     (cache / "rule.cpython-313.pyc").write_bytes(b"mutable cache")
-    after = CHECKOV.checkov_distribution_identity(executable, "3.3.0")
-    assert before == after
+    with pytest.raises(Exception, match="bytecode/cache"):
+        CHECKOV.checkov_distribution_identity(executable, "3.3.0")
 
 
 def test_current_adapter_contract_replaces_stale_phase_label(tmp_path: Path) -> None:

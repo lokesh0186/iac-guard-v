@@ -86,7 +86,7 @@ matrix.
 D4.6 replaces the stale phase label with `checkov-adapter-contract-v3` and separately
 binds launcher, installed package manifest, dependency/runtime metadata, built-in policy,
 custom-check state, and invocation configuration. Installed Checkov package/check/policy
-symlinks are rejected; mutable bytecode caches are excluded. Contract-affecting parser,
+symlinks are rejected; mutable bytecode caches are rejected. Contract-affecting parser,
 coverage, artifact, policy-input, invocation, or normalisation changes increment the
 adapter contract version.
 
@@ -95,5 +95,7 @@ adapter contract version.
 D4.7 strengthens native environment identity from metadata evidence to the actual
 installed regular-file dependency tree plus interpreter bytes. Metadata-only stability
 does not establish execution stability. Symlinked or special dependency content is
-rejected, and mutable bytecode caches are excluded deterministically. An environment
+rejected, and mutable bytecode caches are rejected deterministically. D4.8 additionally
+requires wheel RECORD hash/size verification for executable installed files, disables
+bytecode writes, and rechecks the closure after execution. An environment
 that cannot establish the complete contract remains inconclusive rather than verified.

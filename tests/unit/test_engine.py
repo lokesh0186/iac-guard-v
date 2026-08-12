@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import base64
 from pathlib import Path
 
 import pytest
@@ -148,6 +149,15 @@ def _executable(tmp_path: Path) -> Path:
     executable.write_text(f"#!{interpreter}\n", encoding="utf-8")
     executable.chmod(0o755)
     policy.write_text("RULE = 'CKV_X'\n", encoding="utf-8")
+    metadata = policy.parents[2] / "checkov-3.3.0.dist-info"
+    metadata.mkdir()
+    payload = policy.read_bytes()
+    encoded = base64.urlsafe_b64encode(hashlib.sha256(payload).digest()).rstrip(b"=").decode()
+    (metadata / "RECORD").write_text(
+        f"checkov/checks/rule.py,sha256={encoded},{len(payload)}\n"
+        "checkov-3.3.0.dist-info/RECORD,,\n",
+        encoding="utf-8",
+    )
     return executable
 
 

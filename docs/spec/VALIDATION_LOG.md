@@ -871,6 +871,20 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Gate D4.8 — Executable scanner-environment closure
+
+Literal failing-before probe on `8e97146a142a0194b5446fe6603612671b8723cd`:
+
+```text
+PYC_OLD True True True
+```
+
+The three values show that adding executable bytecode left scanner-environment,
+installed-distribution, and policy-inventory identity unchanged. Passing-after probes
+reject timestamp-valid malicious bytecode, reject missing/extra/hash-mismatched RECORD
+content, set `PYTHONDONTWRITEBYTECODE=1` for probe and scan, and turn bytecode created
+during execution into `ERROR / SCANNER_ENVIRONMENT_MISMATCH`.
+
 ## Gate D4.7 — Complete filesystem artifact and scanner-environment identity
 
 Literal failing-before probes on `ed9d77f39c14cacc17ba46fb7c94bfb97b0daaa6`:

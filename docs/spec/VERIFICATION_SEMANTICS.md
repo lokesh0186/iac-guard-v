@@ -1133,7 +1133,8 @@ The adapter contract identifier is `checkov-adapter-contract-v3`. Scanner eviden
 separately records launcher, installed distribution, dependency/runtime lock, built-in
 policy, custom-check, combined environment, and invocation digests. Installed Checkov
 package/check/policy symlinks are invalid rather than excluded from the manifest;
-bytecode caches are excluded deterministically.
+bytecode caches are rejected deterministically. D4.8 requires wheel RECORD verification,
+sets `PYTHONDONTWRITEBYTECODE=1`, and revalidates the executable environment after use.
 
 Root-level syntax evidence decides whether Kubernetes semantics apply. Ordinary YAML
 may use anchors, aliases, custom domain tags, or nested `kind` fields and remains

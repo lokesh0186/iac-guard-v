@@ -7,6 +7,9 @@ and passes only an explicit scan root plus the closed framework set.
 from __future__ import annotations
 
 import hashlib
+import base64
+import csv
+import io
 import json
 import os
 import shutil
@@ -166,8 +169,10 @@ def _inventory_regular_files(root: Path, installation_root: Path) -> list[tuple[
     result: list[tuple[str, Path]] = []
     for path in sorted(root.rglob("*")):
         relative_to_package = path.relative_to(root)
-        if "__pycache__" in relative_to_package.parts or path.suffix == ".pyc":
-            continue
+        if "__pycache__" in relative_to_package.parts or path.suffix in {".pyc", ".pyo"}:
+            raise DomainError(
+                "Checkov executable environment contains prohibited Python bytecode/cache content"
+            )
         try:
             metadata = path.lstat()
         except OSError as exc:
@@ -181,6 +186,84 @@ def _inventory_regular_files(root: Path, installation_root: Path) -> list[tuple[
         relative = path.relative_to(installation_root).as_posix()
         result.append((relative, path))
     return result
+
+
+_EXECUTABLE_DISTRIBUTION_SUFFIXES = frozenset({
+    ".py", ".pyi", ".so", ".pyd", ".dll", ".dylib", ".pth",
+})
+
+
+def _within_path(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
+
+
+def _record_digest(site_packages: Path, installation_root: Path) -> str:
+    """Verify installed executable files against wheel RECORD manifests."""
+    record_paths = sorted(site_packages.glob("*.dist-info/RECORD"))
+    if not record_paths:
+        raise DomainError("Checkov dependency closure has no wheel RECORD manifests")
+    recorded: dict[str, tuple[str, int | None]] = {}
+    record_payloads: list[tuple[str, bytes]] = []
+    for record_path in record_paths:
+        if record_path.is_symlink() or not record_path.is_file():
+            raise DomainError("Checkov wheel RECORD must be a nonsymlink regular file")
+        raw = record_path.read_bytes()
+        record_payloads.append((record_path.relative_to(site_packages).as_posix(), raw))
+        try:
+            rows = csv.reader(io.StringIO(raw.decode("utf-8", errors="strict")))
+            for row in rows:
+                if len(row) != 3 or not row[0]:
+                    raise DomainError("Checkov wheel RECORD contains a malformed row")
+                candidate = site_packages / Path(row[0])
+                resolved = candidate.resolve(strict=True)
+                if not _within_path(resolved, installation_root):
+                    raise DomainError("Checkov wheel RECORD path escapes the installation root")
+                metadata = resolved.lstat()
+                if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+                    raise DomainError("Checkov wheel RECORD target must be a regular nonsymlink file")
+                relative = (
+                    resolved.relative_to(site_packages).as_posix()
+                    if _within_path(resolved, site_packages)
+                    else "../installation/" + resolved.relative_to(installation_root).as_posix()
+                )
+                size = int(row[2]) if row[2] else None
+                if size is not None and size != metadata.st_size:
+                    raise DomainError("Checkov wheel RECORD size does not match installed file")
+                if row[1]:
+                    algorithm, separator, encoded = row[1].partition("=")
+                    if separator != "=" or algorithm != "sha256" or not encoded:
+                        raise DomainError("Checkov wheel RECORD uses an unsupported digest")
+                    expected = base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4))
+                    if hashlib.sha256(resolved.read_bytes()).digest() != expected:
+                        raise DomainError("Checkov wheel RECORD hash does not match installed file")
+                elif resolved.suffix.lower() in _EXECUTABLE_DISTRIBUTION_SUFFIXES:
+                    raise DomainError("Checkov executable distribution file has no RECORD hash")
+                recorded[relative] = (row[1], size)
+        except (UnicodeError, csv.Error, ValueError, OSError) as exc:
+            if isinstance(exc, DomainError):
+                raise
+            raise DomainError("Checkov wheel RECORD could not be verified") from exc
+
+    for path in sorted(site_packages.rglob("*")):
+        relative_path = path.relative_to(site_packages)
+        if "__pycache__" in relative_path.parts or path.suffix.lower() in {".pyc", ".pyo"}:
+            raise DomainError(
+                "Checkov executable environment contains prohibited Python bytecode/cache content"
+            )
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            raise DomainError("Checkov executable environment must not contain symlinks")
+        if not stat.S_ISREG(metadata.st_mode):
+            continue
+        if path.suffix.lower() in _EXECUTABLE_DISTRIBUTION_SUFFIXES:
+            relative = relative_path.as_posix()
+            if relative not in recorded:
+                raise DomainError("Checkov executable code is absent from wheel RECORD manifests")
+    return _manifest_digest(record_payloads)
 
 
 def checkov_distribution_identity(
@@ -228,6 +311,7 @@ def checkov_distribution_identity(
     for metadata in sorted(site_packages.glob("*.dist-info")):
         if metadata.is_symlink():
             raise DomainError("Checkov dependency metadata must not be symlinked")
+    record_digest = _record_digest(site_packages, installation_root)
     environment_files = _inventory_regular_files(site_packages, site_packages)
     dependency_files = [
         item for item in environment_files
@@ -252,6 +336,7 @@ def checkov_distribution_identity(
         interpreter_digest = hashlib.sha256(b"interpreter-unavailable").digest()
     dependency_digest = _manifest_digest([
         ("installed-dependency-tree", bytes.fromhex(_sha256_manifest(dependency_files))),
+        ("wheel-record-closure", bytes.fromhex(record_digest)),
         ("runtime-interpreter", interpreter_digest),
     ])
     custom_check_digest = _manifest_digest([("custom-checks", b"disabled")])
@@ -263,11 +348,35 @@ def checkov_distribution_identity(
     return CheckovDistributionIdentity(
         environment_digest,
         policy_digest,
-        f"installed-manifest-v2-{expected_version}",
+        f"verified-wheel-record-manifest-v3-{expected_version}",
         distribution_digest,
         dependency_digest,
         custom_check_digest,
     )
+
+
+def _unchecked_policy_digest(executable: Path) -> str | None:
+    """Best-effort policy digest used only to preserve typed drift diagnostics."""
+    try:
+        first_line = executable.read_bytes().splitlines()[0].decode("utf-8", errors="strict")
+        roots = []
+        installation_root: Path | None = None
+        if first_line.startswith("#!"):
+            interpreter = Path(first_line[2:].strip().split()[0])
+            if interpreter.is_absolute():
+                installation_root = interpreter.parent.parent
+                roots.extend(installation_root.glob("lib/python*/site-packages/checkov"))
+        policy_files: list[tuple[str, Path]] = []
+        for root in roots:
+            for path in sorted(root.rglob("*")):
+                if path.is_file() and not path.is_symlink():
+                    assert installation_root is not None
+                    relative = path.relative_to(installation_root).as_posix()
+                    if "/checks/" in f"/{relative}" or "/policies/" in f"/{relative}":
+                        policy_files.append((relative, path))
+        return _sha256_manifest(policy_files) if policy_files else None
+    except (OSError, UnicodeError, RuntimeError):
+        return None
 
 
 def _identity(path: Path, label: str, *, directory: bool) -> _FilesystemIdentity:
@@ -1319,6 +1428,7 @@ class CheckovAdapter:
                 max_output_bytes=request.max_output_bytes,
                 max_stdout_bytes=request.max_output_bytes,
                 max_stderr_bytes=request.max_output_bytes,
+                env_extra={"PYTHONDONTWRITEBYTECODE": "1"},
             )
         )
         if result.status is not Status.PASS:
@@ -1342,9 +1452,15 @@ class CheckovAdapter:
             raise DomainError("Checkov executable changed after request validation")
         if _file_sha256(current_executable.resolved) != request._executable_sha256:
             raise DomainError("Checkov executable digest changed after request validation")
-        current_distribution = checkov_distribution_identity(
-            current_executable.resolved, request.expected_version
-        )
+        try:
+            current_distribution = checkov_distribution_identity(
+                current_executable.resolved, request.expected_version
+            )
+        except DomainError as exc:
+            current_policy = _unchecked_policy_digest(current_executable.resolved)
+            if current_policy != request._distribution_identity.policy_inventory_digest:
+                raise DomainError(AdapterReason.POLICY_INVENTORY_MISMATCH.value) from exc
+            raise DomainError(AdapterReason.SCANNER_ENVIRONMENT_MISMATCH.value) from exc
         if (
             current_distribution.scanner_environment_digest
             != request._distribution_identity.scanner_environment_digest
@@ -1528,8 +1644,10 @@ class CheckovAdapter:
                         max_output_bytes=request.max_output_bytes,
                         max_stdout_bytes=request.max_output_bytes,
                         max_stderr_bytes=request.max_output_bytes,
+                        env_extra={"PYTHONDONTWRITEBYTECODE": "1"},
                     )
                 )
+                self._revalidate_inputs(request)
                 failure = _process_failure(request, process)
                 if failure is not None:
                     terminal_run = failure

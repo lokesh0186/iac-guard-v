@@ -582,10 +582,19 @@ results bind successful classifications and rejected entries alike.
 
 The native Checkov identity separately binds launcher bytes, installed Checkov bytes,
 built-in policy bytes, custom-check state, interpreter bytes, and the actual installed
-dependency-tree bytes (excluding mutable bytecode caches). Symlinks or non-regular
+dependency-tree bytes. Mutable bytecode/cache entries are rejected rather than excluded.
+Symlinks or non-regular
 content in the verified package/dependency tree are rejected. Native execution remains
 reduced isolation; a native environment whose complete identity cannot be established
 cannot support `VERIFIED`.
+
+## 26. D4.8 executable scanner environment
+
+The native scanner boundary verifies installed executable files against wheel `RECORD`
+SHA-256 and size evidence, binds the verified RECORD closure, and rejects missing,
+extra, escaping, symlinked, or bytecode/cache code. Checkov runs with
+`PYTHONDONTWRITEBYTECODE=1`; a post-process identity check detects runtime mutation.
+Failure is typed scanner-environment uncertainty and reduced-isolation cannot upgrade it.
 
 ## 22. D5.5 complete gate and result provenance
 
