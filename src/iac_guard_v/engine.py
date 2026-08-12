@@ -1110,34 +1110,7 @@ class TrustedVerificationConfigBundle:
         candidate_subpath = _repository_relative_subpath(self.candidate_root)
         object.__setattr__(self, "baseline_repository_relative_subpath", baseline_subpath)
         object.__setattr__(self, "candidate_repository_relative_subpath", candidate_subpath)
-        payload = {
-            "role_snapshots": {
-                "baseline": baseline_state,
-                "candidate": candidate_state,
-            },
-            "role_subpaths": {
-                "baseline": baseline_subpath,
-                "candidate": candidate_subpath,
-            },
-            "frameworks": list(frameworks),
-            "version": self.expected_version,
-            "launcher": self.expected_executable_sha256,
-            "environment": self.expected_scanner_environment_sha256,
-            "policy": self.expected_policy_inventory_sha256,
-            "required_gates": self.required_gates.canonical_dict(),
-            "severity_floor": self.severity_floor.value,
-            "fail_on_location_change": self.fail_on_location_change,
-            "limits": [self.timeout_seconds, self.max_output_bytes, self.max_eligible_files, self.max_file_bytes, self.max_total_eligible_bytes],
-            "governed_config": [item.canonical_dict() for item in self.governed_config],
-            "source": [self.source_identity, self.source_provenance],
-            "policy_source_authorization": self.policy_source_authorization.canonical_dict(),
-            "gate_registry": {
-                "identity": self.gate_registry.identity,
-                "implementations": [
-                    item.canonical_dict() for item in self.gate_registry.implementations
-                ],
-            },
-        }
+        payload = self._identity_payload()
         object.__setattr__(self, "config_sha256", hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest())
         object.__setattr__(self, "_trusted", True)
 
@@ -1145,21 +1118,13 @@ class TrustedVerificationConfigBundle:
     def policy_drift_paths(self) -> tuple:
         return tuple(item.file_path for item in self.governed_config if item.state != "stable")
 
-    def canonical_dict(self) -> dict:
+    def _identity_payload(self) -> dict:
+        """Complete portable input to the protected configuration identity."""
+        repository_identity = (
+            self.policy_source_authorization.repository_identity
+            or "operator_content_repository_v1"
+        )
         return {
-            "config_sha256": self.config_sha256,
-            "source_identity": self.source_identity,
-            "source_provenance": self.source_provenance,
-            "policy_source_authorization": self.policy_source_authorization.canonical_dict(),
-            "frameworks": list(self.frameworks),
-            "severity_floor": self.severity_floor.value,
-            "fail_on_location_change": self.fail_on_location_change,
-            "required_gates": self.required_gates.canonical_dict(),
-            "gate_registry_identity": self.gate_registry.identity,
-            "gate_implementations": [
-                item.canonical_dict() for item in self.gate_registry.implementations
-            ],
-            "governed_config": [item.canonical_dict() for item in self.governed_config],
             "role_snapshots": {
                 "baseline": self.baseline_source_snapshot_sha256,
                 "candidate": self.candidate_source_snapshot_sha256,
@@ -1168,7 +1133,48 @@ class TrustedVerificationConfigBundle:
                 "baseline": self.baseline_repository_relative_subpath,
                 "candidate": self.candidate_repository_relative_subpath,
             },
+            "role_repository_identities": {
+                "baseline": repository_identity,
+                "candidate": repository_identity,
+            },
+            "frameworks": list(self.frameworks),
+            "scanner_identity": {
+                "scanner": "checkov",
+                "version": self.expected_version,
+                "launcher_digest": self.expected_executable_sha256,
+                "scanner_environment_digest": (
+                    self.expected_scanner_environment_sha256
+                ),
+                "policy_inventory_digest": self.expected_policy_inventory_sha256,
+            },
+            "required_gates": self.required_gates.canonical_dict(),
+            "severity_floor": self.severity_floor.value,
+            "fail_on_location_change": self.fail_on_location_change,
+            "invocation_settings": {
+                "timeout_seconds": self.timeout_seconds,
+                "max_output_bytes": self.max_output_bytes,
+                "max_eligible_files": self.max_eligible_files,
+                "max_file_bytes": self.max_file_bytes,
+                "max_total_eligible_bytes": self.max_total_eligible_bytes,
+            },
+            "governed_config": [
+                item.canonical_dict() for item in self.governed_config
+            ],
+            "source_identity": self.source_identity,
+            "source_provenance": self.source_provenance,
+            "policy_source_authorization": (
+                self.policy_source_authorization.canonical_dict()
+            ),
+            "gate_registry_identity": self.gate_registry.identity,
+            "gate_implementations": [
+                item.canonical_dict() for item in self.gate_registry.implementations
+            ],
         }
+
+    def canonical_dict(self) -> dict:
+        result = self._identity_payload()
+        result["config_sha256"] = self.config_sha256
+        return result
 
 
 def load_operator_verification_config(

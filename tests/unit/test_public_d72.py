@@ -14,7 +14,7 @@ from iac_guard_v.report import (
     CandidateArtifactFailureReportV1,
     ExecutionIsolationEvidence,
     VerificationReportV1,
-    validate_report_payload,
+    _validate_test_report_payload as validate_report_payload,
 )
 
 from test_policy import _verdict, verified_engine  # noqa: F401
@@ -108,18 +108,13 @@ def test_candidate_artifact_failure_binds_kind_gate_and_reason() -> None:
     assert failure["validators"][0]["gate_id"] == "kubernetes_yaml_parse"
 
 
-def test_explain_summarizes_full_verification_evidence(
+def test_explain_rejects_private_test_registry_evidence(
     verified_engine: VerificationResult, tmp_path, capsys
 ) -> None:
     path = tmp_path / "report.json"
     path.write_text(json.dumps(_verified(verified_engine)), encoding="utf-8")
-    assert CLI.main(["explain", str(path)]) == 0
-    output = capsys.readouterr().out
-    for text in (
-        "isolation:", "targets:", "scanner integrity:", "regression:",
-        "policy decisions:", "remediation:",
-    ):
-        assert text in output.lower()
+    assert CLI.main(["explain", str(path)]) == 2
+    assert "private test gate registry" in capsys.readouterr().err
 
 
 def test_failed_and_inconclusive_full_reports_require_their_evidence(

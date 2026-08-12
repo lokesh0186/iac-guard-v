@@ -117,3 +117,12 @@ Schema alone cannot prove that a `VERIFIED` label agrees with scanner integrity,
 required gates, target outcomes, engine events and policy decisions. The
 full-verification/full-policy and artifact-failure/artifact-policy pairs are closed and
 cannot be crossed.
+## D7.4 reconstructible-graph amendment
+
+`report-v1` retains its version, but the canonical configuration now exposes every
+child required to recompute its protected identity. Policy evidence exposes the
+loader-attested exception records needed to verify applied exception provenance. The
+public semantic validator re-derives finding, regression, engine-event, governed-drift,
+metric, scanner-diagnostic, and exception edges. Private test registry identities are
+accepted only by the private unit-test validator and are rejected by all public report
+consumers.

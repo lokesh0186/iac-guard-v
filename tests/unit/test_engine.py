@@ -11,6 +11,7 @@ import iac_guard_v.engine as ENGINE
 from iac_guard_v.adapters.checkov import (
     CheckovAdapter,
     CheckovScanRequest,
+    _invocation_config_digest,
     checkov_distribution_identity,
 )
 from iac_guard_v.engine import (
@@ -188,7 +189,8 @@ def _run(request: CheckovScanRequest, *, baseline: bool) -> ScannerRun:
         launcher_digest=request.expected_executable_sha256,
         scanner_environment_digest=request.expected_scanner_environment_sha256,
         policy_inventory_digest=request.expected_policy_inventory_sha256,
-        invocation_config_digest=digest, ruleset_integrity=Status.PASS,
+        invocation_config_digest=_invocation_config_digest(request),
+        ruleset_integrity=Status.PASS,
         evaluations=evaluations, input_files=request.eligible_file_evidence,
         diagnostics=("COMPLETED",),
     )

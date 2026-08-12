@@ -11,9 +11,12 @@ from pathlib import Path
 
 import jsonschema
 
-from .enums import ArtifactKind, Verdict
+from .diffing import diff_findings
+from .enums import (
+    ArtifactKind, DeltaClass, SEVERITY_ORDER, Severity, Status, Verdict,
+)
 from .engine import VerificationResult, require_trusted_verification_result
-from .models import DomainError, TargetIdentity
+from .models import DomainError, Finding, FindingLocation, TargetIdentity
 from .policy import PolicyResult, require_trusted_policy_result
 
 
@@ -58,7 +61,7 @@ def _schema() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def validate_report_payload(payload: dict) -> None:
+def _validate_report_payload(payload: dict, *, allow_private_test_registry: bool) -> None:
     try:
         jsonschema.Draft202012Validator(_schema(), format_checker=jsonschema.FormatChecker()).validate(payload)
     except jsonschema.ValidationError as exc:
@@ -69,7 +72,19 @@ def validate_report_payload(payload: dict) -> None:
             policy["verdict"], policy["exit_code"]
         ):
             raise DomainError("report-v1 top-level and policy verdict/exit disagree")
-        _validate_verification_semantics(payload)
+        _validate_verification_semantics(
+            payload, allow_private_test_registry=allow_private_test_registry
+        )
+
+
+def validate_report_payload(payload: dict) -> None:
+    """Validate public report-v1 evidence; private test registries are forbidden."""
+    _validate_report_payload(payload, allow_private_test_registry=False)
+
+
+def _validate_test_report_payload(payload: dict) -> None:
+    """Private unit-test validator for factory-proven synthetic gate evidence."""
+    _validate_report_payload(payload, allow_private_test_registry=True)
 
 
 _UNCERTAIN_STATUSES = frozenset({
@@ -91,6 +106,22 @@ _PASS_BUCKETS = {
     "failed_checks": "FAILED",
     "skipped_checks": "SKIPPED",
 }
+_SCANNER_FAILURE_REASONS = frozenset({
+    "PROCESS_ERROR", "EMPTY_OUTPUT", "MALFORMED_JSON", "TRUNCATED_OUTPUT",
+    "UNEXPECTED_TOP_LEVEL", "EXIT_CODE_OUTSIDE_CONTRACT", "DEADLINE_EXCEEDED",
+    "KILLED_PROCESS", "PARTIAL_SCAN", "ZERO_FILES_DISCOVERED",
+    "UNSUPPORTED_VERSION", "VERSION_MISMATCH", "VERSION_PROBE_FAILED",
+    "NO_RESULTS_STRUCTURE", "INVALID_RESULTS_STRUCTURE", "COVERAGE_MISMATCH",
+    "FRAMEWORK_MISMATCH", "MISSING_RESOURCE_IDENTITY", "RAW_OUTPUT_MISSING",
+    "OUTPUT_CLEANUP_FAILED", "INPUT_CHANGED_DURING_SCAN_PREPARATION",
+    "SCAN_VIEW_PREPARATION_FAILED", "OUTPUT_DIRECTORY_INTEGRITY_FAILED",
+    "UNKNOWN_RESULT_BUCKET", "AGGREGATE_ONLY_EVIDENCE",
+    "SCANNER_ENVIRONMENT_MISMATCH", "POLICY_INVENTORY_MISMATCH",
+    "RESOURCE_INVENTORY_MISSING", "RESOURCE_COUNT_MISMATCH",
+    "CONTRADICTORY_EVALUATION_EVIDENCE", "EMPTY_ELIGIBLE_SCOPE",
+    "INPUT_FILE_COUNT_LIMIT_EXCEEDED", "INPUT_FILE_SIZE_LIMIT_EXCEEDED",
+    "INPUT_TOTAL_SIZE_LIMIT_EXCEEDED", "JSON_DEPTH_EXCEEDED",
+})
 
 
 def _semantic_error(detail: str) -> None:
@@ -127,6 +158,35 @@ def _require_sha(value: object, label: str, *, allow_empty: bool = False) -> Non
         _semantic_error(f"{label} is not a canonical SHA-256")
 
 
+def _validate_config_identity(config: dict) -> None:
+    payload = {
+        name: config[name]
+        for name in (
+            "role_snapshots", "role_subpaths", "role_repository_identities",
+            "frameworks", "scanner_identity", "required_gates",
+            "severity_floor", "fail_on_location_change", "invocation_settings",
+            "governed_config", "source_identity", "source_provenance",
+            "policy_source_authorization", "gate_registry_identity",
+            "gate_implementations",
+        )
+    }
+    if _canonical_json_digest(payload) != config["config_sha256"]:
+        _semantic_error("protected configuration identity is not canonical")
+    scanner = config["scanner_identity"]
+    for name in (
+        "launcher_digest", "scanner_environment_digest", "policy_inventory_digest",
+    ):
+        _require_sha(scanner[name], f"protected scanner {name}")
+    authorization = config["policy_source_authorization"]
+    expected_repository = (
+        authorization["repository_identity"] or "operator_content_repository_v1"
+    )
+    if set(config["role_repository_identities"].values()) != {expected_repository}:
+        _semantic_error(
+            "role repository identities disagree with protected source authorization"
+        )
+
+
 def _validate_target_identity(value: dict, label: str) -> tuple[str, str, str]:
     try:
         rebuilt = TargetIdentity(value["scanner"], value["rule_id"], value["scope"])
@@ -137,7 +197,7 @@ def _validate_target_identity(value: dict, label: str) -> tuple[str, str, str]:
     return rebuilt.canonical_key
 
 
-def _validate_gate_graph(verification: dict) -> None:
+def _validate_gate_graph(verification: dict, *, allow_private_test_registry: bool) -> None:
     config = verification["verification_config"]
     required = config["required_gates"]
     validator_ids = required["validator_ids"]
@@ -174,10 +234,10 @@ def _validate_gate_graph(verification: dict) -> None:
             "parser_dependency_digest", "schema_loader_contract_digest",
         ):
             _require_sha(implementation[name], f"gate {gate_id} {name}")
-    if config["gate_registry_identity"] not in {
-        "iac_guard_v_phase_d_registry_v4",
-        "iac_guard_v_private_test_registry_v1",
-    }:
+    allowed_registries = {
+        "iac_guard_v_phase_d_registry_v4", "iac_guard_v_private_test_registry_v1",
+    }
+    if config["gate_registry_identity"] not in allowed_registries:
         _semantic_error("gate registry identity is not a closed packaged registry")
 
 
@@ -190,6 +250,8 @@ def _validate_snapshot(snapshot: dict, config: dict, role: str) -> dict[str, dic
         _semantic_error(f"{role} snapshot belongs to a different protected config")
     if snapshot["repository_relative_subpath"] != config["role_subpaths"][role]:
         _semantic_error(f"{role} snapshot subpath disagrees with protected config")
+    if snapshot["repository_identity"] != config["role_repository_identities"][role]:
+        _semantic_error(f"{role} snapshot repository identity disagrees with protected config")
 
     files = _unique(snapshot["files"], lambda item: item["file_path"],
                     f"{role} snapshot file path")
@@ -285,8 +347,29 @@ def _validate_scanner_run(run: dict, snapshot: dict, role: str) -> None:
         "dependency_lock_digest", "custom_check_digest",
     ):
         _require_sha(run[name], f"{role} scanner {name}", allow_empty=True)
-    if run["status"] == "PASS" and run["exit_code"] != 0:
+    if run["status"] == "PASS" and run["exit_code"] not in {0, 1}:
         _semantic_error(f"{role} PASS scanner run has a non-success exit code")
+    diagnostics = run["diagnostics"]
+    if run["status"] == "PASS":
+        if diagnostics != ["COMPLETED"]:
+            _semantic_error(f"{role} PASS scanner run contains adverse diagnostics")
+        if run["ruleset_integrity"] != "PASS":
+            _semantic_error(f"{role} PASS scanner run lacks ruleset integrity")
+    elif not diagnostics or diagnostics[0] not in _SCANNER_FAILURE_REASONS:
+        _semantic_error(f"{role} scanner failure lacks a closed typed diagnostic")
+    if diagnostics:
+        reason = diagnostics[0]
+        expected_ruleset = (
+            "FAIL" if reason in {
+                "POLICY_INVENTORY_MISMATCH", "SCANNER_ENVIRONMENT_MISMATCH",
+            }
+            else "INCONCLUSIVE" if reason in {
+                "UNSUPPORTED_VERSION", "VERSION_MISMATCH", "VERSION_PROBE_FAILED",
+            }
+            else None
+        )
+        if expected_ruleset is not None and run["ruleset_integrity"] != expected_ruleset:
+            _semantic_error(f"{role} scanner ruleset integrity contradicts its reason")
 
     coverage = run["coverage"]
     if not (
@@ -298,8 +381,8 @@ def _validate_scanner_run(run: dict, snapshot: dict, role: str) -> None:
         _semantic_error(f"{role} parsed/failed file counts exceed discovery")
     if coverage["parse_errors"] > coverage["files_failed"]:
         _semantic_error(f"{role} parse errors exceed failed files")
-    if coverage["evaluations_reported"] < len(run["evaluations"]):
-        _semantic_error(f"{role} retained evaluations exceed reported evaluations")
+    if coverage["evaluations_reported"] != len(run["evaluations"]):
+        _semantic_error(f"{role} retained evaluations disagree with reported evaluations")
 
     resource = run["resource_coverage"]
     if resource["resources_expected"] != (
@@ -362,10 +445,309 @@ def _validate_scanner_run(run: dict, snapshot: dict, role: str) -> None:
         coverage["parse_errors"],
     )):
         _semantic_error(f"{role} PASS scanner run contains failure counters")
-    if run["ruleset_integrity"] == "PASS" and any(
-        "MISMATCH" in diagnostic for diagnostic in run["diagnostics"]
+
+
+def _rebuild_finding(value: dict) -> Finding:
+    location = value["location"]
+    return Finding(
+        scanner=value["scanner"],
+        scanner_version=value["scanner_version"],
+        rule_id=value["rule_id"],
+        resource_address=value["resource_address"],
+        location=FindingLocation(
+            location["file_path"], location["start_line"], location["end_line"]
+        ),
+        severity=Severity(value["severity"]),
+        occurrence_index=value["occurrence_index"],
+        rule_name=value["rule_name"],
+        message=value["message"],
+        native_fingerprint=value["native_fingerprint"],
+        iacgv_fingerprint=value["iacgv_fingerprint"],
+        artifact_kind=ArtifactKind(value["artifact_kind"]),
+        suppressed=value["suppressed"],
+    )
+
+
+def _validate_finding_graph(verification: dict, events: dict) -> None:
+    baseline_run = verification["baseline_run"]
+    candidate_run = verification["candidate_run"]
+    identity_fields = (
+        "scanner", "scanner_version", "launcher_digest",
+        "scanner_environment_digest", "policy_inventory_digest",
+        "invocation_config_digest", "installed_distribution_digest",
+        "dependency_lock_digest", "custom_check_digest",
+    )
+    stable = (
+        all(baseline_run[name] == candidate_run[name] for name in identity_fields)
+        and baseline_run["ruleset_integrity"]
+        == candidate_run["ruleset_integrity"] == "PASS"
+    )
+    try:
+        baseline = tuple(
+            _rebuild_finding(item) for item in baseline_run["findings"]
+        )
+        candidate = tuple(
+            _rebuild_finding(item) for item in candidate_run["findings"]
+        )
+        derived = (
+            diff_findings(baseline, candidate).canonical_dict()
+            if stable else {"deltas": [], "ambiguities": []}
+        )
+    except (DomainError, KeyError, ValueError) as exc:
+        _semantic_error(f"scanner findings cannot be canonically reconstructed: {exc}")
+    if derived != verification["finding_diff"]:
+        _semantic_error("finding diff is not derived from scanner finding multisets")
+
+    deltas = verification["finding_diff"]["deltas"]
+    uncertain = []
+    decisive = []
+    floor = SEVERITY_ORDER.index(Severity(
+        verification["verification_config"]["severity_floor"]
+    ))
+    suppressed_targets = {
+        (
+            item["identity"]["scanner"], item["identity"]["rule_id"],
+            item["identity"]["scope"], item["binding"]["file_path"],
+            item["binding"]["artifact_kind"],
+        )
+        for item in verification["targets"] if item["outcome"] == "SUPPRESSED"
+    }
+    if verification["finding_diff"]["ambiguities"]:
+        expected = {
+            "gate_id": "regression", "status": "INCONCLUSIVE",
+            "reason_code": "MATCHING_INCONCLUSIVE",
+            "detail": (
+                f"ambiguous_groups={len(verification['finding_diff']['ambiguities'])}"
+            ),
+        }
+        if verification["regression"] != expected:
+            _semantic_error("regression does not preserve matching ambiguity")
+        return
+    for delta in deltas:
+        kind = delta["delta_class"]
+        if kind == "NEW_FINDING":
+            severity = Severity(delta["candidate"]["severity"])
+            if severity is Severity.UNKNOWN:
+                uncertain.append("NEW_FINDING_SEVERITY_UNKNOWN")
+            elif SEVERITY_ORDER.index(severity) >= floor:
+                decisive.append(kind)
+        elif kind in {"SEVERITY_INCREASED", "SCOPE_EXPANDED", "SUPPRESSION_ADDED"}:
+            if kind == "SUPPRESSION_ADDED":
+                candidate = delta["candidate"]
+                identity = (
+                    candidate["scanner"], candidate["rule_id"],
+                    candidate["resource_address"],
+                    candidate["location"]["file_path"], candidate["artifact_kind"],
+                )
+                if identity in suppressed_targets:
+                    continue
+            decisive.append(kind)
+        elif (kind == "LOCATION_CHANGED"
+              and verification["verification_config"]["fail_on_location_change"]):
+            decisive.append(kind)
+    destructive = events["DESTRUCTIVE_CHANGE"]
+    target_deletions = {
+        (
+            item["binding"]["file_path"], item["identity"]["scope"],
+            item["binding"]["artifact_kind"],
+            item["binding"]["scanner_native_lookup"],
+        )
+        for item in verification["targets"]
+        if item["outcome"] in {"RESOURCE_DELETED", "FILE_DELETED_OR_RENAMED"}
+    }
+    unrelated = {
+        (
+            item["file_path"], item["resource_address"], item["artifact_kind"],
+            item["scanner_native_lookup"],
+        )
+        for item in destructive["affected_resource_records"]
+    } - target_deletions
+    if unrelated:
+        decisive.append("DESTRUCTIVE_CHANGE")
+    if uncertain:
+        expected = {
+            "gate_id": "regression", "status": "INCONCLUSIVE",
+            "reason_code": uncertain[0],
+            "detail": ",".join(sorted(set(uncertain))),
+        }
+    elif decisive:
+        expected = {
+            "gate_id": "regression", "status": "FAIL",
+            "reason_code": "REGRESSION_DETECTED",
+            "detail": ",".join(sorted(set(decisive))),
+        }
+    else:
+        expected = {
+            "gate_id": "regression", "status": "PASS",
+            "reason_code": "NO_DECISIVE_REGRESSION", "detail": "",
+        }
+    if verification["regression"] != expected:
+        _semantic_error("regression is not derived from finding and resource evidence")
+
+
+def _governed_comparison(baseline: dict, candidate: dict) -> list[dict]:
+    before = {item["file_path"]: item for item in baseline["governed_paths"]}
+    after = {item["file_path"]: item for item in candidate["governed_paths"]}
+    result = []
+    for path in sorted(set(before) | set(after)):
+        old = before.get(path)
+        new = after.get(path)
+        old_kind = "ABSENT" if old is None else old["kind"]
+        new_kind = "ABSENT" if new is None else new["kind"]
+        old_sha = None if old is None else old["sha256"]
+        new_sha = None if new is None else new["sha256"]
+        state = (
+            "added" if old is None else "removed" if new is None
+            else "type_changed" if old_kind != new_kind
+            else "stable" if (
+                old_kind in {"REGULAR_FILE", "REAL_DIRECTORY"}
+                and old_sha == new_sha
+            ) else "changed"
+        )
+        result.append({
+            "file_path": path,
+            "trusted_sha256": old_sha,
+            "candidate_sha256": new_sha,
+            "state": state,
+            "trusted_kind": old_kind,
+            "candidate_kind": new_kind,
+            "trusted_size": 0 if old is None else old["size"],
+            "candidate_size": 0 if new is None else new["size"],
+        })
+    return result
+
+
+def _validate_governed_graph(verification: dict, policy_evidence: dict, events: dict) -> None:
+    derived = _governed_comparison(
+        verification["baseline_snapshot"], verification["candidate_snapshot"]
+    )
+    config = verification["verification_config"]
+    if config["governed_config"] != derived:
+        _semantic_error("protected governed configuration disagrees with snapshots")
+    if policy_evidence["governed_config_evidence"] != derived:
+        _semantic_error("policy governed configuration disagrees with snapshots")
+    differing = [item["file_path"] for item in derived if item["state"] != "stable"]
+    if policy_evidence["differing_governed_paths"] != differing:
+        _semantic_error("policy differing governed paths are not canonical")
+    policy_event = events["POLICY_DRIFT"]
+    expected_status = "FAIL" if differing else "PASS"
+    expected_reason = "GOVERNED_CONFIG_DRIFT" if differing else "GOVERNED_CONFIG_STABLE"
+    if (
+        policy_event["status"] != expected_status
+        or policy_event["reason_code"] != expected_reason
+        or policy_event["affected_paths"] != differing
+        or policy_event["affected_resources"]
+        or policy_event["affected_resource_records"]
+        or policy_event["detail"] != f"config={config['config_sha256']}"
     ):
-        _semantic_error(f"{role} ruleset integrity contradicts its diagnostics")
+        _semantic_error("POLICY_DRIFT event contradicts governed configuration")
+
+
+def _validate_engine_events(verification: dict, events: dict) -> None:
+    baseline = verification["baseline_run"]
+    candidate = verification["candidate_run"]
+    identity_fields = (
+        "scanner", "scanner_version", "launcher_digest",
+        "scanner_environment_digest", "policy_inventory_digest",
+        "invocation_config_digest", "installed_distribution_digest",
+        "dependency_lock_digest", "custom_check_digest",
+    )
+    stable = (
+        all(baseline[name] == candidate[name] for name in identity_fields)
+        and baseline["ruleset_integrity"] == candidate["ruleset_integrity"] == "PASS"
+    )
+    rule = events["RULE_SUBSTITUTED"]
+    if rule != {
+        "delta_class": "RULE_SUBSTITUTED",
+        "status": "PASS" if stable else "INCONCLUSIVE",
+        "reason_code": (
+            "RULE_IDENTITY_STABLE" if stable else "RULE_SUBSTITUTION_NOT_DECIDABLE"
+        ),
+        "affected_resource_records": [], "affected_resources": [],
+        "affected_paths": [], "detail": "",
+    }:
+        _semantic_error("RULE_SUBSTITUTED event is not derived from scanner identity")
+
+    coverage_decreased = (
+        candidate["status"] == "PARTIAL"
+        or candidate["coverage"]["files_parsed"]
+        < candidate["coverage"]["files_eligible"]
+        or candidate["resource_coverage"]["resources_observed"]
+        < candidate["resource_coverage"]["resources_expected"]
+    )
+    coverage_status = (
+        "FAIL" if coverage_decreased else "PASS"
+        if candidate["status"] == "PASS" else "INCONCLUSIVE"
+    )
+    coverage = events["COVERAGE_DECREASED"]
+    if coverage != {
+        "delta_class": "COVERAGE_DECREASED", "status": coverage_status,
+        "reason_code": (
+            "COVERAGE_COMPLETE" if coverage_status == "PASS"
+            else "COVERAGE_DECREASED_OR_UNCERTAIN"
+        ),
+        "affected_resource_records": [], "affected_resources": [],
+        "affected_paths": [], "detail": "",
+    }:
+        _semantic_error("COVERAGE_DECREASED event contradicts scanner coverage")
+
+    added_diagnostics = sorted(set(candidate["diagnostics"]) - set(baseline["diagnostics"]))
+    diagnostic = events["DIAGNOSTIC_ADDED"]
+    if diagnostic != {
+        "delta_class": "DIAGNOSTIC_ADDED",
+        "status": "FAIL" if added_diagnostics else "PASS",
+        "reason_code": "DIAGNOSTICS_ADDED" if added_diagnostics else "NO_DIAGNOSTICS_ADDED",
+        "affected_resource_records": [], "affected_resources": [],
+        "affected_paths": [], "detail": ",".join(added_diagnostics),
+    }:
+        _semantic_error("DIAGNOSTIC_ADDED event contradicts scanner diagnostics")
+
+    before = {
+        _binding_key(item): item for item in verification["baseline_snapshot"]["resources"]
+    }
+    after = {
+        _binding_key(item): item for item in verification["candidate_snapshot"]["resources"]
+    }
+    deleted_records = [before[key] for key in sorted(set(before) - set(after))]
+    deleted_resources = sorted({item["resource_address"] for item in deleted_records})
+    deleted_paths = sorted({item["file_path"] for item in deleted_records})
+    destructive = events["DESTRUCTIVE_CHANGE"]
+    if destructive != {
+        "delta_class": "DESTRUCTIVE_CHANGE",
+        "status": "FAIL" if deleted_records else "PASS",
+        "reason_code": "RESOURCES_DELETED" if deleted_records else "NO_RESOURCES_DELETED",
+        "affected_resource_records": deleted_records,
+        "affected_resources": deleted_resources,
+        "affected_paths": deleted_paths,
+        "detail": "",
+    }:
+        _semantic_error("DESTRUCTIVE_CHANGE event contradicts sealed resource inventories")
+
+
+def _validate_change_metrics(verification: dict, events: dict) -> None:
+    metrics = verification["change_metrics"]
+    before_resources = {
+        _binding_key(item) for item in verification["baseline_snapshot"]["resources"]
+    }
+    after_resources = {
+        _binding_key(item) for item in verification["candidate_snapshot"]["resources"]
+    }
+    added = len(after_resources - before_resources)
+    deleted = len(before_resources - after_resources)
+    if (
+        metrics["resources_added"] != added
+        or metrics["resources_deleted"] != deleted
+        or metrics["resources_changed"] != added + deleted
+    ):
+        _semantic_error("change metrics contradict sealed resource inventories")
+    drift_count = len(events["POLICY_DRIFT"]["affected_paths"])
+    if metrics["policy_files_changed"] != drift_count:
+        _semantic_error("policy change metric contradicts governed drift")
+    if metrics["lines_changed"] != metrics["lines_added"] + metrics["lines_removed"]:
+        _semantic_error("line change metrics are internally inconsistent")
+    unavailable = metrics["unavailable_metrics"]
+    if len(unavailable) != len(set(unavailable)):
+        _semantic_error("unavailable change metrics contain duplicates")
 
 
 def _validate_target_and_policy_graph(verification: dict, policy: dict) -> tuple[dict, dict]:
@@ -468,6 +850,48 @@ def _validate_target_and_policy_graph(verification: dict, policy: dict) -> tuple
     return targets, decisions
 
 
+def _validate_exception_graph(policy: dict, decisions: dict) -> None:
+    evidence = policy["policy_evidence"]
+    allowed_origins = {"operator", "trusted_base", "protected_policy_repo"}
+    if evidence["source_origin"] not in allowed_origins:
+        _semantic_error("policy evidence is not from an allowed trusted source")
+    records = _unique(
+        evidence["exception_records"], lambda item: item["exception_id"],
+        "policy exception id",
+    )
+    sources = _unique(
+        evidence["applied_exception_sources"], lambda item: item["exception_id"],
+        "applied exception source id",
+    )
+    expected_applied = {
+        decision["exception_id"] for decision in decisions.values()
+        if decision["policy_permitted"]
+    }
+    if set(sources) != expected_applied:
+        _semantic_error("applied exception sources do not exactly cover permitted decisions")
+    for decision in decisions.values():
+        if not decision["policy_permitted"]:
+            continue
+        exception_id = decision["exception_id"]
+        record = records.get(exception_id)
+        source = sources.get(exception_id)
+        if record is None or source is None:
+            _semantic_error("permitted decision lacks its exact exception evidence")
+        if (
+            record["origin"] != evidence["source_origin"]
+            or source["source_origin"] != evidence["source_origin"]
+            or source["source_origin"] not in allowed_origins
+            or source["source_identity"] != evidence["source_identity"]
+            or decision["outcome"] not in record["permitted_outcomes"]
+            or record["resolved_target"] != decision["resolved_target"]
+            or record["target"] != decision["identity"]
+        ):
+            _semantic_error("permitted decision exception source or binding is inconsistent")
+        evaluation_date = policy["evaluation_date"]
+        if not (record["created"] <= evaluation_date <= record["expires"]):
+            _semantic_error("permitted decision exception is not active at evaluation time")
+
+
 def _validate_artifact_failure_semantics(payload: dict) -> None:
     verification = payload["verification"]
     policy = payload["policy"]
@@ -486,13 +910,18 @@ def _validate_artifact_failure_semantics(payload: dict) -> None:
         _semantic_error("candidate artifact failure policy must be FAILED/1")
 
 
-def _validate_full_semantics(payload: dict) -> None:
+def _validate_full_semantics(
+    payload: dict, *, allow_private_test_registry: bool,
+) -> None:
     verification = payload["verification"]
     policy = payload["policy"]
     verdict = payload["verdict"]
     config = verification["verification_config"]
     _require_sha(config["config_sha256"], "verification config identity")
-    _validate_gate_graph(verification)
+    _validate_config_identity(config)
+    _validate_gate_graph(
+        verification, allow_private_test_registry=allow_private_test_registry
+    )
     _validate_snapshot(verification["baseline_snapshot"], config, "baseline")
     _validate_snapshot(verification["candidate_snapshot"], config, "candidate")
     _validate_scanner_run(
@@ -503,6 +932,33 @@ def _validate_full_semantics(payload: dict) -> None:
     )
     baseline_run = verification["baseline_run"]
     candidate_run = verification["candidate_run"]
+    scanner_config = config["scanner_identity"]
+    invocation = config["invocation_settings"]
+    invocation_digest = _canonical_json_digest({
+        "adapter": "checkov-adapter-contract-v3",
+        "compact": True,
+        "download_external_modules": False,
+        "frameworks": config["frameworks"],
+        "output": "json",
+        "quiet": False,
+        "skip_download": True,
+        "skip_results_upload": True,
+        "max_eligible_files": invocation["max_eligible_files"],
+        "max_file_bytes": invocation["max_file_bytes"],
+        "max_total_eligible_bytes": invocation["max_total_eligible_bytes"],
+    })
+    for role, run in (("baseline", baseline_run), ("candidate", candidate_run)):
+        if (
+            run["scanner"] != scanner_config["scanner"]
+            or run["scanner_version"] != scanner_config["version"]
+            or run["launcher_digest"] != scanner_config["launcher_digest"]
+            or run["scanner_environment_digest"]
+            != scanner_config["scanner_environment_digest"]
+            or run["policy_inventory_digest"]
+            != scanner_config["policy_inventory_digest"]
+            or run["invocation_config_digest"] != invocation_digest
+        ):
+            _semantic_error(f"{role} scanner evidence disagrees with protected identity")
     if (baseline_run["scanner"], baseline_run["scanner_version"]) != (
         candidate_run["scanner"], candidate_run["scanner_version"],
     ):
@@ -523,6 +979,8 @@ def _validate_full_semantics(payload: dict) -> None:
     )
     if set(events) != _ENGINE_EVENT_CLASSES:
         _semantic_error("engine events do not contain the complete five-class set")
+    _validate_engine_events(verification, events)
+    _validate_finding_graph(verification, events)
 
     validators = verification["validators"]
     oracles = verification["oracles"]
@@ -536,6 +994,32 @@ def _validate_full_semantics(payload: dict) -> None:
         _semantic_error("policy evidence belongs to a different candidate snapshot")
     if policy["evaluation_date"] != policy_evidence["evaluation_date"]:
         _semantic_error("policy evaluation dates disagree")
+    authorization = config["policy_source_authorization"]
+    if (
+        policy_evidence["execution_mode"] != authorization["mode"]
+        or policy_evidence["execution_context_identity"]
+        != authorization["context_identity"]
+        or policy_evidence["candidate_root_identity"]
+        != authorization["candidate_identity"]
+        or (
+            authorization["repository_identity"]
+            and policy_evidence["source_repository"]
+            != authorization["repository_identity"]
+        )
+        or (
+            authorization["commit_sha"]
+            and policy_evidence["source_commit"] != authorization["commit_sha"]
+        )
+    ):
+        _semantic_error("policy provenance disagrees with protected source authorization")
+    _validate_governed_graph(verification, policy_evidence, events)
+    _validate_exception_graph(policy, decisions)
+    _validate_change_metrics(verification, events)
+    if (
+        not allow_private_test_registry
+        and config["gate_registry_identity"] == "iac_guard_v_private_test_registry_v1"
+    ):
+        _semantic_error("private test gate registry is forbidden in public reports")
 
     isolation = payload["execution_isolation"]
     if isolation["mode"] == "reduced-isolation":
@@ -617,12 +1101,16 @@ def _validate_full_semantics(payload: dict) -> None:
             _semantic_error("INCONCLUSIVE requires INCONCLUSIVE/3 policy evidence")
 
 
-def _validate_verification_semantics(payload: dict) -> None:
+def _validate_verification_semantics(
+    payload: dict, *, allow_private_test_registry: bool,
+) -> None:
     verification = payload["verification"]
     if "failure_stage" in verification:
         _validate_artifact_failure_semantics(payload)
     else:
-        _validate_full_semantics(payload)
+        _validate_full_semantics(
+            payload, allow_private_test_registry=allow_private_test_registry
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -673,7 +1161,11 @@ class VerificationReportV1:
             "verification": self.verification.canonical_dict(),
             "policy": self.policy_result.canonical_dict(),
         }
-        validate_report_payload(result)
+        registry = self.verification.verification_config.gate_registry.identity
+        if registry == "iac_guard_v_private_test_registry_v1":
+            _validate_test_report_payload(result)
+        else:
+            validate_report_payload(result)
         return result
 
     def canonical_json(self) -> str:

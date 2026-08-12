@@ -925,6 +925,9 @@ class TrustedPolicyBundle:
             "repository_relative_candidate_prefix": (
                 self.repository_relative_candidate_prefix
             ),
+            "exception_records": [
+                item.canonical_dict() for item in self.policy.records
+            ],
         }
 
 

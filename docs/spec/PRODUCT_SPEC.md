@@ -412,3 +412,13 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 24. D9.2 reproduces the canonical JSON and Markdown in a digest-pinned Python image with
     hash-pinned transitive dependencies and verified installed-code digests. Legacy
     transition labels come only from computed canonical counts.
+## D7.4 public report acceptance
+
+A public report is accepted only when its protected configuration hash is recomputed
+from every protected scanner, framework, gate, limit, policy, source-authorization, and
+snapshot input, and when its evidence graph can be re-derived. In particular, scanner
+findings must produce the reported finding deltas and regression result; sealed
+resources and governed paths must produce the reported engine events and change
+metrics; and an exception-permitted decision must have exactly one active, trusted,
+exact-target exception source record. Private test registry provenance is never valid
+public evidence.

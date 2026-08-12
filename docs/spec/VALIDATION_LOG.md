@@ -2567,3 +2567,24 @@ NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
+## 2026-08-12 — D7.4 complete evidence-graph reconstruction
+
+Failing-before probes against `69ce2e3` returned these literal old values:
+
+- protected `severity_floor`, framework, source, and policy-authorization mutations:
+  `validate_report_payload = ACCEPTED` with unchanged `config_sha256`;
+- candidate critical-severity finding with unchanged diff/regression:
+  `regression = PASS`, public validation `ACCEPTED`;
+- `DESTRUCTIVE_CHANGE PASS` with affected paths and governed drift reported as
+  stable: public validation `ACCEPTED`;
+- a permitted decision without its exact applied exception source: public validation
+  `ACCEPTED`;
+- a `PASS` scanner run carrying an adverse diagnostic: public validation `ACCEPTED`;
+- private test registry provenance: `iac-guard explain = VERIFIED`.
+
+Passing-after values are: every mutation raises `DomainError`; the candidate critical
+finding makes `iac-guard explain` return exit `2`; exact public-registry evidence remains
+accepted; and private test registry provenance returns exit `2`. The permanent D7.4
+regression suite records `51 passed`. The complete public-boundary suite under a clean
+Python 3.13 declared-dependency environment records `174 passed` and 90.55% combined
+branch-aware coverage.

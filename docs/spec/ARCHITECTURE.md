@@ -705,3 +705,16 @@ Validator execution disables bytecode writing through both the interpreter switc
 `PYTHONDONTWRITEBYTECODE=1`, then recomputes the environment identity. Missing or
 changed implementation evidence is typed `INCONCLUSIVE` and cannot support `VERIFIED`.
 This proves installed-manifest consistency; protected locks bind vendor provenance.
+## D7.4 reconstructible public evidence graph
+
+Public `report-v1` validation reconstructs the protected verification configuration
+identity from its complete canonical children: role snapshots and repository subpaths,
+scanner and framework locks, invocation limits, severity and location policy, required
+gates, governed configuration, source authorization, and gate implementation records.
+It also re-derives finding deltas, regression, the five engine events, governed drift,
+resource metrics, and exception application from their authoritative child evidence.
+Repeated digest strings are never accepted as proof of those relationships.
+
+The packaged public validator rejects private synthetic gate registries. A private
+test-only path remains available to exercise trusted factories without making that
+provenance acceptable to `explain` or another public report consumer.

@@ -1290,3 +1290,18 @@ yields `GATE_IMPLEMENTATION_INTEGRITY_INCONCLUSIVE`. Doctor uses
 `CHECKOV_ENVIRONMENT_INTERNALLY_CONSISTENT` terminology because protected
 lock/container evidence, not an installed manifest alone, establishes authentic
 provenance.
+## D7.4 derived-edge validation
+
+The report validator reconstructs the protected configuration digest from the exact
+canonical configuration children rather than accepting an opaque repeated digest. It
+then rebuilds typed findings and re-runs deterministic multiset diffing. The resulting
+deltas and ambiguities must equal the report, and the severity/location policy plus
+destructive-resource evidence must reproduce the regression gate.
+
+The five engine-owned events have a closed status/reason/predicate contract. Scanner
+status has a closed typed diagnostic contract. Governed configuration is independently
+reconstructed from both role snapshots and must agree exactly with configuration,
+policy, and `POLICY_DRIFT` evidence. Exception-permitted outcomes require one matching
+trusted source and one exact resolved-target exception record. Resource and governed
+change metrics are re-derived from sealed inventories. Any broken edge makes the report
+invalid; a digest-shaped replacement does not repair it.
