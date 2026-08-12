@@ -34,13 +34,16 @@ jobs:
           PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_matching_d32.py tests/unit/test_diffing.py --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D4 adapter coverage
         run: |
-          PYTHONPATH=src python -m pytest tests/unit/test_checkov_adapter.py tests/unit/test_checkov_adapter_d41.py tests/unit/test_checkov_adapter_d42.py tests/unit/test_checkov_adapter_d45.py tests/unit/test_checkov_adapter_d46.py tests/unit/test_engine_d47.py --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_checkov_adapter.py tests/unit/test_checkov_adapter_d41.py tests/unit/test_checkov_adapter_d42.py tests/unit/test_checkov_adapter_d45.py tests/unit/test_checkov_adapter_d46.py tests/unit/test_checkov_adapter_d48.py tests/unit/test_engine_d47.py --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D5 engine coverage
         run: |
-          PYTHONPATH=src python -m pytest tests/unit/test_engine.py tests/unit/test_engine_d44.py tests/unit/test_engine_d45.py tests/unit/test_engine_d47.py tests/unit/test_engine_d51.py tests/unit/test_engine_d52.py tests/unit/test_engine_d53.py tests/unit/test_engine_d54.py tests/unit/test_engine_d55.py tests/unit/test_public_d7.py --cov=iac_guard_v.engine --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_engine.py tests/unit/test_engine_d44.py tests/unit/test_engine_d45.py tests/unit/test_engine_d47.py tests/unit/test_engine_d51.py tests/unit/test_engine_d52.py tests/unit/test_engine_d53.py tests/unit/test_engine_d54.py tests/unit/test_engine_d55.py tests/unit/test_engine_d56.py tests/unit/test_public_d7.py --cov=iac_guard_v.engine --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D6 policy coverage
         run: |
           PYTHONPATH=src python -m pytest tests/unit/test_policy.py tests/unit/test_policy_d61.py tests/unit/test_policy_d62.py tests/unit/test_policy_d63.py tests/unit/test_policy_d64.py tests/unit/test_engine_d51.py --cov=iac_guard_v.policy --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
+      - name: Enforce D7 public-boundary coverage
+        run: |
+          PYTHONPATH=src python -m pytest tests/unit/test_public_d7.py tests/unit/test_public_d71.py --cov=iac_guard_v.api --cov=iac_guard_v.cli --cov=iac_guard_v.config --cov=iac_guard_v.report --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
 
   pinned-checkov-330:
     runs-on: ubuntu-latest
@@ -49,7 +52,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install pinned product scanner and test runner
-        run: python -m pip install "checkov==3.3.0" "pytest>=8,<10"
+      - name: Install pinned product scanner in copied-file environment
+        run: |
+          python -m venv --copies /tmp/iacgv-checkov330
+          /tmp/iacgv-checkov330/bin/python -m pip install --no-compile "checkov==3.3.0" "pytest>=8,<10"
       - name: Run pinned Checkov integration contracts
-        run: PYTHONPATH=src python -m pytest tests/integration/test_checkov_integration.py -q
+        run: |
+          find /tmp/iacgv-checkov330 -name __pycache__ -type d -prune -exec rm -rf {} +
+          find /tmp/iacgv-checkov330 -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+          PYTHONDONTWRITEBYTECODE=1 PATH=/tmp/iacgv-checkov330/bin:/usr/bin:/bin PYTHONPATH=src /tmp/iacgv-checkov330/bin/python -m pytest tests/integration/test_checkov_integration.py -q

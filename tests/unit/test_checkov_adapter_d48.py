@@ -46,6 +46,21 @@ def test_timestamp_valid_malicious_bytecode_is_rejected(tmp_path: Path) -> None:
         CHECKOV.checkov_distribution_identity(req.executable, "3.3.0")
 
 
+def test_absent_pip_generated_bytecode_record_rows_are_not_required(
+    tmp_path: Path,
+) -> None:
+    req = request(tmp_path)
+    site_packages = next(
+        (tmp_path / "trusted-checkov/libexec").glob("lib/python*/site-packages")
+    )
+    record = next(site_packages.glob("*.dist-info/RECORD"))
+    with record.open("a", encoding="utf-8") as target:
+        target.write("checkov/__pycache__/missing.cpython-311.pyc,,\n")
+        target.write("checkov/missing.pyo,,\n")
+    identity = CHECKOV.checkov_distribution_identity(req.executable, "3.3.0")
+    assert len(identity.installed_distribution_digest) == 64
+
+
 def test_scanner_commands_disable_and_recheck_bytecode(monkeypatch, tmp_path: Path) -> None:
     req = request(tmp_path)
     calls = []
