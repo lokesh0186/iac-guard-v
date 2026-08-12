@@ -81,7 +81,17 @@ def test_d91_parser_failures_are_typed(monkeypatch) -> None:
     assert _local_candidate_evidence("x", "other", b"x")[0] == "UNSUPPORTED"
 
 
-def test_markdown_deliverable_matches_canonical_analysis() -> None:
+def test_markdown_deliverable_matches_canonical_analysis(monkeypatch) -> None:
+    import iac_guard_v.engine as engine
+
+    committed_parser_provenance = {
+        "PyYAML": "2f8cce8325d5b1745c716f5f3830cd23c935e5c31d9f18656f5743e3782c13f1",
+        "python-hcl2": "98ca52742ffbb172fcde9bf435dfef50e7ec35336c87465dd032ded4796db6ee",
+    }
+    monkeypatch.setattr(
+        engine, "_verified_parser_distribution_digest",
+        lambda name: committed_parser_provenance[name],
+    )
     result = compare_frozen_runs()
     markdown = render_markdown(result)
     committed = (REPO / "docs/spec/LEGACY_VS_HARDENED.md").read_text(encoding="utf-8")
