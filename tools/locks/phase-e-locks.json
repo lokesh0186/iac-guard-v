@@ -1,0 +1,381 @@
+{
+  "architectures": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "hardened_container_base": {
+    "image": "docker.io/library/debian:bookworm-slim",
+    "manifest_digest": "sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241",
+    "selected_architecture_digests": {
+      "linux/amd64": "sha256:362e64223cc0da95422b3b13c045186fc0a81250e765d31c025fbddf257f6143",
+      "linux/arm64": "sha256:817e6cf99d6fc127ff4ffe8580049b60deba0adfbbb2bd65ddc3ef8fbb7aade0"
+    },
+    "selection_basis": "Selected only after every accepted tool exposed linux/amd64 and linux/arm64 artifacts. Phase E implementation must use the index or platform manifest digest, never the tag."
+  },
+  "lock_contract": "phase-e-immutable-tool-locks-v1",
+  "review_date": "2026-08-12",
+  "selection_decisions": {
+    "kics": {
+      "accepted": "2.1.20",
+      "proposed": "2.1.21",
+      "reason": "v2.1.21 has an upstream source release but no official archives or checkmarx/kics container tag; v2.1.20 is the newest release with signed archives and immutable amd64/arm64 OCI manifests."
+    },
+    "terraform": {
+      "accepted": "1.15.8",
+      "reason": "Identity is reviewed but Terraform is user-supplied only and is never copied into the IaC-Guard-V image."
+    },
+    "trivy_checks": {
+      "accepted": "2.2.0",
+      "reason": "The immutable 2.2.0 OCI manifest is selected; the moving major tag :2 is forbidden."
+    }
+  },
+  "tools": {
+    "kics": {
+      "archives": {
+        "linux/amd64": {
+          "name": "kics_2.1.20_linux_amd64.tar.gz",
+          "sha256": "8a5aa375ccfdc0ddd1114eddf1f9638ad7f6122e98d12a592207509dbe6d81f8"
+        },
+        "linux/arm64": {
+          "name": "kics_2.1.20_linux_arm64.tar.gz",
+          "sha256": "486d65b634316299deaa3620888609521c32437c09dbfcb49f8b6eb442b1244b"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_CONTRACT_REVIEW_PASS_RUNTIME_NOT_EXECUTED",
+        "scope": "Release checksum, tag, OCI architecture and upstream JSON reporter fixture were reviewed. Adapter/runtime execution remains unauthorized."
+      },
+      "container": {
+        "image": "docker.io/checkmarx/kics",
+        "manifest_digest": "sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602",
+        "selected_architecture": "linux/amd64",
+        "selected_architecture_digest": "sha256:643071cf0c1657eaea695a48b49d2d61b7e625bb87c51505530e624e0c0a1ad1",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ]
+      },
+      "invocation_contract": {
+        "argv": [
+          "kics",
+          "scan",
+          "--path",
+          "<sealed-scan-view>",
+          "--output-path",
+          "<private-output-dir>",
+          "--report-formats",
+          "json",
+          "--no-progress",
+          "--minimal-ui"
+        ],
+        "contract_version": "kics-adapter-contract-research-v1"
+      },
+      "license": {
+        "id": "Apache-2.0",
+        "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1"
+      },
+      "offline_requirements": "The exact KICS image/binary contains its query set; network is disabled and no candidate query/config path is loaded.",
+      "output_schema_fixture": {
+        "path": "pkg/report/json_test.go",
+        "sha256": "20862774200dbd6a773678035465c0533a4fa09df704032316c5c1caae4e39e1",
+        "source": "https://raw.githubusercontent.com/Checkmarx/kics/e1f23cad9640f55b963f22a116b04906b8c16ac6/pkg/report/json_test.go"
+      },
+      "release": {
+        "commit": "e1f23cad9640f55b963f22a116b04906b8c16ac6",
+        "repository": "https://github.com/Checkmarx/kics",
+        "tag": "v2.1.20"
+      },
+      "signature_attestation": "Release checksums.txt has an upstream detached GPG signature and published signing key; OCI attestation manifests are present. E0 recorded availability but did not perform cryptographic verification.",
+      "upgrade_policy": "Upgrade only after a new signed archive, immutable two-architecture OCI index, output fixture and contract suite all pass review; contract/digests change together.",
+      "version": "2.1.20"
+    },
+    "kubeconform": {
+      "archives": {
+        "linux/amd64": {
+          "name": "kubeconform-linux-amd64.tar.gz",
+          "sha256": "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883"
+        },
+        "linux/arm64": {
+          "name": "kubeconform-linux-arm64.tar.gz",
+          "sha256": "1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_CONTRACT_REVIEW_PASS_RUNTIME_NOT_EXECUTED",
+        "scope": "Release CHECKSUMS, OCI manifests and upstream JSON formatter fixture were reviewed. Validator/runtime execution remains unauthorized."
+      },
+      "container": {
+        "image": "ghcr.io/yannh/kubeconform",
+        "manifest_digest": "sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e",
+        "selected_architecture": "linux/amd64",
+        "selected_architecture_digest": "sha256:5103f6f5e89061728aad4ad5a250627dd0fc9b2a92eb876f3762677a4222f9e0",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ]
+      },
+      "invocation_contract": {
+        "argv": [
+          "kubeconform",
+          "-output",
+          "json",
+          "-strict",
+          "-summary",
+          "-schema-location",
+          "<pinned-local-schema-root>",
+          "<sealed-scan-view>"
+        ],
+        "contract_version": "kubeconform-validator-contract-research-v1"
+      },
+      "license": {
+        "id": "Apache-2.0",
+        "sha256": "1294f9be73faeda3987cb554c1597f599641eebdcd4d4fa88f97bdb6241be275"
+      },
+      "offline_requirements": "A separately reviewed, digest-pinned Kubernetes schema bundle is mandatory. Missing schema is unsupported/inconclusive; network schema retrieval is forbidden.",
+      "output_schema_fixture": {
+        "path": "pkg/output/json_test.go",
+        "sha256": "f8df61e733272fb4cabdbd39bc5f5287e40cd2746b9f54952a34f45ae19dc6d3",
+        "source": "https://raw.githubusercontent.com/yannh/kubeconform/02374e583d700721f57300fae78e11acd27ee539/pkg/output/json_test.go"
+      },
+      "release": {
+        "commit": "02374e583d700721f57300fae78e11acd27ee539",
+        "repository": "https://github.com/yannh/kubeconform",
+        "tag": "v0.8.0"
+      },
+      "signature_attestation": "The upstream release publishes CHECKSUMS and its release commit is GitHub-verified; no detached archive signature was published. Treat checksum provenance as incomplete until protected lock attestation is added.",
+      "upgrade_policy": "Upgrade only with pinned schemas, immutable two-architecture artifacts and passing valid/invalid/missing-schema JSON contract fixtures.",
+      "version": "0.8.0"
+    },
+    "opentofu": {
+      "archives": {
+        "linux/amd64": {
+          "name": "tofu_1.12.5_linux_amd64.zip",
+          "sha256": "dade9650e6b74fc7a8b986bd8717497d32f9e09cf82e479afef4977fa3085536"
+        },
+        "linux/arm64": {
+          "name": "tofu_1.12.5_linux_arm64.zip",
+          "sha256": "528f4eea63452bbddb30fa4f1780b57fac8d7676f9dda0f772e847bb62c1260a"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_CONTRACT_REVIEW_PASS_RUNTIME_NOT_EXECUTED",
+        "scope": "Signed release assets, OCI architectures and upstream validate JSON fixture were reviewed. External validator execution remains unauthorized."
+      },
+      "container": {
+        "image": "ghcr.io/opentofu/opentofu",
+        "manifest_digest": "sha256:ba827d1af675c3f522eb78e2b8098cc87daefb9ceb9d3c4b69d0a1bb6d272463",
+        "selected_architecture": "linux/amd64",
+        "selected_architecture_digest": "sha256:181e070709e9f38cc0acaddc0fa1eb9939976481c76f9aae2657581de7821dc4",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ]
+      },
+      "invocation_contract": {
+        "argv": [
+          "tofu",
+          "validate",
+          "-json"
+        ],
+        "contract_version": "tofu-validate-contract-research-v1"
+      },
+      "license": {
+        "id": "MPL-2.0",
+        "sha256": "142b957651baf401646dd7f3d855cb7c4f6f0921d645faa27e7cb540bc33cf4c"
+      },
+      "offline_requirements": "Run only in a sealed module copy after an offline, backend-disabled initialization with every required provider/module mirror independently pinned; otherwise return unsupported/inconclusive.",
+      "output_schema_fixture": {
+        "path": "internal/command/testdata/validate-valid/output.json",
+        "sha256": "4cd9eddc4d07c5aff74dadb6b3544f98186f6705ac60e0d94d545fc42b45b9b6",
+        "source": "https://raw.githubusercontent.com/opentofu/opentofu/230349e959a44fb8eb7b83754f9d9b012f3bdb42/internal/command/testdata/validate-valid/output.json"
+      },
+      "release": {
+        "commit": "230349e959a44fb8eb7b83754f9d9b012f3bdb42",
+        "repository": "https://github.com/opentofu/opentofu",
+        "tag": "v1.12.5"
+      },
+      "signature_attestation": "Each selected archive and SHA256SUMS has upstream GPG and Sigstore/certificate assets. E0 recorded availability but did not perform cryptographic verification.",
+      "upgrade_policy": "Upgrade only after signed asset verification and offline init/validate fixtures cover valid, invalid, provider-required and module-required cases.",
+      "version": "1.12.5"
+    },
+    "terraform": {
+      "archives": {
+        "linux/amd64": {
+          "name": "terraform_1.15.8_linux_amd64.zip",
+          "sha256": "d25ce7b6902013ad905db3d2eab0be4cd905887fe88b81a6171b8d5503c31f3d"
+        },
+        "linux/arm64": {
+          "name": "terraform_1.15.8_linux_arm64.zip",
+          "sha256": "8891e9dcedc9e3b8950bc6af9d4d8af1f4cfade3062f53b9dc403a89f6ce8c9c"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_CONTRACT_REVIEW_PASS_USER_SUPPLIED_RUNTIME_NOT_EXECUTED",
+        "scope": "Official checksums, OCI architectures and upstream validate JSON fixture were reviewed. The binary is never bundled."
+      },
+      "container": {
+        "image": "docker.io/hashicorp/terraform",
+        "manifest_digest": "sha256:7ae513256f7ce67879e218ae8593d6fbe216ec9e123abe6c94e4e10704857963",
+        "selected_architecture": "linux/amd64",
+        "selected_architecture_digest": "sha256:8207a3cae11633e1182b94698adf46fdaf55a848e3d0ff151139729773568494",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ]
+      },
+      "distribution_mode": "USER_SUPPLIED_ONLY_NEVER_BUNDLED",
+      "invocation_contract": {
+        "argv": [
+          "terraform",
+          "validate",
+          "-json"
+        ],
+        "contract_version": "terraform-validate-contract-research-v1"
+      },
+      "license": {
+        "id": "BUSL-1.1",
+        "sha256": "dc4cb9f6140970b69110d82e8f25545135965ae50f6761ddfd6cd7cf9452bfa9"
+      },
+      "offline_requirements": "Operator-supplied executable and provider/module mirrors must satisfy protected locks; no Terraform binary is downloaded or bundled by IaC-Guard-V.",
+      "output_schema_fixture": {
+        "path": "internal/command/testdata/validate-valid/output.json",
+        "sha256": "4cd9eddc4d07c5aff74dadb6b3544f98186f6705ac60e0d94d545fc42b45b9b6",
+        "source": "https://raw.githubusercontent.com/hashicorp/terraform/b9e178decf87d274d25ed36bc5a4dbc857e00420/internal/command/testdata/validate-valid/output.json"
+      },
+      "release": {
+        "commit": "b9e178decf87d274d25ed36bc5a4dbc857e00420",
+        "repository": "https://github.com/hashicorp/terraform",
+        "tag": "v1.15.8"
+      },
+      "signature_attestation": "HashiCorp publishes SHA256SUMS and a detached signature for this release. E0 recorded availability but did not perform cryptographic verification.",
+      "upgrade_policy": "Only a protected operator lock may change the accepted user-supplied version/digest; no same-run candidate configuration can do so.",
+      "version": "1.15.8"
+    },
+    "tflint": {
+      "archives": {
+        "linux/amd64": {
+          "name": "tflint_linux_amd64.zip",
+          "sha256": "cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537"
+        },
+        "linux/arm64": {
+          "name": "tflint_linux_arm64.zip",
+          "sha256": "560da89aacf59389d4eb029730dd5b109b7288096c32f2726a0d9e783a5ea8eb"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_CONTRACT_REVIEW_PASS_OPTIONAL_RUNTIME_NOT_EXECUTED",
+        "scope": "Checksums, keyless signature assets, OCI architectures and JSON formatter fixture were reviewed. TFLint remains optional and non-security."
+      },
+      "container": {
+        "image": "ghcr.io/terraform-linters/tflint",
+        "manifest_digest": "sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f",
+        "selected_architecture": "linux/amd64",
+        "selected_architecture_digest": "sha256:85c63179e53e69f48fb5d1e22fb6c2b4941049c7f906f30625defa6ffcc3f834",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ]
+      },
+      "invocation_contract": {
+        "argv": [
+          "tflint",
+          "--format",
+          "json",
+          "--no-color",
+          "--chdir",
+          "<sealed-scan-view>"
+        ],
+        "contract_version": "tflint-advisory-contract-research-v1"
+      },
+      "license": {
+        "id": "MPL-2.0",
+        "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5"
+      },
+      "offline_requirements": "No plugin initialization or network access. Every optional plugin must be independently lock-pinned before use; otherwise only bundled rules may run.",
+      "output_schema_fixture": {
+        "path": "formatter/json_test.go",
+        "sha256": "ae8b2375e4b5a7c94fb0d790a2859b06986f769adee48ed5f67e2102d94a3cfc",
+        "source": "https://raw.githubusercontent.com/terraform-linters/tflint/15c65a33b322750f6131e286cd9597896299ba32/formatter/json_test.go"
+      },
+      "release": {
+        "commit": "15c65a33b322750f6131e286cd9597896299ba32",
+        "repository": "https://github.com/terraform-linters/tflint",
+        "tag": "v0.64.0"
+      },
+      "security_role": "OPTIONAL_NON_SECURITY",
+      "signature_attestation": "The release publishes checksums.txt with keyless signature and certificate assets; OCI attestation manifests are present. E0 recorded availability but did not perform cryptographic verification.",
+      "upgrade_policy": "Optional advisory upgrade only after signed checksum verification and deterministic JSON fixtures; it never participates in security consensus.",
+      "version": "0.64.0"
+    },
+    "trivy": {
+      "archives": {
+        "linux/amd64": {
+          "name": "trivy_0.73.0_Linux-64bit.tar.gz",
+          "sha256": "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b"
+        },
+        "linux/arm64": {
+          "name": "trivy_0.73.0_Linux-ARM64.tar.gz",
+          "sha256": "13833d97e8a1a5367471c372a173180157f593bece570e20d5d925fef552f5dd"
+        }
+      },
+      "checks": {
+        "cache_identity": "trivy-checks-cache-v1:sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+        "embedded_checks_identity": "github.com/aquasecurity/trivy-checks@v1.12.2-0.20251219190323-79d27547baf5",
+        "external_manifest_digest": "sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+        "external_repository": "ghcr.io/aquasecurity/trivy-checks:2.2.0",
+        "external_source_commit": "d7c9302130a9b7e614a5c5d32854f6a08b4bc52e",
+        "fallback_used": false,
+        "selected_source": "external",
+        "source_identity_rule": "Changing external versus embedded source or fallback_used changes execution identity. The moving ghcr tag :2 is prohibited."
+      },
+      "compatibility_test": {
+        "result": "STATIC_CONTRACT_REVIEW_PASS_RUNTIME_NOT_EXECUTED",
+        "scope": "Sigstore release assets, OCI architectures, external checks schema-2 manifest and upstream Terraform JSON golden output were reviewed. Scanner execution remains unauthorized."
+      },
+      "container": {
+        "image": "docker.io/aquasec/trivy",
+        "manifest_digest": "sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+        "selected_architecture": "linux/amd64",
+        "selected_architecture_digest": "sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64",
+          "linux/ppc64le",
+          "linux/s390x"
+        ]
+      },
+      "invocation_contract": {
+        "argv": [
+          "trivy",
+          "config",
+          "--format",
+          "json",
+          "--output",
+          "<private-output-file>",
+          "--offline-scan",
+          "--skip-check-update",
+          "<sealed-scan-view>"
+        ],
+        "contract_version": "trivy-config-adapter-contract-research-v1"
+      },
+      "license": {
+        "id": "Apache-2.0",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+      },
+      "offline_requirements": "The exact external checks OCI artifact must be preloaded into a private cache and its content identity verified before network is disabled. Embedded fallback is a separately reported identity and is not silently accepted.",
+      "output_schema_fixture": {
+        "path": "integration/testdata/terraform-terraform-registry.json.golden",
+        "sha256": "9ff430ea4b82efda61f4787f466b28ef361c93907e6e4704b6f6e8c1fa909ab3",
+        "source": "https://raw.githubusercontent.com/aquasecurity/trivy/40c73e5d6166dcc0346a1ab4e94499d1572854e4/integration/testdata/terraform-terraform-registry.json.golden"
+      },
+      "release": {
+        "commit": "40c73e5d6166dcc0346a1ab4e94499d1572854e4",
+        "repository": "https://github.com/aquasecurity/trivy",
+        "tag": "v0.73.0"
+      },
+      "signature_attestation": "Every selected archive and checksums file has an upstream Sigstore bundle; OCI attestation manifests are present. E0 recorded availability but did not perform cryptographic verification.",
+      "upgrade_policy": "Binary, checks OCI manifest, embedded-check commit, cache identity, fixture and invocation contract are one lock unit. Any fallback or source change requires a new execution identity.",
+      "version": "0.73.0"
+    }
+  }
+}

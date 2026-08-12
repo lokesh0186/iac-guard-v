@@ -1,5 +1,23 @@
 # Validation Log
 
+## 2026-08-12 — E0 immutable Phase-E dependency lock research
+
+- Added `tools/locks/phase-e-locks.json` and its fail-closed validator.
+- Reviewed official release/tag, archive checksum, OCI manifest, architecture,
+  licence, signing/attestation availability, invocation, offline, and output
+  fixture evidence for KICS, Trivy and trivy-checks, OpenTofu, Terraform,
+  kubeconform, and TFLint.
+- Selected KICS v2.1.20 because proposed v2.1.21 lacked official runtime
+  archives and an official image tag at review time.
+- Locked Trivy v0.73.0 separately from external trivy-checks v2.2.0; embedded
+  fallback is recorded and prohibited for the selected identity.
+- Selected a digest-pinned Debian bookworm-slim base after linux/amd64 and
+  linux/arm64 review of the prospective tool set.
+- Compatibility result is static contract review only. No Phase-E executable,
+  scanner, validator, container, or action was implemented or run.
+- Lock validator: `PHASE_E_LOCKS: PASS (6 tools, 2 architectures, immutable digests)`.
+- No benchmark inference, provider call, or model refresh was executed.
+
 Unedited command output for every gate. Paths are repository-relative or use
 `$REPO_ROOT` / `$TEMP_ROOT`; absolute local paths, usernames, and hostnames are never
 recorded here.

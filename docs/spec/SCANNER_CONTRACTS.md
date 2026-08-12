@@ -176,13 +176,17 @@ fix predicate.
 
 ## 2. KICS
 
-Not installed here. Fields below come from the official results documentation and must
-be re-verified against a pinned image before the adapter is supported.
+Not installed here. E0 selects v2.1.20 rather than the initial v2.1.21 candidate:
+v2.1.21 has a source release but no official binary archives or official image tag.
+The fields below come from official results documentation and an upstream v2.1.20
+fixture. They must be re-verified by runtime contract tests before the adapter is
+supported.
 
 | Item | Value |
 | --- | --- |
+| E0 lock | v2.1.20; archive, OCI index, platform and fixture digests in `tools/locks/phase-e-locks.json` |
 | Version probe | `kics version` |
-| Invocation | `kics scan -p <path> -o <output-dir> --report-formats json` (optionally `sarif`) |
+| Invocation | `kics scan --path <sealed-scan-view> --output-path <private-output-dir> --report-formats json --no-progress --minimal-ui` |
 | Execution | pinned container image preferred; digest recorded |
 
 ### 2.1 Report fields (official names — no shorthand)
@@ -218,11 +222,12 @@ IaC-Guard-V fingerprint.
 
 | Item | Value |
 | --- | --- |
-| Version installed here | **0.71.1** (verified) |
-| Version probe | `trivy --version` → `Version: 0.71.1` on the first line (verified) |
-| Invocation | `trivy config --quiet --format json --output <file> <path>` (verified) |
+| Historical local probe | 0.71.1 output shape only; not the Phase-E runtime lock |
+| E0 binary lock | v0.73.0 with independent archive and OCI manifest digests |
+| Version probe | `trivy --version`; exact v0.73.0 required by the future adapter |
+| Invocation | `trivy config --format json --output <private-output-file> --offline-scan --skip-check-update <sealed-scan-view>` |
 | Scanner scope | misconfiguration only; vulnerability and secret scanning are out of scope for this adapter |
-| Checks bundle | pinned **independently** of the binary; digest recorded; no retrieval at scan time in locked mode |
+| Checks bundle | external v2.2.0 OCI manifest pinned independently; moving `:2` forbidden; embedded identity and fallback flag recorded |
 
 ### 3.1 Verified output shape
 
@@ -250,9 +255,10 @@ parse.
 
 ### 3.3 Offline behaviour
 
-Air-gapped operation requires the checks bundle to be present in the image or cache.
-A missing or unretrievable bundle is `PARTIAL`, never a clean pass, because absent
-policies produce absent findings.
+Air-gapped operation requires the exact external v2.2.0 bundle to be present in the
+private cache before networking is disabled. A missing or unverifiable bundle is
+`PARTIAL`, never a clean pass. Switching to Trivy's embedded checks is a distinct
+execution identity and cannot occur as an invisible fallback.
 
 ---
 
@@ -280,12 +286,12 @@ container path; the support matrix below records that honestly.
 | Tool | Version(s) | Contract fixtures | Pinned integration test | Status |
 | --- | --- | --- | --- | --- |
 | Checkov | 3.2.517 (research), 3.3.0 (product) | **PASS, D4.1** for both versions | **PASS, D4.1**: five installed 3.3.0 tests cover Terraform/Kubernetes affirmative pass, inline skip, missing-file coverage, byte replacement, and inert candidate config; 3.2.517 executable re-run remains Phase E | product 3.3.0 supported; research 3.2.517 has a frozen-shape contract fixture and offline replay, but is not claimed as a current native integration |
-| KICS | pinned image, version TBD | Phase E | Phase E | documented from official schema; **not yet verified locally** |
-| Trivy | 0.71.1 + pinned bundle | Phase E | Phase E | output shape verified 2026-08-09; bundle pinning outstanding |
-| terraform validate | TBD | Phase E | Phase E | not installed locally |
-| tofu validate | TBD | Phase E | Phase E | not installed locally |
-| kubeconform | TBD | Phase E | Phase E | not installed locally |
-| tflint | TBD | Phase E | Phase E | not installed locally |
+| KICS | E0-selected v2.1.20 | upstream fixture reviewed | not executed | immutable artifacts reviewed; adapter unsupported |
+| Trivy | E0-selected v0.73.0 + external checks v2.2.0 | upstream fixture reviewed | not executed | binary/check locks reviewed; adapter unsupported |
+| terraform validate | v1.15.8, user-supplied only | upstream output fixture reviewed | not executed | never bundled; validator unsupported |
+| tofu validate | OpenTofu v1.12.5 | upstream output fixture reviewed | not executed | validator unsupported |
+| kubeconform | v0.8.0 | upstream formatter fixture reviewed | not executed | validator unsupported |
+| tflint | v0.64.0 | upstream formatter fixture reviewed | not executed | optional/non-security; adapter unsupported |
 
 ## 6. Contract test set
 
