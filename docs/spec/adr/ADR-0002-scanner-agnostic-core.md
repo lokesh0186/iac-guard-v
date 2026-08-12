@@ -123,3 +123,9 @@ keeps locked execution offline. KICS supplies no affirmative target PASS.
 Cache provenance is factory-bound to the signed E0.3 physical inventory. Contradictory
 native evaluation identities fail closed, and volatile report metadata is separated
 from exact native-byte identity.
+
+## Amendment, 2026-08-12: E1/E2 private normalization
+
+Production evidence is constructed only after adapter-owned locked execution. Public
+normalization rejects caller process/JSON combinations; private unit helpers are
+unexported and cannot enter the public adapter or future consensus surface.

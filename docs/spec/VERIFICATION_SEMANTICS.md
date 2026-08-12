@@ -1370,3 +1370,7 @@ rule, file, resource, and occurrence token. Incompatible results are
 `CONTRADICTORY_EVALUATION_EVIDENCE`. Cache/bundle contradiction fails ruleset integrity;
 unavailable signed cache evidence is inconclusive. Volatile report metadata is not a
 semantic finding difference.
+
+E1/E2 production evidence is derived only from adapter-owned execution whose
+`CommandResult.argv` exactly equals the locked invocation. Public normalization is
+invalid. Private test normalization is unexported and establishes no public trust path.

@@ -461,3 +461,8 @@ E2.1 requires E0.3-signed physical cache provenance. Correct metadata beside arb
 policy bytes is insufficient. Missing external evidence is inconclusive; manifest,
 layer, subtree, or evaluation contradiction fails integrity. Native semantic and exact
 byte hashes remain distinct.
+
+E1/E2.1 production evidence requires actual locked execution. Public callers cannot
+combine a sealed request, caller-authored process result, and arbitrary JSON to obtain
+adapter evidence. Trivy obtains `IACGV_PHASE_E_CACHE` and verifies its E0.3 signature
+and inventory before use.

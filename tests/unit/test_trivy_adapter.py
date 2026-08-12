@@ -29,9 +29,10 @@ LOCK = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
 def _process(
     *, status: Status = Status.PASS, reason: ProcessReason = ProcessReason.COMPLETED_WITHIN_CONTRACT,
     timed_out: bool = False, external_bundle_observed: bool = True,
+    argv: tuple[str, ...] = ("docker",),
 ) -> CommandResult:
     return CommandResult(
-        argv=("docker",), status=status, exit_code=0 if status is Status.PASS else None,
+        argv=argv, status=status, exit_code=0 if status is Status.PASS else None,
         stdout=b"", stderr=(
             b"loading from existing cache" if external_bundle_observed else b"no bundle evidence"
         ), duration_ms=2,
@@ -125,7 +126,9 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
 
 def _normalize(tmp_path: Path, document: dict, **kwargs):
     request = _request(tmp_path, **kwargs)
-    return TrivyAdapter().normalize(json.dumps(document).encode(), request, _process())
+    return trivy_module._normalize_for_test(
+        json.dumps(document).encode(), request, _process()
+    )
 
 
 def test_contract_is_exact_e03_selection() -> None:
@@ -171,7 +174,7 @@ def test_external_bundle_absence_and_change_are_rejected(tmp_path: Path) -> None
 
 def test_embedded_fallback_is_distinct_nonpass_evidence(tmp_path: Path) -> None:
     request = _request(tmp_path)
-    evidence = TrivyAdapter().normalize(
+    evidence = trivy_module._normalize_for_test(
         json.dumps(_document()).encode(), request,
         _process(external_bundle_observed=False),
     )
@@ -200,7 +203,7 @@ def test_missing_misconfigurations_with_failures_is_error(tmp_path: Path) -> Non
 )
 def test_malformed_and_duplicate_json_fail_closed(tmp_path: Path, raw: bytes, reason: str) -> None:
     request = _request(tmp_path)
-    evidence = TrivyAdapter().normalize(
+    evidence = trivy_module._normalize_for_test(
         raw, request, _process(),
     )
     assert evidence.scanner_run.status is Status.ERROR
@@ -284,7 +287,7 @@ def test_arbitrary_cache_cannot_be_stamped_protected(tmp_path: Path) -> None:
 
 def test_timeout_is_typed(tmp_path: Path) -> None:
     request = _request(tmp_path)
-    evidence = TrivyAdapter().normalize(
+    evidence = trivy_module._normalize_for_test(
         b"{}", request,
         _process(status=Status.TIMEOUT, reason=ProcessReason.DEADLINE_EXCEEDED, timed_out=True),
     )
@@ -341,13 +344,32 @@ def test_direct_request_and_untrusted_adapter_inputs_are_rejected(tmp_path: Path
     }
     with pytest.raises(DomainError, match="sealed request factory"):
         trivy_module.TrivyScanRequest(**values)
-    with pytest.raises(DomainError, match="sealed request"):
+    with pytest.raises(DomainError, match="actual adapter execution"):
         TrivyAdapter().normalize(b"{}", object(), _process())
-    with pytest.raises(DomainError, match="CommandResult"):
+    with pytest.raises(DomainError, match="actual adapter execution"):
         TrivyAdapter().normalize(b"{}", request, object())
     with pytest.raises(DomainError, match="sealed request"):
         TrivyAdapter().scan(object())
     assert TrivyAdapter().contract() is TRIVY_CONTRACT
+
+
+def test_private_execution_capability_and_argv_are_closed(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    process = _process()
+    with pytest.raises(DomainError, match="capability"):
+        TrivyAdapter._normalize_execution(b"{}", request, process, process.argv, object())
+    with pytest.raises(DomainError, match="sealed request"):
+        TrivyAdapter._normalize_execution(
+            b"{}", object(), process, process.argv, trivy_module._PRIVATE_TEST_CONTEXT
+        )
+    with pytest.raises(DomainError, match="CommandResult"):
+        TrivyAdapter._normalize_execution(
+            b"{}", request, object(), process.argv, trivy_module._PRIVATE_TEST_CONTEXT
+        )
+    with pytest.raises(DomainError, match="locked invocation"):
+        TrivyAdapter._normalize_execution(
+            b"{}", request, process, ("other",), trivy_module._PRIVATE_TEST_CONTEXT
+        )
 
 
 def test_request_path_and_launcher_boundaries(tmp_path: Path) -> None:
@@ -476,7 +498,7 @@ def test_process_failures_never_parse(
         resolved_executable="", primary_execution_event=reason,
     )
     request = _request(tmp_path)
-    evidence = TrivyAdapter().normalize(
+    evidence = trivy_module._normalize_for_test(
         b"{}", request, process,
     )
     assert evidence.scanner_run.status is not Status.PASS
@@ -503,7 +525,7 @@ def _mock_container_run(monkeypatch, document: dict, *, mutate_cache: Path | Non
         (output / "results.json").write_text(json.dumps(document), encoding="utf-8")
         if mutate_cache is not None:
             (mutate_cache / "policy/content/policies/rule.rego").write_text("mutated\n")
-        return _process()
+        return _process(argv=command.argv)
     monkeypatch.setattr(trivy_module, "run_command", execute)
 
 
@@ -524,6 +546,15 @@ def test_scan_builds_private_view_and_revalidates_cache(tmp_path: Path, monkeypa
     assert AdapterReason.CACHE_CHANGED_DURING_EXECUTION.value in evidence.scanner_run.diagnostics
 
 
+def test_scan_rejects_command_result_for_another_argv(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    monkeypatch.setattr(trivy_module, "run_command", lambda command: _process())
+    evidence = TrivyAdapter().scan(_request(tmp_path))
+    assert evidence.scanner_run.status is Status.ERROR
+    assert AdapterReason.SCAN_VIEW_PREPARATION_FAILED.value in evidence.scanner_run.diagnostics
+
+
 def test_scan_input_change_missing_output_and_cleanup_failure_are_typed(
     tmp_path: Path, monkeypatch,
 ) -> None:
@@ -533,7 +564,9 @@ def test_scan_input_change_missing_output_and_cleanup_failure_are_typed(
     assert AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value in evidence.scanner_run.diagnostics
 
     missing = _request(tmp_path / "missing")
-    monkeypatch.setattr(trivy_module, "run_command", lambda command: _process())
+    monkeypatch.setattr(
+        trivy_module, "run_command", lambda command: _process(argv=command.argv)
+    )
     evidence = TrivyAdapter().scan(missing)
     assert AdapterReason.SCAN_VIEW_PREPARATION_FAILED.value in evidence.scanner_run.diagnostics
 

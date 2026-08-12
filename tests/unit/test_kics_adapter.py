@@ -26,10 +26,10 @@ LOCK = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
 def _process(
     *, status: Status = Status.PASS, exit_code: int | None = 0,
     reason: ProcessReason = ProcessReason.COMPLETED_WITHIN_CONTRACT,
-    timed_out: bool = False,
+    timed_out: bool = False, argv: tuple[str, ...] = ("docker",),
 ) -> CommandResult:
     return CommandResult(
-        argv=("docker",), status=status, exit_code=exit_code,
+        argv=argv, status=status, exit_code=exit_code,
         stdout=b"kics output", stderr=b"", duration_ms=3,
         truncated=False, timed_out=timed_out, killed_signal=None,
         reason_code=reason,
@@ -136,7 +136,7 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
 
 
 def _normalize(tmp_path: Path, document: dict, **request_overrides):
-    return KicsAdapter().normalize(
+    return kics_module._normalize_for_test(
         json.dumps(document).encode(), _request(tmp_path, **request_overrides), _process()
     )
 
@@ -154,7 +154,7 @@ def test_official_result_bearing_exit_codes_are_parsed(
     tmp_path: Path, severity: str | None, exit_code: int,
 ) -> None:
     queries = [] if severity is None else [_query(severity=severity)]
-    run = KicsAdapter().normalize(
+    run = kics_module._normalize_for_test(
         json.dumps(_document(queries=queries)).encode(),
         _request(tmp_path, expected=severity is not None),
         _process(exit_code=exit_code),
@@ -219,7 +219,7 @@ def test_native_failure_counters_are_partial(
 def test_malformed_duplicate_and_wrong_shape_fail_closed(
     tmp_path: Path, raw: bytes, reason: str
 ) -> None:
-    run = KicsAdapter().normalize(raw, _request(tmp_path), _process())
+    run = kics_module._normalize_for_test(raw, _request(tmp_path), _process())
     assert run.status is Status.ERROR
     assert reason in run.diagnostics
 
@@ -229,7 +229,7 @@ def test_timeout_is_typed(tmp_path: Path) -> None:
         status=Status.TIMEOUT, exit_code=None,
         reason=ProcessReason.DEADLINE_EXCEEDED, timed_out=True,
     )
-    run = KicsAdapter().normalize(b"{}", _request(tmp_path), process)
+    run = kics_module._normalize_for_test(b"{}", _request(tmp_path), process)
     assert run.status is Status.TIMEOUT
     assert AdapterReason.DEADLINE_EXCEEDED.value in run.diagnostics
 
@@ -527,7 +527,7 @@ def test_process_failures_never_parse(
         reason_code=reason, resolved_executable="",
         primary_execution_event=reason,
     )
-    run = KicsAdapter().normalize(b"{}", _request(tmp_path), process)
+    run = kics_module._normalize_for_test(b"{}", _request(tmp_path), process)
     assert run.status is not Status.PASS
     assert expected in run.diagnostics
 
@@ -542,9 +542,9 @@ def test_empty_scope_is_skipped_without_spawn(tmp_path: Path) -> None:
 
 
 def test_adapter_rejects_untrusted_request_and_process_type(tmp_path: Path) -> None:
-    with pytest.raises(DomainError, match="sealed request"):
+    with pytest.raises(DomainError, match="actual adapter execution"):
         KicsAdapter().normalize(b"{}", object(), _process())
-    with pytest.raises(DomainError, match="CommandResult"):
+    with pytest.raises(DomainError, match="actual adapter execution"):
         KicsAdapter().normalize(b"{}", _request(tmp_path), object())
     with pytest.raises(DomainError, match="sealed request"):
         KicsAdapter().scan(object())
@@ -565,9 +565,18 @@ def test_locked_scan_uses_pull_never_and_all_result_exit_codes(
         (output / "results.json").write_text(
             json.dumps(_document(queries=[_query()])), encoding="utf-8"
         )
-        return _process(exit_code=50)
+        return _process(exit_code=50, argv=command.argv)
 
     monkeypatch.setattr(kics_module, "run_command", execute)
     run = KicsAdapter().scan(request)
     assert run.status is Status.PASS
     assert run.exit_code == 50
+
+
+def test_scan_rejects_command_result_for_another_argv(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    monkeypatch.setattr(kics_module, "run_command", lambda command: _process())
+    run = KicsAdapter().scan(_request(tmp_path))
+    assert run.status is Status.ERROR
+    assert AdapterReason.SCAN_VIEW_PREPARATION_FAILED.value in run.diagnostics

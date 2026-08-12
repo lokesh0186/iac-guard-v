@@ -126,3 +126,7 @@ KICS uses `--pull never`; a missing locked image is operational uncertainty. Exi
 The signed E0.3 verifier constructs the Trivy cache capability. Manifest root, subtree
 root, OCI manifest/layer, metadata digest, and attestation identity remain separate and
 are revalidated around each execution.
+
+The adapter checks that trusted process evidence records the exact locked argv. An
+integration cache is selected through `IACGV_PHASE_E_CACHE`, then independently
+verified; the environment value itself carries no trust.

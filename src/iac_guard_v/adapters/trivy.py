@@ -51,6 +51,8 @@ TRIVY_CONTRACT = ScannerContract(
 TRIVY_ADAPTER_CONTRACT = "trivy-config-adapter-contract-v1"
 _REQUEST_CONTEXT = object()
 _RESULT_CONTEXT = object()
+_EXECUTION_CONTEXT = object()
+_PRIVATE_TEST_CONTEXT = object()
 _SHA = re.compile(r"[0-9a-f]{64}")
 _CACHE_IDENTITY = re.compile(r"trivy-checks-cache-v1:sha256:[0-9a-f]{64}")
 _TOP_FIELDS = frozenset({
@@ -670,11 +672,22 @@ class TrivyAdapter:
     def normalize(
         self, raw_output: bytes, request: TrivyScanRequest, process: CommandResult,
     ) -> TrivyExecutionEvidence:
+        raise DomainError("Trivy production normalization requires actual adapter execution")
+
+    @classmethod
+    def _normalize_execution(
+        cls, raw_output: bytes, request: TrivyScanRequest, process: CommandResult,
+        expected_argv: tuple[str, ...], context: object,
+    ) -> TrivyExecutionEvidence:
+        if context not in {_EXECUTION_CONTEXT, _PRIVATE_TEST_CONTEXT}:
+            raise DomainError("Trivy execution capability is invalid")
         if type(request) is not TrivyScanRequest or not request._trusted_request:
             raise DomainError("Trivy normalize requires a sealed request")
         if type(process) is not CommandResult:
             raise DomainError("Trivy process evidence must be CommandResult")
-        cache_digest = self._revalidate(request)
+        if process.argv != expected_argv:
+            raise DomainError("Trivy process argv differs from the locked invocation")
+        cache_digest = cls._revalidate(request)
         failure = _process_failure(request, process)
         if failure is not None:
             return _evidence(
@@ -756,6 +769,8 @@ class TrivyAdapter:
                 max_stderr_bytes=request.max_output_bytes,
                 env_extra={"PYTHONDONTWRITEBYTECODE": "1"},
             ))
+            if process.argv != argv:
+                raise DomainError("Trivy process argv differs from the locked invocation")
             cache_digest = self._revalidate(request)
             failure = _process_failure(request, process)
             if failure is not None:
@@ -788,7 +803,18 @@ class TrivyAdapter:
         if process is None or raw is None:
             run = _reason_run(request, AdapterReason.RAW_OUTPUT_MISSING, process=process)
             return _evidence(request, run, None, cache_digest=cache_digest, fallback_used=False)
-        return self.normalize(raw, request, process)
+        return self._normalize_execution(
+            raw, request, process, argv, _EXECUTION_CONTEXT,
+        )
+
+
+def _normalize_for_test(
+    raw_output: bytes, request: TrivyScanRequest, process: CommandResult,
+) -> TrivyExecutionEvidence:
+    """Private unit-fixture normalizer; never exported as production evidence API."""
+    return TrivyAdapter._normalize_execution(
+        raw_output, request, process, process.argv, _PRIVATE_TEST_CONTEXT,
+    )
 
 
 __all__ = [

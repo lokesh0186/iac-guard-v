@@ -767,3 +767,10 @@ the E0.3 physical verifier. The complete Trivy subtree is compared before and af
 execution. Contradictory pass/fail records for one evaluation identity fail closed.
 Validated volatile report metadata is omitted from the semantic digest while exact
 native bytes retain a separate hash.
+
+## E1/E2 trusted execution boundary
+
+Production adapters expose sealed request construction and `scan`; native normalization
+is not a public evidence factory. A trusted scan binds the locked argv to the actual
+`CommandResult`, private scan view and output bytes, plus pre/post source and cache
+revalidation. Unit fixture normalization uses an unexported private capability.

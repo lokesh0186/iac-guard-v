@@ -424,3 +424,10 @@ and its exact subtree is revalidated on both sides of execution. An identical sc
 version, artifact, rule, file, resource and occurrence identity appearing as both pass
 and fail is contradictory evidence. `ReportID` and `CreatedAt` are validated execution
 metadata; semantic hashing omits them and raw-output hashing binds their exact bytes.
+
+### 3.6 Shared E1/E2 execution provenance
+
+The production normalization path follows `run_command` inside adapter `scan`. Returned
+argv must equal the locked invocation; source/output and Trivy cache bytes are bound
+around that execution. Raw normalize methods reject production use. Private fixture
+helpers are excluded from package exports, CLI/config, and later consensus.

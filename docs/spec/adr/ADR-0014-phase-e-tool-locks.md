@@ -147,3 +147,9 @@ Raw cache paths are not trusted scanner configuration. The signed cache verifier
 construct the immutable capability, and E2.1 verifies its exact Trivy subtree before
 and after scanning. Metadata-only substitution and pass/fail contradictions are
 integrity failures.
+
+## E1/E2.1 execution-boundary amendment
+
+The lock is exercised only through adapter-owned execution. Exact argv, process streams,
+native output, sealed inputs, and cache checks form one chain. Unit normalizers are
+private and are not adapter authorization.

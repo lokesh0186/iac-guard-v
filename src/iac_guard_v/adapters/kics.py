@@ -48,6 +48,8 @@ KICS_CONTRACT = ScannerContract(
 KICS_MAX_JSON_NESTING_DEPTH = 128
 KICS_ADAPTER_CONTRACT = "kics-adapter-contract-v1"
 _REQUEST_CONTEXT = object()
+_EXECUTION_CONTEXT = object()
+_PRIVATE_TEST_CONTEXT = object()
 _SHA = re.compile(r"[0-9a-f]{64}")
 _TOP_LEVEL_FIELDS = frozenset({
     "kics_version", "files_scanned", "lines_scanned", "files_parsed",
@@ -593,10 +595,21 @@ class KicsAdapter:
         return KICS_CONTRACT
 
     def normalize(self, raw_output: bytes, request: KicsScanRequest, process: CommandResult) -> ScannerRun:
+        raise DomainError("KICS production normalization requires actual adapter execution")
+
+    @staticmethod
+    def _normalize_execution(
+        raw_output: bytes, request: KicsScanRequest, process: CommandResult,
+        expected_argv: tuple[str, ...], context: object,
+    ) -> ScannerRun:
+        if context not in {_EXECUTION_CONTEXT, _PRIVATE_TEST_CONTEXT}:
+            raise DomainError("KICS execution capability is invalid")
         if type(request) is not KicsScanRequest or not request._trusted_request:
             raise DomainError("KICS normalize requires a sealed request")
         if type(process) is not CommandResult:
             raise DomainError("KICS process evidence must be CommandResult")
+        if process.argv != expected_argv:
+            raise DomainError("KICS process argv differs from the locked invocation")
         failure = _process_failure(request, process)
         if failure is not None:
             return failure
@@ -667,6 +680,8 @@ class KicsAdapter:
                 max_stderr_bytes=request.max_output_bytes,
                 env_extra={"PYTHONDONTWRITEBYTECODE": "1"},
             ))
+            if process.argv != argv:
+                raise DomainError("KICS process argv differs from the locked invocation")
             self._revalidate(request)
             failure = _process_failure(request, process)
             if failure is not None:
@@ -698,7 +713,18 @@ class KicsAdapter:
             return terminal
         if process is None or raw is None:
             return _reason_run(request, AdapterReason.RAW_OUTPUT_MISSING, process=process)
-        return self.normalize(raw, request, process)
+        return self._normalize_execution(
+            raw, request, process, argv, _EXECUTION_CONTEXT,
+        )
+
+
+def _normalize_for_test(
+    raw_output: bytes, request: KicsScanRequest, process: CommandResult,
+) -> ScannerRun:
+    """Private unit-fixture normalizer; never exported as production evidence API."""
+    return KicsAdapter._normalize_execution(
+        raw_output, request, process, process.argv, _PRIVATE_TEST_CONTEXT,
+    )
 
 
 __all__ = [

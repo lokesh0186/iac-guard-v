@@ -436,3 +436,8 @@ E2.1 closes metadata-only cache substitution by comparing signed manifest eviden
 every physical subtree entry, rejecting links, special files, additions, removals, and
 byte changes. Current cache, invocation, update, network, and diagnostics jointly prove
 external source selection; a stored fallback Boolean alone is insufficient.
+
+The shared boundary rejects evidence laundering through caller-constructed process
+results and JSON. Locked argv equality and adapter-owned execution are required. No
+developer cache path is committed; configured cache bytes are signature- and
+inventory-verified before Trivy use.

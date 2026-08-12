@@ -1,5 +1,21 @@
 # Validation Log
 
+## 2026-08-12 — E1/E2.1 private execution boundary
+
+Failing-before, public KICS and Trivy normalization accepted a sealed request plus a
+caller-built `CommandResult` and arbitrary JSON. Passing-after, both public methods
+reject that combination; adapter-owned `scan` checks result argv against the locked
+invocation. Fixture normalizers/cache factories are absent from package exports. Trivy
+integration now requires `IACGV_PHASE_E_CACHE` and verifies signed E0.3 evidence.
+
+```text
+KICS and Trivy unit/boundary tests: 140 passed
+exact locked offline adapter integrations: 2 passed
+```
+
+No benchmark inference, model-provider call, consensus implementation, or model refresh
+was executed.
+
 ## 2026-08-12 — E2.1 protected Trivy cache and native consistency
 
 Failing-before probes accepted correct `metadata.json` beside arbitrary Rego, accepted
@@ -1999,7 +2015,7 @@ an exact same-location pairing. No security test was deleted, skipped, or xfaile
 Executable gates:
 
 ```console
-$ COVERAGE_FILE=/private/tmp/iacgv-d32.coverage PYTHONPATH=src:tests/unit \
+$ COVERAGE_FILE=$TMPDIR/iacgv-d32.coverage PYTHONPATH=src:tests/unit \
     pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py \
     tests/unit/test_matching_d32.py tests/unit/test_diffing.py \
     --cov=iac_guard_v.fingerprints --cov=iac_guard_v.matching \
@@ -2698,7 +2714,7 @@ coverage remain separate typed evidence.
 Executable gates:
 
 ```console
-$ COVERAGE_FILE=/private/tmp/iacgv-d42.coverage PYTHONPATH=src:tests/unit \
+$ COVERAGE_FILE=$TMPDIR/iacgv-d42.coverage PYTHONPATH=src:tests/unit \
     pytest tests/unit/test_checkov_adapter.py tests/unit/test_checkov_adapter_d41.py \
     tests/unit/test_checkov_adapter_d42.py --cov=iac_guard_v.adapters.base \
     --cov=iac_guard_v.adapters.checkov --cov-report=term-missing \
