@@ -85,6 +85,19 @@ The closed `ScanRole` values are `DISCOVERY`, `BASELINE`, and `CANDIDATE`. A
 exact configured side. The closed `ExecutionMode` values are `PR_BASE`,
 `PROTECTED_POLICY_REPOSITORY`, and `EXPLICIT_OPERATOR`.
 
+The closed Phase-E lock signature statuses are `VERIFIED`,
+`AVAILABLE_NOT_VERIFIED`, and `UNAVAILABLE`. They mean, respectively, that the
+protected-cache verifier reproduced the recorded signature check, that upstream
+signature material is bound but its signer policy was not verified, and that upstream
+published no signature material. The closed compatibility-review statuses are
+`STATIC_REVIEW`, `STATIC_REVIEW_USER_SUPPLIED_ONLY`, and
+`STATIC_REVIEW_OPTIONAL_NON_SECURITY`; none is runtime adapter evidence. The lock
+validator outcomes are `PHASE_E_LOCK_SCHEMA` and `PHASE_E_LOCK_SOURCE`. The former
+validates the sealed graph, while the latter verifies cached source bytes. Distribution
+roles are `USER_SUPPLIED_ONLY_NEVER_BUNDLED` and `OPTIONAL_NON_SECURITY`. A missing
+upstream licence assertion is recorded as `NOASSERTION`; it never means that
+redistribution was approved.
+
 ### 1.2 Process execution reasons and group inspection
 
 `ProcessReason` is a closed execution-evidence vocabulary:

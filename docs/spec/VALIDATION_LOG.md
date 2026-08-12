@@ -13,6 +13,47 @@
   are recomputed from canonical child evidence.
 - Mutation guards run for verified, failed, and inconclusive verdict branches.
 
+## 2026-08-12 — E0.1 verified Phase-E dependency locks
+
+E0.1 preserved E0's static version decisions but replaced digest-shaped trust
+with a sealed evidence graph and an independent protected-cache verification
+mode. Literal pre-change probes were accepted by E0's structural validator:
+
+```text
+random release commit: ACCEPTED
+random archive sha: ACCEPTED
+random OCI digest: ACCEPTED
+prose crypto claim: ACCEPTED
+prose runtime pass: ACCEPTED
+kube schema absent: ACCEPTED
+```
+
+After E0.1 the permanent mutations are rejected, the human table is rendered
+from canonical JSON, and the real cache produced:
+
+```text
+PHASE_E_LOCK_SCHEMA: PASS (6 tools, 2 architectures, sealed graph)
+PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
+22 passed
+```
+
+The cache check rehashed twelve selected Linux archives; matched them to the
+six upstream checksum manifests; reran valid KICS, OpenTofu, and Terraform
+OpenPGP signatures; checked all six OCI indexes and their amd64/arm64 children;
+checked licence and output fixtures; verified 2,608 pinned kubeconform schema
+files; and proved Trivy 0.73.0 loaded external checks manifest
+`sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45`
+offline with no embedded fallback. Trivy and TFLint Sigstore evidence remains
+`AVAILABLE_NOT_VERIFIED`, and kubeconform's absent detached signature remains
+`UNAVAILABLE`. No adapter, validator integration, production container, or
+Action was implemented.
+
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+
 ## 2026-08-12 — E0 immutable Phase-E dependency lock research
 
 - Added `tools/locks/phase-e-locks.json` and its fail-closed validator.

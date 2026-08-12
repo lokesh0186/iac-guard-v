@@ -2,8 +2,8 @@
 
 ## Status
 
-Accepted for E0 dependency research. Scanner, validator, container, and action
-implementation are deferred pending review.
+Accepted for E0.1 dependency-lock verification. Scanner, validator, production
+container, and action implementation remain deferred pending review.
 
 ## Context
 
@@ -14,11 +14,13 @@ and embedded policy sources. Terraform must not be silently bundled.
 
 ## Decision
 
-`tools/locks/phase-e-locks.json` is the reviewed executable lock contract. Each
-prospective tool binds its repository, release tag and commit, archive hashes,
-multi-platform image manifest, selected architecture digest, signature or
-attestation status, licence, invocation, output fixture, offline inputs, upgrade
-rule, and compatibility-review result.
+`tools/locks/phase-e-locks.json` is the reviewed, canonically sealed lock graph.
+Each prospective tool binds its repository, release tag and full commit,
+version-pinned archive URLs and bytes, checksum manifest, structured signature
+evidence, licence and output-fixture bytes, OCI index, both supported platform
+children, canonical digest-qualified execution references, invocation, offline
+inputs, runtime-smoke evidence, and upgrade rule. The Markdown review is
+generated from that JSON rather than maintained as a competing source.
 
 KICS v2.1.21 is rejected as a runtime selection because its release lacks
 official binary archives and the official image repository lacks that tag.
@@ -36,13 +38,34 @@ non-security evidence.
 
 The prospective hardened base is selected only after tool and architecture
 review. Both the multi-platform index and linux/amd64 and linux/arm64 manifests
-are pinned. Execution must use a digest.
+are pinned. Execution must use a recorded `repository@sha256:digest` reference.
+
+kubeconform is also bound to an offline Kubernetes 1.34.0 strict and non-strict
+schema subset at one full `kubernetes-json-schema` commit. Its extracted tree
+roots and combined content digest are verified. Network schema fallback and
+unlocked CRD schemas are prohibited. The generated schema repository has no
+root licence file, so its licence remains `NOASSERTION` pending redistribution
+review.
+
+The structural validator reports `PHASE_E_LOCK_SCHEMA`; this proves shape,
+cross-field consistency, and the canonical lock seal only. A distinct protected
+cache mode reports `PHASE_E_LOCK_SOURCE` after hashing actual archives,
+reconciling checksum manifests, rerunning the three verified OpenPGP checks,
+verifying OCI child membership, and checking fixture, licence, schema, and Trivy
+checks bytes. Sigstore material that was cached but not identity-policy verified
+is explicitly `AVAILABLE_NOT_VERIFIED`; absent signatures are `UNAVAILABLE`.
 
 ## Consequences
 
-- E0 creates no adapter, validator, container, or GitHub Action.
-- Static review does not claim runtime compatibility or signature verification.
+- E0.1 creates no adapter, validator integration, production container, or
+  GitHub Action.
+- Static compatibility records remain `STATIC_REVIEW`. Version-only offline
+  image smoke does not claim output compatibility.
+- KICS, OpenTofu, and Terraform checksum signatures are reproducibly verified;
+  other signature states remain narrower and explicit.
 - External-versus-embedded Trivy fallback changes execution identity.
+- Trivy's exact external bundle was loaded from the bound cache with networking
+  disabled and `fallback_used=false`; this smoke does not authorize an adapter.
 - Upgrades rerun contract, architecture, fixture, signature, licence, and
   offline reviews and update the complete lock atomically.
 - An absent or mismatched artifact cannot be replaced by a nearby version or
@@ -59,5 +82,9 @@ user-supplied-only distribution contract.
 ## Validation
 
 `python tools/validate_phase_e_locks.py` enforces the selected tool set, fields,
-digest forms, architectures, non-floating references, security roles, and Trivy
-source/fallback decision. Mutation tests prove the material guards.
+canonical seal, architectures, digest-qualified references, security roles,
+schema lock, structured signature states, and Trivy source/fallback decision.
+`--verify-cached-artifacts --artifact-cache <protected-cache>` verifies the real
+cached source evidence. Mutation tests reject valid-looking substituted commits,
+archive and OCI digests, prose verification claims, missing architecture or
+schema locks, and embedded-check fallback.

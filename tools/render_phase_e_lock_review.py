@@ -1,4 +1,60 @@
-# Phase E verified dependency lock review
+#!/usr/bin/env python3
+"""Render the human Phase-E lock review from its canonical JSON graph."""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_LOCK = ROOT / "tools" / "locks" / "phase-e-locks.json"
+DEFAULT_OUTPUT = ROOT / "docs" / "spec" / "PHASE_E_LOCK_REVIEW.md"
+
+
+def render(payload: dict[str, Any]) -> str:
+    """Return deterministic Markdown derived only from *payload*."""
+
+    tools = payload["tools"]
+    roles = {
+        "kics": "Future scanner",
+        "trivy": "Future scanner",
+        "opentofu": "Future external validator",
+        "terraform": "User-supplied validator; never bundled",
+        "kubeconform": "Future external validator",
+        "tflint": "Optional non-security lint",
+    }
+    rows = []
+    for name in ("kics", "trivy", "opentofu", "terraform", "kubeconform", "tflint"):
+        tool = tools[name]
+        release = tool["release"]
+        rows.append(
+            f"| {name} | {release['tag']} | `{release['commit']}` | "
+            f"{tool['compatibility_test']['result']} | {roles[name]} |"
+        )
+
+    signatures = []
+    for name in sorted(tools):
+        signature = tools[name]["archives"]["linux/amd64"]["acquisition"]["signature"]
+        signatures.append(
+            f"| {name} | {signature['method']} | {signature['status']} | "
+            f"{signature['signer_identity'] or 'none'} |"
+        )
+
+    containers = []
+    for name in sorted(tools):
+        container = tools[name]["container"]
+        containers.append(
+            f"| {name} | `{container['index_digest']}` | "
+            f"`{container['architecture_digests']['linux/amd64']}` | "
+            f"`{container['architecture_digests']['linux/arm64']}` |"
+        )
+
+    schema = tools["kubeconform"]["schema_bundle"]
+    checks = tools["trivy"]["checks"]
+    return f"""# Phase E verified dependency lock review
 
 ## Scope and decision
 
@@ -8,20 +64,15 @@ container, composite Action, or control catalog. The canonical graph is
 `tools/locks/phase-e-locks.json`; this document is generated from that graph by
 `tools/render_phase_e_lock_review.py`.
 
-Lock contract: `phase-e-verified-tool-locks-v2`
+Lock contract: `{payload['lock_contract']}`
 
-Canonical lock seal: `9d43de43328c85614de1622cebe081868a312d744f816e0930427b1da33d1019`
+Canonical lock seal: `{payload['lock_payload_sha256']}`
 
-Artifact-cache contract: `phase-e-protected-artifact-cache-v1`
+Artifact-cache contract: `{payload['artifact_cache_contract']}`
 
 | Component | Tag | Full selected commit | Review result | Intended role |
 | --- | --- | --- | --- | --- |
-| kics | v2.1.20 | `e1f23cad9640f55b963f22a116b04906b8c16ac6` | STATIC_REVIEW | Future scanner |
-| trivy | v0.73.0 | `40c73e5d6166dcc0346a1ab4e94499d1572854e4` | STATIC_REVIEW | Future scanner |
-| opentofu | v1.12.5 | `230349e959a44fb8eb7b83754f9d9b012f3bdb42` | STATIC_REVIEW | Future external validator |
-| terraform | v1.15.8 | `b9e178decf87d274d25ed36bc5a4dbc857e00420` | STATIC_REVIEW_USER_SUPPLIED_ONLY | User-supplied validator; never bundled |
-| kubeconform | v0.8.0 | `02374e583d700721f57300fae78e11acd27ee539` | STATIC_REVIEW | Future external validator |
-| tflint | v0.64.0 | `15c65a33b322750f6131e286cd9597896299ba32` | STATIC_REVIEW_OPTIONAL_NON_SECURITY | Optional non-security lint |
+{chr(10).join(rows)}
 
 KICS 2.1.21 remains rejected because its source release lacks the selected
 official archives and runtime image. Terraform remains
@@ -36,12 +87,7 @@ verification. `UNAVAILABLE` records the upstream absence explicitly.
 
 | Component | Method | Status | Signer/key identity |
 | --- | --- | --- | --- |
-| kics | OPENPGP | VERIFIED | 8F94F30BF6B3FC6085C42590F856854108973D6C |
-| kubeconform | NONE | UNAVAILABLE | none |
-| opentofu | OPENPGP | VERIFIED | E3E6E43D84CB852EADB0051D0C0AF313E5FD9F80 |
-| terraform | OPENPGP | VERIFIED | 374EC75B485913604A831CC7C820C6D5CD27AB87 |
-| tflint | SIGSTORE | AVAILABLE_NOT_VERIFIED | UNVERIFIED_GITHUB_ACTIONS_IDENTITY |
-| trivy | SIGSTORE | AVAILABLE_NOT_VERIFIED | UNVERIFIED_UPSTREAM_SIGSTORE_IDENTITY |
+{chr(10).join(signatures)}
 
 KICS, OpenTofu, and Terraform checksum signatures were reproduced with GnuPG
 against the cached upstream keys. Trivy and TFLint Sigstore material was cached
@@ -58,12 +104,7 @@ amd64 and arm64 child was found in the cached multi-platform index.
 
 | Component | Index digest | linux/amd64 child | linux/arm64 child |
 | --- | --- | --- | --- |
-| kics | `sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602` | `sha256:643071cf0c1657eaea695a48b49d2d61b7e625bb87c51505530e624e0c0a1ad1` | `sha256:d6d12f269db55d9ca59e2886248997c0613f8d1855f0380716795b6b9cedce90` |
-| kubeconform | `sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e` | `sha256:5103f6f5e89061728aad4ad5a250627dd0fc9b2a92eb876f3762677a4222f9e0` | `sha256:5ec810f20ae7b78696499089a767c348802d70bc5d1afabd87b87143395b223d` |
-| opentofu | `sha256:ba827d1af675c3f522eb78e2b8098cc87daefb9ceb9d3c4b69d0a1bb6d272463` | `sha256:181e070709e9f38cc0acaddc0fa1eb9939976481c76f9aae2657581de7821dc4` | `sha256:57dc209eed201f36a6a202cb01fe49ede303677be171b2ece3ec2ee24564965a` |
-| terraform | `sha256:7ae513256f7ce67879e218ae8593d6fbe216ec9e123abe6c94e4e10704857963` | `sha256:8207a3cae11633e1182b94698adf46fdaf55a848e3d0ff151139729773568494` | `sha256:728102b238128667d3f13c43d746978c2c48b025d2fccf404bc71d819dc26fd7` |
-| tflint | `sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f` | `sha256:85c63179e53e69f48fb5d1e22fb6c2b4941049c7f906f30625defa6ffcc3f834` | `sha256:80b051005568a11339948abc9f06f4919f2aa3b4ef451b0d69bb43bb01be878c` |
-| trivy | `sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c` | `sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f` | `sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8` |
+{chr(10).join(containers)}
 
 The prospective Debian base is also bound by its index and both platform
 children. Selection remains research evidence, not authorization to build the
@@ -71,14 +112,14 @@ production hardened container.
 
 ## kubeconform offline schema bundle
 
-The schema source is `https://github.com/yannh/kubernetes-json-schema` at commit `c8f4e61c63bc529749125ac566bccc6986e08d45`.
-E0.1 selects Kubernetes 1.34.0
+The schema source is `{schema['repository']}` at commit `{schema['commit']}`.
+E0.1 selects Kubernetes {', '.join(schema['supported_kubernetes_versions'])}
 standalone schemas. The non-strict tree contains
-1304 files with manifest root
-`44cfe82a61d37191417037bc5954cb497424b4a7b9f18baef4dce051638c246f`; the strict tree contains
-1304 files with manifest root
-`0c8b0cd8155344ac4cc95d5c9a4c56898be5956e715f1fc597b4fab41e552828`. Their combined content digest is
-`f1e0b62f3bedbaf0d190bd9724bb67448496dfc859f035bac3a409d34101bb67`.
+{schema['non_strict_tree']['file_count']} files with manifest root
+`{schema['non_strict_tree']['manifest_root']}`; the strict tree contains
+{schema['strict_tree']['file_count']} files with manifest root
+`{schema['strict_tree']['manifest_root']}`. Their combined content digest is
+`{schema['content_digest']}`.
 
 The generated schema repository has no root licence file, so the lock records
 `NOASSERTION`; redistribution requires a later licence decision. Network schema
@@ -88,8 +129,8 @@ produce unsupported evidence.
 ## Trivy checks offline proof
 
 Trivy's binary and checks are distinct identities. The selected external checks
-manifest is `sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45` and its policy layer is
-`sha256:40a47ef8eb262c8e41d44f25c266463fff4dba9adcba12d33b93da88cbc7c80f`. The cached offline smoke used Trivy 0.73.0,
+manifest is `{checks['external_manifest_digest']}` and its policy layer is
+`{checks['external_layer_digest']}`. The cached offline smoke used Trivy 0.73.0,
 `--skip-check-update`, Docker network mode `none`, and the exact cache metadata.
 It parsed schema version 2 with `fallback_used=false`. Any external/embedded
 switch, missing bundle, moving tag, cache mismatch, or fallback changes the
@@ -109,7 +150,7 @@ the other compatibility records remain `STATIC_REVIEW`.
 python tools/validate_phase_e_locks.py
 PHASE_E_LOCK_SCHEMA: PASS (6 tools, 2 architectures, sealed graph)
 
-python tools/validate_phase_e_locks.py --verify-cached-artifacts \
+python tools/validate_phase_e_locks.py --verify-cached-artifacts \\
   --artifact-cache <protected-cache>
 PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
 ```
@@ -124,3 +165,25 @@ NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+"""
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--lock", type=Path, default=DEFAULT_LOCK)
+    parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument("--check", action="store_true")
+    args = parser.parse_args()
+    rendered = render(json.loads(args.lock.read_text(encoding="utf-8")))
+    if args.check:
+        if args.output.read_text(encoding="utf-8") != rendered:
+            print("PHASE_E_LOCK_REVIEW: FAIL: Markdown differs from canonical JSON")
+            return 1
+        print("PHASE_E_LOCK_REVIEW: PASS")
+        return 0
+    args.output.write_text(rendered, encoding="utf-8")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
