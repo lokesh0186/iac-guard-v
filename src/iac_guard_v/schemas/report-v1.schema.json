@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iac-guard-v.invalid/schemas/report-v1.schema.json",
+  "title": "IaC-Guard-V report-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "result_kind", "verdict", "exit_code"],
+  "properties": {
+    "schema_version": {"const": "report-v1"},
+    "result_kind": {"enum": ["verification", "operational_uncertainty"]},
+    "verdict": {"enum": ["VERIFIED", "FAILED", "INCONCLUSIVE"]},
+    "exit_code": {"enum": [0, 1, 3]},
+    "verification": {"$ref": "#/$defs/verification"},
+    "policy": {"$ref": "#/$defs/policy"},
+    "diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason_code", "detail", "remediation"],
+      "properties": {
+        "reason_code": {"type": "string", "minLength": 1},
+        "detail": {"type": "string", "minLength": 1},
+        "remediation": {"type": "string", "minLength": 1}
+      }
+    }
+  },
+  "$defs": {
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["preflight", "scanner_integrity", "validators", "oracles", "targets", "finding_diff", "regression", "suppression", "engine_events", "change_metrics", "baseline_run", "candidate_run", "verification_config", "gate_implementations", "baseline_snapshot", "candidate_snapshot"],
+      "properties": {
+        "preflight": {"type": "object"}, "scanner_integrity": {"type": "object"},
+        "validators": {"type": "array"}, "oracles": {"type": "array"},
+        "targets": {"type": "array", "minItems": 1}, "finding_diff": {"type": "object"},
+        "regression": {"type": "object"}, "suppression": {"type": "object"},
+        "engine_events": {"type": "array"}, "change_metrics": {"type": "object"},
+        "baseline_run": {"type": "object"}, "candidate_run": {"type": "object"},
+        "verification_config": {"type": "object"},
+        "gate_implementations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/gate"}},
+        "baseline_snapshot": {"$ref": "#/$defs/snapshot"},
+        "candidate_snapshot": {"$ref": "#/$defs/snapshot"}
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_id", "kind", "version", "code_sha256", "dependency_identity", "artifact_kinds"],
+      "properties": {
+        "gate_id": {"type": "string"}, "kind": {"enum": ["validator", "oracle"]},
+        "version": {"type": "string"}, "code_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "dependency_identity": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "artifact_kinds": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "required": ["role", "repository_identity", "repository_relative_subpath", "snapshot_sha256", "artifact_manifest_sha256", "resource_inventory_sha256", "config_sha256", "files", "classifications", "resources", "governed_paths", "filesystem_entries"],
+      "properties": {
+        "role": {"enum": ["baseline", "candidate"]},
+        "repository_identity": {"type": "string"}, "repository_relative_subpath": {"type": "string"},
+        "snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "artifact_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "resource_inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "files": {"type": "array"}, "classifications": {"type": "array"},
+        "resources": {"type": "array"}, "governed_paths": {"type": "array"},
+        "filesystem_entries": {"type": "array"}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "required": ["verdict", "exit_code", "evaluation_date", "decisions", "policy_evidence"],
+      "properties": {
+        "verdict": {"enum": ["VERIFIED", "FAILED", "INCONCLUSIVE"]},
+        "exit_code": {"enum": [0, 1, 3]}, "evaluation_date": {"type": "string", "format": "date"},
+        "decisions": {"type": "array", "minItems": 1}, "policy_evidence": {"type": "object"}
+      }
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"result_kind": {"const": "verification"}}}, "then": {"required": ["verification", "policy"]}},
+    {"if": {"properties": {"result_kind": {"const": "operational_uncertainty"}}}, "then": {"required": ["diagnostic"]}}
+  ]
+}

@@ -595,3 +595,17 @@ guards, source reader, and shared inventory helpers. It separately binds parser
 dependency names and versions. Canonical configuration and results expose every ordered
 gate implementation record rather than only a registry label. Role snapshots expose the
 complete filesystem inventory, including rejected entries, without absolute host paths.
+
+## 23. D7 public boundary and report-v1
+
+`config-v1` accepts only baseline/candidate paths, exact target selectors, the closed
+framework set, and an execution-isolation choice. It cannot carry scanner runs,
+resource inventories, deltas, callbacks, policy records, provenance assertions, locks,
+or evaluation time. The Python API rebuilds scanner/config/policy evidence internally.
+
+The default is `hardened-container`. Because the Phase E image is not implemented, that
+mode returns `INCONCLUSIVE/HARDENED_CONTAINER_UNAVAILABLE` (exit 3) and never falls back
+to native execution. `reduced-isolation` requires an explicit operator-selected Checkov
+executable and is labelled accordingly. `report-v1` is the sole canonical result;
+console output is a projection. It retains complete gate, scanner, snapshot, artifact,
+policy and decision evidence.

@@ -374,3 +374,8 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
     identity, and supported artifact kinds. The result also retains each role's full
     sealed filesystem inventory. Equivalent snapshots in different host directories
     remain byte-identical canonically.
+19. The D7 CLI/API accepts only paths, target selectors and closed operator settings.
+    Hostile-input execution defaults to the hardened container and returns exit 3 while
+    that Phase E runtime is unavailable; native execution requires the explicit name
+    `reduced-isolation`. Canonical JSON is `report-v1`; `VERIFIED`, `FAILED`, invalid
+    request and operational uncertainty map to exit codes 0, 1, 2 and 3 respectively.

@@ -13,7 +13,9 @@ from __future__ import annotations
 __version__ = "0.1.0a1"
 
 from . import (  # noqa: F401
+    api,
     adapters,
+    config,
     diffing,
     engine,
     enums,
@@ -24,11 +26,14 @@ from . import (  # noqa: F401
     policy,
     process,
     redaction,
+    report,
 )
 
 __all__ = [
     "__version__",
     "adapters",
+    "api",
+    "config",
     "diffing",
     "engine",
     "enums",
@@ -39,4 +44,5 @@ __all__ = [
     "policy",
     "process",
     "redaction",
+    "report",
 ]

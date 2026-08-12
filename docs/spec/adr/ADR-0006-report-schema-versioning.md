@@ -73,3 +73,12 @@ Before report-v1 is frozen, D5.5 requires complete ordered gate implementation r
 and full role filesystem inventories in canonical results. Rejected symlinks and special
 entries remain report evidence. Portable repository/snapshot/subpath identities replace
 host-root paths, so equivalent runs in different temporary directories serialize alike.
+
+## Amendment, 2026-08-11: report-v1 public boundary
+
+D7 publishes `config-v1` and `report-v1` from the package. JSON is canonical UTF-8 with
+sorted keys and compact separators; console is derived from that same dictionary. A
+verification report binds the exact trusted engine and policy results and rejects a
+policy result from another snapshot. Operational container unavailability is also a
+typed report-v1 result with verdict `INCONCLUSIVE` and exit 3. Request errors remain a
+separate `request-error-v1` diagnostic and exit 2.

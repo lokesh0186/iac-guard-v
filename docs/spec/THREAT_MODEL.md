@@ -375,3 +375,12 @@ manifest therefore binds every security-relevant loader/classifier/reader helper
 the parser dependency identity. A report that retained only the registry name could
 also conceal unsafe artifact entries; canonical D5 evidence now includes ordered gate
 records and both complete sealed inventories.
+
+### D7 public-input boundary
+
+Serialized configuration cannot assert trust or submit precomputed evidence. Unknown
+keys—including raw policy, callback, scanner-run, resource-inventory, lock-digest,
+origin and clock fields—are invalid requests. Hostile mode does not auto-select the
+native runner when Docker/image evidence is absent. Doctor reports incomplete,
+symlinked or modified native Checkov environments and gives deterministic remediation;
+it does not upgrade them to trusted environments.

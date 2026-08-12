@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iac-guard-v.invalid/schemas/config-v1.schema.json",
+  "title": "IaC-Guard-V config-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "baseline", "candidate", "targets"],
+  "properties": {
+    "schema_version": {"const": "config-v1"},
+    "execution_mode": {"enum": ["hardened-container", "reduced-isolation"], "default": "hardened-container"},
+    "baseline": {"type": "string", "minLength": 1},
+    "candidate": {"type": "string", "minLength": 1},
+    "checkov_executable": {"type": "string", "minLength": 1},
+    "frameworks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["terraform", "kubernetes"]}},
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule_id", "resource_address"],
+        "properties": {
+          "rule_id": {"type": "string", "minLength": 1},
+          "resource_address": {"type": "string", "minLength": 1},
+          "file_path": {"type": "string"},
+          "artifact_kind": {"enum": ["unknown", "terraform_hcl", "kubernetes_yaml", "kubernetes_json"]},
+          "scanner_native_lookup": {"type": "string"},
+          "baseline_occurrences": {"type": "integer", "minimum": 1}
+        }
+      }
+    }
+  }
+}

@@ -47,6 +47,9 @@ compat-test = [
 Homepage = "https://github.com/lokesh0186/iac-guard-v"
 Repository = "https://github.com/lokesh0186/iac-guard-v"
 
+[project.scripts]
+iac-guard = "iac_guard_v.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/iac_guard_v"]
 

@@ -670,6 +670,32 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Gate D7 — CLI, API, config-v1 and report-v1
+
+```text
+default public execution mode: hardened-container
+Phase E image absent: INCONCLUSIVE / HARDENED_CONTAINER_UNAVAILABLE / exit 3
+native mode without explicit executable: invalid request / exit 2
+raw scanner_run, policy, callback or trusted_origin config key: invalid request / exit 2
+duplicate JSON config key or symlinked config file: invalid request / exit 2
+explicit reduced-isolation: internal scan-plan -> adapter -> engine -> policy pipeline
+report-v1: complete gate implementations and baseline/candidate filesystem inventories
+doctor: deterministic Checkov/container status and remediation
+focused D7 tests: 12 passed
+```
+
+No hostile input was run natively, and no callback, raw policy, precomputed evidence or
+candidate trust assertion was accepted. No benchmark inference, provider call, or model
+refresh occurred.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
+---
+
 ## Gate D5.5 — Complete gate and canonical-result provenance
 
 Literal failing-before probes on D4.7:
