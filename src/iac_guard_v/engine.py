@@ -301,6 +301,7 @@ class GateImplementation:
     version: str
     code_sha256: str
     artifact_kinds: tuple
+    dependency_identity: str = "0" * 64
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "gate_id", canonical_identifier(self.gate_id, "gate id"))
@@ -308,6 +309,7 @@ class GateImplementation:
             raise DomainError("gate implementation kind is unsupported")
         object.__setattr__(self, "version", canonical_identifier(self.version, "gate version"))
         _digest(self.code_sha256, "gate implementation digest")
+        _digest(self.dependency_identity, "gate dependency identity")
         if type(self.artifact_kinds) is not tuple or any(
             type(item) is not ArtifactKind for item in self.artifact_kinds
         ):
@@ -319,6 +321,7 @@ class GateImplementation:
             "kind": self.kind,
             "version": self.version,
             "code_sha256": self.code_sha256,
+            "dependency_identity": self.dependency_identity,
             "artifact_kinds": [item.value for item in self.artifact_kinds],
         }
 
@@ -413,35 +416,50 @@ def production_gate_registry() -> TrustedGateRegistry:
     implementation_sources = (
         _production_gate_executor,
         _terraform_resources,
+        _construct_unique_mapping,
+        _kubernetes_identity,
+        _resources_from_kubernetes_documents,
+        _validate_yaml_node,
+        _yaml_root_has_identity,
+        _yaml_nested_complete_identity,
         _bounded_yaml_documents,
         _kubernetes_resources,
         _strict_json_document,
+        _json_contains_identity,
         _kubernetes_json_resources,
-        _resources_from_kubernetes_documents,
+        _read_detector_file,
+        _filesystem_kind,
+        _filesystem_inventory,
     )
+    dependencies = {
+        name: importlib.metadata.version(name)
+        for name in ("python-hcl2", "PyYAML")
+    }
     payload = {
-        "contract": "phase-d-gate-implementation-v2",
+        "contract": "phase-d-gate-implementation-v3",
         "sources": [inspect.getsource(item) for item in implementation_sources],
-        "dependencies": {
-            name: importlib.metadata.version(name)
-            for name in ("python-hcl2", "PyYAML")
-        },
+        "dependencies": dependencies,
     }
     code_digest = hashlib.sha256(json.dumps(
         payload, sort_keys=True, separators=(",", ":")
     ).encode()).hexdigest()
+    dependency_digest = hashlib.sha256(json.dumps(
+        dependencies, sort_keys=True, separators=(",", ":")
+    ).encode()).hexdigest()
     return TrustedGateRegistry(
-        "iac_guard_v_phase_d_registry_v2",
+        "iac_guard_v_phase_d_registry_v3",
         ("kubernetes_yaml_parse", "terraform_hcl_parse"),
         (),
         (
             GateImplementation(
-                "kubernetes_yaml_parse", "validator", "2", code_digest,
+                "kubernetes_yaml_parse", "validator", "3", code_digest,
                 (ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON),
+                dependency_digest,
             ),
             GateImplementation(
-                "terraform_hcl_parse", "validator", "2", code_digest,
+                "terraform_hcl_parse", "validator", "3", code_digest,
                 (ArtifactKind.TERRAFORM_HCL,),
+                dependency_digest,
             ),
         ),
         _production_gate_executor,
@@ -859,6 +877,9 @@ class TrustedVerificationConfigBundle:
             "fail_on_location_change": self.fail_on_location_change,
             "required_gates": self.required_gates.canonical_dict(),
             "gate_registry_identity": self.gate_registry.identity,
+            "gate_implementations": [
+                item.canonical_dict() for item in self.gate_registry.implementations
+            ],
             "governed_config": [item.canonical_dict() for item in self.governed_config],
             "role_snapshots": {
                 "baseline": self.baseline_source_snapshot_sha256,
@@ -2302,6 +2323,10 @@ class VerificationResult:
             "baseline_run": self.baseline_run.canonical_dict(),
             "candidate_run": self.candidate_run.canonical_dict(),
             "verification_config": self.verification_config.canonical_dict(),
+            "gate_implementations": [
+                item.canonical_dict()
+                for item in self.verification_config.gate_registry.implementations
+            ],
             "baseline_snapshot": self.baseline_snapshot.canonical_dict(),
             "candidate_snapshot": self.candidate_snapshot.canonical_dict(),
         }

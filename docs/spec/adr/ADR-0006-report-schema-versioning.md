@@ -66,3 +66,10 @@ decoder runs. The report diagnostic is `JSON_DEPTH_EXCEEDED`, not whichever pars
 or top-level shape happens to result on a particular interpreter. Structural brackets
 inside strings are ignored by the depth counter; syntax and duplicate-key checks remain
 the strict decoder's responsibility.
+
+## Amendment, 2026-08-11: schema-ready provenance
+
+Before report-v1 is frozen, D5.5 requires complete ordered gate implementation records
+and full role filesystem inventories in canonical results. Rejected symlinks and special
+entries remain report evidence. Portable repository/snapshot/subpath identities replace
+host-root paths, so equivalent runs in different temporary directories serialize alike.

@@ -369,3 +369,8 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
     files are parsed; an unsafe directory link or supported special file prevents
     `VERIFIED`. Native scanner integrity binds actual dependency code bytes as well as
     package, policy, launcher, interpreter and configuration evidence.
+18. Canonical configuration and result evidence records each required gate's id, kind,
+    contract version, complete implementation-manifest digest, parser dependency
+    identity, and supported artifact kinds. The result also retains each role's full
+    sealed filesystem inventory. Equivalent snapshots in different host directories
+    remain byte-identical canonically.

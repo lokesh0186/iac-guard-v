@@ -1185,3 +1185,13 @@ is an `ERROR` preflight result. It is produced whenever either sealed role conta
 unsafe symlink or supported/governed non-regular object; it cannot be combined with
 `VERIFIED`. Final revalidation compares the same canonical inventory, so type or target
 changes alter the snapshot root.
+
+### D5.5 canonical gate evidence
+
+Every `TrustedVerificationConfigBundle` and `VerificationResult` carries deterministically
+ordered gate records: `gate_id`, gate kind, contract version, complete source-manifest
+digest, parser dependency identity, and supported artifact kinds. The source manifest
+includes bounded file reading, HCL discovery, YAML node and duplicate-key checks,
+root-Kubernetes classification, JSON depth handling, and the shared filesystem inventory.
+Canonical result evidence also includes each snapshot's complete `filesystem_entries`;
+runtime absolute roots and timestamps are not part of these identities.

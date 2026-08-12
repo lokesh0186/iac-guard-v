@@ -66,3 +66,10 @@ version, and parser dependency versions. A helper or dependency change therefore
 the recorded identity.
 `run_checkov_verification` accepts no callback. A private factory can install a unit-test
 registry, but that capability is absent from serialized and future CLI/API inputs.
+
+## Amendment, 2026-08-11: complete implementation manifest
+
+D5.5 replaces selected-function hashing with a canonical manifest of every packaged
+validation dispatcher, parser/classifier helper, bounded loader, source reader and path
+inventory helper, plus a separate dependency identity. Mutation of any security-relevant
+helper changes the implementation digest. Gate reports expose these records directly.

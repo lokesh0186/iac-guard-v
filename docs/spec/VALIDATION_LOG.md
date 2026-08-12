@@ -670,6 +670,43 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Gate D5.5 — Complete gate and canonical-result provenance
+
+Literal failing-before probes on D4.7:
+
+```text
+mutate YAML node validator source: gate implementation identity unchanged
+mutate duplicate-key constructor source: gate implementation identity unchanged
+mutate root Kubernetes classifier source: gate implementation identity unchanged
+mutate bounded file reader source: gate implementation identity unchanged
+TrustedVerificationConfigBundle canonical keys: gate_registry_identity only
+VerificationResult canonical keys: no top-level gate_implementations
+```
+
+Literal passing-after probes:
+
+```text
+YAML node validator mutation: implementation digest changed
+duplicate-key constructor mutation: implementation digest changed
+root Kubernetes classifier mutation: implementation digest changed
+JSON depth checker mutation: implementation digest changed
+HCL discovery wrapper mutation: implementation digest changed
+bounded file reader mutation: implementation digest changed
+configuration and result: ordered gate_id/kind/version/code_sha256/dependency_identity/artifact_kinds records
+baseline/candidate canonical snapshots: complete filesystem_entries present
+focused D5.5 probes: 7 passed
+```
+
+No benchmark inference, provider call, or model refresh occurred.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
+---
+
 ## Gate D4.7 — Complete filesystem artifact and scanner-environment identity
 
 Literal failing-before probes on `ed9d77f39c14cacc17ba46fb7c94bfb97b0daaa6`:

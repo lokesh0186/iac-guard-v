@@ -367,3 +367,11 @@ directory symlink, and makes any rejection visible to P0 and the final report. A
 attacker may also alter dependency code without changing distribution metadata; the
 native scanner identity therefore hashes actual dependency-tree bytes and rejects
 indirections rather than treating metadata alone as execution integrity.
+
+### D5.5 incomplete gate and report provenance
+
+A dispatcher-only hash can remain stable while a parser helper changes. The gate
+manifest therefore binds every security-relevant loader/classifier/reader helper and
+the parser dependency identity. A report that retained only the registry name could
+also conceal unsafe artifact entries; canonical D5 evidence now includes ordered gate
+records and both complete sealed inventories.

@@ -586,3 +586,12 @@ dependency-tree bytes (excluding mutable bytecode caches). Symlinks or non-regul
 content in the verified package/dependency tree are rejected. Native execution remains
 reduced isolation; a native environment whose complete identity cannot be established
 cannot support `VERIFIED`.
+
+## 22. D5.5 complete gate and result provenance
+
+The production gate registry binds a canonical manifest of the dispatcher, Terraform
+wrapper, Kubernetes YAML/JSON classifiers, bounded loaders, duplicate-key/depth/alias
+guards, source reader, and shared inventory helpers. It separately binds parser
+dependency names and versions. Canonical configuration and results expose every ordered
+gate implementation record rather than only a registry label. Role snapshots expose the
+complete filesystem inventory, including rejected entries, without absolute host paths.
