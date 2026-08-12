@@ -1,5 +1,19 @@
 # Product Specification
 
+## D7.3 report-graph release condition
+
+A public verification report is accepted only when its complete canonical evidence
+graph is internally consistent. Arrays carrying targets, decisions, gates, scanner
+evidence, snapshot files, and inputs reject duplicate authoritative identities before
+lookup. Full reports contain exactly one evaluation for each engine-owned delta class.
+
+Protected configuration, gate records, role snapshots, scanner inputs, resource
+coverage, target outcomes, and policy decisions must describe the same sealed bytes and
+identities. Snapshot-derived hashes are recomputed from child evidence. Fixed outcomes
+require affirmative scanner or explicitly complete oracle evidence; exception metadata
+cannot be attached to a fixed outcome. Isolation evidence must satisfy the selected
+execution mode before a verified verdict is valid.
+
 ## 1. Problem
 
 Scanners report what they observe at a point in time. They do not answer the question a

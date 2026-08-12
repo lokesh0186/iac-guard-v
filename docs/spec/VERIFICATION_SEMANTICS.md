@@ -1,5 +1,31 @@
 # Verification Semantics
 
+## Canonical report-graph validation
+
+The canonical public report is one evidence graph. Validation proceeds in this order:
+
+1. closed JSON shape and primitive domains;
+2. uniqueness of every authoritative identity before any map is constructed;
+3. identity reconstruction and equality across target, binding, decision, gate,
+   snapshot, scanner, and protected-configuration nodes;
+4. recomputation of report-derivable snapshot, artifact, and resource hashes;
+5. scanner state, file/resource coverage, affirmative target evidence, policy, and
+   isolation predicates; and
+6. the verdict table.
+
+An empty event list cannot prove absence: a full result contains exactly one each of
+`RULE_SUBSTITUTED`, `COVERAGE_DECREASED`, `DIAGNOSTIC_ADDED`,
+`DESTRUCTIVE_CHANGE`, and `POLICY_DRIFT`. A repeated class is contradictory evidence.
+
+A `FIXED` target has zero matching candidate findings and an exact passed evaluation
+for the scanner, version, rule, file, artifact, resource, and native lookup represented
+by its resolved binding. For multiplicity greater than one, every stable baseline
+occurrence token is covered by positive candidate evidence unless a required
+independent oracle explicitly proves the complete target predicate.
+
+Schema validity alone never establishes these predicates. All public consumers call
+the semantic validator before explaining or transforming a report.
+
 Normative specification of what IaC-Guard-V decides and how. Phase D implements this
 document; where code and this document disagree, this document is the defect report.
 

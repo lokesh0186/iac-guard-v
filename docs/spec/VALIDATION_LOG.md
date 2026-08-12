@@ -1,5 +1,18 @@
 # Validation Log
 
+## 2026-08-12 — D7.3 complete canonical report-graph validation
+
+- Failing-before: `tests/unit/test_public_d73.py` produced 30 failures. The old
+  validator accepted 29 contradictory verified-report mutations, and `explain`
+  returned exit 0 while printing both `STILL_PRESENT` and `FIXED` for the same binding.
+- Passing-after: duplicate target, decision, gate, engine-event, finding, evaluation,
+  snapshot-file, and scanner-input identities fail before lookup construction.
+- Role snapshots, gate implementations, scanner inputs, file/resource coverage,
+  target evidence, policy decisions, and isolation evidence are reconciled as one graph.
+- Source snapshot, artifact-manifest, resource-inventory, and target derived identities
+  are recomputed from canonical child evidence.
+- Mutation guards run for verified, failed, and inconclusive verdict branches.
+
 ## 2026-08-12 — E0 immutable Phase-E dependency lock research
 
 - Added `tools/locks/phase-e-locks.json` and its fail-closed validator.

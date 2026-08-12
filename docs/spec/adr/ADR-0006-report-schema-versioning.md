@@ -1,5 +1,18 @@
 # ADR-0006 — One canonical report, versioned, with all formats derived
 
+## D7.3 graph-validation amendment
+
+`report-v1` remains the schema name, but acceptance now requires both its closed JSON
+Schema and the executable canonical graph validator. JSON Schema cannot express all
+cross-array uniqueness, binding, hash-recomputation, occurrence-coverage, and verdict
+predicates. Consumers must not treat schema success as semantic success.
+
+The semantic implementation rejects duplicates before map construction, validates the
+complete engine-event vocabulary, and reconciles configuration, gate, snapshot,
+scanner, target, policy, and isolation evidence. Any future SARIF, JUnit, comparison,
+or signature projection must invoke that validator first. Changing these semantics or
+any committed canonical child-hash algorithm requires a versioned compatibility review.
+
 - Status: Accepted
 - Date: 2026-08-09
 

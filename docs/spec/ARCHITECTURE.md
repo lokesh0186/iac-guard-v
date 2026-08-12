@@ -1,5 +1,26 @@
 # Architecture
 
+## D7.3 canonical report graph boundary
+
+`report-v1` validation is a graph validation, not independent validation of JSON
+fragments. JSON Schema first closes representation shape. The executable semantic
+validator then rejects duplicate authoritative identities before constructing maps,
+requires the complete five-class engine-event set, reconstructs target identities,
+and reconciles target bindings with policy decisions.
+
+The same pass reconciles protected configuration with role-bound snapshots and gate
+implementations; recomputes source, artifact-manifest, and resource-inventory hashes;
+and verifies that scanner inputs and evaluation evidence are members of the relevant
+sealed snapshot. Scanner status, exit, coverage, resource, digest, ruleset, and
+scanner-domain invariants are evaluated before verdict logic. A fixed target requires
+an exact-domain affirmative passed evaluation and, for multiple occurrences, complete
+canonical occurrence-token coverage.
+
+Every report consumer starts with `validate_report_payload`. `explain` therefore
+cannot project a forged graph that would be rejected by the verifier. Future report
+comparison, conversion, and signature layers inherit the same requirement rather than
+implementing a second semantic path.
+
 Seven layers with one rule: raw scanner-specific structures exist only inside
 adapters, and verdicts exist only in the policy layer. Everything between them
 traffics in normalised evidence.
