@@ -3,15 +3,20 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from tools.validate_phase_e_locks import (
     LockValidationError,
+    _current_runtime_record,
+    _require_current_runtime_matches,
     _verify_tag_relation,
     lock_payload_sha256,
+    physical_cache_inventory,
     runtime_execution_digest,
     trivy_offline_execution_digest,
     validate_lock,
@@ -131,7 +136,7 @@ def test_committed_protected_cache_attestation_is_signed_and_canonical() -> None
         assert hashlib.sha256(path.read_bytes()).hexdigest() == record[digest_name]
     manifest = json.loads(paths["manifest_path"].read_text(encoding="utf-8"))
     encoded = json.dumps(
-        manifest["files"], sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        manifest["entries"], sort_keys=True, separators=(",", ":"), ensure_ascii=False,
     ).encode("utf-8")
     assert hashlib.sha256(encoded).hexdigest() == record["manifest_root"]
     verified = subprocess.run(
@@ -157,3 +162,47 @@ def test_schema_source_git_tree_and_trivy_checks_sources_are_exact() -> None:
     )
     checks = payload["tools"]["trivy"]["checks"]
     assert checks["source_repository"] == "https://github.com/aquasecurity/trivy-checks"
+
+
+def test_physical_cache_inventory_rejects_unlisted_symlink(tmp_path: Path) -> None:
+    (tmp_path / "a.bin").write_bytes(b"bound")
+    assert physical_cache_inventory(tmp_path) == [{
+        "path": "a.bin", "kind": "REGULAR_FILE", "size": 5,
+        "sha256": hashlib.sha256(b"bound").hexdigest(),
+    }]
+    (tmp_path / "unlisted-symlink").symlink_to("/outside/data")
+    with pytest.raises(LockValidationError, match="forbidden symlink"):
+        physical_cache_inventory(tmp_path)
+
+
+def test_physical_cache_inventory_rejects_special_entries(tmp_path: Path) -> None:
+    fifo = tmp_path / "unlisted-fifo"
+    os.mkfifo(fifo)
+    with pytest.raises(LockValidationError, match="non-regular"):
+        physical_cache_inventory(tmp_path)
+
+
+def test_current_trivy_bytes_must_match_locked_runtime_record() -> None:
+    record = copy.deepcopy(
+        _payload()["tools"]["trivy"]["checks"]["offline_verification"][
+            "runtime_records"
+        ]["linux/arm64"]
+    )
+    result = SimpleNamespace(
+        stdout=json.dumps({
+            "SchemaVersion": 2, "Trivy": {"Version": "0.73.0"},
+            "different_but_schema_valid": True,
+        }).encode(),
+        stderr=b"loading from existing cache",
+    )
+    observed = _current_runtime_record(record, result, 1, trivy=True)
+    with pytest.raises(LockValidationError, match="stdout/stderr"):
+        _require_current_runtime_matches(record, observed, "Trivy runtime")
+
+
+def test_trivy_runtime_record_binds_canonical_current_output() -> None:
+    for record in _payload()["tools"]["trivy"]["checks"][
+        "offline_verification"
+    ]["runtime_records"].values():
+        assert record["canonical_output_sha256"]
+        assert record["execution_digest"] == trivy_offline_execution_digest(record)

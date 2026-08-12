@@ -8,14 +8,21 @@ import json
 import platform
 import subprocess
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
 from tools.validate_phase_e_locks import (
     ARCHITECTURES,
+    ARTIFACT_CACHE_CONTRACT,
+    CACHE_ATTESTATION_CONTRACT,
+    CACHE_MANIFEST_CONTRACT,
     RUNTIME_ARGV,
     RUNTIME_RECORD_CONTRACT,
+    TRIVY_NORMALIZED_SCRIPT,
+    TRIVY_RUNTIME_CONTRACT,
     lock_payload_sha256,
+    physical_cache_inventory,
     runtime_execution_digest,
     trivy_offline_execution_digest,
 )
@@ -47,6 +54,90 @@ def _results(path: Path) -> dict[tuple[str, str], tuple[int, int]]:
             raise RuntimeError(f"{tool} {architecture} smoke failed")
         result[(tool, architecture)] = (int(code), int(end) - int(start))
     return result
+
+
+def _runtime_command(tool: dict, architecture: str, argv: list[str]) -> list[str]:
+    return [
+        "docker", "run", "--rm", "--pull", "never",
+        "--platform", architecture, "--network", "none", "--read-only",
+        "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+        "--pids-limit", "128", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+        "-e", "HOME=/tmp", "-e", "TMPDIR=/tmp",
+        tool["container"]["execution_references"][architecture], *argv,
+    ]
+
+
+def _trivy_command(payload: dict, cache: Path, architecture: str) -> list[str]:
+    reference = payload["tools"]["trivy"]["container"]["execution_references"][
+        architecture
+    ]
+    return [
+        "docker", "run", "--rm", "--pull", "never",
+        "--platform", architecture, "--network", "none", "--read-only",
+        "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+        "--pids-limit", "128", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+        "-e", "TRIVY_CACHE_DIR=/cache",
+        "-v", f"{cache / 'runtime-v2/trivy-cache'}:/cache:ro",
+        "-v", f"{cache / 'runtime-v2/trivy-input'}:/work:ro",
+        "-w", "/work", "--entrypoint", "/bin/sh", reference,
+        "-c", TRIVY_NORMALIZED_SCRIPT,
+    ]
+
+
+def _execute_runtime(payload: dict, cache: Path) -> None:
+    """Acquire current deterministic runtime bytes from the exact locked images."""
+
+    runtime_root = cache / "runtime-v2"
+    runtime_root.mkdir(parents=True, exist_ok=True)
+    version_results = []
+    for tool_name in sorted(payload["tools"]):
+        tool = payload["tools"][tool_name]
+        for architecture in ARCHITECTURES:
+            suffix = architecture.removeprefix("linux/")
+            started = time.monotonic_ns()
+            result = subprocess.run(
+                _runtime_command(tool, architecture, RUNTIME_ARGV[tool_name]),
+                check=False, capture_output=True,
+            )
+            ended = time.monotonic_ns()
+            if result.returncode != 0:
+                raise RuntimeError(f"{tool_name} {architecture} smoke failed")
+            (runtime_root / f"{tool_name}-{suffix}.stdout").write_bytes(result.stdout)
+            (runtime_root / f"{tool_name}-{suffix}.stderr").write_bytes(result.stderr)
+            version_results.append(
+                f"{tool_name}\t{architecture}\t{result.returncode}\t{started}\t{ended}"
+            )
+            physical_cache_inventory(cache)
+    (runtime_root / "results.tsv").write_text(
+        "\n".join(version_results) + "\n", encoding="utf-8"
+    )
+
+    trivy_results = []
+    for architecture in ARCHITECTURES:
+        suffix = architecture.removeprefix("linux/")
+        started = time.monotonic_ns()
+        result = subprocess.run(
+            _trivy_command(payload, cache, architecture),
+            check=False, capture_output=True,
+        )
+        ended = time.monotonic_ns()
+        if result.returncode != 0:
+            raise RuntimeError(f"Trivy {architecture} offline smoke failed")
+        decoded = json.loads(result.stdout)
+        if decoded.get("SchemaVersion") != 2:
+            raise RuntimeError(f"Trivy {architecture} output schema differs")
+        stderr = result.stderr.decode("utf-8", errors="strict")
+        if "loading from existing cache" not in stderr or "Downloading" in stderr:
+            raise RuntimeError(f"Trivy {architecture} did not use the external cache")
+        (runtime_root / f"trivy-offline-{suffix}.json").write_bytes(result.stdout)
+        (runtime_root / f"trivy-offline-{suffix}.stderr").write_bytes(result.stderr)
+        trivy_results.append(
+            f"{architecture}\t{result.returncode}\t{started}\t{ended}"
+        )
+        physical_cache_inventory(cache)
+    (runtime_root / "trivy-offline-results.tsv").write_text(
+        "\n".join(trivy_results) + "\n", encoding="utf-8"
+    )
 
 
 def _runtime_records(payload: dict, cache: Path, runner: str) -> None:
@@ -113,7 +204,7 @@ def _trivy_records(payload: dict, cache: Path, runner: str) -> None:
         code, duration = timing[architecture]
         decoded = json.loads(output)
         record = {
-            "contract": "trivy-external-checks-offline-smoke-v2",
+            "contract": TRIVY_RUNTIME_CONTRACT,
             "architecture": architecture,
             "image_index_digest": payload["tools"]["trivy"]["container"][
                 "index_digest"
@@ -121,7 +212,11 @@ def _trivy_records(payload: dict, cache: Path, runner: str) -> None:
             "image_architecture_digest": payload["tools"]["trivy"]["container"][
                 "architecture_digests"
             ][architecture],
-            "argv": ["config", "--format", "json", "--skip-check-update", "."],
+            "execution_reference": payload["tools"]["trivy"]["container"][
+                "execution_references"
+            ][architecture],
+            "argv": ["/bin/sh", "-c", TRIVY_NORMALIZED_SCRIPT],
+            "environment_allowlist": ["TRIVY_CACHE_DIR=/cache"],
             "network_mode": "none",
             "filesystem_mode": "read-only-root,read-only-cache,read-only-input",
             "checks_manifest_digest": checks["external_manifest_digest"],
@@ -132,6 +227,7 @@ def _trivy_records(payload: dict, cache: Path, runner: str) -> None:
             "exit_code": code,
             "output_sha256": _sha(output),
             "stderr_sha256": _sha(stderr),
+            "canonical_output_sha256": _sha(_canonical(decoded)),
             "output_schema_result": (
                 "PASS_SCHEMA_VERSION_2"
                 if decoded.get("SchemaVersion") == 2 else "FAIL"
@@ -174,25 +270,17 @@ def _source_evidence(payload: dict, cache: Path) -> None:
 
 
 def _cache_manifest(cache: Path) -> dict:
-    files = []
-    for path in sorted(cache.rglob("*"), key=lambda value: value.relative_to(cache).as_posix()):
-        if path.is_symlink():
-            raise RuntimeError(f"cache contains symlink: {path}")
-        if path.is_file():
-            data = path.read_bytes()
-            files.append({
-                "path": path.relative_to(cache).as_posix(),
-                "size": len(data),
-                "sha256": _sha(data),
-            })
-    return {"contract": "phase-e-cache-manifest-v1", "files": files}
+    return {
+        "contract": CACHE_MANIFEST_CONTRACT,
+        "entries": physical_cache_inventory(cache),
+    }
 
 
 def _attest(payload: dict, cache: Path, runner: str) -> None:
     manifest = _cache_manifest(cache)
     MANIFEST_PATH.write_bytes(_canonical(manifest) + b"\n")
     manifest_sha = _sha(MANIFEST_PATH.read_bytes())
-    manifest_root = _sha(_canonical(manifest["files"]))
+    manifest_root = _sha(_canonical(manifest["entries"]))
     docker = subprocess.run(
         ["docker", "version", "--format", "{{.Server.Version}} {{.Server.Os}}/{{.Server.Arch}}"],
         check=True, capture_output=True, text=True,
@@ -222,9 +310,15 @@ def _attest(payload: dict, cache: Path, runner: str) -> None:
             }
             for tool_name, tool in payload["tools"].items()
         }
+        runtime_ids["trivy_offline"] = {
+            architecture: record["execution_digest"]
+            for architecture, record in payload["tools"]["trivy"]["checks"][
+                "offline_verification"
+            ]["runtime_records"].items()
+        }
         attestation = {
-            "contract": "phase-e-protected-cache-attestation-v1",
-            "cache_contract": "phase-e-protected-artifact-cache-v2",
+            "contract": CACHE_ATTESTATION_CONTRACT,
+            "cache_contract": ARTIFACT_CACHE_CONTRACT,
             "manifest_sha256": manifest_sha,
             "manifest_root": manifest_root,
             "cache_generation_tool_identity": _sha(Path(__file__).read_bytes()),
@@ -248,7 +342,7 @@ def _attest(payload: dict, cache: Path, runner: str) -> None:
             check=True,
         )
     payload["protected_cache_attestation"] = {
-        "contract": "phase-e-protected-cache-attestation-v1",
+        "contract": CACHE_ATTESTATION_CONTRACT,
         "manifest_path": MANIFEST_PATH.relative_to(ROOT).as_posix(),
         "manifest_sha256": manifest_sha,
         "manifest_root": manifest_root,
@@ -269,8 +363,8 @@ def main() -> int:
     args = parser.parse_args()
     cache = args.artifact_cache.resolve(strict=True)
     payload = json.loads(LOCK_PATH.read_text(encoding="utf-8"))
-    payload["lock_contract"] = "phase-e-verified-tool-locks-v3"
-    payload["artifact_cache_contract"] = "phase-e-protected-artifact-cache-v2"
+    payload["lock_contract"] = "phase-e-verified-tool-locks-v4"
+    payload["artifact_cache_contract"] = ARTIFACT_CACHE_CONTRACT
     payload["verification_claims"] = {
         "schema": "REQUIRES_SCHEMA_VALIDATION",
         "source": "REQUIRES_PROTECTED_CACHE_VERIFICATION",
@@ -281,6 +375,8 @@ def main() -> int:
         if item != "--offline-scan"
     ]
     runner = _sha((ROOT / "tools/validate_phase_e_locks.py").read_bytes())
+    physical_cache_inventory(cache)
+    _execute_runtime(payload, cache)
     _runtime_records(payload, cache, runner)
     _trivy_records(payload, cache, runner)
     _source_evidence(payload, cache)

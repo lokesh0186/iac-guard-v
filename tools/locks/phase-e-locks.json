@@ -3,7 +3,7 @@
     "linux/amd64",
     "linux/arm64"
   ],
-  "artifact_cache_contract": "phase-e-protected-artifact-cache-v2",
+  "artifact_cache_contract": "phase-e-protected-artifact-cache-v3",
   "hardened_container_base": {
     "architecture_digests": {
       "linux/amd64": "sha256:362e64223cc0da95422b3b13c045186fc0a81250e765d31c025fbddf257f6143",
@@ -24,21 +24,21 @@
     ],
     "verification_status": "CACHED_OCI_INDEX_VERIFIED"
   },
-  "lock_contract": "phase-e-verified-tool-locks-v3",
-  "lock_payload_sha256": "5af2bbc8728ab8ff89ab8c659072de077453898c5bbd454449bfef404f7bd72b",
+  "lock_contract": "phase-e-verified-tool-locks-v4",
+  "lock_payload_sha256": "6a945cd22b117283825bd12724dc29b7dcc406bf014b61af41c6cd2efae4e0a6",
   "protected_cache_attestation": {
     "attestation_path": "tools/locks/phase-e-cache-attestation.json",
-    "attestation_sha256": "74ce20e28b2f924f66b81c9f8318987d1cc278e7de04f04293856dda91b2bda3",
-    "contract": "phase-e-protected-cache-attestation-v1",
+    "attestation_sha256": "689f087a6a8edebde12cbecd83a15bba188f8ebf13b608a19ac5db0a2eae789f",
+    "contract": "phase-e-protected-cache-attestation-v2",
     "manifest_path": "tools/locks/phase-e-cache-manifest.json",
-    "manifest_root": "f80f8e1385106239d6794603c46f3724eb25c0c8c22f3c99b71effd90185b956",
-    "manifest_sha256": "624d3cca45b0428c17e89101af5a3127197673345441b278553dbd38a948dbf4",
+    "manifest_root": "cb53a2f9ac0e2648418e72e37fffa1aa972315f14545c814542809410c115e74",
+    "manifest_sha256": "6ca05e7323b8f84a84b66a4053f59e630b7c7ac1efcbbdc0a3f302184d032436",
     "public_key_path": "tools/locks/phase-e-cache-attestation.pub.pem",
-    "public_key_sha256": "f2aa8e7b173fc8cb19e9810230a9f03506f6d8119d8629cbaf703607259294d9",
+    "public_key_sha256": "37cf2ed6ba5f8062c35db76e0f22718db224f2eff7fc453cace48095caf51ee8",
     "signature_method": "ED25519_OPENSSL",
     "signature_path": "tools/locks/phase-e-cache-attestation.sig",
-    "signature_sha256": "24f35489de1ea4ca94d2796992117d69820b72e0b0444d1d6fd89b817714dd7e",
-    "signer_identity": "e02-local-acquisition-ed25519:f2aa8e7b173fc8cb19e9810230a9f03506f6d8119d8629cbaf703607259294d9"
+    "signature_sha256": "50994d4b71618d498d6bf582a3197e606b37ec9464ebb38f38a72e4d02093e1a",
+    "signer_identity": "e02-local-acquisition-ed25519:37cf2ed6ba5f8062c35db76e0f22718db224f2eff7fc453cace48095caf51ee8"
   },
   "retrieval_date": "2026-08-12",
   "review_date": "2026-08-12",
@@ -193,12 +193,12 @@
             "version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 976803125,
+          "duration_ns": 1576091750,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "01e634c00e42e99c7631200799b698c7ea5dd2cd6027785c4253b3e0dbcb53b7",
+          "execution_digest": "27a7b8451ba3ac20848fb0b9aca5fbd6d8dfed1e9483b3281597d6883aa48977",
           "execution_reference": "docker.io/checkmarx/kics@sha256:643071cf0c1657eaea695a48b49d2d61b7e625bb87c51505530e624e0c0a1ad1",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -206,7 +206,7 @@
           "image_index_digest": "sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/kics-amd64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/kics-amd64.stdout",
@@ -221,12 +221,12 @@
             "version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 346040375,
+          "duration_ns": 762947166,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "62d7f2d34b7910dcbf32ed4aa2db5234ec633c6b53cf9177c5cc4509fe588033",
+          "execution_digest": "501c6f5572c843122b6e3e21b2600f34b10ff84a0211d0fa77c57fd3f9770f4c",
           "execution_reference": "docker.io/checkmarx/kics@sha256:d6d12f269db55d9ca59e2886248997c0613f8d1855f0380716795b6b9cedce90",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -234,7 +234,7 @@
           "image_index_digest": "sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/kics-arm64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/kics-arm64.stdout",
@@ -393,12 +393,12 @@
             "-v"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 391720750,
+          "duration_ns": 446178375,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "a9a6db4105e0d738fade510302b5f387dd6454da5e9d56bd744bbb06bef2647e",
+          "execution_digest": "37b6004afc56f14df9a040af574600f5d59941c3cc871cfd63e3eebb69d74fc0",
           "execution_reference": "ghcr.io/yannh/kubeconform@sha256:5103f6f5e89061728aad4ad5a250627dd0fc9b2a92eb876f3762677a4222f9e0",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -406,7 +406,7 @@
           "image_index_digest": "sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/kubeconform-amd64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/kubeconform-amd64.stdout",
@@ -421,12 +421,12 @@
             "-v"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 297736708,
+          "duration_ns": 318457250,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "c7e9d9352ef08b25776bd5bb64f17330e571e9d05dcfaaeb0636fa200c4c04c5",
+          "execution_digest": "745a80fa788c7499aa4bd9fe43767d027b4efc41458cb8462885daca566a2434",
           "execution_reference": "ghcr.io/yannh/kubeconform@sha256:5ec810f20ae7b78696499089a767c348802d70bc5d1afabd87b87143395b223d",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -434,7 +434,7 @@
           "image_index_digest": "sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/kubeconform-arm64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/kubeconform-arm64.stdout",
@@ -626,12 +626,12 @@
             "version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 744097584,
+          "duration_ns": 1175542875,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "35b436a22aae20f41cac1c5d17044e29694158f81b7f14527c7fd9b17d64709c",
+          "execution_digest": "e3ac9a97b3cf7e3cac1cc7866311d6cc5127a92c1a0546085502bcec7f44fad7",
           "execution_reference": "ghcr.io/opentofu/opentofu@sha256:181e070709e9f38cc0acaddc0fa1eb9939976481c76f9aae2657581de7821dc4",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -639,7 +639,7 @@
           "image_index_digest": "sha256:ba827d1af675c3f522eb78e2b8098cc87daefb9ceb9d3c4b69d0a1bb6d272463",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/opentofu-amd64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/opentofu-amd64.stdout",
@@ -654,12 +654,12 @@
             "version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 370556708,
+          "duration_ns": 707517459,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "4db3884180530ff9f10ec62468159bd646df2cb49ff6fb9557b1625a30218e65",
+          "execution_digest": "87bd0c299ddf4a0164f3d6b966ad264abe385b2dbf31ce330a955848cc3650e0",
           "execution_reference": "ghcr.io/opentofu/opentofu@sha256:57dc209eed201f36a6a202cb01fe49ede303677be171b2ece3ec2ee24564965a",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -667,7 +667,7 @@
           "image_index_digest": "sha256:ba827d1af675c3f522eb78e2b8098cc87daefb9ceb9d3c4b69d0a1bb6d272463",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/opentofu-arm64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/opentofu-arm64.stdout",
@@ -822,12 +822,12 @@
             "version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 722867333,
+          "duration_ns": 1110460000,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "81428b2c58f30ab4015f9b76d31be4d0ef30dba6d200995f363a67660db53197",
+          "execution_digest": "31af6d4c9ad0af7eeb1082c45e2121e35692f30362b741414e459ad989a5cbf3",
           "execution_reference": "docker.io/hashicorp/terraform@sha256:8207a3cae11633e1182b94698adf46fdaf55a848e3d0ff151139729773568494",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -835,7 +835,7 @@
           "image_index_digest": "sha256:7ae513256f7ce67879e218ae8593d6fbe216ec9e123abe6c94e4e10704857963",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/terraform-amd64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/terraform-amd64.stdout",
@@ -850,12 +850,12 @@
             "version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 361433541,
+          "duration_ns": 897147750,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "4188290466e1ccb4ec7ad4471a251dc62fabd0957fb5aadf5ff0da6c73649a69",
+          "execution_digest": "4feb785d229300b3ad486ff5b7143e39994235454b50129d8f4853651a588e7e",
           "execution_reference": "docker.io/hashicorp/terraform@sha256:728102b238128667d3f13c43d746978c2c48b025d2fccf404bc71d819dc26fd7",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -863,7 +863,7 @@
           "image_index_digest": "sha256:7ae513256f7ce67879e218ae8593d6fbe216ec9e123abe6c94e4e10704857963",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/terraform-arm64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/terraform-arm64.stdout",
@@ -1020,12 +1020,12 @@
             "--version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 950663583,
+          "duration_ns": 1002158417,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "2b15de01ff94ad3a8b10d18d7dc2851e8231a0f4787876d0aa1e18847e7e98fb",
+          "execution_digest": "78d1a0a119cc2648e278b767cb5418dca4f8b6814f398151197f720b46af0358",
           "execution_reference": "ghcr.io/terraform-linters/tflint@sha256:85c63179e53e69f48fb5d1e22fb6c2b4941049c7f906f30625defa6ffcc3f834",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -1033,7 +1033,7 @@
           "image_index_digest": "sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/tflint-amd64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/tflint-amd64.stdout",
@@ -1048,12 +1048,12 @@
             "--version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 390030625,
+          "duration_ns": 766800000,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "4979420ef961932a1a5b9a5ece4116a6eac88e9d5a7ae495fb2573bdfaf9a8c6",
+          "execution_digest": "48ab4414d654bd18c1b1d4c04c0c7e11c5f1efa43de6f60fdba828ba741aea2d",
           "execution_reference": "ghcr.io/terraform-linters/tflint@sha256:80b051005568a11339948abc9f06f4919f2aa3b4ef451b0d69bb43bb01be878c",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -1061,7 +1061,7 @@
           "image_index_digest": "sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/tflint-arm64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/tflint-arm64.stdout",
@@ -1177,17 +1177,20 @@
             "linux/amd64": {
               "architecture": "linux/amd64",
               "argv": [
-                "config",
-                "--format",
-                "json",
-                "--skip-check-update",
-                "."
+                "/bin/sh",
+                "-c",
+                "set -eu\n/usr/local/bin/trivy config --format json --skip-check-update . >/tmp/report.json 2>/tmp/trivy.log\nsed -E 's/\"ReportID\": \"[^\"]*\"/\"ReportID\": \"00000000-0000-0000-0000-000000000000\"/;s/\"CreatedAt\": \"[^\"]*\"/\"CreatedAt\": \"1970-01-01T00:00:00Z\"/' /tmp/report.json\nsed -E 's/^[^[:space:]]+[[:space:]]+//' /tmp/trivy.log >&2\n"
               ],
               "cache_identity": "trivy-checks-cache-v1:sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+              "canonical_output_sha256": "011764692304749941ac6578e3cbe9479446c898671475a704e41401bf20dbe0",
               "checks_manifest_digest": "sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
-              "contract": "trivy-external-checks-offline-smoke-v2",
-              "duration_ns": 4350858125,
-              "execution_digest": "b442340fb2ce37c0c5b787f0de2d252e0f66a42be86a3a9aec2eeff8f1727f35",
+              "contract": "trivy-external-checks-offline-smoke-v3",
+              "duration_ns": 3245791750,
+              "environment_allowlist": [
+                "TRIVY_CACHE_DIR=/cache"
+              ],
+              "execution_digest": "265f777a69f70c43522b825ca15f14ca187ea1269e0bef61d380c6c650604d1c",
+              "execution_reference": "docker.io/aquasec/trivy@sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
               "exit_code": 0,
               "fallback_used": false,
               "filesystem_mode": "read-only-root,read-only-cache,read-only-input",
@@ -1197,26 +1200,29 @@
               "network_mode": "none",
               "output_cache_path": "runtime-v2/trivy-offline-amd64.json",
               "output_schema_result": "PASS_SCHEMA_VERSION_2",
-              "output_sha256": "211d5934ffa56699382723840138e043b04ed59f39ac159b937d794443c2e54e",
-              "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+              "output_sha256": "aaef90dbaaf7f7e18d78e8d6b8e09c913b04728b7a5b54b068f4d6281c39801e",
+              "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
               "skip_check_update": true,
               "stderr_cache_path": "runtime-v2/trivy-offline-amd64.stderr",
-              "stderr_sha256": "404bc211810ac79a868a1e18f9ac5bd416b4b6536ce20630c52117ad446fd4c5"
+              "stderr_sha256": "1083b6d76634974f9dbcc8a5b0a0f7f684ceef33549fdf0fcf8052527a487029"
             },
             "linux/arm64": {
               "architecture": "linux/arm64",
               "argv": [
-                "config",
-                "--format",
-                "json",
-                "--skip-check-update",
-                "."
+                "/bin/sh",
+                "-c",
+                "set -eu\n/usr/local/bin/trivy config --format json --skip-check-update . >/tmp/report.json 2>/tmp/trivy.log\nsed -E 's/\"ReportID\": \"[^\"]*\"/\"ReportID\": \"00000000-0000-0000-0000-000000000000\"/;s/\"CreatedAt\": \"[^\"]*\"/\"CreatedAt\": \"1970-01-01T00:00:00Z\"/' /tmp/report.json\nsed -E 's/^[^[:space:]]+[[:space:]]+//' /tmp/trivy.log >&2\n"
               ],
               "cache_identity": "trivy-checks-cache-v1:sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+              "canonical_output_sha256": "011764692304749941ac6578e3cbe9479446c898671475a704e41401bf20dbe0",
               "checks_manifest_digest": "sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
-              "contract": "trivy-external-checks-offline-smoke-v2",
-              "duration_ns": 1422333666,
-              "execution_digest": "64b7f47bf2b8f0f446c6eb0f4a7179023c3da1714da6d85779c0db676bd5d808",
+              "contract": "trivy-external-checks-offline-smoke-v3",
+              "duration_ns": 1541805917,
+              "environment_allowlist": [
+                "TRIVY_CACHE_DIR=/cache"
+              ],
+              "execution_digest": "f0438d686c8f5ea316d25d84f2ceba4b0695f16fd8db36949065e5afd3fb1151",
+              "execution_reference": "docker.io/aquasec/trivy@sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8",
               "exit_code": 0,
               "fallback_used": false,
               "filesystem_mode": "read-only-root,read-only-cache,read-only-input",
@@ -1226,11 +1232,11 @@
               "network_mode": "none",
               "output_cache_path": "runtime-v2/trivy-offline-arm64.json",
               "output_schema_result": "PASS_SCHEMA_VERSION_2",
-              "output_sha256": "82a47fb37d81d677b4b3eb57b1601b023099e3b84d42d61d3cd96303381b124d",
-              "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+              "output_sha256": "aaef90dbaaf7f7e18d78e8d6b8e09c913b04728b7a5b54b068f4d6281c39801e",
+              "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
               "skip_check_update": true,
               "stderr_cache_path": "runtime-v2/trivy-offline-arm64.stderr",
-              "stderr_sha256": "f4022f5ee6cebdb2dd190a07e23db175aa554411a63b11707a81b2d3a83ff7d2"
+              "stderr_sha256": "1083b6d76634974f9dbcc8a5b0a0f7f684ceef33549fdf0fcf8052527a487029"
             }
           },
           "status": "RUNTIME_PASS",
@@ -1307,12 +1313,12 @@
             "--version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 1089500083,
+          "duration_ns": 1471361667,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "e35147ddfbfca6ca09fb77c46721f0e0fd1845cb813ad8fb518645a744210466",
+          "execution_digest": "fc9afcc6cdac0e47e60b1e5685fef75b10ba019d059dd021837476a36daca3e1",
           "execution_reference": "docker.io/aquasec/trivy@sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -1320,7 +1326,7 @@
           "image_index_digest": "sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/trivy-amd64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/trivy-amd64.stdout",
@@ -1335,12 +1341,12 @@
             "--version"
           ],
           "contract": "phase-e-runtime-smoke-v2",
-          "duration_ns": 381137167,
+          "duration_ns": 412035000,
           "environment_allowlist": [
             "HOME=/tmp",
             "TMPDIR=/tmp"
           ],
-          "execution_digest": "4549fbfe898c5f7fa596d26e33ef59edf119ceedd950c346b08f9d9121fbe740",
+          "execution_digest": "c292544feba897de33e8804aaefe62573512965611f529bfa188ed690d72f6f2",
           "execution_reference": "docker.io/aquasec/trivy@sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8",
           "exit_code": 0,
           "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
@@ -1348,7 +1354,7 @@
           "image_index_digest": "sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
           "network_mode": "none",
           "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
-          "runner_build_identity": "7c5319a7a5065d924dbb997fc66be8314b8d7087a3415c93c7c25d8b423c5e1d",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
           "stderr_cache_path": "runtime-v2/trivy-arm64.stderr",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "stdout_cache_path": "runtime-v2/trivy-arm64.stdout",

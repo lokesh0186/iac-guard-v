@@ -68,7 +68,7 @@ def render(payload: dict[str, Any]) -> str:
 
 ## Scope and decision
 
-E0.2 separates structural, source, and runtime verification and performs only
+E0.3 separates structural, source, and runtime verification and performs only
 lock-verification smoke tests.
 It does not implement a scanner adapter, validator integration, production
 container, composite Action, or control catalog. The canonical graph is
@@ -192,12 +192,17 @@ PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
 PHASE_E_LOCK_RUNTIME: PASS (both architectures and Trivy offline checks)
 ```
 
-Source mode consumes real cached bytes and verifies the signed complete cache
-manifest before interpreting individual records. It verifies tag relations, archives,
+Source mode consumes real cached bytes and verifies the signed complete lstat-based
+cache inventory before interpreting individual records. Symlinks and non-regular
+entries are forbidden, and the inventory is checked before and after every runtime
+process. It verifies tag relations, archives,
 checksum/signature evidence, OCI indexes and architecture children, licence and
 fixture bytes, both schema trees, and the Trivy external checks layer/cache.
 Runtime mode re-executes both platform version smokes and both Trivy offline
-checks. Structural validation alone is never called source or runtime proof.
+checks. Trivy's normalized canonical output plus raw stdout/stderr are compared to
+the lock, and the current cache and diagnostic evidence proves the external checks
+manifest with fallback disabled. Structural validation alone is never called source
+or runtime proof.
 
 NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 

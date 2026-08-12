@@ -2,20 +2,20 @@
 
 ## Scope and decision
 
-E0.2 separates structural, source, and runtime verification and performs only
+E0.3 separates structural, source, and runtime verification and performs only
 lock-verification smoke tests.
 It does not implement a scanner adapter, validator integration, production
 container, composite Action, or control catalog. The canonical graph is
 `tools/locks/phase-e-locks.json`; this document is generated from that graph by
 `tools/render_phase_e_lock_review.py`.
 
-Lock contract: `phase-e-verified-tool-locks-v3`
+Lock contract: `phase-e-verified-tool-locks-v4`
 
-Canonical lock seal: `5af2bbc8728ab8ff89ab8c659072de077453898c5bbd454449bfef404f7bd72b`
+Canonical lock seal: `6a945cd22b117283825bd12724dc29b7dcc406bf014b61af41c6cd2efae4e0a6`
 
-Artifact-cache contract: `phase-e-protected-artifact-cache-v2`
+Artifact-cache contract: `phase-e-protected-artifact-cache-v3`
 
-Protected-cache manifest root: `f80f8e1385106239d6794603c46f3724eb25c0c8c22f3c99b71effd90185b956`
+Protected-cache manifest root: `cb53a2f9ac0e2648418e72e37fffa1aa972315f14545c814542809410c115e74`
 
 The lock itself records requirements, not self-authored PASS claims:
 
@@ -118,18 +118,18 @@ architectures with the exact external checks cache and `fallback_used=false`.
 
 | Component | Architecture | Execution digest | Scope |
 | --- | --- | --- | --- |
-| kics | linux/amd64 | `01e634c00e42e99c7631200799b698c7ea5dd2cd6027785c4253b3e0dbcb53b7` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| kics | linux/arm64 | `62d7f2d34b7910dcbf32ed4aa2db5234ec633c6b53cf9177c5cc4509fe588033` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| kubeconform | linux/amd64 | `a9a6db4105e0d738fade510302b5f387dd6454da5e9d56bd744bbb06bef2647e` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| kubeconform | linux/arm64 | `c7e9d9352ef08b25776bd5bb64f17330e571e9d05dcfaaeb0636fa200c4c04c5` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| opentofu | linux/amd64 | `35b436a22aae20f41cac1c5d17044e29694158f81b7f14527c7fd9b17d64709c` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| opentofu | linux/arm64 | `4db3884180530ff9f10ec62468159bd646df2cb49ff6fb9557b1625a30218e65` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| terraform | linux/amd64 | `81428b2c58f30ab4015f9b76d31be4d0ef30dba6d200995f363a67660db53197` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| terraform | linux/arm64 | `4188290466e1ccb4ec7ad4471a251dc62fabd0957fb5aadf5ff0da6c73649a69` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| tflint | linux/amd64 | `2b15de01ff94ad3a8b10d18d7dc2851e8231a0f4787876d0aa1e18847e7e98fb` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| tflint | linux/arm64 | `4979420ef961932a1a5b9a5ece4116a6eac88e9d5a7ae495fb2573bdfaf9a8c6` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| trivy | linux/amd64 | `e35147ddfbfca6ca09fb77c46721f0e0fd1845cb813ad8fb518645a744210466` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
-| trivy | linux/arm64 | `4549fbfe898c5f7fa596d26e33ef59edf119ceedd950c346b08f9d9121fbe740` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| kics | linux/amd64 | `27a7b8451ba3ac20848fb0b9aca5fbd6d8dfed1e9483b3281597d6883aa48977` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| kics | linux/arm64 | `501c6f5572c843122b6e3e21b2600f34b10ff84a0211d0fa77c57fd3f9770f4c` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| kubeconform | linux/amd64 | `37b6004afc56f14df9a040af574600f5d59941c3cc871cfd63e3eebb69d74fc0` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| kubeconform | linux/arm64 | `745a80fa788c7499aa4bd9fe43767d027b4efc41458cb8462885daca566a2434` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| opentofu | linux/amd64 | `e3ac9a97b3cf7e3cac1cc7866311d6cc5127a92c1a0546085502bcec7f44fad7` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| opentofu | linux/arm64 | `87bd0c299ddf4a0164f3d6b966ad264abe385b2dbf31ce330a955848cc3650e0` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| terraform | linux/amd64 | `31af6d4c9ad0af7eeb1082c45e2121e35692f30362b741414e459ad989a5cbf3` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| terraform | linux/arm64 | `4feb785d229300b3ad486ff5b7143e39994235454b50129d8f4853651a588e7e` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| tflint | linux/amd64 | `78d1a0a119cc2648e278b767cb5418dca4f8b6814f398151197f720b46af0358` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| tflint | linux/arm64 | `48ab4414d654bd18c1b1d4c04c0c7e11c5f1efa43de6f60fdba828ba741aea2d` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| trivy | linux/amd64 | `fc9afcc6cdac0e47e60b1e5685fef75b10ba019d059dd021837476a36daca3e1` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| trivy | linux/arm64 | `c292544feba897de33e8804aaefe62573512965611f529bfa188ed690d72f6f2` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
 
 ## Validation commands
 
@@ -152,12 +152,17 @@ PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
 PHASE_E_LOCK_RUNTIME: PASS (both architectures and Trivy offline checks)
 ```
 
-Source mode consumes real cached bytes and verifies the signed complete cache
-manifest before interpreting individual records. It verifies tag relations, archives,
+Source mode consumes real cached bytes and verifies the signed complete lstat-based
+cache inventory before interpreting individual records. Symlinks and non-regular
+entries are forbidden, and the inventory is checked before and after every runtime
+process. It verifies tag relations, archives,
 checksum/signature evidence, OCI indexes and architecture children, licence and
 fixture bytes, both schema trees, and the Trivy external checks layer/cache.
 Runtime mode re-executes both platform version smokes and both Trivy offline
-checks. Structural validation alone is never called source or runtime proof.
+checks. Trivy's normalized canonical output plus raw stdout/stderr are compared to
+the lock, and the current cache and diagnostic evidence proves the external checks
+manifest with fallback disabled. Structural validation alone is never called source
+or runtime proof.
 
 NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 

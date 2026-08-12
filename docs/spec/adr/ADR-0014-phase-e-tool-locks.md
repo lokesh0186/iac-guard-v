@@ -1,5 +1,22 @@
 # ADR-0014: Phase-E tool locks are immutable execution identities
 
+## E0.3 physical-cache and current-runtime amendment
+
+The protected cache is one signed complete lstat inventory. It records real
+directories and regular files, forbids symlinks and all special entries, hashes files
+through no-follow descriptors, and rejects every unlisted path. Source verification
+revalidates that inventory before runtime; runtime verification revalidates it before
+and after every network-disabled process.
+
+Current Trivy verification is byte-bound, not inferred from a lock-authored Boolean.
+The exact network, mount, environment, architecture, image, external manifest, policy
+layer, cache, and fallback contract are retained. Trivy report IDs and timestamps are
+normalized by a versioned script inside the locked image; normalized stdout, normalized
+stderr, canonical JSON, exit code, and external-check diagnostics must reproduce the
+lock. A different schema-valid output is a runtime failure. Version-only smoke records
+remain explicitly non-authoritative for future adapters. The kubeconform schema bundle
+continues to carry `NOASSERTION`; redistribution remains blocked.
+
 ## Status
 
 Accepted for E0.2 dependency-lock verification. Scanner, validator, production

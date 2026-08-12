@@ -9,8 +9,10 @@ import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -50,6 +52,15 @@ RUNTIME_ARGV = {
     "trivy": ["--version"],
 }
 RUNTIME_RECORD_CONTRACT = "phase-e-runtime-smoke-v2"
+CACHE_MANIFEST_CONTRACT = "phase-e-cache-manifest-v2"
+CACHE_ATTESTATION_CONTRACT = "phase-e-protected-cache-attestation-v2"
+ARTIFACT_CACHE_CONTRACT = "phase-e-protected-artifact-cache-v3"
+TRIVY_RUNTIME_CONTRACT = "trivy-external-checks-offline-smoke-v3"
+TRIVY_NORMALIZED_SCRIPT = """set -eu
+/usr/local/bin/trivy config --format json --skip-check-update . >/tmp/report.json 2>/tmp/trivy.log
+sed -E 's/\"ReportID\": \"[^\"]*\"/\"ReportID\": \"00000000-0000-0000-0000-000000000000\"/;s/\"CreatedAt\": \"[^\"]*\"/\"CreatedAt\": \"1970-01-01T00:00:00Z\"/' /tmp/report.json
+sed -E 's/^[^[:space:]]+[[:space:]]+//' /tmp/trivy.log >&2
+"""
 
 
 class LockValidationError(ValueError):
@@ -249,7 +260,7 @@ def validate_lock(payload: Any) -> None:
     """Raise unless *payload* is the complete sealed E0.1 lock graph."""
 
     _require(isinstance(payload, dict), "lock must be an object")
-    _require(payload.get("lock_contract") == "phase-e-verified-tool-locks-v3",
+    _require(payload.get("lock_contract") == "phase-e-verified-tool-locks-v4",
              "unexpected lock contract")
     _require(payload.get("architectures") == list(ARCHITECTURES),
              "architecture order or set differs from the reviewed matrix")
@@ -257,8 +268,7 @@ def validate_lock(payload: Any) -> None:
     _digest(seal, "lock_payload_sha256")
     _require(seal == lock_payload_sha256(payload),
              "lock_payload_sha256 does not seal the canonical lock graph")
-    _require(payload.get("artifact_cache_contract") ==
-             "phase-e-protected-artifact-cache-v2",
+    _require(payload.get("artifact_cache_contract") == ARTIFACT_CACHE_CONTRACT,
              "artifact cache contract is missing")
     claims = payload.get("verification_claims")
     _require(isinstance(claims, dict) and set(claims) == {
@@ -279,8 +289,7 @@ def validate_lock(payload: Any) -> None:
         "signature_sha256", "public_key_path", "public_key_sha256",
         "signature_method", "signer_identity",
     }, "protected cache attestation is incomplete")
-    _require(cache_attestation["contract"] ==
-             "phase-e-protected-cache-attestation-v1" and
+    _require(cache_attestation["contract"] == CACHE_ATTESTATION_CONTRACT and
              cache_attestation["signature_method"] == "ED25519_OPENSSL",
              "protected cache attestation contract is invalid")
     for name in (
@@ -455,7 +464,13 @@ def validate_lock(payload: Any) -> None:
              set(runtime_records) == set(ARCHITECTURES),
              "Trivy offline verification must cover both architectures")
     for architecture, record in runtime_records.items():
-        _require(isinstance(record, dict) and record.get("architecture") == architecture and
+        _require(isinstance(record, dict) and
+                 record.get("contract") == TRIVY_RUNTIME_CONTRACT and
+                 record.get("architecture") == architecture and
+                 record.get("execution_reference") ==
+                 tools["trivy"]["container"]["execution_references"][architecture] and
+                 record.get("argv") == ["/bin/sh", "-c", TRIVY_NORMALIZED_SCRIPT] and
+                 record.get("environment_allowlist") == ["TRIVY_CACHE_DIR=/cache"] and
                  record.get("checks_manifest_digest") ==
                  checks["external_manifest_digest"] and
                  record.get("layer_digest") == checks["external_layer_digest"] and
@@ -467,11 +482,16 @@ def validate_lock(payload: Any) -> None:
                  record.get("output_schema_result") == "PASS_SCHEMA_VERSION_2",
                  f"Trivy offline {architecture} record is contradictory")
         for digest_name in (
-            "output_sha256", "stderr_sha256", "execution_digest",
+            "output_sha256", "stderr_sha256", "canonical_output_sha256",
+            "execution_digest",
             "runner_build_identity",
         ):
             _digest(record.get(digest_name),
                     f"Trivy offline {architecture}.{digest_name}")
+        _require(
+            record["execution_digest"] == trivy_offline_execution_digest(record),
+            f"Trivy offline {architecture} execution digest is not canonical",
+        )
 
     base = payload.get("hardened_container_base")
     _validate_container(base, "hardened_container_base")
@@ -488,9 +508,103 @@ def _safe_cache_file(cache: Path, relative: str) -> Path:
         raise LockValidationError(f"missing artifact cache parent: {relative}") from exc
     _require(resolved_parent == resolved_cache or resolved_cache in resolved_parent.parents,
              f"artifact cache path escapes cache root: {relative}")
-    _require(candidate.exists() and candidate.is_file() and not candidate.is_symlink(),
+    try:
+        metadata = candidate.lstat()
+    except OSError as exc:
+        raise LockValidationError(f"cached artifact is missing: {relative}") from exc
+    _require(stat.S_ISREG(metadata.st_mode),
              f"cached artifact is missing or unsafe: {relative}")
     return candidate
+
+
+def _hash_regular_file(path: Path, metadata: os.stat_result) -> str:
+    """Hash one lstat-bound regular file without following a replacement symlink."""
+
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise LockValidationError(f"protected cache file is unreadable: {path}") from exc
+    digest = hashlib.sha256()
+    try:
+        opened = os.fstat(descriptor)
+        _require(
+            stat.S_ISREG(opened.st_mode)
+            and (opened.st_dev, opened.st_ino, opened.st_size)
+            == (metadata.st_dev, metadata.st_ino, metadata.st_size),
+            f"protected cache entry changed during inventory: {path}",
+        )
+        while True:
+            block = os.read(descriptor, 1024 * 1024)
+            if not block:
+                break
+            digest.update(block)
+        after = os.fstat(descriptor)
+        _require(
+            (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+            == (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns),
+            f"protected cache file changed while hashing: {path}",
+        )
+    finally:
+        os.close(descriptor)
+    return digest.hexdigest()
+
+
+def physical_cache_inventory(cache: Path) -> list[dict[str, Any]]:
+    """Return one complete no-follow cache inventory; unsafe entry types are fatal."""
+
+    root = Path(cache)
+    try:
+        root_metadata = root.lstat()
+    except OSError as exc:
+        raise LockValidationError("protected cache root is unavailable") from exc
+    _require(
+        stat.S_ISDIR(root_metadata.st_mode) and not stat.S_ISLNK(root_metadata.st_mode),
+        "protected cache root must be a real directory",
+    )
+    entries: list[dict[str, Any]] = []
+
+    def inspect(directory: Path) -> None:
+        try:
+            children = sorted(os.scandir(directory), key=lambda item: item.name)
+        except OSError as exc:
+            raise LockValidationError(
+                f"protected cache directory is unreadable: {directory}"
+            ) from exc
+        for child in children:
+            path = Path(child.path)
+            relative = path.relative_to(root).as_posix()
+            try:
+                metadata = child.stat(follow_symlinks=False)
+            except OSError as exc:
+                raise LockValidationError(
+                    f"protected cache entry is unreadable: {relative}"
+                ) from exc
+            if stat.S_ISLNK(metadata.st_mode):
+                raise LockValidationError(
+                    f"protected cache contains forbidden symlink: {relative}"
+                )
+            if stat.S_ISDIR(metadata.st_mode):
+                entries.append({
+                    "path": relative, "kind": "DIRECTORY",
+                    "size": None, "sha256": None,
+                })
+                inspect(path)
+            elif stat.S_ISREG(metadata.st_mode):
+                entries.append({
+                    "path": relative, "kind": "REGULAR_FILE",
+                    "size": metadata.st_size,
+                    "sha256": _hash_regular_file(path, metadata),
+                })
+            else:
+                raise LockValidationError(
+                    f"protected cache contains forbidden non-regular entry: {relative}"
+                )
+
+    inspect(root)
+    return entries
 
 
 def _verify_file(cache: Path, relative: str, expected: str, field: str) -> Path:
@@ -610,26 +724,17 @@ def _verify_cache_attestation(payload: dict[str, Any], cache: Path) -> None:
         _require(hashlib.sha256(path.read_bytes()).hexdigest() == record[field],
                  f"protected cache {field} differs from repository evidence")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    _require(manifest.get("contract") == "phase-e-cache-manifest-v1" and
-             isinstance(manifest.get("files"), list),
+    _require(manifest.get("contract") == CACHE_MANIFEST_CONTRACT and
+             isinstance(manifest.get("entries"), list),
              "protected cache manifest is malformed")
-    _require(_canonical_sha256(manifest["files"]) == record["manifest_root"],
+    _require(_canonical_sha256(manifest["entries"]) == record["manifest_root"],
              "protected cache manifest root is not canonical")
-    expected = {item["path"]: item for item in manifest["files"]}
-    _require(len(expected) == len(manifest["files"]),
+    expected = {item["path"]: item for item in manifest["entries"]}
+    _require(len(expected) == len(manifest["entries"]),
              "protected cache manifest contains duplicate paths")
-    actual_paths = {
-        path.relative_to(cache).as_posix(): path
-        for path in cache.rglob("*")
-        if path.is_file() and not path.is_symlink()
-    }
-    _require(set(actual_paths) == set(expected),
-             "protected cache path inventory differs from signed manifest")
-    for relative, path in actual_paths.items():
-        item = expected[relative]
-        _require(path.stat().st_size == item["size"] and
-                 hashlib.sha256(path.read_bytes()).hexdigest() == item["sha256"],
-                 f"protected cache file differs from manifest: {relative}")
+    actual_entries = physical_cache_inventory(cache)
+    _require(actual_entries == manifest["entries"],
+             "protected cache physical inventory differs from signed manifest")
     attestation = json.loads(attestation_path.read_text(encoding="utf-8"))
     _require(attestation["manifest_root"] == record["manifest_root"] and
              attestation["manifest_sha256"] == record["manifest_sha256"] and
@@ -843,6 +948,42 @@ def trivy_offline_execution_digest(record: dict[str, Any]) -> str:
     return _canonical_sha256(unsigned)
 
 
+def _current_runtime_record(
+    locked: dict[str, Any], result: Any, duration_ns: int, *, trivy: bool,
+) -> dict[str, Any]:
+    """Bind the current process bytes and duration to one canonical observation."""
+
+    observed = copy.deepcopy(locked)
+    observed["duration_ns"] = duration_ns
+    stdout_name = "output_sha256" if trivy else "stdout_sha256"
+    observed[stdout_name] = hashlib.sha256(result.stdout).hexdigest()
+    observed["stderr_sha256"] = hashlib.sha256(result.stderr).hexdigest()
+    if trivy:
+        try:
+            decoded = json.loads(result.stdout)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise LockValidationError("current Trivy output is not strict JSON") from exc
+        observed["canonical_output_sha256"] = _canonical_sha256(decoded)
+        observed["execution_digest"] = trivy_offline_execution_digest(observed)
+    else:
+        observed["version_output"] = result.stdout.decode("utf-8").strip()
+        observed["execution_digest"] = runtime_execution_digest(observed)
+    return observed
+
+
+def _require_current_runtime_matches(
+    locked: dict[str, Any], observed: dict[str, Any], field: str,
+) -> None:
+    """Reject a different current execution; duration/digest identify the new run."""
+
+    ignored = {"duration_ns", "execution_digest"}
+    _require(
+        {name: value for name, value in observed.items() if name not in ignored}
+        == {name: value for name, value in locked.items() if name not in ignored},
+        f"{field} current stdout/stderr or execution contract differs from the lock",
+    )
+
+
 def _docker_version() -> str:
     result = subprocess.run(
         ["docker", "version", "--format", "{{.Server.Version}}"],
@@ -853,13 +994,17 @@ def _docker_version() -> str:
     return result.stdout.strip()
 
 
-def verify_runtime(payload: dict[str, Any], artifact_cache: Path) -> None:
+def verify_runtime(
+    payload: dict[str, Any], artifact_cache: Path,
+) -> dict[str, dict[str, Any]]:
     """Re-execute both-architecture version smokes and Trivy offline checks."""
 
     validate_lock(payload)
     cache = artifact_cache.resolve(strict=True)
     _docker_version()
     runner_identity = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    _verify_cache_attestation(payload, cache)
+    observations: dict[str, dict[str, Any]] = {}
     for tool_name in sorted(EXPECTED_TOOLS):
         tool = payload["tools"][tool_name]
         for architecture in ARCHITECTURES:
@@ -874,16 +1019,20 @@ def verify_runtime(payload: dict[str, Any], artifact_cache: Path) -> None:
                 "/tmp:rw,noexec,nosuid,size=64m", "-e", "HOME=/tmp", "-e",
                 "TMPDIR=/tmp", record["execution_reference"], *record["argv"],
             ]
+            started = time.monotonic_ns()
             result = subprocess.run(command, check=False, capture_output=True)
-            _require(result.returncode == record["exit_code"] == 0 and
-                     hashlib.sha256(result.stdout).hexdigest() ==
-                     record["stdout_sha256"] and
-                     hashlib.sha256(result.stderr).hexdigest() ==
-                     record["stderr_sha256"] and
-                     result.stdout.decode("utf-8").strip() == record["version_output"],
-                     f"{tool_name} {architecture} runtime smoke is not reproducible")
+            duration = time.monotonic_ns() - started
+            observed = _current_runtime_record(record, result, duration, trivy=False)
+            _require(result.returncode == record["exit_code"] == 0,
+                     f"{tool_name} {architecture} runtime smoke failed")
+            _require_current_runtime_matches(
+                record, observed, f"{tool_name} {architecture} runtime smoke"
+            )
+            observations[f"{tool_name}:{architecture}"] = observed
+            _verify_cache_attestation(payload, cache)
 
     checks = payload["tools"]["trivy"]["checks"]
+    _verify_cache_attestation(payload, cache)
     for architecture in ARCHITECTURES:
         record = checks["offline_verification"]["runtime_records"][architecture]
         _require(record["runner_build_identity"] == runner_identity and
@@ -901,10 +1050,16 @@ def verify_runtime(payload: dict[str, Any], artifact_cache: Path) -> None:
             "-e", "TRIVY_CACHE_DIR=/cache",
             "-v", f"{cache / 'runtime-v2/trivy-cache'}:/cache:ro",
             "-v", f"{cache / 'runtime-v2/trivy-input'}:/work:ro",
-            "-w", "/work", reference, "config", "--format", "json",
-            "--skip-check-update", ".",
+            "-w", "/work", "--entrypoint", "/bin/sh", reference,
+            "-c", TRIVY_NORMALIZED_SCRIPT,
         ]
+        started = time.monotonic_ns()
         result = subprocess.run(command, check=False, capture_output=True)
+        duration = time.monotonic_ns() - started
+        observed = _current_runtime_record(record, result, duration, trivy=True)
+        _require_current_runtime_matches(
+            record, observed, f"Trivy {architecture} offline runtime"
+        )
         try:
             output = json.loads(result.stdout)
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -917,8 +1072,14 @@ def verify_runtime(payload: dict[str, Any], artifact_cache: Path) -> None:
                  payload["tools"]["trivy"]["version"] and
                  "loading from existing cache" in stderr and
                  "Downloading the checks bundle" not in stderr and
-                 record["fallback_used"] is False,
+                 record["checks_manifest_digest"] == checks["external_manifest_digest"] and
+                 record["layer_digest"] == checks["external_layer_digest"] and
+                 record["cache_identity"] == checks["cache_identity"] and
+                 record["fallback_used"] is False and record["skip_check_update"] is True,
                  f"Trivy {architecture} did not use the exact offline external bundle")
+        observations[f"trivy-offline:{architecture}"] = observed
+        _verify_cache_attestation(payload, cache)
+    return observations
 
 
 def main() -> int:

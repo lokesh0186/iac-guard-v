@@ -1,5 +1,49 @@
 # Validation Log
 
+## 2026-08-12 — E0.3 physical cache and current Trivy execution evidence
+
+Failing-before probes against `5b29d702` produced these literal values:
+
+```text
+OLD_UNLISTED_SYMLINK: ACCEPTED
+OLD_TRIVY_DIFFERENT_OUTPUT: ACCEPTED
+```
+
+The first probe added `unlisted-symlink -> /etc/hosts` beside an otherwise signed cache
+inventory. The old source attestation ignored it. The second supplied a current,
+schema-valid Trivy 0.73.0 JSON result with different stdout/stderr; the old runtime
+check accepted the version, schema, and log phrase without comparing current bytes.
+
+E0.3 replaces that behavior with cache manifest contract
+`phase-e-cache-manifest-v2`: 3,500 entries, including 3,381 regular files and 119 real
+directories, are lstat-bound and signed. Symlinks, FIFOs, sockets, devices, other entry
+types, path escapes, and unlisted paths are rejected before runtime. The complete
+manifest is revalidated before runtime and after every process.
+
+Both digest-pinned Trivy platform children were re-executed with network mode `none`,
+read-only root/cache/input mounts, update disabled, and the exact external checks
+manifest `sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45`.
+The versioned normalizer removes only generated `ReportID` and `CreatedAt` values.
+Both platforms produced normalized output SHA-256
+`aaef90dbaaf7f7e18d78e8d6b8e09c913b04728b7a5b54b068f4d6281c39801e`,
+stderr SHA-256
+`1083b6d76634974f9dbcc8a5b0a0f7f684ceef33549fdf0fcf8052527a487029`, and
+canonical JSON SHA-256
+`011764692304749941ac6578e3cbe9479446c898671475a704e41401bf20dbe0`.
+`fallback_used=false` is re-derived from current cache metadata, bound manifest/layer
+identities, update-disabled invocation, network isolation, and current diagnostics.
+
+```text
+36 passed (E0/E0.2/E0.3 lock tests)
+1493 passed (complete non-integration suite)
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
+PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
+PHASE_E_LOCK_RUNTIME: PASS (both architectures and Trivy offline checks)
+```
+
+No scanner adapter, validator integration, container build, benchmark inference, or
+model-provider call was performed.
+
 ## 2026-08-12 — E0.2 reproducible source and runtime lock attestation
 
 E0.2 separates three claims that the preceding lock conflated. The static lock
