@@ -107,3 +107,11 @@ E0.3 canonical lock seal. Version, release commit, archive and OCI index/platfor
 digests, fixture digest, invocation contract, bundled policy identity, and the selected
 digest-qualified execution reference are bound separately. The adapter cannot accept a
 caller-authored replacement lock object.
+
+## Amendment, 2026-08-12: E2 split binary/policy execution identity
+
+The Trivy adapter reconstructs the exact E0.3 lock and separately records the selected
+image child/index, external checks manifest/layer/cache, current cache bytes, invocation,
+and native output. A binary-only change and checks-only change are distinguishable.
+Embedded fallback changes the checks source and is non-PASS. Network-disabled execution
+and `--skip-check-update` prevent the runtime from silently selecting a moving bundle.

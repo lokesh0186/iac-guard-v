@@ -103,3 +103,11 @@ KICS v2.1.20 now translates its official summary/query/file JSON into scanner-ne
 `ScannerRun`, `Finding`, evaluation, and coverage evidence. It preserves native
 `similarity_id` and fails closed on all three native completeness counters. This is an
 adapter boundary only: no cross-scanner agreement or policy consequence was added.
+
+## Amendment, 2026-08-12: E2 Trivy adapter
+
+Trivy v0.73.0 plus the external checks v2.2.0 lock now translates strict native JSON
+into scanner-neutral findings, PASS/FAIL evaluations, and file/resource coverage.
+Binary and checks drift remain independent. Global positive aggregates cannot prove a
+sealed file/resource was evaluated. This remains an evidence adapter only; no
+multi-scanner agreement or policy consequence was added.

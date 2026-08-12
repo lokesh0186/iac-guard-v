@@ -1,5 +1,29 @@
 # Validation Log
 
+## 2026-08-12 — E2 externally locked Trivy adapter
+
+Failing-before E2 evidence was literal absence: no `adapters/trivy.py`, no Trivy adapter
+suite, and the support matrix said `adapter unsupported`. Passing-after evidence:
+
+```text
+Trivy unit tests: 53 passed
+Trivy exact locked offline integrations: 2 passed
+Trivy branch coverage: 91.75%
+locked image (local linux/arm64): docker.io/aquasec/trivy@sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8
+external checks manifest: sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45
+network mode: none
+updates: disabled
+finding result: PASS with exact file/resource coverage
+finding-free global-only result: PARTIAL / COVERAGE_MISMATCH
+embedded fallback: INCONCLUSIVE / EMBEDDED_CHECKS_FALLBACK
+cache mutation: ERROR / CACHE_CHANGED_DURING_EXECUTION
+```
+
+Malformed and duplicate-key output, missing native records, unknown categories,
+timeouts, partial coverage, binary-only drift, and checks-only drift are permanent
+mutation probes. The adapter emits typed evidence only; it does not alter final policy
+or implement multi-scanner consensus. No benchmark inference or provider call occurred.
+
 ## 2026-08-12 — E1 locked KICS adapter
 
 The prerequisite checkpoint ran from pristine clone `7caa1ce2`. D7.5 security probes

@@ -442,3 +442,13 @@ exact E0.3 digest lock. Native `similarity_id` is retained. Nonzero failed-file,
 query-execution, or similarity-ID-computation counts, incomplete file/resource
 coverage, version or environment drift, and unknown/malformed output cannot become
 `PASS`. E1 does not change final policy or implement multi-scanner consensus.
+
+## E2 Trivy adapter acceptance
+
+Trivy v0.73.0 is supported as typed evidence only through the exact E0.3 image and
+external checks v2.2.0 identities. The current cache, checks manifest/layer, invocation,
+network/update state, stdout/stderr, and canonical native output are independently
+bound. Embedded fallback, cache mutation, binary/check drift, malformed/duplicate JSON,
+unknown categories, and incomplete file/resource coverage cannot become `PASS`.
+Per-file native PASS records can establish positive evidence; global aggregate PASS
+counts cannot. E2 has no policy or consensus consequence.

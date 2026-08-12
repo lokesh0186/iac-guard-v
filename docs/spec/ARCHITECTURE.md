@@ -742,3 +742,17 @@ private byte-bound input view, executes v2.1.20 with no network and a read-only 
 strictly parses the native JSON, retains `similarity_id`, and reconciles native file and
 resource coverage with the independent inventory. KICS does not yet participate in
 multi-scanner consensus or verdict formation.
+
+## E2 externally locked Trivy evidence adapter
+
+Trivy executes only the E0.3 digest-qualified v0.73.0 platform child with the external
+v2.2.0 checks cache mounted read-only, networking disabled, updates disabled, and the
+sealed input view mounted read-only. Binary/image and external-policy identities remain
+separate. The adapter hashes the complete no-follow checks cache immediately before and
+after execution and derives fallback state from current diagnostics and cache evidence.
+
+Strict native JSON parsing retains both FAIL and `--include-non-failures` PASS records.
+Only exact per-file/resource records establish coverage; repository-global positives
+remain aggregate evidence. Missing or changed cache, embedded fallback, malformed or
+unknown output, and incomplete coverage are typed non-PASS. E2 does not alter the final
+policy verdict or implement multi-scanner consensus.

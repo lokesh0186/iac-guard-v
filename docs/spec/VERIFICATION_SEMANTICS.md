@@ -1336,3 +1336,25 @@ native categories, or version/environment drift is likewise non-PASS. The E1 rea
 extension is closed over `LOCK_IDENTITY_MISMATCH`, `DUPLICATE_JSON_KEY`,
 `KICS_FAILED_TO_SCAN`, `KICS_QUERY_EXECUTION_FAILED`,
 `KICS_SIMILARITY_ID_FAILED`, and `UNKNOWN_NATIVE_CATEGORY`.
+
+## E2 Trivy scanner evidence
+
+Trivy evidence is accepted only under `trivy-config-adapter-contract-v1`, the exact
+E0.3 v0.73.0 platform-image identity, and the independently pinned external checks
+v2.2.0 manifest/layer/cache. Source `external` with `fallback_used=false`, network
+disabled, updates disabled, and unchanged cache bytes are required for `PASS`.
+`embedded_fallback` is a distinct source and is always `INCONCLUSIVE`.
+
+`--include-non-failures` retains native FAIL and PASS evaluations. Summary counts must
+equal the corresponding record counts. Exact per-file/resource identities establish
+coverage; repository-global positive records contribute only to the aggregate count.
+An empty result without affirmative per-file coverage is `PARTIAL`, not invented
+success. Missing `Misconfigurations` with nonzero counts, duplicate keys, malformed or
+unknown shapes/categories, version drift, cache mutation, and incomplete file/resource
+coverage are closed typed reasons. E2 output remains scanner evidence and does not yet
+participate in authoritative consensus.
+
+The E2 reason extension is closed over `EXTERNAL_CHECKS_MISSING`,
+`EXTERNAL_CHECKS_CHANGED`, `EMBEDDED_CHECKS_FALLBACK`,
+`CACHE_CHANGED_DURING_EXECUTION`, and `MISSING_MISCONFIGURATIONS` in addition to the
+shared adapter reasons.

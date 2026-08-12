@@ -124,3 +124,13 @@ offline contract execution uses the exact platform digest with networking disabl
 preserves official JSON and native similarity evidence. This amendment authorizes only
 KICS typed scanner evidence; it does not authorize Trivy, validators, consensus,
 production containers, or Actions.
+
+## E2 execution amendment
+
+The reviewed E0.3 Trivy v0.73.0 platform image and external checks v2.2.0 cache are now
+consumed by a fail-closed adapter. Runtime diagnostics, current cache metadata/content,
+checks manifest/layer, fallback state, network/update state, and canonical native JSON
+are bound separately. The finding fixture is a complete PASS; a live finding-free shape
+with only repository-global positives remains `PARTIAL` because it cannot affirm file
+or resource coverage. This authorizes typed Trivy evidence only, not consensus,
+validators, production containers, or Actions.

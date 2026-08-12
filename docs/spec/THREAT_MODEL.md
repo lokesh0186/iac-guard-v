@@ -414,3 +414,15 @@ identity and mounts only the sealed input. Network access is disabled. Duplicate
 unknown result categories, malformed paths, absent similarity IDs, partial file or
 resource coverage, and each native failure counter remain typed non-PASS evidence.
 KICS evidence remains advisory until an independently reviewed consensus layer exists.
+
+### E2 Trivy-specific controls
+
+Candidate content cannot select the Trivy image, checks source, cache, or update policy.
+E2 binds the exact platform image separately from the external checks manifest, layer,
+cache identity, and current no-follow cache-content digest. The cache is mounted
+read-only and revalidated after execution; the container has no network and check
+updates are disabled. Runtime evidence must affirm the existing external cache was
+loaded. Missing/changed cache or embedded fallback is non-PASS and distinguishable from
+binary drift. Strict duplicate-key JSON handling, unknown-category uncertainty, and
+independent file/resource coverage prevent malformed or incomplete native evidence from
+becoming success. Trivy remains advisory until consensus is separately authorized.

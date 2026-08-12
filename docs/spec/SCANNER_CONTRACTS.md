@@ -243,9 +243,9 @@ identity remain findings but do not manufacture resource coverage.
 | Item | Value |
 | --- | --- |
 | Historical local probe | 0.71.1 output shape only; not the Phase-E runtime lock |
-| E0 binary lock | v0.73.0 with independent archive and OCI manifest digests |
-| Version probe | `trivy --version`; exact v0.73.0 required by the future adapter |
-| Invocation | `trivy config --format json --output <private-output-file> --offline-scan --skip-check-update <sealed-scan-view>` |
+| E2 execution lock | E0.3-authorized v0.73.0 platform image plus external checks v2.2.0 |
+| Version evidence | exact v0.73.0 in native JSON and the sealed container lock |
+| Invocation | `trivy config --format json --output <private-output-file> --skip-check-update --include-non-failures <sealed-scan-view>` inside a digest-qualified, network-disabled, read-only-root container |
 | Scanner scope | misconfiguration only; vulnerability and secret scanning are out of scope for this adapter |
 | Checks bundle | external v2.2.0 OCI manifest pinned independently; moving `:2` forbidden; embedded identity and fallback flag recorded |
 
@@ -258,9 +258,9 @@ Results[]: Class, MisconfSummary, Target, Type   (+ Misconfigurations[] when fin
 
 Two consequences captured from that run:
 
-1. `Results` may contain entries with **no** `Misconfigurations` key. Absence of the
-   key is not "no findings for the artifact"; it is "this result class carries none".
-   The adapter reconciles against `MisconfSummary`.
+1. `Results` may contain entries with **no** `Misconfigurations` key. Absence is valid
+   only when both native summary counts are zero. With `--include-non-failures`, PASS
+   and FAIL record counts must exactly match `MisconfSummary`.
 2. With `--exit-code 1`, Trivy exited 1 for a tree whose first result had zero
    misconfigurations. Exit code alone therefore identifies neither success nor finding
    count, matching the general rule in semantics §6 V5.
@@ -276,9 +276,23 @@ parse.
 ### 3.3 Offline behaviour
 
 Air-gapped operation requires the exact external v2.2.0 bundle to be present in the
-private cache before networking is disabled. A missing or unverifiable bundle is
-`PARTIAL`, never a clean pass. Switching to Trivy's embedded checks is a distinct
-execution identity and cannot occur as an invisible fallback.
+private cache before networking is disabled. The cache is no-follow hashed before and
+after execution, and runtime diagnostics must affirm loading from existing cache while
+showing no download. A missing, changed, or unverifiable bundle is non-PASS. Switching
+to embedded checks records source `embedded_fallback`, changes identity, and is
+`INCONCLUSIVE`. Repository-global PASS records do not manufacture file/resource
+coverage; a native empty run with no per-file evidence is therefore `PARTIAL`.
+
+### 3.4 E2 normalization and evidence
+
+E2 accepts only the exact E0.3 lock seal. Binary platform digest, image-index digest,
+external checks manifest/layer/cache identities, current cache-content digest,
+invocation digest, network/update state, stdout/stderr hashes, and normalized native
+JSON hash remain separate canonical fields. JSON is UTF-8, depth bounded, and
+duplicate-key rejecting. Unknown result classes, types, fields, statuses, severities,
+or unbound global failures are typed uncertainty. Eligible file and independently
+expected resource inventories are reconciled; incomplete coverage is never `PASS`.
+The adapter produces scanner evidence only and has no consensus or policy effect.
 
 ---
 
@@ -307,7 +321,7 @@ container path; the support matrix below records that honestly.
 | --- | --- | --- | --- | --- |
 | Checkov | 3.2.517 (research), 3.3.0 (product) | **PASS, D4.1** for both versions | **PASS, D4.1**: five installed 3.3.0 tests cover Terraform/Kubernetes affirmative pass, inline skip, missing-file coverage, byte replacement, and inert candidate config; 3.2.517 executable re-run remains Phase E | product 3.3.0 supported; research 3.2.517 has a frozen-shape contract fixture and offline replay, but is not claimed as a current native integration |
 | KICS | E0.3-selected v2.1.20 | strict E1 fixtures PASS | **PASS, E1**: exact digest image, network disabled, finding result and native similarity IDs | supported as typed scanner evidence; not yet authoritative in consensus |
-| Trivy | E0-selected v0.73.0 + external checks v2.2.0 | upstream fixture reviewed | not executed | binary/check locks reviewed; adapter unsupported |
+| Trivy | E0.3-selected v0.73.0 + external checks v2.2.0 | strict E2 fixtures PASS | **PASS/PARTIAL as specified, E2**: exact platform image, network disabled, external bundle observed, finding PASS and global-only empty PARTIAL | supported as typed scanner evidence; not yet authoritative in consensus |
 | terraform validate | v1.15.8, user-supplied only | upstream output fixture reviewed | not executed | never bundled; validator unsupported |
 | tofu validate | OpenTofu v1.12.5 | upstream output fixture reviewed | not executed | validator unsupported |
 | kubeconform | v0.8.0 | upstream formatter fixture reviewed | not executed | validator unsupported |

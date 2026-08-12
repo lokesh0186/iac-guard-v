@@ -25,6 +25,14 @@ from .phase_e_lock import (
     LockedContainerIdentity,
     load_locked_container_identity,
 )
+from .trivy import (
+    TRIVY_ADAPTER_CONTRACT,
+    TRIVY_CONTRACT,
+    TrivyAdapter,
+    TrivyExecutionEvidence,
+    TrivyScanRequest,
+    create_trivy_scan_request,
+)
 
 __all__ = [
     "AdapterReason",
@@ -41,10 +49,16 @@ __all__ = [
     "KicsScanRequest",
     "LockedContainerIdentity",
     "ScannerContract",
+    "TRIVY_ADAPTER_CONTRACT",
+    "TRIVY_CONTRACT",
+    "TrivyAdapter",
+    "TrivyExecutionEvidence",
+    "TrivyScanRequest",
     "checkov_distribution_identity",
     "checkov_occurrence_token",
     "evaluate_checkov_target",
     "create_kics_scan_request",
+    "create_trivy_scan_request",
     "load_locked_container_identity",
     "require_trusted_checkov_target_evidence",
 ]
