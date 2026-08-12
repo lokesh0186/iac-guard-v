@@ -29,6 +29,27 @@ STATIC_RESULTS = {
     "STATIC_REVIEW_USER_SUPPLIED_ONLY",
     "STATIC_REVIEW_OPTIONAL_NON_SECURITY",
 }
+OFFICIAL_REPOSITORIES = {
+    "kics": "https://github.com/Checkmarx/kics",
+    "trivy": "https://github.com/aquasecurity/trivy",
+    "opentofu": "https://github.com/opentofu/opentofu",
+    "terraform": "https://github.com/hashicorp/terraform",
+    "kubeconform": "https://github.com/yannh/kubeconform",
+    "tflint": "https://github.com/terraform-linters/tflint",
+}
+TRIVY_CHECKS_REPOSITORY = "https://github.com/aquasecurity/trivy-checks"
+KUBERNETES_SCHEMA_REPOSITORY = (
+    "https://github.com/yannh/kubernetes-json-schema"
+)
+RUNTIME_ARGV = {
+    "kics": ["version"],
+    "kubeconform": ["-v"],
+    "opentofu": ["version"],
+    "terraform": ["version"],
+    "tflint": ["--version"],
+    "trivy": ["--version"],
+}
+RUNTIME_RECORD_CONTRACT = "phase-e-runtime-smoke-v2"
 
 
 class LockValidationError(ValueError):
@@ -168,11 +189,67 @@ def _validate_runtime_smoke(smoke: Any, field: str) -> None:
     }, f"{field}.compatibility_status is invalid")
 
 
+def runtime_execution_digest(record: dict[str, Any]) -> str:
+    unsigned = copy.deepcopy(record)
+    unsigned.pop("execution_digest", None)
+    return _canonical_sha256(unsigned)
+
+
+def _validate_runtime_record(
+    record: Any, field: str, *, tool: str, version: str,
+    container: dict[str, Any], architecture: str,
+) -> None:
+    _require(isinstance(record, dict), f"{field} must be an object")
+    required = {
+        "contract", "tool", "version", "image_index_digest",
+        "image_architecture_digest", "execution_reference", "architecture",
+        "argv", "environment_allowlist", "network_mode", "filesystem_mode",
+        "exit_code", "stdout_sha256", "stderr_sha256", "version_output",
+        "output_schema_result", "duration_ns", "runner_build_identity",
+        "stdout_cache_path", "stderr_cache_path", "execution_digest",
+    }
+    _require(set(record) == required, f"{field} fields are not closed")
+    _require(record["contract"] == RUNTIME_RECORD_CONTRACT,
+             f"{field}.contract is invalid")
+    _require(record["tool"] == tool and record["version"] == version,
+             f"{field} tool/version differs from the selected lock")
+    _require(record["architecture"] == architecture,
+             f"{field}.architecture is inconsistent")
+    _require(record["image_index_digest"] == container["index_digest"] and
+             record["image_architecture_digest"] ==
+             container["architecture_digests"][architecture] and
+             record["execution_reference"] ==
+             container["execution_references"][architecture],
+             f"{field} is not bound to the selected OCI identities")
+    _require(record["argv"] == RUNTIME_ARGV[tool],
+             f"{field}.argv differs from the closed smoke contract")
+    _require(record["environment_allowlist"] == ["HOME=/tmp", "TMPDIR=/tmp"],
+             f"{field}.environment_allowlist is not closed")
+    _require(record["network_mode"] == "none" and
+             record["filesystem_mode"] ==
+             "read-only-root,tmpfs-/tmp,no-host-mounts",
+             f"{field} lacks network/filesystem isolation")
+    _require(record["exit_code"] == 0 and
+             type(record["duration_ns"]) is int and record["duration_ns"] > 0,
+             f"{field} did not complete successfully")
+    for name in ("stdout_sha256", "stderr_sha256", "runner_build_identity"):
+        _digest(record[name], f"{field}.{name}")
+    _require(isinstance(record["version_output"], str) and
+             version in record["version_output"],
+             f"{field}.version_output disagrees with the selected version")
+    _require(record["output_schema_result"] ==
+             "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+             f"{field} overclaims output compatibility")
+    _digest(record["execution_digest"], f"{field}.execution_digest")
+    _require(record["execution_digest"] == runtime_execution_digest(record),
+             f"{field}.execution_digest is not canonical")
+
+
 def validate_lock(payload: Any) -> None:
     """Raise unless *payload* is the complete sealed E0.1 lock graph."""
 
     _require(isinstance(payload, dict), "lock must be an object")
-    _require(payload.get("lock_contract") == "phase-e-verified-tool-locks-v2",
+    _require(payload.get("lock_contract") == "phase-e-verified-tool-locks-v3",
              "unexpected lock contract")
     _require(payload.get("architectures") == list(ARCHITECTURES),
              "architecture order or set differs from the reviewed matrix")
@@ -181,8 +258,36 @@ def validate_lock(payload: Any) -> None:
     _require(seal == lock_payload_sha256(payload),
              "lock_payload_sha256 does not seal the canonical lock graph")
     _require(payload.get("artifact_cache_contract") ==
-             "phase-e-protected-artifact-cache-v1",
+             "phase-e-protected-artifact-cache-v2",
              "artifact cache contract is missing")
+    claims = payload.get("verification_claims")
+    _require(isinstance(claims, dict) and set(claims) == {
+        "schema", "source", "runtime",
+    }, "schema, source and runtime claims must be independent")
+    _require(
+        claims == {
+            "schema": "REQUIRES_SCHEMA_VALIDATION",
+            "source": "REQUIRES_PROTECTED_CACHE_VERIFICATION",
+            "runtime": "REQUIRES_REEXECUTION_OR_SIGNED_ATTESTATION",
+        },
+        "lock verification requirements are incomplete or overstated",
+    )
+    cache_attestation = payload.get("protected_cache_attestation")
+    _require(isinstance(cache_attestation, dict) and set(cache_attestation) == {
+        "contract", "manifest_path", "manifest_sha256", "manifest_root",
+        "attestation_path", "attestation_sha256", "signature_path",
+        "signature_sha256", "public_key_path", "public_key_sha256",
+        "signature_method", "signer_identity",
+    }, "protected cache attestation is incomplete")
+    _require(cache_attestation["contract"] ==
+             "phase-e-protected-cache-attestation-v1" and
+             cache_attestation["signature_method"] == "ED25519_OPENSSL",
+             "protected cache attestation contract is invalid")
+    for name in (
+        "manifest_sha256", "manifest_root", "attestation_sha256",
+        "signature_sha256", "public_key_sha256",
+    ):
+        _digest(cache_attestation[name], f"protected_cache_attestation.{name}")
 
     tools = payload.get("tools")
     _require(isinstance(tools, dict) and set(tools) == EXPECTED_TOOLS,
@@ -204,8 +309,8 @@ def validate_lock(payload: Any) -> None:
             "repository", "tag", "commit", "tag_refs_cache_path",
             "tag_refs_sha256", "verification_status",
         } <= release.keys(), f"tools.{name}.release is incomplete")
-        _require(release["repository"].startswith("https://github.com/"),
-                 f"tools.{name}.release.repository must be official HTTPS")
+        _require(release["repository"] == OFFICIAL_REPOSITORIES[name],
+                 f"tools.{name}.release.repository is not the reviewed official source")
         _require(COMMIT.fullmatch(release["commit"]) is not None,
                  f"tools.{name}.release.commit must be a full commit")
         _digest(release["tag_refs_sha256"],
@@ -264,6 +369,16 @@ def validate_lock(payload: Any) -> None:
                  f"tools.{name}.compatibility_test must remain STATIC_REVIEW")
         _validate_runtime_smoke(tool["runtime_smoke"],
                                 f"tools.{name}.runtime_smoke")
+        records = tool.get("runtime_records")
+        _require(isinstance(records, dict) and set(records) == set(ARCHITECTURES),
+                 f"tools.{name}.runtime_records must cover both architectures")
+        for architecture in ARCHITECTURES:
+            _validate_runtime_record(
+                records[architecture],
+                f"tools.{name}.runtime_records.{architecture}",
+                tool=name, version=tool["version"],
+                container=tool["container"], architecture=architecture,
+            )
 
     _require(tools["terraform"].get("distribution_mode") ==
              "USER_SUPPLIED_ONLY_NEVER_BUNDLED",
@@ -279,6 +394,20 @@ def validate_lock(payload: Any) -> None:
         "supported_kubernetes_versions", "strict_tree", "non_strict_tree",
         "crd_policy", "offline_cache_layout", "cache_root",
     } <= schema.keys(), "kubeconform schema bundle is incomplete")
+    _require(schema["repository"] == KUBERNETES_SCHEMA_REPOSITORY,
+             "kubeconform schema source repository is not official")
+    source_evidence = schema.get("source_evidence")
+    _require(isinstance(source_evidence, dict) and set(source_evidence) == {
+        "commit_object_cache_path", "commit_object_sha256",
+        "ls_tree_cache_path", "ls_tree_sha256", "root_tree_cache_path",
+        "root_tree_sha256", "extracted_file_count", "license_evidence",
+    }, "kubeconform schema source evidence is incomplete")
+    for name in ("commit_object_sha256", "ls_tree_sha256", "root_tree_sha256"):
+        _digest(source_evidence[name], f"kubeconform.schema_bundle.{name}")
+    _require(source_evidence["extracted_file_count"] == 2608 and
+             source_evidence["license_evidence"] ==
+             "NO_ROOT_LICENSE_FILE_IN_LOCKED_TREE",
+             "kubeconform schema inventory/licence evidence is incomplete")
     _require(COMMIT.fullmatch(schema["commit"]) is not None,
              "kubeconform schema commit is invalid")
     _digest(schema["content_digest"], "kubeconform.schema_bundle.content_digest")
@@ -302,6 +431,13 @@ def validate_lock(payload: Any) -> None:
     } <= checks.keys(), "Trivy checks identity is incomplete")
     _require(checks["external_repository"].endswith(":2.2.0"),
              "Trivy checks must use exact version 2.2.0")
+    _require(checks.get("source_repository") == TRIVY_CHECKS_REPOSITORY and
+             checks.get("source_tag") == "v2.2.0",
+             "Trivy checks source repository/tag is not official and exact")
+    _digest(checks.get("source_tag_refs_sha256"),
+            "tools.trivy.checks.source_tag_refs_sha256")
+    _require(isinstance(checks.get("source_tag_refs_cache_path"), str),
+             "Trivy checks source ref evidence is missing")
     _digest(checks["external_manifest_digest"],
             "tools.trivy.checks.external_manifest_digest", prefixed=True)
     _digest(checks["external_layer_digest"],
@@ -314,6 +450,28 @@ def validate_lock(payload: Any) -> None:
              offline.get("status") == "RUNTIME_PASS" and
              offline.get("fallback_used") is False,
              "Trivy external checks lack an offline no-fallback runtime proof")
+    runtime_records = offline.get("runtime_records")
+    _require(isinstance(runtime_records, dict) and
+             set(runtime_records) == set(ARCHITECTURES),
+             "Trivy offline verification must cover both architectures")
+    for architecture, record in runtime_records.items():
+        _require(isinstance(record, dict) and record.get("architecture") == architecture and
+                 record.get("checks_manifest_digest") ==
+                 checks["external_manifest_digest"] and
+                 record.get("layer_digest") == checks["external_layer_digest"] and
+                 record.get("cache_identity") == checks["cache_identity"] and
+                 record.get("fallback_used") is False and
+                 record.get("network_mode") == "none" and
+                 record.get("skip_check_update") is True and
+                 record.get("exit_code") == 0 and
+                 record.get("output_schema_result") == "PASS_SCHEMA_VERSION_2",
+                 f"Trivy offline {architecture} record is contradictory")
+        for digest_name in (
+            "output_sha256", "stderr_sha256", "execution_digest",
+            "runner_build_identity",
+        ):
+            _digest(record.get(digest_name),
+                    f"Trivy offline {architecture}.{digest_name}")
 
     base = payload.get("hardened_container_base")
     _validate_container(base, "hardened_container_base")
@@ -350,6 +508,31 @@ def _manifest_contains(manifest: Path, archive_name: str, digest: str) -> bool:
                 parts[-1].lstrip("*") == archive_name:
             return True
     return False
+
+
+def _parse_tag_refs(raw: str, field: str) -> dict[str, str]:
+    refs: dict[str, str] = {}
+    for line in raw.splitlines():
+        parts = line.split("\t")
+        _require(len(parts) == 2 and COMMIT.fullmatch(parts[0]) is not None and
+                 parts[1].startswith("refs/tags/"),
+                 f"{field} contains a malformed cached ref")
+        _require(parts[1] not in refs, f"{field} contains a duplicate cached ref")
+        refs[parts[1]] = parts[0]
+    return refs
+
+
+def _verify_tag_relation(raw: str, tag: str, commit: str, field: str) -> None:
+    refs = _parse_tag_refs(raw, field)
+    exact = f"refs/tags/{tag}"
+    peeled = f"{exact}^{{}}"
+    _require(exact in refs, f"{field} lacks the exact selected tag ref")
+    if peeled in refs:
+        _require(refs[peeled] == commit and refs[exact] != commit,
+                 f"{field} annotated tag does not peel to the locked commit")
+    else:
+        _require(refs[exact] == commit,
+                 f"{field} lightweight tag does not equal the locked commit")
 
 
 def _verify_openpgp(cache: Path, signature: dict[str, Any], manifest: Path,
@@ -399,21 +582,85 @@ def _tree_manifest(root: Path) -> tuple[str, int, int]:
     return digest.hexdigest(), count, total
 
 
+def _git_object_sha1(kind: str, data: bytes) -> str:
+    header = f"{kind} {len(data)}\0".encode("ascii")
+    return hashlib.sha1(header + data, usedforsecurity=False).hexdigest()
+
+
+def _repository_file(relative: str) -> Path:
+    root = Path(__file__).resolve().parents[1]
+    path = root / relative
+    _require(path.exists() and path.is_file() and not path.is_symlink(),
+             f"repository attestation file is missing or unsafe: {relative}")
+    return path
+
+
+def _verify_cache_attestation(payload: dict[str, Any], cache: Path) -> None:
+    record = payload["protected_cache_attestation"]
+    manifest_path = _repository_file(record["manifest_path"])
+    attestation_path = _repository_file(record["attestation_path"])
+    signature_path = _repository_file(record["signature_path"])
+    public_key_path = _repository_file(record["public_key_path"])
+    for path, field in (
+        (manifest_path, "manifest_sha256"),
+        (attestation_path, "attestation_sha256"),
+        (signature_path, "signature_sha256"),
+        (public_key_path, "public_key_sha256"),
+    ):
+        _require(hashlib.sha256(path.read_bytes()).hexdigest() == record[field],
+                 f"protected cache {field} differs from repository evidence")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    _require(manifest.get("contract") == "phase-e-cache-manifest-v1" and
+             isinstance(manifest.get("files"), list),
+             "protected cache manifest is malformed")
+    _require(_canonical_sha256(manifest["files"]) == record["manifest_root"],
+             "protected cache manifest root is not canonical")
+    expected = {item["path"]: item for item in manifest["files"]}
+    _require(len(expected) == len(manifest["files"]),
+             "protected cache manifest contains duplicate paths")
+    actual_paths = {
+        path.relative_to(cache).as_posix(): path
+        for path in cache.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    }
+    _require(set(actual_paths) == set(expected),
+             "protected cache path inventory differs from signed manifest")
+    for relative, path in actual_paths.items():
+        item = expected[relative]
+        _require(path.stat().st_size == item["size"] and
+                 hashlib.sha256(path.read_bytes()).hexdigest() == item["sha256"],
+                 f"protected cache file differs from manifest: {relative}")
+    attestation = json.loads(attestation_path.read_text(encoding="utf-8"))
+    _require(attestation["manifest_root"] == record["manifest_root"] and
+             attestation["manifest_sha256"] == record["manifest_sha256"] and
+             attestation["signer_identity"] == record["signer_identity"],
+             "protected cache attestation does not bind the selected manifest")
+    verified = subprocess.run(
+        ["openssl", "pkeyutl", "-verify", "-rawin", "-pubin",
+         "-inkey", str(public_key_path), "-sigfile", str(signature_path),
+         "-in", str(attestation_path)],
+        check=False, capture_output=True, text=True,
+    )
+    _require(verified.returncode == 0,
+             "protected cache Ed25519 attestation signature did not verify")
+
+
 def verify_cached_artifacts(payload: dict[str, Any], artifact_cache: Path) -> None:
     """Verify real release, OCI, fixture, licence, schema, and checks bytes."""
 
     validate_lock(payload)
     cache = artifact_cache.resolve(strict=True)
+    _verify_cache_attestation(payload, cache)
     tools = payload["tools"]
     for name in sorted(EXPECTED_TOOLS):
         tool = tools[name]
         release = tool["release"]
         refs = _verify_file(cache, release["tag_refs_cache_path"],
                             release["tag_refs_sha256"], f"tools.{name}.release")
-        ref_text = refs.read_text(encoding="utf-8")
-        _require(release["commit"] in ref_text and
-                 f"refs/tags/{release['tag']}" in ref_text,
-                 f"tools.{name} cached tag does not resolve to the locked commit")
+        _verify_tag_relation(
+            refs.read_text(encoding="utf-8"), release["tag"], release["commit"],
+            f"tools.{name}.release",
+        )
 
         verified_manifests: set[str] = set()
         for arch in ARCHITECTURES:
@@ -452,6 +699,19 @@ def verify_cached_artifacts(payload: dict[str, Any], artifact_cache: Path) -> No
                      f"tools.{name}.runtime_smoke.stdout")
         _verify_file(cache, smoke["stderr_cache_path"], smoke["stderr_sha256"],
                      f"tools.{name}.runtime_smoke.stderr")
+        for architecture, runtime in tool["runtime_records"].items():
+            stdout = _verify_file(
+                cache, runtime["stdout_cache_path"], runtime["stdout_sha256"],
+                f"tools.{name}.runtime_records.{architecture}.stdout",
+            )
+            _verify_file(
+                cache, runtime["stderr_cache_path"], runtime["stderr_sha256"],
+                f"tools.{name}.runtime_records.{architecture}.stderr",
+            )
+            actual_version = stdout.read_text(encoding="utf-8").strip()
+            _require(actual_version == runtime["version_output"] and
+                     tool["version"] in actual_version,
+                     f"tools.{name}.{architecture} cached version output differs")
 
         container = tool["container"]
         raw = _verify_file(cache, container["cached_index_path"],
@@ -491,8 +751,56 @@ def verify_cached_artifacts(payload: dict[str, Any], artifact_cache: Path) -> No
         bundle_hash.update(f"{relative}\0{digest}\0{count}\0{total}\n".encode())
     _require(bundle_hash.hexdigest() == schema["content_digest"],
              "kubeconform schema bundle content digest differs")
+    source = schema["source_evidence"]
+    commit_object = _verify_file(
+        cache, source["commit_object_cache_path"], source["commit_object_sha256"],
+        "kubeconform schema commit object",
+    ).read_bytes()
+    _require(_git_object_sha1("commit", commit_object) == schema["commit"],
+             "kubeconform schema commit object identity differs")
+    root_tree = _verify_file(
+        cache, source["root_tree_cache_path"], source["root_tree_sha256"],
+        "kubeconform schema root tree",
+    ).read_text(encoding="utf-8").strip()
+    tree_match = re.search(r"^tree ([0-9a-f]{40})$", commit_object.decode().splitlines()[0])
+    _require(tree_match is not None and tree_match.group(1) == root_tree,
+             "kubeconform cached root-tree evidence does not bind the commit tree")
+    ls_tree_path = _verify_file(
+        cache, source["ls_tree_cache_path"], source["ls_tree_sha256"],
+        "kubeconform schema selected tree",
+    )
+    selected: dict[str, str] = {}
+    for line in ls_tree_path.read_text(encoding="utf-8").splitlines():
+        match = re.fullmatch(r"100644 blob ([0-9a-f]{40})\t(.+)", line)
+        _require(match is not None, "kubeconform schema tree contains a non-file entry")
+        selected[match.group(2)] = match.group(1)
+    _require(len(selected) == source["extracted_file_count"],
+             "kubeconform selected tree count differs")
+    extracted: dict[str, Path] = {}
+    for tree_name in ("non_strict_tree", "strict_tree"):
+        relative_root = schema[tree_name]["relative_path"]
+        for path in (schema_root / relative_root).rglob("*"):
+            if path.is_file() and not path.is_symlink():
+                extracted[f"{relative_root}/{path.relative_to(schema_root / relative_root).as_posix()}"] = path
+    _require(set(extracted) == set(selected),
+             "kubeconform extracted schema paths differ from the locked Git tree")
+    for relative, path in extracted.items():
+        _require(_git_object_sha1("blob", path.read_bytes()) == selected[relative],
+                 f"kubeconform extracted schema blob differs: {relative}")
+    _require(not any(
+        path.upper() in {"LICENSE", "LICENSE.TXT", "COPYING"}
+        for path in selected
+    ), "kubeconform licence evidence contradicts the locked source tree")
 
     checks = tools["trivy"]["checks"]
+    checks_refs = _verify_file(
+        cache, checks["source_tag_refs_cache_path"],
+        checks["source_tag_refs_sha256"], "Trivy checks source tag",
+    )
+    _verify_tag_relation(
+        checks_refs.read_text(encoding="utf-8"), checks["source_tag"],
+        checks["external_source_commit"], "Trivy checks source tag",
+    )
     checks_manifest = _verify_file(cache, checks["cached_manifest_path"],
                                    checks["external_manifest_digest"],
                                    "trivy checks OCI manifest")
@@ -529,28 +837,126 @@ def verify_cached_artifacts(payload: dict[str, Any], artifact_cache: Path) -> No
              "Trivy checks were not proven to load offline from the exact cache")
 
 
+def trivy_offline_execution_digest(record: dict[str, Any]) -> str:
+    unsigned = copy.deepcopy(record)
+    unsigned.pop("execution_digest", None)
+    return _canonical_sha256(unsigned)
+
+
+def _docker_version() -> str:
+    result = subprocess.run(
+        ["docker", "version", "--format", "{{.Server.Version}}"],
+        check=False, capture_output=True, text=True,
+    )
+    _require(result.returncode == 0 and result.stdout.strip(),
+             "Docker engine is unavailable for runtime verification")
+    return result.stdout.strip()
+
+
+def verify_runtime(payload: dict[str, Any], artifact_cache: Path) -> None:
+    """Re-execute both-architecture version smokes and Trivy offline checks."""
+
+    validate_lock(payload)
+    cache = artifact_cache.resolve(strict=True)
+    _docker_version()
+    runner_identity = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    for tool_name in sorted(EXPECTED_TOOLS):
+        tool = payload["tools"][tool_name]
+        for architecture in ARCHITECTURES:
+            record = tool["runtime_records"][architecture]
+            _require(record["runner_build_identity"] == runner_identity,
+                     f"{tool_name} runtime record uses another runner build")
+            command = [
+                "docker", "run", "--rm", "--pull", "never",
+                "--platform", architecture, "--network", "none", "--read-only",
+                "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                "--pids-limit", "128", "--tmpfs",
+                "/tmp:rw,noexec,nosuid,size=64m", "-e", "HOME=/tmp", "-e",
+                "TMPDIR=/tmp", record["execution_reference"], *record["argv"],
+            ]
+            result = subprocess.run(command, check=False, capture_output=True)
+            _require(result.returncode == record["exit_code"] == 0 and
+                     hashlib.sha256(result.stdout).hexdigest() ==
+                     record["stdout_sha256"] and
+                     hashlib.sha256(result.stderr).hexdigest() ==
+                     record["stderr_sha256"] and
+                     result.stdout.decode("utf-8").strip() == record["version_output"],
+                     f"{tool_name} {architecture} runtime smoke is not reproducible")
+
+    checks = payload["tools"]["trivy"]["checks"]
+    for architecture in ARCHITECTURES:
+        record = checks["offline_verification"]["runtime_records"][architecture]
+        _require(record["runner_build_identity"] == runner_identity and
+                 record["execution_digest"] ==
+                 trivy_offline_execution_digest(record),
+                 f"Trivy {architecture} offline runtime record is not canonical")
+        reference = payload["tools"]["trivy"]["container"][
+            "execution_references"
+        ][architecture]
+        command = [
+            "docker", "run", "--rm", "--pull", "never",
+            "--platform", architecture, "--network", "none", "--read-only",
+            "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+            "--pids-limit", "128", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+            "-e", "TRIVY_CACHE_DIR=/cache",
+            "-v", f"{cache / 'runtime-v2/trivy-cache'}:/cache:ro",
+            "-v", f"{cache / 'runtime-v2/trivy-input'}:/work:ro",
+            "-w", "/work", reference, "config", "--format", "json",
+            "--skip-check-update", ".",
+        ]
+        result = subprocess.run(command, check=False, capture_output=True)
+        try:
+            output = json.loads(result.stdout)
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise LockValidationError(
+                f"Trivy {architecture} offline output is not JSON"
+            ) from exc
+        stderr = result.stderr.decode("utf-8", errors="strict")
+        _require(result.returncode == 0 and output.get("SchemaVersion") == 2 and
+                 output.get("Trivy", {}).get("Version") ==
+                 payload["tools"]["trivy"]["version"] and
+                 "loading from existing cache" in stderr and
+                 "Downloading the checks bundle" not in stderr and
+                 record["fallback_used"] is False,
+                 f"Trivy {architecture} did not use the exact offline external bundle")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("lock", nargs="?", default="tools/locks/phase-e-locks.json")
     parser.add_argument("--verify-cached-artifacts", action="store_true")
+    parser.add_argument("--verify-runtime", action="store_true")
     parser.add_argument("--artifact-cache", type=Path)
     args = parser.parse_args()
+    stage = "schema"
     try:
         payload = json.loads(Path(args.lock).read_text(encoding="utf-8"))
         validate_lock(payload)
-        if args.verify_cached_artifacts:
+        if args.verify_cached_artifacts or args.verify_runtime:
             _require(args.artifact_cache is not None,
-                     "--artifact-cache is required with --verify-cached-artifacts")
+                     "--artifact-cache is required for source/runtime verification")
+            stage = "source"
             verify_cached_artifacts(payload, args.artifact_cache)
+        if args.verify_runtime:
+            stage = "runtime"
+            verify_runtime(payload, args.artifact_cache)
     except (OSError, json.JSONDecodeError, LockValidationError) as exc:
-        label = "PHASE_E_LOCK_SOURCE" if args.verify_cached_artifacts else \
-            "PHASE_E_LOCK_SCHEMA"
+        label = {
+            "schema": "PHASE_E_LOCK_SCHEMA",
+            "source": "PHASE_E_LOCK_SOURCE",
+            "runtime": "PHASE_E_LOCK_RUNTIME",
+        }[stage]
         print(f"{label}: FAIL: {exc}")
         return 1
-    if args.verify_cached_artifacts:
+    print("PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)")
+    if args.verify_cached_artifacts or args.verify_runtime:
         print("PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)")
     else:
-        print("PHASE_E_LOCK_SCHEMA: PASS (6 tools, 2 architectures, sealed graph)")
+        print("PHASE_E_LOCK_SOURCE: NOT_RUN")
+    if args.verify_runtime:
+        print("PHASE_E_LOCK_RUNTIME: PASS (both architectures and Trivy offline checks)")
+    else:
+        print("PHASE_E_LOCK_RUNTIME: NOT_RUN")
     return 0
 
 

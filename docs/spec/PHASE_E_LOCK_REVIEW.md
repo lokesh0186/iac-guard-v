@@ -2,17 +2,28 @@
 
 ## Scope and decision
 
-E0.1 verifies dependency locks and performs only lock-verification smoke tests.
+E0.2 separates structural, source, and runtime verification and performs only
+lock-verification smoke tests.
 It does not implement a scanner adapter, validator integration, production
 container, composite Action, or control catalog. The canonical graph is
 `tools/locks/phase-e-locks.json`; this document is generated from that graph by
 `tools/render_phase_e_lock_review.py`.
 
-Lock contract: `phase-e-verified-tool-locks-v2`
+Lock contract: `phase-e-verified-tool-locks-v3`
 
-Canonical lock seal: `9d43de43328c85614de1622cebe081868a312d744f816e0930427b1da33d1019`
+Canonical lock seal: `5af2bbc8728ab8ff89ab8c659072de077453898c5bbd454449bfef404f7bd72b`
 
-Artifact-cache contract: `phase-e-protected-artifact-cache-v1`
+Artifact-cache contract: `phase-e-protected-artifact-cache-v2`
+
+Protected-cache manifest root: `f80f8e1385106239d6794603c46f3724eb25c0c8c22f3c99b71effd90185b956`
+
+The lock itself records requirements, not self-authored PASS claims:
+
+```text
+schema:  REQUIRES_SCHEMA_VALIDATION
+source:  REQUIRES_PROTECTED_CACHE_VERIFICATION
+runtime: REQUIRES_REEXECUTION_OR_SIGNED_ATTESTATION
+```
 
 | Component | Tag | Full selected commit | Review result | Intended role |
 | --- | --- | --- | --- | --- |
@@ -97,27 +108,56 @@ execution identity and is non-PASS.
 
 ## Runtime-smoke scope
 
-All six selected arm64 images executed their version command with Docker
-networking disabled. This proves the recorded platform child starts and emits
-the recorded version bytes. It does not claim full adapter compatibility.
-Only the Trivy external-checks smoke executed an output-producing offline scan;
-the other compatibility records remain `STATIC_REVIEW`.
+All six selected images executed their version command for both linux/amd64 and
+linux/arm64 with Docker networking disabled, a read-only root, tmpfs `/tmp`, and
+no host mounts. The source/runtime verifier re-executes those exact digest-pinned
+commands. This proves only the recorded platform child starts and emits the
+recorded version bytes; it does not authorize an adapter or establish its output
+contract. Trivy alone also executed an output-producing offline scan on both
+architectures with the exact external checks cache and `fallback_used=false`.
+
+| Component | Architecture | Execution digest | Scope |
+| --- | --- | --- | --- |
+| kics | linux/amd64 | `01e634c00e42e99c7631200799b698c7ea5dd2cd6027785c4253b3e0dbcb53b7` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| kics | linux/arm64 | `62d7f2d34b7910dcbf32ed4aa2db5234ec633c6b53cf9177c5cc4509fe588033` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| kubeconform | linux/amd64 | `a9a6db4105e0d738fade510302b5f387dd6454da5e9d56bd744bbb06bef2647e` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| kubeconform | linux/arm64 | `c7e9d9352ef08b25776bd5bb64f17330e571e9d05dcfaaeb0636fa200c4c04c5` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| opentofu | linux/amd64 | `35b436a22aae20f41cac1c5d17044e29694158f81b7f14527c7fd9b17d64709c` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| opentofu | linux/arm64 | `4db3884180530ff9f10ec62468159bd646df2cb49ff6fb9557b1625a30218e65` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| terraform | linux/amd64 | `81428b2c58f30ab4015f9b76d31be4d0ef30dba6d200995f363a67660db53197` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| terraform | linux/arm64 | `4188290466e1ccb4ec7ad4471a251dc62fabd0957fb5aadf5ff0da6c73649a69` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| tflint | linux/amd64 | `2b15de01ff94ad3a8b10d18d7dc2851e8231a0f4787876d0aa1e18847e7e98fb` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| tflint | linux/arm64 | `4979420ef961932a1a5b9a5ece4116a6eac88e9d5a7ae495fb2573bdfaf9a8c6` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| trivy | linux/amd64 | `e35147ddfbfca6ca09fb77c46721f0e0fd1845cb813ad8fb518645a744210466` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
+| trivy | linux/arm64 | `4549fbfe898c5f7fa596d26e33ef59edf119ceedd950c346b08f9d9121fbe740` | VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION |
 
 ## Validation commands
 
 ```text
 python tools/validate_phase_e_locks.py
-PHASE_E_LOCK_SCHEMA: PASS (6 tools, 2 architectures, sealed graph)
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
+PHASE_E_LOCK_SOURCE: NOT_RUN
+PHASE_E_LOCK_RUNTIME: NOT_RUN
 
 python tools/validate_phase_e_locks.py --verify-cached-artifacts \
   --artifact-cache <protected-cache>
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
 PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
+PHASE_E_LOCK_RUNTIME: NOT_RUN
+
+python tools/validate_phase_e_locks.py --verify-runtime \
+  --artifact-cache <protected-cache>
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
+PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
+PHASE_E_LOCK_RUNTIME: PASS (both architectures and Trivy offline checks)
 ```
 
-The source mode consumes real cached bytes. It verifies tag relations, archives,
+Source mode consumes real cached bytes and verifies the signed complete cache
+manifest before interpreting individual records. It verifies tag relations, archives,
 checksum/signature evidence, OCI indexes and architecture children, licence and
-fixture bytes, both schema trees, and the Trivy external checks layer/cache/run.
-Structural validation alone is never called cryptographic or runtime proof.
+fixture bytes, both schema trees, and the Trivy external checks layer/cache.
+Runtime mode re-executes both platform version smokes and both Trivy offline
+checks. Structural validation alone is never called source or runtime proof.
 
 NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 

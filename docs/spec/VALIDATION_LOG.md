@@ -1,5 +1,50 @@
 # Validation Log
 
+## 2026-08-12 — E0.2 reproducible source and runtime lock attestation
+
+E0.2 separates three claims that the preceding lock conflated. The static lock
+records requirements rather than source/runtime PASS. Literal schema-only output is:
+
+```text
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
+PHASE_E_LOCK_SOURCE: NOT_RUN
+PHASE_E_LOCK_RUNTIME: NOT_RUN
+```
+
+The protected-cache source verifier consumed the complete signed cache manifest,
+verified exact tag/ref maps and official repositories, rehashed release archives,
+checksum/signature records, OCI indexes and both architecture children, verified
+the kubeconform schema Git object/tree and all 2,608 extracted schemas, and bound
+the external Trivy checks tag and bundle:
+
+```text
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
+PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
+PHASE_E_LOCK_RUNTIME: NOT_RUN
+```
+
+Runtime verification then re-executed the exact digest-pinned version smoke for
+all six tools on linux/amd64 and linux/arm64. It also re-executed Trivy's external
+checks scan on both architectures with network disabled, update disabled, and
+`fallback_used=false`:
+
+```text
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
+PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
+PHASE_E_LOCK_RUNTIME: PASS (both architectures and Trivy offline checks)
+```
+
+Version-only smoke remains explicitly insufficient to authorize KICS,
+kubeconform, OpenTofu, Terraform, or TFLint adapters. No Phase-E adapter,
+validator integration, production container, Action, or control catalog was
+implemented.
+
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+
 ## 2026-08-12 — D7.3 complete canonical report-graph validation
 
 - Failing-before: `tests/unit/test_public_d73.py` produced 30 failures. The old

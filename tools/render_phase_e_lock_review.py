@@ -54,11 +54,22 @@ def render(payload: dict[str, Any]) -> str:
 
     schema = tools["kubeconform"]["schema_bundle"]
     checks = tools["trivy"]["checks"]
+    runtime_rows = []
+    for name in sorted(tools):
+        for architecture in payload["architectures"]:
+            record = tools[name]["runtime_records"][architecture]
+            runtime_rows.append(
+                f"| {name} | {architecture} | `{record['execution_digest']}` | "
+                f"{record['output_schema_result']} |"
+            )
+
+    cache_attestation = payload["protected_cache_attestation"]
     return f"""# Phase E verified dependency lock review
 
 ## Scope and decision
 
-E0.1 verifies dependency locks and performs only lock-verification smoke tests.
+E0.2 separates structural, source, and runtime verification and performs only
+lock-verification smoke tests.
 It does not implement a scanner adapter, validator integration, production
 container, composite Action, or control catalog. The canonical graph is
 `tools/locks/phase-e-locks.json`; this document is generated from that graph by
@@ -69,6 +80,16 @@ Lock contract: `{payload['lock_contract']}`
 Canonical lock seal: `{payload['lock_payload_sha256']}`
 
 Artifact-cache contract: `{payload['artifact_cache_contract']}`
+
+Protected-cache manifest root: `{cache_attestation['manifest_root']}`
+
+The lock itself records requirements, not self-authored PASS claims:
+
+```text
+schema:  {payload['verification_claims']['schema']}
+source:  {payload['verification_claims']['source']}
+runtime: {payload['verification_claims']['runtime']}
+```
 
 | Component | Tag | Full selected commit | Review result | Intended role |
 | --- | --- | --- | --- | --- |
@@ -138,27 +159,45 @@ execution identity and is non-PASS.
 
 ## Runtime-smoke scope
 
-All six selected arm64 images executed their version command with Docker
-networking disabled. This proves the recorded platform child starts and emits
-the recorded version bytes. It does not claim full adapter compatibility.
-Only the Trivy external-checks smoke executed an output-producing offline scan;
-the other compatibility records remain `STATIC_REVIEW`.
+All six selected images executed their version command for both linux/amd64 and
+linux/arm64 with Docker networking disabled, a read-only root, tmpfs `/tmp`, and
+no host mounts. The source/runtime verifier re-executes those exact digest-pinned
+commands. This proves only the recorded platform child starts and emits the
+recorded version bytes; it does not authorize an adapter or establish its output
+contract. Trivy alone also executed an output-producing offline scan on both
+architectures with the exact external checks cache and `fallback_used=false`.
+
+| Component | Architecture | Execution digest | Scope |
+| --- | --- | --- | --- |
+{chr(10).join(runtime_rows)}
 
 ## Validation commands
 
 ```text
 python tools/validate_phase_e_locks.py
-PHASE_E_LOCK_SCHEMA: PASS (6 tools, 2 architectures, sealed graph)
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
+PHASE_E_LOCK_SOURCE: NOT_RUN
+PHASE_E_LOCK_RUNTIME: NOT_RUN
 
 python tools/validate_phase_e_locks.py --verify-cached-artifacts \\
   --artifact-cache <protected-cache>
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
 PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
+PHASE_E_LOCK_RUNTIME: NOT_RUN
+
+python tools/validate_phase_e_locks.py --verify-runtime \\
+  --artifact-cache <protected-cache>
+PHASE_E_LOCK_SCHEMA: PASS (sealed structure only)
+PHASE_E_LOCK_SOURCE: PASS (archives, signatures, OCI, schemas, checks)
+PHASE_E_LOCK_RUNTIME: PASS (both architectures and Trivy offline checks)
 ```
 
-The source mode consumes real cached bytes. It verifies tag relations, archives,
+Source mode consumes real cached bytes and verifies the signed complete cache
+manifest before interpreting individual records. It verifies tag relations, archives,
 checksum/signature evidence, OCI indexes and architecture children, licence and
-fixture bytes, both schema trees, and the Trivy external checks layer/cache/run.
-Structural validation alone is never called cryptographic or runtime proof.
+fixture bytes, both schema trees, and the Trivy external checks layer/cache.
+Runtime mode re-executes both platform version smokes and both Trivy offline
+checks. Structural validation alone is never called source or runtime proof.
 
 NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 

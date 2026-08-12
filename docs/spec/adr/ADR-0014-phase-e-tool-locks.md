@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for E0.1 dependency-lock verification. Scanner, validator, production
+Accepted for E0.2 dependency-lock verification. Scanner, validator, production
 container, and action implementation remain deferred pending review.
 
 ## Context
@@ -55,9 +55,16 @@ verifying OCI child membership, and checking fixture, licence, schema, and Trivy
 checks bytes. Sigstore material that was cached but not identity-policy verified
 is explicitly `AVAILABLE_NOT_VERIFIED`; absent signatures are `UNAVAILABLE`.
 
+The lock graph itself records source/runtime verification requirements, not
+self-authored PASS claims. Cached tag evidence is parsed as an exact ref map:
+annotated tags must peel to the locked commit and lightweight tags must equal it.
+Source PASS requires the signed complete protected-cache manifest and every real
+cached byte. Runtime PASS requires re-executing both-architecture version smokes
+and both Trivy external-check scans.
+
 ## Consequences
 
-- E0.1 creates no adapter, validator integration, production container, or
+- E0.2 creates no adapter, validator integration, production container, or
   GitHub Action.
 - Static compatibility records remain `STATIC_REVIEW`. Version-only offline
   image smoke does not claim output compatibility.
@@ -66,6 +73,10 @@ is explicitly `AVAILABLE_NOT_VERIFIED`; absent signatures are `UNAVAILABLE`.
 - External-versus-embedded Trivy fallback changes execution identity.
 - Trivy's exact external bundle was loaded from the bound cache with networking
   disabled and `fallback_used=false`; this smoke does not authorize an adapter.
+- Runtime records bind argv, environment allowlist, network and filesystem
+  modes, exact image/index/platform identities, exit and output hashes,
+  architecture, duration, and verifier build identity. A version smoke never
+  establishes an adapter output contract.
 - Upgrades rerun contract, architecture, fixture, signature, licence, and
   offline reviews and update the complete lock atomically.
 - An absent or mismatched artifact cannot be replaced by a nearby version or
