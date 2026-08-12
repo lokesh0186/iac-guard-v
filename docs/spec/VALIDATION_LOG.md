@@ -686,7 +686,7 @@ Literal old-to-new security probes:
 ```text
 external directory symlink:
   old: omitted from artifact universe; validator files=0; VERIFIED possible
-  new: recorded as SYMLINK / UNSAFE_SYMLINK_DIRECTORY; preflight ERROR; never VERIFIED
+  new: recorded as SYMLINK / UNSAFE_SYMLINK_ENTRY; preflight ERROR; never VERIFIED
 
 supported FIFO evil.tf:
   old: omitted from classifications; VERIFIED possible
