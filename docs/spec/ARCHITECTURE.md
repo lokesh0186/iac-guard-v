@@ -641,6 +641,11 @@ classifies all hardened results as `INCONCLUSIVE`; it never manufactures `VERIFI
 from legacy booleans. Its output is an analysis record, not report-v1 or a production
 verdict.
 
+D9.1 names this a historical hardened-evidence sufficiency comparison, records the
+actual installed parser-code and IaC-Guard-V implementation digests, and distinguishes
+local parser `PASS`, `FAIL`, `UNSUPPORTED`, and `ERROR`. The canonical analysis renders
+the committed `LEGACY_VS_HARDENED.md` deliverable; neither is a production verdict.
+
 ## 28. D7.1 closed public contract
 
 `report-v1` is a closed four-branch state machine: verification `VERIFIED/0`,

@@ -808,6 +808,15 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Gate D9.1 — Reproducible historical evidence-sufficiency report
+
+The canonical offline comparison now uses the exact label
+`HISTORICAL_HARDENED_EVIDENCE_SUFFICIENCY_COMPARISON`, distinguishes local parser
+`PASS`, `FAIL`, `UNSUPPORTED`, and `ERROR`, binds parser-distribution and IaC-Guard-V
+implementation digests, and renders `LEGACY_VS_HARDENED.md`. Results remain 407 legacy
+`VERIFIED` and 223 legacy `FAILED` to hardened-evidence `INCONCLUSIVE`, with zero
+hardened `VERIFIED`, scanner executions, inference runs, or provider calls.
+
 ## Gate D7.1 — Closed public API, CLI, and schema contract
 
 Failing-before probes accepted operational `VERIFIED/0`, allowed reduced mode without

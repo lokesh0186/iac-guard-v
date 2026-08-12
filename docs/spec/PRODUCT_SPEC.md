@@ -390,3 +390,6 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 22. Report-v1 has four closed verdict/exit branches and closed nested evidence.
     Config-v1 enforces isolation-specific executable fields and disjoint role roots.
     `--version`, offline `demo`, read-only `explain`, `verify`, and `doctor` are tested.
+23. D9.1 publishes `LEGACY_VS_HARDENED.md` from canonical offline analysis, types local
+    parser outcomes, binds installed parser/build provenance, and makes no production
+    hardened verdict claim for evidence the historical runs did not retain.

@@ -8,6 +8,7 @@ from pathlib import Path
 from research.compat.compare_legacy_hardened import (
     MISSING_HARDENED_EVIDENCE,
     compare_frozen_runs,
+    render_markdown,
 )
 
 
@@ -37,6 +38,10 @@ def test_d9_compares_all_frozen_runs_without_claiming_hardened_verified() -> Non
     assert result["model_provider_calls"] == 0
     assert result["scanner_executions"] == 0
     assert tuple(result["hardened_limitations"]) == MISSING_HARDENED_EVIDENCE
+    assert result["result_label"] == "HISTORICAL_HARDENED_EVIDENCE_SUFFICIENCY_COMPARISON"
+    assert result["analysis_contract_version"] == "historical-hardened-evidence-sufficiency-v2"
+    assert len(result["iac_guard_v_implementation_digest"]) == 64
+    assert set(result["parser_provenance"]) == {"PyYAML", "python-hcl2"}
 
 
 def test_d9_local_parser_evidence_is_honest_and_records_every_run() -> None:
@@ -60,3 +65,29 @@ def test_d9_is_byte_deterministic_and_does_not_modify_frozen_inputs() -> None:
         second, sort_keys=True, separators=(",", ":")
     )
     assert _frozen_hashes() == before
+
+
+def test_d91_parser_failures_are_typed(monkeypatch) -> None:
+    import iac_guard_v.engine as engine
+    from iac_guard_v.models import DomainError
+    from research.compat.compare_legacy_hardened import _local_candidate_evidence
+
+    monkeypatch.setattr(engine, "_terraform_resources", lambda *_: (_ for _ in ()).throw(DomainError("bad")))
+    assert _local_candidate_evidence("x", "terraform", b"x")[0] == "FAIL"
+    monkeypatch.setattr(engine, "_terraform_resources", lambda *_: (_ for _ in ()).throw(RuntimeError("bug")))
+    assert _local_candidate_evidence("x", "terraform", b"x")[0] == "ERROR"
+    assert _local_candidate_evidence("x", "other", b"x")[0] == "UNSUPPORTED"
+
+
+def test_markdown_deliverable_matches_canonical_analysis() -> None:
+    result = compare_frozen_runs()
+    markdown = render_markdown(result)
+    committed = (REPO / "docs/spec/LEGACY_VS_HARDENED.md").read_text(encoding="utf-8")
+    for text in (
+        "historical hardened-evidence sufficiency comparison",
+        "407 legacy `VERIFIED`", "223 legacy `FAILED`",
+        "Hardened `VERIFIED` claims: 0", "Scanner executions: 0",
+        "Model-provider calls: 0", "Paper and historical tables changed: no",
+    ):
+        assert text.lower() in markdown.lower()
+        assert text.lower() in committed.lower()

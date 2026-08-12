@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import inspect
 import json
 import sys
 from collections import Counter
@@ -30,6 +31,7 @@ MISSING_HARDENED_EVIDENCE = (
     "HISTORICAL_SEALED_SNAPSHOT_MISSING",
     "HISTORICAL_TRUSTED_POLICY_PROVENANCE_MISSING",
 )
+ANALYSIS_CONTRACT = "historical-hardened-evidence-sufficiency-v2"
 
 
 def _sha256(data: bytes) -> str:
@@ -74,6 +76,7 @@ def _local_candidate_evidence(
 ) -> tuple[str, int, str]:
     # Importing packaged deterministic parsers does not execute Checkov or a provider.
     from iac_guard_v.engine import _kubernetes_resources, _terraform_resources
+    from iac_guard_v.models import DomainError
 
     try:
         if check_type == "terraform":
@@ -84,8 +87,12 @@ def _local_candidate_evidence(
             )
         else:
             return "UNSUPPORTED", 0, "HISTORICAL_ARTIFACT_KIND_UNSUPPORTED"
-    except Exception as exc:
+    except DomainError as exc:
         return "FAIL", 0, type(exc).__name__
+    except (ImportError, ModuleNotFoundError):
+        return "UNSUPPORTED", 0, "PARSER_DEPENDENCY_UNAVAILABLE"
+    except Exception as exc:
+        return "ERROR", 0, type(exc).__name__
     return "PASS", len(resources), "LOCAL_INDEPENDENT_PARSE_COMPLETED"
 
 
@@ -126,6 +133,12 @@ class ComparisonRecord:
 
 
 def compare_frozen_runs() -> dict:
+    from iac_guard_v.engine import (
+        _kubernetes_resources, _terraform_resources,
+        _verified_parser_distribution_digest,
+    )
+    from iac_guard_v import __version__
+
     run_paths = sorted(RUNS.glob("*.json"))
     patch_paths = sorted(PATCHES.glob("*.tf"))
     if len(run_paths) != EXPECTED_RUNS or len(patch_paths) != EXPECTED_RUNS:
@@ -171,9 +184,20 @@ def compare_frozen_runs() -> dict:
         baseline_manifest[baseline_path.name] = _sha256(baseline_raw)
     counts = Counter(item.transition for item in records)
     syntax_counts = Counter(item.candidate_syntax_status for item in records)
+    parser_provenance = {
+        "python-hcl2": _verified_parser_distribution_digest("python-hcl2"),
+        "PyYAML": _verified_parser_distribution_digest("PyYAML"),
+    }
+    implementation_digest = _sha256(json.dumps({
+        "comparison": inspect.getsource(compare_frozen_runs),
+        "local_parser": inspect.getsource(_local_candidate_evidence),
+        "terraform": inspect.getsource(_terraform_resources),
+        "kubernetes": inspect.getsource(_kubernetes_resources),
+    }, sort_keys=True, separators=(",", ":")).encode())
     return {
-        "schema_version": "legacy-hardened-comparison-v1",
-        "result_label": "HARDENED_LEGACY_COMPARISON",
+        "schema_version": "legacy-hardened-comparison-v2",
+        "result_label": "HISTORICAL_HARDENED_EVIDENCE_SUFFICIENCY_COMPARISON",
+        "analysis_contract_version": ANALYSIS_CONTRACT,
         "is_production_verdict": False,
         "input_mode": "FROZEN_STORED_OUTPUTS_AND_LOCAL_DETERMINISTIC_PARSERS",
         "new_benchmark_inference_runs": 0,
@@ -184,6 +208,9 @@ def compare_frozen_runs() -> dict:
         "candidate_syntax_counts": dict(sorted(syntax_counts.items())),
         "hardened_verified": 0,
         "hardened_limitations": list(MISSING_HARDENED_EVIDENCE),
+        "parser_provenance": parser_provenance,
+        "iac_guard_v_version": __version__,
+        "iac_guard_v_implementation_digest": implementation_digest,
         "input_digests": {
             "stored_runs_manifest_sha256": _manifest_digest(run_manifest),
             "stored_patches_manifest_sha256": _manifest_digest(patch_manifest),
@@ -193,14 +220,66 @@ def compare_frozen_runs() -> dict:
     }
 
 
+def render_markdown(result: dict) -> str:
+    transitions = result["transition_counts"]
+    syntax = result["candidate_syntax_counts"]
+    lines = [
+        "# Historical hardened-evidence sufficiency comparison",
+        "",
+        "This is an evidence-sufficiency analysis over frozen stored outputs. It is not a",
+        "production hardened-engine execution and makes zero hardened `VERIFIED` claims.",
+        "",
+        "## Results",
+        "",
+        f"- 407 legacy `VERIFIED` records → hardened evidence `INCONCLUSIVE`: {transitions.get('LEGACY_VERIFIED_TO_HARDENED_INCONCLUSIVE', 0)}",
+        f"- 223 legacy `FAILED` records → hardened evidence `INCONCLUSIVE`: {transitions.get('LEGACY_FAILED_TO_HARDENED_INCONCLUSIVE', 0)}",
+        f"- Hardened `VERIFIED` claims: {result['hardened_verified']}",
+        f"- Local parser outcomes: {json.dumps(syntax, sort_keys=True)}",
+        "",
+        "## Missing evidence",
+        "",
+    ]
+    lines.extend(f"- `{item}`" for item in result["hardened_limitations"])
+    lines.extend([
+        "",
+        "## Provenance and execution",
+        "",
+        f"- Analysis contract: `{result['analysis_contract_version']}`",
+        f"- IaC-Guard-V implementation digest: `{result['iac_guard_v_implementation_digest']}`",
+    ])
+    lines.extend(
+        f"- Parser `{name}` installed-code digest: `{digest}`"
+        for name, digest in sorted(result["parser_provenance"].items())
+    )
+    lines.extend(
+        f"- {name}: `{digest}`" for name, digest in sorted(result["input_digests"].items())
+    )
+    lines.extend([
+        f"- Scanner executions: {result['scanner_executions']}",
+        f"- Model-provider calls: {result['model_provider_calls']}",
+        f"- New benchmark inference runs: {result['new_benchmark_inference_runs']}",
+        "- Paper and historical tables changed: no",
+        "",
+        "`PASS`, `FAIL`, `UNSUPPORTED`, and `ERROR` describe only the local independent",
+        "parser attempt. They are not production verification verdicts. Domain syntax",
+        "failure is `FAIL`; missing parser capability is `UNSUPPORTED`; internal or",
+        "operational parser failure is `ERROR`.",
+        "",
+    ])
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--summary-only", action="store_true")
+    parser.add_argument("--markdown", action="store_true")
     args = parser.parse_args(argv)
     result = compare_frozen_runs()
     if args.summary_only:
         result = {key: value for key, value in result.items() if key != "records"}
-    print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+    print(render_markdown(result) if args.markdown else json.dumps(
+        result, sort_keys=True, separators=(",", ":")
+    ))
     return 0
 
 
