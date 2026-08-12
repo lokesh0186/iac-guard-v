@@ -670,6 +670,111 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Final Phase-D gate — D4.7, D5.5, D7, and D9
+
+The final core remediation and public-boundary work was committed independently:
+
+```text
+D4.7 3ff310b  complete filesystem and scanner-environment identity
+D5.5 45e5ed2  complete gate and canonical-result provenance
+D7   91f48e4  closed public API, CLI, config-v1, and report-v1 schemas
+D9   731c295  offline frozen legacy-versus-hardened comparison
+```
+
+Literal old-to-new security probes:
+
+```text
+external directory symlink:
+  old: omitted from artifact universe; validator files=0; VERIFIED possible
+  new: recorded as SYMLINK / UNSAFE_SYMLINK_DIRECTORY; preflight ERROR; never VERIFIED
+
+supported FIFO evil.tf:
+  old: omitted from classifications; VERIFIED possible
+  new: recorded as FIFO / UNSUPPORTED_ARTIFACT_PATH_TYPE; preflight ERROR; never VERIFIED
+
+Checkov dependency.py changed without metadata change:
+  old: scanner_environment_digest unchanged
+  new: verified installed-file digest changes (or unsafe environment is rejected)
+
+gate helper source changed:
+  old: selected-dispatcher digest unchanged
+  new: gate implementation manifest digest changes for YAML node validation,
+       duplicate-key construction, root Kubernetes classification, JSON depth,
+       HCL discovery, and bounded file reading
+
+canonical verification result:
+  old: gate_registry_identity without complete implementation/artifact records
+  new: ordered gate implementation records plus baseline/candidate sealed snapshot,
+       complete filesystem/artifact classifications, resource digest, and governed evidence
+```
+
+Supported Python matrix, using the declared dependencies and warning-as-error imports:
+
+```text
+Python 3.10.20: import PASS; 1248 passed in 163.37s
+Python 3.11.5:  import PASS; 1248 passed in 111.69s
+Python 3.12:    import PASS; 1248 passed in 162.97s
+Python 3.13.14: import PASS; 1248 passed in 157.83s
+```
+
+Focused coverage and live integration gates:
+
+```text
+D4 adapter branch coverage: base 100%, checkov 91%, total 92%; 138 passed
+D5 engine branch coverage: 90%; 208 passed
+D6 policy branch coverage: 92%; 199 passed
+Checkov 3.3.0 isolated live integration: 6 passed in 59.37s
+D7 public-boundary tests: 12 passed
+D9 frozen offline comparison tests: 3 passed
+```
+
+D9 used only stored frozen run, patch, and baseline scanner files. It executed no
+scanner, benchmark inference, or model-provider operation. The deterministic analysis
+reported 407 legacy `VERIFIED` records and 223 legacy `FAILED` records as hardened
+`INCONCLUSIVE`, because the historical evidence lacks the affirmative candidate,
+sealed-snapshot, execution-identity, coverage, and trusted-policy evidence required by
+the hardened verifier. It did not reinterpret those missing records as production
+verdicts or modify historical results.
+
+```text
+D9 frozen run-input digest:       d9ef4318911bc70fba2c2c0286626978bf3376b0de95a2d22f63a3e6ff51aef8
+D9 frozen patch-input digest:     c081e50b40657980666141dac524ab2062f5e5cb5ebd7a21b92cc8eef516577a
+D9 frozen baseline-input digest:  6027ae079029e5907bb69c15392775edc75758256cc8ab5058358c0a2d9d4ff3
+local syntax evidence:            577 PASS, 53 FAIL
+hardened analysis classification: 630 INCONCLUSIVE, 0 VERIFIED
+scanner executions:               0
+model-provider calls:             0
+```
+
+Final specification, packaging, research, and freeze gates:
+
+```text
+spec_lint: PASS; 23 documents; 111 enum values; zero warnings
+wheel/sdist build: PASS; schemas included; frozen/research inputs excluded
+manifest files checked: 4842/4842
+MANIFEST_ROOT computed: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+MANIFEST_ROOT recorded: a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3
+manifest result: PASS
+frozen run records: 630/630
+field comparisons: 10080/10080 equal
+final verdict mismatches: 0
+derived tables: 7/7 SEMANTIC_MATCH
+frozen-scope diff: empty
+freeze tag type: annotated tag
+freeze tag commit: 7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5
+```
+
+Phase E was not started. No branch or tag was pushed, and no PR, release,
+publication, outreach, model refresh, benchmark inference, or provider call occurred.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
+---
+
 ## Gate D9 — Frozen legacy-versus-hardened comparison
 
 ```text

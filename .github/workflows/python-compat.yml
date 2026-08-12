@@ -34,10 +34,10 @@ jobs:
           PYTHONPATH=src python -m pytest tests/unit/test_fingerprints.py tests/unit/test_matching.py tests/unit/test_matching_d32.py tests/unit/test_diffing.py --cov=iac_guard_v.diffing --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D4 adapter coverage
         run: |
-          PYTHONPATH=src python -m pytest tests/unit/test_checkov_adapter.py tests/unit/test_checkov_adapter_d41.py tests/unit/test_checkov_adapter_d42.py tests/unit/test_checkov_adapter_d45.py tests/unit/test_checkov_adapter_d46.py --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_checkov_adapter.py tests/unit/test_checkov_adapter_d41.py tests/unit/test_checkov_adapter_d42.py tests/unit/test_checkov_adapter_d45.py tests/unit/test_checkov_adapter_d46.py tests/unit/test_engine_d47.py --cov=iac_guard_v.adapters.base --cov=iac_guard_v.adapters.checkov --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D5 engine coverage
         run: |
-          PYTHONPATH=src python -m pytest tests/unit/test_engine.py tests/unit/test_engine_d44.py tests/unit/test_engine_d45.py tests/unit/test_engine_d51.py tests/unit/test_engine_d52.py tests/unit/test_engine_d53.py tests/unit/test_engine_d54.py --cov=iac_guard_v.engine --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
+          PYTHONPATH=src python -m pytest tests/unit/test_engine.py tests/unit/test_engine_d44.py tests/unit/test_engine_d45.py tests/unit/test_engine_d47.py tests/unit/test_engine_d51.py tests/unit/test_engine_d52.py tests/unit/test_engine_d53.py tests/unit/test_engine_d54.py tests/unit/test_engine_d55.py tests/unit/test_public_d7.py --cov=iac_guard_v.engine --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
       - name: Enforce D6 policy coverage
         run: |
           PYTHONPATH=src python -m pytest tests/unit/test_policy.py tests/unit/test_policy_d61.py tests/unit/test_policy_d62.py tests/unit/test_policy_d63.py tests/unit/test_policy_d64.py tests/unit/test_engine_d51.py --cov=iac_guard_v.policy --cov-branch --cov-report=term-missing --cov-fail-under=90 -q
