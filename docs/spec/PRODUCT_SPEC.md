@@ -395,3 +395,6 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 23. D9.1 publishes `LEGACY_VS_HARDENED.md` from canonical offline analysis, types local
     parser outcomes, binds installed parser/build provenance, and makes no production
     hardened verdict claim for evidence the historical runs did not retain.
+24. D9.2 reproduces the canonical JSON and Markdown in a digest-pinned Python image with
+    hash-pinned transitive dependencies and verified installed-code digests. Legacy
+    transition labels come only from computed canonical counts.

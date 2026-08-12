@@ -646,6 +646,13 @@ actual installed parser-code and IaC-Guard-V implementation digests, and disting
 local parser `PASS`, `FAIL`, `UNSUPPORTED`, and `ERROR`. The canonical analysis renders
 the committed `LEGACY_VS_HARDENED.md` deliverable; neither is a production verdict.
 
+D9.2 fixes that analysis to a digest-selected Python 3.11.14 linux/amd64 image and a
+fully hash-pinned dependency closure. `D9_ENVIRONMENT.json` binds every wheel and
+installed-code digest. The image build verifies the physical environment and asserts
+byte equality for canonical `D9_ANALYSIS.json` and its generated Markdown. Transition
+labels are rendered only from computed counts; no scanner, model or benchmark inference
+is invoked.
+
 ## 28. D7.1 closed public contract
 
 `report-v1` is a closed four-branch state machine: verification `VERIFIED/0`,

@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from research.compat.compare_legacy_hardened import (
+    CANONICAL_ANALYSIS,
     MISSING_HARDENED_EVIDENCE,
     compare_frozen_runs,
     render_markdown,
@@ -39,9 +40,13 @@ def test_d9_compares_all_frozen_runs_without_claiming_hardened_verified() -> Non
     assert result["scanner_executions"] == 0
     assert tuple(result["hardened_limitations"]) == MISSING_HARDENED_EVIDENCE
     assert result["result_label"] == "HISTORICAL_HARDENED_EVIDENCE_SUFFICIENCY_COMPARISON"
-    assert result["analysis_contract_version"] == "historical-hardened-evidence-sufficiency-v2"
+    assert result["analysis_contract_version"] == "historical-hardened-evidence-sufficiency-v3"
     assert len(result["iac_guard_v_implementation_digest"]) == 64
     assert set(result["parser_provenance"]) == {"PyYAML", "python-hcl2"}
+    assert all(
+        set(item) == {"version", "installed_code_digest", "wheel_sha256"}
+        for item in result["parser_provenance"].values()
+    )
 
 
 def test_d9_local_parser_evidence_is_honest_and_records_every_run() -> None:
@@ -81,20 +86,12 @@ def test_d91_parser_failures_are_typed(monkeypatch) -> None:
     assert _local_candidate_evidence("x", "other", b"x")[0] == "UNSUPPORTED"
 
 
-def test_markdown_deliverable_matches_canonical_analysis(monkeypatch) -> None:
-    import iac_guard_v.engine as engine
-
-    committed_parser_provenance = {
-        "PyYAML": "2f8cce8325d5b1745c716f5f3830cd23c935e5c31d9f18656f5743e3782c13f1",
-        "python-hcl2": "98ca52742ffbb172fcde9bf435dfef50e7ec35336c87465dd032ded4796db6ee",
-    }
-    monkeypatch.setattr(
-        engine, "_verified_parser_distribution_digest",
-        lambda name: committed_parser_provenance[name],
-    )
+def test_committed_json_and_markdown_match_canonical_analysis() -> None:
     result = compare_frozen_runs()
     markdown = render_markdown(result)
     committed = (REPO / "docs/spec/LEGACY_VS_HARDENED.md").read_text(encoding="utf-8")
+    committed_json = CANONICAL_ANALYSIS.read_text(encoding="utf-8")
+    assert committed_json == json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n"
     assert committed == markdown
     for text in (
         "historical hardened-evidence sufficiency comparison",

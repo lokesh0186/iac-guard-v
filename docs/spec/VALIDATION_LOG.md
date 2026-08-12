@@ -853,6 +853,21 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
+## Gate D9.2 — Hash-pinned historical analysis (2026-08-12)
+
+Failing-before, canonical Markdown byte equality required a test monkeypatch that
+substituted two parser digests, and the `407`/`223` labels were duplicated as literals
+beside computed values. No standalone pinned analysis environment or canonical JSON was
+present.
+
+Passing-after, `requirements-d9.lock` hash-pins eleven direct/transitive distributions;
+`Dockerfile.d9` pins Python 3.11.14 by linux/amd64 image manifest; and
+`D9_ENVIRONMENT.json` records the multi-platform index, selected manifest, versions,
+wheel hashes and installed-code digests. The image build ran environment verification
+and byte-equality assertions successfully. Canonical output contains 630 records,
+computed transitions `407` and `223`, zero hardened `VERIFIED`, zero scanner executions,
+zero provider calls and zero new benchmark inference runs.
+
 ## Gate D7.1 — Closed public API, CLI, and schema contract
 
 Failing-before probes accepted operational `VERIFIED/0`, allowed reduced mode without

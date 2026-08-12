@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import inspect
 import json
+import platform
 import sys
 from collections import Counter
 from dataclasses import dataclass
@@ -23,6 +24,9 @@ RUNS = REPO / "runs" / "raw"
 PATCHES = REPO / "runs" / "patches"
 BASELINES = REPO / "scanners" / "outputs" / "baseline"
 EXPECTED_RUNS = 630
+ENVIRONMENT = REPO / "research" / "D9_ENVIRONMENT.json"
+CANONICAL_ANALYSIS = REPO / "research" / "D9_ANALYSIS.json"
+CANONICAL_MARKDOWN = REPO / "docs" / "spec" / "LEGACY_VS_HARDENED.md"
 MAX_RECORD_BYTES = 10 * 1024 * 1024
 MISSING_HARDENED_EVIDENCE = (
     "AFFIRMATIVE_CANDIDATE_TARGET_EVALUATION_MISSING",
@@ -31,7 +35,7 @@ MISSING_HARDENED_EVIDENCE = (
     "HISTORICAL_SEALED_SNAPSHOT_MISSING",
     "HISTORICAL_TRUSTED_POLICY_PROVENANCE_MISSING",
 )
-ANALYSIS_CONTRACT = "historical-hardened-evidence-sufficiency-v2"
+ANALYSIS_CONTRACT = "historical-hardened-evidence-sufficiency-v3"
 
 
 def _sha256(data: bytes) -> str:
@@ -61,6 +65,35 @@ def _manifest_digest(records: list[tuple[str, str]]) -> str:
     return _sha256(json.dumps(
         sorted(records), separators=(",", ":"), ensure_ascii=True
     ).encode("ascii"))
+
+
+def _pinned_environment() -> tuple[dict, str]:
+    value, raw = _strict_json(ENVIRONMENT)
+    if value.get("analysis_contract_version") != ANALYSIS_CONTRACT:
+        raise ValueError("D9 environment contract does not match the analysis")
+    distributions = value.get("distributions")
+    if type(distributions) is not dict or not distributions:
+        raise ValueError("D9 environment has no pinned distributions")
+    return value, _sha256(raw)
+
+
+def verify_pinned_environment() -> None:
+    """Prove that execution uses the exact selected linux/amd64 D9 environment."""
+    import importlib.metadata
+    from iac_guard_v.engine import _verified_parser_distribution_digest
+
+    environment, _digest = _pinned_environment()
+    expected_python = environment["base_image"]["python_version"]
+    if platform.python_version() != expected_python:
+        raise ValueError("D9 Python version differs from the pinned environment")
+    if platform.system() != "Linux" or platform.machine() not in {"x86_64", "AMD64"}:
+        raise ValueError("D9 canonical reproduction requires pinned linux/amd64")
+    for name, expected in sorted(environment["distributions"].items()):
+        if importlib.metadata.version(name) != expected["version"]:
+            raise ValueError(f"D9 distribution version mismatch: {name}")
+        actual = _verified_parser_distribution_digest(name)
+        if actual != expected["installed_code_digest"]:
+            raise ValueError(f"D9 installed-code digest mismatch: {name}")
 
 
 def _baseline_failures(payload: dict) -> tuple:
@@ -135,7 +168,6 @@ class ComparisonRecord:
 def compare_frozen_runs() -> dict:
     from iac_guard_v.engine import (
         _kubernetes_resources, _terraform_resources,
-        _verified_parser_distribution_digest,
     )
     from iac_guard_v import __version__
 
@@ -186,9 +218,16 @@ def compare_frozen_runs() -> dict:
     syntax_counts = Counter(item.candidate_syntax_status for item in records)
     for status in ("PASS", "FAIL", "UNSUPPORTED", "ERROR"):
         syntax_counts.setdefault(status, 0)
+    environment, environment_digest = _pinned_environment()
     parser_provenance = {
-        "python-hcl2": _verified_parser_distribution_digest("python-hcl2"),
-        "PyYAML": _verified_parser_distribution_digest("PyYAML"),
+        name: {
+            "version": environment["distributions"][name]["version"],
+            "installed_code_digest": environment["distributions"][name][
+                "installed_code_digest"
+            ],
+            "wheel_sha256": environment["distributions"][name]["wheel_sha256"],
+        }
+        for name in ("python-hcl2", "PyYAML")
     }
     implementation_digest = _sha256(json.dumps({
         "comparison": inspect.getsource(compare_frozen_runs),
@@ -197,7 +236,7 @@ def compare_frozen_runs() -> dict:
         "kubernetes": inspect.getsource(_kubernetes_resources),
     }, sort_keys=True, separators=(",", ":")).encode())
     return {
-        "schema_version": "legacy-hardened-comparison-v2",
+        "schema_version": "legacy-hardened-comparison-v3",
         "result_label": "HISTORICAL_HARDENED_EVIDENCE_SUFFICIENCY_COMPARISON",
         "analysis_contract_version": ANALYSIS_CONTRACT,
         "is_production_verdict": False,
@@ -211,6 +250,9 @@ def compare_frozen_runs() -> dict:
         "hardened_verified": 0,
         "hardened_limitations": list(MISSING_HARDENED_EVIDENCE),
         "parser_provenance": parser_provenance,
+        "environment_contract": environment["environment_contract"],
+        "environment_manifest_sha256": environment_digest,
+        "base_image": environment["base_image"],
         "iac_guard_v_version": __version__,
         "iac_guard_v_implementation_digest": implementation_digest,
         "input_digests": {
@@ -233,8 +275,11 @@ def render_markdown(result: dict) -> str:
         "",
         "## Results",
         "",
-        f"- 407 legacy `VERIFIED` records → hardened evidence `INCONCLUSIVE`: {transitions.get('LEGACY_VERIFIED_TO_HARDENED_INCONCLUSIVE', 0)}",
-        f"- 223 legacy `FAILED` records → hardened evidence `INCONCLUSIVE`: {transitions.get('LEGACY_FAILED_TO_HARDENED_INCONCLUSIVE', 0)}",
+        *(
+            f"- {transitions.get(f'LEGACY_{legacy}_TO_HARDENED_INCONCLUSIVE', 0)} "
+            f"legacy `{legacy}` records → hardened evidence `INCONCLUSIVE`"
+            for legacy in ("VERIFIED", "FAILED")
+        ),
         f"- Hardened `VERIFIED` claims: {result['hardened_verified']}",
         "- Local parser outcomes: "
         + ", ".join(f"`{name}={syntax.get(name, 0)}`" for name in (
@@ -250,11 +295,15 @@ def render_markdown(result: dict) -> str:
         "## Provenance and execution",
         "",
         f"- Analysis contract: `{result['analysis_contract_version']}`",
+        f"- Environment contract: `{result['environment_contract']}`",
+        f"- Environment manifest digest: `{result['environment_manifest_sha256']}`",
+        f"- Base image manifest: `{result['base_image']['manifest_digest']}`",
         f"- IaC-Guard-V implementation digest: `{result['iac_guard_v_implementation_digest']}`",
     ])
     lines.extend(
-        f"- Parser `{name}` installed-code digest: `{digest}`"
-        for name, digest in sorted(result["parser_provenance"].items())
+        f"- Parser `{name}` {record['version']} installed-code digest: "
+        f"`{record['installed_code_digest']}`"
+        for name, record in sorted(result["parser_provenance"].items())
     )
     lines.extend(
         f"- {name}: `{digest}`" for name, digest in sorted(result["input_digests"].items())
@@ -281,13 +330,30 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--summary-only", action="store_true")
     parser.add_argument("--markdown", action="store_true")
+    parser.add_argument("--verify-environment", action="store_true")
+    parser.add_argument("--assert-canonical", action="store_true")
+    parser.add_argument("--write-canonical", action="store_true")
+    parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
+    if args.verify_environment:
+        verify_pinned_environment()
     result = compare_frozen_runs()
+    canonical_json = json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n"
+    markdown = render_markdown(result)
+    if args.write_canonical:
+        CANONICAL_ANALYSIS.write_text(canonical_json, encoding="utf-8")
+        CANONICAL_MARKDOWN.write_text(markdown, encoding="utf-8")
+    if args.assert_canonical:
+        if CANONICAL_ANALYSIS.read_text(encoding="utf-8") != canonical_json:
+            raise ValueError("committed D9 canonical JSON differs from recomputation")
+        if CANONICAL_MARKDOWN.read_text(encoding="utf-8") != markdown:
+            raise ValueError("committed D9 Markdown differs from recomputation")
     if args.summary_only:
         result = {key: value for key, value in result.items() if key != "records"}
-    print(render_markdown(result) if args.markdown else json.dumps(
-        result, sort_keys=True, separators=(",", ":")
-    ))
+    if not args.quiet:
+        print(render_markdown(result) if args.markdown else json.dumps(
+            result, sort_keys=True, separators=(",", ":")
+        ))
     return 0
 
 

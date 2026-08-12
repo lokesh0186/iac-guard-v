@@ -1,0 +1,23 @@
+FROM python:3.11.14-slim-bookworm@sha256:83f339c1be6340ae1096010fdccf6552ac932d8f410d45d206014916bdf37e48
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONHASHSEED=0 \
+    TZ=UTC \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+WORKDIR /analysis
+
+COPY research/requirements-d9.lock /analysis/research/requirements-d9.lock
+RUN python -m pip install --disable-pip-version-check --no-compile \
+      --require-hashes -r /analysis/research/requirements-d9.lock
+
+COPY src /analysis/src
+COPY research /analysis/research
+COPY runs /analysis/runs
+COPY scanners /analysis/scanners
+COPY docs/spec/LEGACY_VS_HARDENED.md /analysis/docs/spec/LEGACY_VS_HARDENED.md
+
+ENV PYTHONPATH=/analysis/src:/analysis
+RUN python research/compat/compare_legacy_hardened.py \
+      --verify-environment --assert-canonical --quiet
+ENTRYPOINT ["python", "research/compat/compare_legacy_hardened.py", "--verify-environment"]
