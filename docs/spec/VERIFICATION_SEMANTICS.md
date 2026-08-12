@@ -1175,3 +1175,13 @@ candidate Git-object names. Governed paths retain typed absent/file/directory/sy
 other evidence. A real governed directory is a bounded deterministic recursive manifest;
 a symlink or type replacement is drift and cannot collapse to no evidence. Canonical
 source identity excludes absolute filesystem roots.
+
+### D4.7 artifact-universe completeness
+
+`FilesystemArtifactEntry` is authoritative source evidence. Its canonical form records
+relative path, exact `lstat` kind, regular-file digest and size, symlink target text,
+supported/governed membership, and any rejection reason. `ARTIFACT_UNIVERSE_UNRESOLVED`
+is an `ERROR` preflight result. It is produced whenever either sealed role contains an
+unsafe symlink or supported/governed non-regular object; it cannot be combined with
+`VERIFIED`. Final revalidation compares the same canonical inventory, so type or target
+changes alter the snapshot root.

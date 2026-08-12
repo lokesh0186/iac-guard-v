@@ -89,3 +89,11 @@ custom-check state, and invocation configuration. Installed Checkov package/chec
 symlinks are rejected; mutable bytecode caches are excluded. Contract-affecting parser,
 coverage, artifact, policy-input, invocation, or normalisation changes increment the
 adapter contract version.
+
+## Amendment, 2026-08-11: actual dependency bytes
+
+D4.7 strengthens native environment identity from metadata evidence to the actual
+installed regular-file dependency tree plus interpreter bytes. Metadata-only stability
+does not establish execution stability. Symlinked or special dependency content is
+rejected, and mutable bytecode caches are excluded deterministically. An environment
+that cannot establish the complete contract remains inconclusive rather than verified.

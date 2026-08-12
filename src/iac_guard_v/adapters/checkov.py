@@ -224,18 +224,15 @@ def checkov_distribution_identity(
     ]
     distribution_digest = _sha256_manifest(package_files)
     policy_digest = _sha256_manifest(policy_files)
-    lock_records: list[tuple[str, bytes]] = []
     site_packages = checkov_roots[0].parent
     for metadata in sorted(site_packages.glob("*.dist-info")):
         if metadata.is_symlink():
             raise DomainError("Checkov dependency metadata must not be symlinked")
-        for name in ("RECORD", "METADATA", "WHEEL", "direct_url.json"):
-            path = metadata / name
-            if not path.exists():
-                continue
-            if path.is_symlink() or not path.is_file():
-                raise DomainError("Checkov dependency metadata must be regular files")
-            lock_records.append((path.relative_to(site_packages).as_posix(), path.read_bytes()))
+    environment_files = _inventory_regular_files(site_packages, site_packages)
+    dependency_files = [
+        item for item in environment_files
+        if not item[0].startswith("checkov/")
+    ]
     interpreter_path = None
     if first_line.startswith("#!"):
         candidate = Path(first_line[2:].strip().split()[0])
@@ -250,10 +247,13 @@ def checkov_distribution_identity(
             raise DomainError("Checkov interpreter must not be a symlink")
         if not stat.S_ISREG(metadata.st_mode):
             raise DomainError("Checkov interpreter must be a regular file")
-        lock_records.append(("runtime/interpreter", interpreter_path.read_bytes()))
-    if not lock_records:
-        lock_records.append(("distribution-metadata", b"unavailable"))
-    dependency_digest = _manifest_digest(lock_records)
+        interpreter_digest = hashlib.sha256(interpreter_path.read_bytes()).digest()
+    else:
+        interpreter_digest = hashlib.sha256(b"interpreter-unavailable").digest()
+    dependency_digest = _manifest_digest([
+        ("installed-dependency-tree", bytes.fromhex(_sha256_manifest(dependency_files))),
+        ("runtime-interpreter", interpreter_digest),
+    ])
     custom_check_digest = _manifest_digest([("custom-checks", b"disabled")])
     environment_digest = _manifest_digest([
         ("non-policy-package", bytes.fromhex(_sha256_manifest(package_without_policy))),

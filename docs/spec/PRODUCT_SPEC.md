@@ -363,3 +363,9 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
     Candidate policy comes from that Git tree. Monorepo prefixes apply symmetrically to
     base and candidate paths; governed directories have typed entries and bounded
     recursive digests, so symlink replacements are never treated as absent.
+17. One no-follow inventory is authoritative for source state, artifact discovery,
+    governed paths, scan planning and final revalidation. Every symlink and every
+    supported/governed entry is reported with its exact filesystem type. Only regular
+    files are parsed; an unsafe directory link or supported special file prevents
+    `VERIFIED`. Native scanner integrity binds actual dependency code bytes as well as
+    package, policy, launcher, interpreter and configuration evidence.

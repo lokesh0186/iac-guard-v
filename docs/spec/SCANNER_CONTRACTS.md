@@ -340,3 +340,17 @@ anchors, domain tags, and nested `kind` fields in clearly non-Kubernetes documen
 not trigger Kubernetes-only restrictions. Root Kubernetes identity and unsupported
 nested complete identity remain fail-closed. Every inspected supported-extension file
 continues to retain its digest-bound `ArtifactClassification`.
+
+## 9. Complete filesystem and native environment contract (D4.7)
+
+The adapter receives eligible regular files from the same bounded no-follow inventory
+that seals the role snapshot. Directory links are recorded and rejected without being
+traversed. Supported-extension directories, FIFOs, sockets, devices, symlinks and other
+non-regular entries are typed rejected evidence, not absent files. The scan-view input,
+snapshot root and report bind the inventory entry and any rejection reason.
+
+Native Checkov identity hashes actual regular bytes across the installed dependency
+closure, not only `.dist-info` metadata. It excludes `__pycache__` and `.pyc` consistently
+and rejects missing, symlinked, escaping or non-regular executable/package/policy/
+dependency content. Failure to establish this complete native identity is operational
+uncertainty and cannot support a final `VERIFIED` result.

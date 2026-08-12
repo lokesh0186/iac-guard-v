@@ -357,3 +357,13 @@ from Git objects. D5 and D6 must agree on candidate snapshot digest and reposito
 subpath. Governed directory entries are inspected even when they are symlinks, and real
 directories carry bounded recursive manifests. Thus a governed `.iac-guard` or
 `custom_checks` symlink is explicit drift/error rather than an empty inventory.
+
+### D4.7 filesystem-object and dependency substitution
+
+An attacker may hide a supported artifact behind a directory symlink or replace a
+supported filename with a FIFO, socket, device, directory, or broken link. The shared
+inventory uses `lstat`, records these objects and link target text, never follows a
+directory symlink, and makes any rejection visible to P0 and the final report. An
+attacker may also alter dependency code without changing distribution metadata; the
+native scanner identity therefore hashes actual dependency-tree bytes and rejects
+indirections rather than treating metadata alone as execution integrity.

@@ -570,3 +570,19 @@ manifest; a symlinked governed directory remains visible drift rather than disap
 Canonical policy evidence records portable repository, commit/tree, prefix, governed
 digest, configuration, and sealed-snapshot identities; absolute checkout paths remain
 runtime-only.
+
+## 21. D4.7 shared filesystem and scanner-environment inventory
+
+One bounded `lstat`/no-follow inventory now supplies snapshot state, artifact discovery,
+scan-plan construction, governed-path evidence, and final revalidation. It records every
+symlink and every supported or governed entry with an exact path type; only regular files
+are parsed. Directory symlinks are recorded but never traversed, and unsafe or special
+entries make P0 `ERROR/ARTIFACT_UNIVERSE_UNRESOLVED`. Sealed snapshots and canonical
+results bind successful classifications and rejected entries alike.
+
+The native Checkov identity separately binds launcher bytes, installed Checkov bytes,
+built-in policy bytes, custom-check state, interpreter bytes, and the actual installed
+dependency-tree bytes (excluding mutable bytecode caches). Symlinks or non-regular
+content in the verified package/dependency tree are rejected. Native execution remains
+reduced isolation; a native environment whose complete identity cannot be established
+cannot support `VERIFIED`.

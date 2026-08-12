@@ -668,6 +668,42 @@ NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 ```
 
+---
+
+## Gate D4.7 — Complete filesystem artifact and scanner-environment identity
+
+Literal failing-before probes on `ed9d77f39c14cacc17ba46fb7c94bfb97b0daaa6`:
+
+```text
+external directory symlink linked -> outside/pod.yaml: absent from snapshot; preflight PASS; VERIFIED
+FIFO evil.tf: absent from classifications; preflight PASS; VERIFIED
+dependency.py VALUE=1 -> VALUE=2 with unchanged dist-info: dependency digest unchanged
+candidate snapshot canonical keys: no filesystem_entries
+```
+
+Literal passing-after probes:
+
+```text
+external/internal/broken/cyclic directory symlink: SYMLINK / UNSAFE_SYMLINK_ENTRY
+FIFO evil.tf: FIFO / UNSUPPORTED_ARTIFACT_PATH_TYPE
+socket manifest.yaml: SOCKET / UNSUPPORTED_ARTIFACT_PATH_TYPE
+directory config.json: REAL_DIRECTORY / UNSUPPORTED_ARTIFACT_PATH_TYPE
+symlink or broken-symlink supported input: UNSAFE_SYMLINK_ENTRY
+all unsafe cases: ERROR / ARTIFACT_UNIVERSE_UNRESOLVED; never VERIFIED
+dependency.py VALUE=1 -> VALUE=2: dependency digest changed; environment digest changed
+focused D4.7 security probes: 10 passed
+existing engine/Checkov unit tests excluding the pending D5.5 probes: 317 passed
+```
+
+The shared inventory never follows directory symlinks and retains rejected entries in
+the sealed snapshot. No benchmark inference, provider call, or model refresh occurred.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
 ## D6.4 — Candidate tree and governed directory attestation (2026-08-11)
 
 Parent: `230c0cec23b1a662b7a7f98b24ae370e3b27f6fd`. D6.4 did not alter the

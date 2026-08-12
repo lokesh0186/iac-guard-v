@@ -89,3 +89,10 @@ D4.6 applies Kubernetes-only tag and alias restrictions only after bounded root 
 inspection. Workflow, OpenAPI, and CloudFormation YAML with anchors, domain tags, or
 nested `kind` fields remains classified non-Kubernetes evidence. Unsupported nested
 complete Kubernetes identity and unsafe Kubernetes roots still fail closed.
+
+## Amendment, 2026-08-11: shared no-follow source inventory
+
+D4.7 makes one typed filesystem inventory the input to artifact detectors, scan plans,
+governed comparison, snapshot identity and final revalidation. Scanner-specific parsers
+receive only digest-bound regular bytes. Symlinks and supported special files remain
+scanner-agnostic rejected evidence and are never silently dropped.

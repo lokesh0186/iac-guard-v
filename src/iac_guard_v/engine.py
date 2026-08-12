@@ -85,8 +85,11 @@ _MAX_GOVERNED_FILES = 10_000
 _MAX_GOVERNED_FILE_BYTES = 10 * 1024 * 1024
 _MAX_GOVERNED_TOTAL_BYTES = 100 * 1024 * 1024
 _GOVERNED_KINDS = frozenset({
-    "ABSENT", "REGULAR_FILE", "REAL_DIRECTORY", "SYMLINK", "OTHER",
+    "ABSENT", "REGULAR_FILE", "REAL_DIRECTORY", "SYMLINK", "FIFO", "SOCKET",
+    "BLOCK_DEVICE", "CHARACTER_DEVICE", "OTHER",
 })
+_SUPPORTED_SUFFIXES = frozenset({".tf", ".yaml", ".yml", ".json"})
+_FILESYSTEM_KINDS = _GOVERNED_KINDS - {"ABSENT"}
 
 
 def _digest(value: object, name: str) -> str:
@@ -122,6 +125,60 @@ class GovernedPathRecord:
             "kind": self.kind,
             "sha256": self.sha256,
             "size": self.size,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FilesystemArtifactEntry:
+    """One portable lstat record from the shared no-follow source inventory."""
+
+    file_path: str
+    kind: str
+    size: int
+    sha256: str | None
+    symlink_target: str | None
+    supported: bool
+    governed: bool
+    rejection_reason: str = ""
+    content: bytes | None = field(default=None, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        from .models import canonical_repo_path
+
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        if self.kind not in _FILESYSTEM_KINDS:
+            raise DomainError("filesystem artifact entry kind is unsupported")
+        if type(self.size) is not int or self.size < 0:
+            raise DomainError("filesystem artifact entry size must be nonnegative")
+        if type(self.supported) is not bool or type(self.governed) is not bool:
+            raise DomainError("filesystem artifact scope flags must be exact bool values")
+        if self.sha256 is not None:
+            _digest(self.sha256, "filesystem artifact content digest")
+        if self.kind == "REGULAR_FILE" and self.sha256 is None:
+            raise DomainError("regular filesystem artifact requires a content digest")
+        if self.content is not None:
+            if type(self.content) is not bytes or self.kind != "REGULAR_FILE":
+                raise DomainError("filesystem artifact content is only valid for regular files")
+            if len(self.content) != self.size or hashlib.sha256(self.content).hexdigest() != self.sha256:
+                raise DomainError("filesystem artifact content contradicts its bound evidence")
+        if self.kind == "SYMLINK":
+            if type(self.symlink_target) is not str:
+                raise DomainError("symlink artifact requires target text")
+        elif self.symlink_target is not None:
+            raise DomainError("non-symlink artifact cannot carry symlink target text")
+        if type(self.rejection_reason) is not str:
+            raise DomainError("filesystem artifact rejection reason must be a string")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "file_path": self.file_path,
+            "kind": self.kind,
+            "size": self.size,
+            "sha256": self.sha256,
+            "symlink_target": self.symlink_target,
+            "supported": self.supported,
+            "governed": self.governed,
+            "rejection_reason": self.rejection_reason,
         }
 
 
@@ -399,43 +456,146 @@ def _governed_file(path: Path, relative: str) -> bool:
     )
 
 
-def _governed_inventory(root: Path) -> dict[str, GovernedPathRecord]:
-    result: dict[str, GovernedPathRecord] = {}
-    total_bytes = 0
-    for path in sorted(root.rglob("*")):
-        relative = path.relative_to(root).as_posix()
-        if ".git" in Path(relative).parts:
-            continue
-        if not _governed_file(path, relative):
-            continue
-        if len(result) >= _MAX_GOVERNED_FILES:
-            raise DomainError("governed configuration exceeds its file-count limit")
+def _supported_artifact_path(path: Path) -> bool:
+    return (
+        path.suffix.lower() in _SUPPORTED_SUFFIXES
+        or path.name.lower().endswith(".tf.json")
+    )
+
+
+def _filesystem_kind(mode: int) -> str:
+    if stat.S_ISREG(mode):
+        return "REGULAR_FILE"
+    if stat.S_ISDIR(mode):
+        return "REAL_DIRECTORY"
+    if stat.S_ISLNK(mode):
+        return "SYMLINK"
+    if stat.S_ISFIFO(mode):
+        return "FIFO"
+    if stat.S_ISSOCK(mode):
+        return "SOCKET"
+    if stat.S_ISBLK(mode):
+        return "BLOCK_DEVICE"
+    if stat.S_ISCHR(mode):
+        return "CHARACTER_DEVICE"
+    return "OTHER"
+
+
+def _filesystem_inventory(
+    root: Path,
+    *,
+    max_files: int,
+    max_file_bytes: int,
+    max_total_bytes: int,
+) -> tuple[FilesystemArtifactEntry, ...]:
+    """Walk once with lstat semantics and never traverse directory symlinks."""
+    root = root.resolve(strict=True)
+    entries: list[FilesystemArtifactEntry] = []
+    supported_count = governed_count = 0
+    supported_total = governed_total = 0
+
+    def visit(directory: Path) -> None:
+        nonlocal supported_count, governed_count, supported_total, governed_total
         try:
-            metadata = path.lstat()
+            children = sorted(os.scandir(directory), key=lambda item: item.name)
         except OSError as exc:
-            raise DomainError("governed path entry could not be inspected") from exc
-        if stat.S_ISLNK(metadata.st_mode):
+            raise DomainError("source inventory directory could not be inspected") from exc
+        for child in children:
+            if directory == root and child.name == ".git":
+                continue
+            path = Path(child.path)
+            relative = path.relative_to(root).as_posix()
             try:
-                payload = os.readlink(path).encode("utf-8", errors="strict")
-            except (OSError, UnicodeError) as exc:
-                raise DomainError("governed symlink target could not be recorded") from exc
-            kind = "SYMLINK"
-        elif stat.S_ISREG(metadata.st_mode):
-            payload = _read_detector_file(path, root, _MAX_GOVERNED_FILE_BYTES)
-            total_bytes += len(payload)
-            if total_bytes > _MAX_GOVERNED_TOTAL_BYTES:
-                raise DomainError("governed configuration exceeds its total-byte limit")
-            kind = "REGULAR_FILE"
-        elif stat.S_ISDIR(metadata.st_mode):
+                metadata = child.stat(follow_symlinks=False)
+            except OSError as exc:
+                raise DomainError("source inventory entry could not be inspected") from exc
+            kind = _filesystem_kind(metadata.st_mode)
+            supported = _supported_artifact_path(path)
+            governed = _governed_file(path, relative)
+            # Every symlink is security-relevant, even without a governed/supported name.
+            record = supported or governed or kind == "SYMLINK"
+            content: bytes | None = None
+            digest: str | None = None
+            target: str | None = None
+            rejection = ""
+            size = metadata.st_size if kind == "REGULAR_FILE" else 0
+            if supported:
+                supported_count += 1
+                if supported_count > max_files:
+                    raise DomainError("snapshot exceeds its eligible-file limit (file count)")
+            if governed:
+                governed_count += 1
+                if governed_count > _MAX_GOVERNED_FILES:
+                    raise DomainError("governed configuration exceeds its file-count limit")
+            if kind == "REGULAR_FILE" and (supported or governed):
+                limit = min(
+                    max_file_bytes if supported else _MAX_GOVERNED_FILE_BYTES,
+                    _MAX_GOVERNED_FILE_BYTES if governed else max_file_bytes,
+                )
+                content = _read_detector_file(path, root, limit)
+                size = len(content)
+                digest = hashlib.sha256(content).hexdigest()
+                if supported:
+                    supported_total += size
+                    if supported_total > max_total_bytes:
+                        raise DomainError("snapshot exceeds its supported-file byte limit")
+                if governed:
+                    governed_total += size
+                    if governed_total > _MAX_GOVERNED_TOTAL_BYTES:
+                        raise DomainError("governed configuration exceeds its total-byte limit")
+            elif kind == "SYMLINK":
+                try:
+                    target = os.readlink(path)
+                    target.encode("utf-8", errors="strict")
+                except (OSError, UnicodeError) as exc:
+                    raise DomainError("source inventory symlink target could not be recorded") from exc
+                rejection = "UNSAFE_SYMLINK_ENTRY"
+            elif supported and kind != "REGULAR_FILE":
+                rejection = "UNSUPPORTED_ARTIFACT_PATH_TYPE"
+            elif governed and kind not in {"REGULAR_FILE", "REAL_DIRECTORY"}:
+                rejection = "UNSAFE_GOVERNED_PATH_TYPE"
+            if record:
+                entries.append(FilesystemArtifactEntry(
+                    relative, kind, size, digest, target, supported, governed,
+                    rejection, content,
+                ))
+            if kind == "REAL_DIRECTORY":
+                visit(path)
+
+    visit(root)
+    return tuple(sorted(entries, key=lambda item: item.file_path))
+
+
+def _governed_inventory_from_entries(
+    entries: tuple[FilesystemArtifactEntry, ...],
+) -> dict[str, GovernedPathRecord]:
+    result: dict[str, GovernedPathRecord] = {}
+    for entry in entries:
+        if not entry.governed:
+            continue
+        if entry.kind == "REGULAR_FILE":
+            digest = entry.sha256
+            size = entry.size
+        elif entry.kind == "SYMLINK":
+            payload = entry.symlink_target.encode("utf-8")
+            digest, size = hashlib.sha256(payload).hexdigest(), len(payload)
+        elif entry.kind == "REAL_DIRECTORY":
             payload = b"directory"
-            kind = "REAL_DIRECTORY"
+            digest, size = hashlib.sha256(payload).hexdigest(), len(payload)
+        elif entry.kind == "REAL_DIRECTORY":
+            payload = b"directory"
+            digest, size = hashlib.sha256(payload).hexdigest(), len(payload)
         else:
-            payload = f"mode:{stat.S_IFMT(metadata.st_mode):o}".encode("ascii")
-            kind = "OTHER"
-        result[relative] = GovernedPathRecord(
-            relative, kind, hashlib.sha256(payload).hexdigest(), len(payload)
+            payload = f"kind:{entry.kind}".encode("ascii")
+            digest, size = hashlib.sha256(payload).hexdigest(), len(payload)
+        governed_kind = (
+            entry.kind
+            if entry.kind in {"REGULAR_FILE", "REAL_DIRECTORY", "SYMLINK"}
+            else "OTHER"
         )
-    # A directory digest binds all typed descendants, including an empty directory.
+        result[entry.file_path] = GovernedPathRecord(
+            entry.file_path, governed_kind, digest, size
+        )
     for relative, record in tuple(result.items()):
         if record.kind != "REAL_DIRECTORY":
             continue
@@ -444,18 +604,29 @@ def _governed_inventory(root: Path) -> dict[str, GovernedPathRecord]:
             item.canonical_dict() for name, item in sorted(result.items())
             if name.startswith(prefix)
         ]
-        payload = json.dumps(
-            descendants, sort_keys=True, separators=(",", ":")
-        ).encode()
+        payload = json.dumps(descendants, sort_keys=True, separators=(",", ":")).encode()
         result[relative] = GovernedPathRecord(
             relative, record.kind, hashlib.sha256(payload).hexdigest(), len(payload)
         )
     return result
 
 
-def _governed_comparison(baseline_root: Path, candidate_root: Path) -> tuple:
-    trusted = _governed_inventory(baseline_root)
-    candidate = _governed_inventory(candidate_root)
+def _governed_inventory(root: Path) -> dict[str, GovernedPathRecord]:
+    entries = _filesystem_inventory(
+        root,
+        max_files=10_000,
+        max_file_bytes=_MAX_GOVERNED_FILE_BYTES,
+        max_total_bytes=2**63 - 1,
+    )
+    return _governed_inventory_from_entries(entries)
+
+
+def _governed_comparison_from_entries(
+    baseline_entries: tuple[FilesystemArtifactEntry, ...],
+    candidate_entries: tuple[FilesystemArtifactEntry, ...],
+) -> tuple:
+    trusted = _governed_inventory_from_entries(baseline_entries)
+    candidate = _governed_inventory_from_entries(candidate_entries)
     evidence = []
     for path in sorted(set(trusted) | set(candidate)):
         before = trusted.get(path)
@@ -483,61 +654,47 @@ def _governed_comparison(baseline_root: Path, candidate_root: Path) -> tuple:
     return tuple(evidence)
 
 
+def _governed_comparison(baseline_root: Path, candidate_root: Path) -> tuple:
+    baseline_entries = _filesystem_inventory(
+        baseline_root, max_files=10_000,
+        max_file_bytes=_MAX_GOVERNED_FILE_BYTES,
+        max_total_bytes=_MAX_GOVERNED_TOTAL_BYTES,
+    )
+    candidate_entries = _filesystem_inventory(
+        candidate_root, max_files=10_000,
+        max_file_bytes=_MAX_GOVERNED_FILE_BYTES,
+        max_total_bytes=_MAX_GOVERNED_TOTAL_BYTES,
+    )
+    return _governed_comparison_from_entries(baseline_entries, candidate_entries)
+
+
 def _source_snapshot_state(
     root: Path,
     *,
     max_files: int,
     max_file_bytes: int,
     max_total_bytes: int,
-) -> tuple[str, tuple[GovernedPathRecord, ...]]:
+    include_entries: bool = False,
+) -> tuple:
     """Portable no-follow state for supported artifacts plus governed entries."""
-    records: list[dict] = []
-    count = total = 0
-    governed = _governed_inventory(root)
-    for path in sorted(root.rglob("*")):
-        relative = path.relative_to(root).as_posix()
-        parts = Path(relative).parts
-        if ".git" in parts:
-            continue
-        supported = (
-            path.suffix.lower() in {".tf", ".yaml", ".yml", ".json"}
-            or path.name.lower().endswith(".tf.json")
-        )
-        if not supported or relative in governed:
-            continue
-        try:
-            metadata = path.lstat()
-        except OSError as exc:
-            raise DomainError("snapshot entry could not be inspected") from exc
-        count += 1
-        if count > max_files:
-            raise DomainError("snapshot exceeds its supported-file count limit")
-        if stat.S_ISLNK(metadata.st_mode):
-            payload = os.readlink(path).encode("utf-8", errors="strict")
-            kind = "SYMLINK"
-        elif stat.S_ISREG(metadata.st_mode):
-            payload = _read_detector_file(path, root, max_file_bytes)
-            total += len(payload)
-            if total > max_total_bytes:
-                raise DomainError("snapshot exceeds its supported-file byte limit")
-            kind = "REGULAR_FILE"
-        elif stat.S_ISDIR(metadata.st_mode):
-            continue
-        else:
-            payload = f"mode:{stat.S_IFMT(metadata.st_mode):o}".encode("ascii")
-            kind = "OTHER"
-        records.append({
-            "file_path": relative,
-            "kind": kind,
-            "size": len(payload),
-            "sha256": hashlib.sha256(payload).hexdigest(),
-        })
-    records.extend(item.canonical_dict() for item in governed.values())
+    entries = _filesystem_inventory(
+        root,
+        max_files=max_files,
+        max_file_bytes=max_file_bytes,
+        max_total_bytes=max_total_bytes,
+    )
+    governed = _governed_inventory_from_entries(entries)
+    records = [item.canonical_dict() for item in entries]
     digest = hashlib.sha256(json.dumps(
         sorted(records, key=lambda item: item["file_path"]),
         sort_keys=True, separators=(",", ":"),
     ).encode()).hexdigest()
-    return digest, tuple(governed[path] for path in sorted(governed))
+    complete = (
+        digest,
+        tuple(governed[path] for path in sorted(governed)),
+        entries,
+    )
+    return complete if include_entries else complete[:2]
 
 
 def _repository_relative_subpath(root: Path) -> str:
@@ -630,20 +787,28 @@ class TrustedVerificationConfigBundle:
         require_exact_type(self.gate_registry, TrustedGateRegistry, "trusted gate registry")
         if not self.gate_registry._trusted:
             raise DomainError("gate registry lacks factory provenance")
-        baseline_state, _baseline_governed = _source_snapshot_state(
+        baseline_state, _baseline_governed, baseline_entries = _source_snapshot_state(
             self.baseline_root,
             max_files=self.max_eligible_files,
             max_file_bytes=self.max_file_bytes,
             max_total_bytes=self.max_total_eligible_bytes,
+            include_entries=True,
         )
-        candidate_state, _candidate_governed = _source_snapshot_state(
+        candidate_state, _candidate_governed, candidate_entries = _source_snapshot_state(
             self.candidate_root,
             max_files=self.max_eligible_files,
             max_file_bytes=self.max_file_bytes,
             max_total_bytes=self.max_total_eligible_bytes,
+            include_entries=True,
         )
         object.__setattr__(self, "baseline_source_snapshot_sha256", baseline_state)
         object.__setattr__(self, "candidate_source_snapshot_sha256", candidate_state)
+        observed_governed = _governed_comparison_from_entries(
+            baseline_entries, candidate_entries
+        )
+        if self.governed_config and self.governed_config != observed_governed:
+            raise DomainError("governed configuration evidence disagrees with source inventory")
+        object.__setattr__(self, "governed_config", observed_governed)
         baseline_subpath = _repository_relative_subpath(self.baseline_root)
         candidate_subpath = _repository_relative_subpath(self.candidate_root)
         object.__setattr__(self, "baseline_repository_relative_subpath", baseline_subpath)
@@ -758,7 +923,7 @@ def load_operator_verification_config(
         baseline_request.max_eligible_files,
         baseline_request.max_file_bytes,
         baseline_request.max_total_eligible_bytes,
-        _governed_comparison(baseline_request.scan_root, candidate_request.scan_root),
+        (),
         source_identity,
         "operator",
         authorization,
@@ -865,6 +1030,7 @@ class SealedVerificationSnapshot:
     classifications: tuple
     resources: tuple
     governed_paths: tuple
+    filesystem_entries: tuple = ()
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -894,6 +1060,7 @@ class SealedVerificationSnapshot:
             ("classifications", ArtifactClassification),
             ("resources", ExpectedResource),
             ("governed_paths", GovernedPathRecord),
+            ("filesystem_entries", FilesystemArtifactEntry),
         )
         for name, item_type in typed_collections:
             values = getattr(self, name)
@@ -919,6 +1086,9 @@ class SealedVerificationSnapshot:
             "classifications": [item.canonical_dict() for item in self.classifications],
             "resources": [item.canonical_dict() for item in self.resources],
             "governed_paths": [item.canonical_dict() for item in self.governed_paths],
+            "filesystem_entries": [
+                item.canonical_dict() for item in self.filesystem_entries
+            ],
         }
 
 
@@ -940,6 +1110,7 @@ class TrustedScanPlan:
     config_sha256: str = ""
     repository_identity: str = "operator_content_repository_v1"
     repository_relative_subpath: str = "."
+    filesystem_entries: tuple = ()
     _trusted_context: InitVar[object] = None
     _trusted: bool = field(init=False, default=False, repr=False, compare=False)
     sealed_snapshot: SealedVerificationSnapshot | None = field(
@@ -966,6 +1137,10 @@ class TrustedScanPlan:
             type(item) is not GovernedPathRecord for item in self.governed_paths
         ):
             raise DomainError("scan-plan governed paths must be exact typed records")
+        if type(self.filesystem_entries) is not tuple or any(
+            type(item) is not FilesystemArtifactEntry for item in self.filesystem_entries
+        ):
+            raise DomainError("scan-plan filesystem entries must be exact typed records")
         require_enum(self.role, ScanRole, "scan-plan role")
         if tuple(self.request.expected_resources) != self.resources:
             raise DomainError("scan-plan resources disagree with its adapter request")
@@ -1019,6 +1194,9 @@ class TrustedScanPlan:
             {
                 "root_files": [item.canonical_dict() for item in self.classifications],
                 "eligible_files": [item.canonical_dict() for item in self.files],
+                "filesystem_entries": [
+                    item.canonical_dict() for item in self.filesystem_entries
+                ],
             }, sort_keys=True, separators=(",", ":"),
         ).encode()).hexdigest()
         if self.artifact_manifest_sha256 and self.artifact_manifest_sha256 != computed_artifact_manifest:
@@ -1048,6 +1226,7 @@ class TrustedScanPlan:
                 self.classifications,
                 self.resources,
                 self.governed_paths,
+                self.filesystem_entries,
                 _trusted_context=_TRUSTED_SCAN_PLAN_CONTEXT,
             )
             object.__setattr__(self, "sealed_snapshot", sealed)
@@ -1518,8 +1697,15 @@ def attest_checkov_scan_plan(
     eligible: list[str] = []
     classifications: list[ArtifactClassification] = []
     root = untrusted.scan_root
-    total_bytes = 0
-    for path in sorted(root.rglob("*")):
+    source_state, governed_paths, filesystem_entries = _source_snapshot_state(
+        root,
+        max_files=max_files,
+        max_file_bytes=max_file_bytes,
+        max_total_bytes=max_total_bytes,
+        include_entries=True,
+    )
+    for entry in filesystem_entries:
+        path = root / entry.file_path
         is_tf_json = path.name.lower().endswith(".tf.json")
         suffix = path.suffix.lower()
         relevant = (
@@ -1529,21 +1715,18 @@ def attest_checkov_scan_plan(
             and not is_tf_json
             and "kubernetes" in frameworks
         )
-        if path.is_symlink():
-            if relevant:
+        if entry.kind != "REGULAR_FILE":
+            if relevant and config is None:
                 raise DomainError("independent detector refuses symlinked IaC input")
-            continue
-        if not path.is_file():
             continue
         if not relevant:
             continue
-        relative = path.relative_to(root).as_posix()
+        relative = entry.file_path
         if is_tf_json and "terraform" in frameworks:
             raise DomainError("Terraform JSON (.tf.json) is explicitly unsupported")
-        content = _read_detector_file(path, root, max_file_bytes)
-        total_bytes += len(content)
-        if total_bytes > max_total_bytes:
-            raise DomainError("independent detector input exceeds its total-byte limit")
+        if entry.content is None:
+            raise DomainError("shared source inventory omitted regular-file bytes")
+        content = entry.content
         detected: tuple[ExpectedResource, ...] = ()
         file_type = ""
         classification = ""
@@ -1641,12 +1824,6 @@ def attest_checkov_scan_plan(
     inventory_digest = hashlib.sha256(
         json.dumps(inventory_payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
-    source_state, governed_paths = _source_snapshot_state(
-        root,
-        max_files=max_files,
-        max_file_bytes=max_file_bytes,
-        max_total_bytes=max_total_bytes,
-    )
     if config is not None:
         expected_state = (
             config.baseline_source_snapshot_sha256
@@ -1656,30 +1833,31 @@ def attest_checkov_scan_plan(
         if source_state != expected_state:
             raise DomainError("role source snapshot changed after protected configuration")
     return TrustedScanPlan(
-        request,
-        tuple(sorted(files, key=lambda item: item.file_path)),
-        ordered_resources,
-        inventory_digest,
-        ordered_classifications,
-        tuple(sorted(inspected_files, key=lambda item: item.file_path)),
-        governed_paths,
-        role,
-        "",
-        "",
-        source_state if config is not None else "",
-        config.config_sha256 if config is not None else "",
-        (
+        request=request,
+        files=tuple(sorted(files, key=lambda item: item.file_path)),
+        resources=ordered_resources,
+        inventory_sha256=inventory_digest,
+        classifications=ordered_classifications,
+        inspected_files=tuple(sorted(inspected_files, key=lambda item: item.file_path)),
+        governed_paths=governed_paths,
+        role=role,
+        snapshot_sha256="",
+        artifact_manifest_sha256="",
+        source_state_sha256=source_state if config is not None else "",
+        config_sha256=config.config_sha256 if config is not None else "",
+        repository_identity=(
             config.policy_source_authorization.repository_identity
             or "operator_content_repository_v1"
             if config is not None else "operator_content_repository_v1"
         ),
-        (
+        repository_relative_subpath=(
             config.baseline_repository_relative_subpath
             if role is ScanRole.BASELINE
             else config.candidate_repository_relative_subpath
             if role is ScanRole.CANDIDATE
             else "."
         ) if config is not None else ".",
+        filesystem_entries=filesystem_entries,
         _trusted_context=_TRUSTED_SCAN_PLAN_CONTEXT,
     )
 
@@ -2387,20 +2565,22 @@ def _preflight_result(
     request: VerificationRequest, baseline: ScannerRun, candidate: ScannerRun
 ) -> GateResult:
     try:
-        baseline_state, _baseline_governed = _source_snapshot_state(
+        baseline_state, _baseline_governed, baseline_entries = _source_snapshot_state(
             request.config.baseline_root,
             max_files=request.config.max_eligible_files,
             max_file_bytes=request.config.max_file_bytes,
             max_total_bytes=request.config.max_total_eligible_bytes,
+            include_entries=True,
         )
-        candidate_state, _candidate_governed = _source_snapshot_state(
+        candidate_state, _candidate_governed, candidate_entries = _source_snapshot_state(
             request.config.candidate_root,
             max_files=request.config.max_eligible_files,
             max_file_bytes=request.config.max_file_bytes,
             max_total_bytes=request.config.max_total_eligible_bytes,
+            include_entries=True,
         )
-        current_governed = _governed_comparison(
-            request.config.baseline_root, request.config.candidate_root
+        current_governed = _governed_comparison_from_entries(
+            baseline_entries, candidate_entries
         )
     except DomainError as exc:
         return GateResult(
@@ -2418,6 +2598,18 @@ def _preflight_result(
     ):
         return GateResult(
             "preflight", Status.ERROR, "GOVERNED_CONFIG_CHANGED_AFTER_ATTESTATION"
+        )
+    unsafe_artifacts = tuple(sorted(
+        f"{role}:{item.file_path}:{item.rejection_reason}"
+        for role, entries in (
+            ("baseline", baseline_entries), ("candidate", candidate_entries)
+        )
+        for item in entries if item.rejection_reason
+    ))
+    if unsafe_artifacts:
+        return GateResult(
+            "preflight", Status.ERROR, "ARTIFACT_UNIVERSE_UNRESOLVED",
+            ",".join(unsafe_artifacts),
         )
     unsafe_governed = tuple(
         item.file_path for item in current_governed
