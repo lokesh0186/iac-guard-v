@@ -46,7 +46,9 @@ def test_d9_compares_all_frozen_runs_without_claiming_hardened_verified() -> Non
 
 def test_d9_local_parser_evidence_is_honest_and_records_every_run() -> None:
     result = compare_frozen_runs()
-    assert result["candidate_syntax_counts"] == {"FAIL": 53, "PASS": 577}
+    assert result["candidate_syntax_counts"] == {
+        "ERROR": 0, "FAIL": 53, "PASS": 577, "UNSUPPORTED": 0,
+    }
     assert len(result["records"]) == 630
     assert all(item["hardened_classification"] == "INCONCLUSIVE" for item in result["records"])
     assert all(item["hardened_blockers"] for item in result["records"])
@@ -83,6 +85,7 @@ def test_markdown_deliverable_matches_canonical_analysis() -> None:
     result = compare_frozen_runs()
     markdown = render_markdown(result)
     committed = (REPO / "docs/spec/LEGACY_VS_HARDENED.md").read_text(encoding="utf-8")
+    assert committed == markdown
     for text in (
         "historical hardened-evidence sufficiency comparison",
         "407 legacy `VERIFIED`", "223 legacy `FAILED`",

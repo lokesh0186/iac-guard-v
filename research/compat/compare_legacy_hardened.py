@@ -184,6 +184,8 @@ def compare_frozen_runs() -> dict:
         baseline_manifest[baseline_path.name] = _sha256(baseline_raw)
     counts = Counter(item.transition for item in records)
     syntax_counts = Counter(item.candidate_syntax_status for item in records)
+    for status in ("PASS", "FAIL", "UNSUPPORTED", "ERROR"):
+        syntax_counts.setdefault(status, 0)
     parser_provenance = {
         "python-hcl2": _verified_parser_distribution_digest("python-hcl2"),
         "PyYAML": _verified_parser_distribution_digest("PyYAML"),
@@ -234,7 +236,10 @@ def render_markdown(result: dict) -> str:
         f"- 407 legacy `VERIFIED` records → hardened evidence `INCONCLUSIVE`: {transitions.get('LEGACY_VERIFIED_TO_HARDENED_INCONCLUSIVE', 0)}",
         f"- 223 legacy `FAILED` records → hardened evidence `INCONCLUSIVE`: {transitions.get('LEGACY_FAILED_TO_HARDENED_INCONCLUSIVE', 0)}",
         f"- Hardened `VERIFIED` claims: {result['hardened_verified']}",
-        f"- Local parser outcomes: {json.dumps(syntax, sort_keys=True)}",
+        "- Local parser outcomes: "
+        + ", ".join(f"`{name}={syntax.get(name, 0)}`" for name in (
+            "PASS", "FAIL", "UNSUPPORTED", "ERROR"
+        )),
         "",
         "## Missing evidence",
         "",
@@ -264,6 +269,9 @@ def render_markdown(result: dict) -> str:
         "parser attempt. They are not production verification verdicts. Domain syntax",
         "failure is `FAIL`; missing parser capability is `UNSUPPORTED`; internal or",
         "operational parser failure is `ERROR`.",
+        "",
+        "This file is generated from the canonical analysis values by",
+        "`research/compat/compare_legacy_hardened.py`; byte equality is tested.",
         "",
     ])
     return "\n".join(lines)
