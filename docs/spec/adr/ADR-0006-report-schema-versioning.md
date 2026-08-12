@@ -82,3 +82,10 @@ verification report binds the exact trusted engine and policy results and reject
 policy result from another snapshot. Operational container unavailability is also a
 typed report-v1 result with verdict `INCONCLUSIVE` and exit 3. Request errors remain a
 separate `request-error-v1` diagnostic and exit 2.
+
+## Amendment, 2026-08-12: portable symlink and gate evidence
+
+Canonical report-v1 never emits raw symlink target text. It emits target kind and a
+SHA-256 so snapshot mutation remains bound without leaking machine-local paths. Gate
+records separately expose contract, product-build, parser-distribution, and loader/schema
+identities.

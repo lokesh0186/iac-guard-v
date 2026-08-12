@@ -596,6 +596,15 @@ extra, escaping, symlinked, or bytecode/cache code. Checkov runs with
 `PYTHONDONTWRITEBYTECODE=1`; a post-process identity check detects runtime mutation.
 Failure is typed scanner-environment uncertainty and reduced-isolation cannot upgrade it.
 
+## 27. D5.6 validator and portable snapshot provenance
+
+Gate evidence separates the gate contract version, IaC-Guard-V implementation digest,
+verified parser-distribution/code digest, and schema/loader contract digest. The parser
+digest verifies installed `python-hcl2` and PyYAML RECORD-backed bytes and also binds the
+active parser callable behavior. Canonical filesystem evidence never contains raw link
+target text: it records only absolute/relative kind and a SHA-256, while private runtime
+state retains the text for revalidation.
+
 ## 22. D5.5 complete gate and result provenance
 
 The production gate registry binds a canonical manifest of the dispatcher, Terraform

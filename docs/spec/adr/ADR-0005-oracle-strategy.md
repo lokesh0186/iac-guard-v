@@ -73,3 +73,10 @@ D5.5 replaces selected-function hashing with a canonical manifest of every packa
 validation dispatcher, parser/classifier helper, bounded loader, source reader and path
 inventory helper, plus a separate dependency identity. Mutation of any security-relevant
 helper changes the implementation digest. Gate reports expose these records directly.
+
+## Amendment, 2026-08-12: validator dependency code
+
+D5.6 separates the gate contract, product implementation, parser distribution/code, and
+schema/loader identities. Version strings alone are insufficient: python-hcl2 and PyYAML
+installed files are verified against RECORD evidence, and active parser behavior is
+bound. A modified or unverifiable dependency cannot silently retain the gate identity.

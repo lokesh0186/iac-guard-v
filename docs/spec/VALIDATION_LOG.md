@@ -834,6 +834,21 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Gate D5.6 — Validator implementation and portable snapshot provenance
+
+Literal failing-before probes on D4.8:
+
+```text
+HCL2_OLD_IDENTITY_UNCHANGED True
+SYMLINK_CANONICAL_OLD ... '/Users/alice/private/project' ...
+```
+
+Passing-after mutation tests show an active `hcl2.loads` behavior replacement changes
+the verified parser dependency identity while leaving the product build and loader
+contract identities separate. Canonical symlink evidence contains only `absolute` or
+`relative`, the target-text SHA-256, and rejection evidence; the raw target is absent and
+a target change still changes the snapshot identity.
+
 ## Gate D5.5 — Complete gate and canonical-result provenance
 
 Literal failing-before probes on D4.7:

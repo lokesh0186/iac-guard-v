@@ -1180,7 +1180,8 @@ source identity excludes absolute filesystem roots.
 ### D4.7 artifact-universe completeness
 
 `FilesystemArtifactEntry` is authoritative source evidence. Its canonical form records
-relative path, exact `lstat` kind, regular-file digest and size, symlink target text,
+relative path, exact `lstat` kind, regular-file digest and size, symlink target kind and
+target-text SHA-256,
 supported/governed membership, and any rejection reason. `ARTIFACT_UNIVERSE_UNRESOLVED`
 is an `ERROR` preflight result. It is produced whenever either sealed role contains an
 unsafe symlink or supported/governed non-regular object; it cannot be combined with
@@ -1196,3 +1197,11 @@ includes bounded file reading, HCL discovery, YAML node and duplicate-key checks
 root-Kubernetes classification, JSON depth handling, and the shared filesystem inventory.
 Canonical result evidence also includes each snapshot's complete `filesystem_entries`;
 runtime absolute roots and timestamps are not part of these identities.
+
+### D5.6 validator dependency and link-target provenance
+
+Gate records separate `contract_version`, `product_build_digest`,
+`parser_dependency_digest`, and `schema_loader_contract_digest`. Parser dependency
+identity verifies actual installed python-hcl2 and PyYAML distribution bytes against
+RECORD and binds active parser callables. Raw symlink target text is noncanonical private
+state; changing it still changes its canonical hash and the sealed snapshot root.

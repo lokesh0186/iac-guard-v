@@ -8,9 +8,11 @@ may collapse them to a verdict.
 from __future__ import annotations
 
 import difflib
+import base64
 import hashlib
 import inspect
 import json
+import ntpath
 import os
 import stat
 from dataclasses import InitVar, dataclass, field
@@ -170,12 +172,22 @@ class FilesystemArtifactEntry:
             raise DomainError("filesystem artifact rejection reason must be a string")
 
     def canonical_dict(self) -> dict:
+        target_kind = None
+        target_digest = None
+        if self.symlink_target is not None:
+            target_kind = (
+                "absolute"
+                if Path(self.symlink_target).is_absolute() or ntpath.isabs(self.symlink_target)
+                else "relative"
+            )
+            target_digest = hashlib.sha256(self.symlink_target.encode("utf-8")).hexdigest()
         return {
             "file_path": self.file_path,
             "kind": self.kind,
             "size": self.size,
             "sha256": self.sha256,
-            "symlink_target": self.symlink_target,
+            "symlink_target_kind": target_kind,
+            "symlink_target_sha256": target_digest,
             "supported": self.supported,
             "governed": self.governed,
             "rejection_reason": self.rejection_reason,
@@ -302,6 +314,7 @@ class GateImplementation:
     code_sha256: str
     artifact_kinds: tuple
     dependency_identity: str = "0" * 64
+    schema_loader_contract_digest: str = "0" * 64
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "gate_id", canonical_identifier(self.gate_id, "gate id"))
@@ -310,6 +323,7 @@ class GateImplementation:
         object.__setattr__(self, "version", canonical_identifier(self.version, "gate version"))
         _digest(self.code_sha256, "gate implementation digest")
         _digest(self.dependency_identity, "gate dependency identity")
+        _digest(self.schema_loader_contract_digest, "gate schema/loader contract identity")
         if type(self.artifact_kinds) is not tuple or any(
             type(item) is not ArtifactKind for item in self.artifact_kinds
         ):
@@ -322,6 +336,10 @@ class GateImplementation:
             "version": self.version,
             "code_sha256": self.code_sha256,
             "dependency_identity": self.dependency_identity,
+            "contract_version": self.version,
+            "product_build_digest": self.code_sha256,
+            "parser_dependency_digest": self.dependency_identity,
+            "schema_loader_contract_digest": self.schema_loader_contract_digest,
             "artifact_kinds": [item.value for item in self.artifact_kinds],
         }
 
@@ -410,8 +428,60 @@ def _production_gate_executor(
     return GateResult(gate_id, Status.PASS, "VALIDATOR_COMPLETED", f"files={checked}")
 
 
-def production_gate_registry() -> TrustedGateRegistry:
+def _callable_behavior_digest(value: Callable) -> str:
+    code = getattr(value, "__code__", None)
+    if code is None:
+        return hashlib.sha256(repr(type(value)).encode()).hexdigest()
+    payload = {
+        "bytecode": code.co_code.hex(),
+        "constants": [repr(item) for item in code.co_consts],
+        "names": list(code.co_names),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def _verified_parser_distribution_digest(name: str) -> str:
+    """Bind installed parser bytes and verify every RECORD-backed file."""
     import importlib.metadata
+
+    try:
+        distribution = importlib.metadata.distribution(name)
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise DomainError(f"required parser distribution is unavailable: {name}") from exc
+    files = distribution.files
+    if not files:
+        raise DomainError(f"parser distribution has no RECORD manifest: {name}")
+    records = []
+    for entry in sorted(files, key=str):
+        relative = str(entry).replace("\\", "/")
+        if "__pycache__" in relative.split("/") or relative.endswith((".pyc", ".pyo")):
+            continue
+        path = Path(distribution.locate_file(entry))
+        try:
+            metadata = path.lstat()
+        except OSError as exc:
+            raise DomainError(f"parser distribution file is missing: {name}") from exc
+        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+            raise DomainError(f"parser distribution contains unsafe file type: {name}")
+        if entry.hash is None:
+            if not relative.endswith(".dist-info/RECORD"):
+                raise DomainError(f"parser distribution file lacks RECORD hash: {name}")
+            digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        else:
+            if entry.hash.mode != "sha256":
+                raise DomainError(f"parser distribution uses unsupported RECORD digest: {name}")
+            expected = base64.urlsafe_b64decode(entry.hash.value + "=" * (-len(entry.hash.value) % 4))
+            actual = hashlib.sha256(path.read_bytes()).digest()
+            if actual != expected:
+                raise DomainError(f"parser distribution RECORD hash mismatch: {name}")
+            digest = actual.hex()
+        if entry.size is not None and entry.size != metadata.st_size:
+            raise DomainError(f"parser distribution RECORD size mismatch: {name}")
+        records.append((relative, metadata.st_size, digest))
+    return hashlib.sha256(json.dumps(records, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def production_gate_registry() -> TrustedGateRegistry:
 
     implementation_sources = (
         _production_gate_executor,
@@ -432,13 +502,14 @@ def production_gate_registry() -> TrustedGateRegistry:
         _filesystem_inventory,
     )
     dependencies = {
-        name: importlib.metadata.version(name)
-        for name in ("python-hcl2", "PyYAML")
+        "python-hcl2": _verified_parser_distribution_digest("python-hcl2"),
+        "PyYAML": _verified_parser_distribution_digest("PyYAML"),
+        "hcl2.loads.behavior": _callable_behavior_digest(hcl2.loads),
+        "yaml.load.behavior": _callable_behavior_digest(yaml.load),
     }
     payload = {
-        "contract": "phase-d-gate-implementation-v3",
+        "contract": "phase-d-gate-implementation-v4",
         "sources": [inspect.getsource(item) for item in implementation_sources],
-        "dependencies": dependencies,
     }
     code_digest = hashlib.sha256(json.dumps(
         payload, sort_keys=True, separators=(",", ":")
@@ -446,20 +517,27 @@ def production_gate_registry() -> TrustedGateRegistry:
     dependency_digest = hashlib.sha256(json.dumps(
         dependencies, sort_keys=True, separators=(",", ":")
     ).encode()).hexdigest()
+    schema_loader_digest = hashlib.sha256(json.dumps({
+        "json_depth": inspect.getsource(_strict_json_document),
+        "yaml_loader": inspect.getsource(_bounded_yaml_documents),
+        "hcl_loader": inspect.getsource(_terraform_resources),
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return TrustedGateRegistry(
-        "iac_guard_v_phase_d_registry_v3",
+        "iac_guard_v_phase_d_registry_v4",
         ("kubernetes_yaml_parse", "terraform_hcl_parse"),
         (),
         (
             GateImplementation(
-                "kubernetes_yaml_parse", "validator", "3", code_digest,
+                "kubernetes_yaml_parse", "validator", "4", code_digest,
                 (ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON),
                 dependency_digest,
+                schema_loader_digest,
             ),
             GateImplementation(
-                "terraform_hcl_parse", "validator", "3", code_digest,
+                "terraform_hcl_parse", "validator", "4", code_digest,
                 (ArtifactKind.TERRAFORM_HCL,),
                 dependency_digest,
+                schema_loader_digest,
             ),
         ),
         _production_gate_executor,

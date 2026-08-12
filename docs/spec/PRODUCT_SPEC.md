@@ -384,3 +384,6 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
     changes, or historical-result rewrites. Missing historical hardened evidence is
     explicit uncertainty. The comparison is labelled research analysis and cannot emit
     a production `VERIFIED` verdict.
+21. Validator provenance separates the Phase-D gate contract, IaC-Guard-V build/source
+    digest, verified parser-distribution code digest, and schema/loader contract. Raw
+    symlink target text is private; canonical evidence records target kind and SHA-256.
