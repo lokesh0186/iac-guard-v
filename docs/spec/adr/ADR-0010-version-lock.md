@@ -99,3 +99,11 @@ rejected, and mutable bytecode caches are rejected deterministically. D4.8 addit
 requires wheel RECORD hash/size verification for executable installed files, disables
 bytecode writes, and rechecks the closure after execution. An environment
 that cannot establish the complete contract remains inconclusive rather than verified.
+
+## Amendment, 2026-08-12: E1 KICS execution identity
+
+The KICS adapter accepts only a private factory identity reconstructed from the exact
+E0.3 canonical lock seal. Version, release commit, archive and OCI index/platform
+digests, fixture digest, invocation contract, bundled policy identity, and the selected
+digest-qualified execution reference are bound separately. The adapter cannot accept a
+caller-authored replacement lock object.

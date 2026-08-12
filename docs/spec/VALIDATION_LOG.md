@@ -1,5 +1,29 @@
 # Validation Log
 
+## 2026-08-12 — E1 locked KICS adapter
+
+The prerequisite checkpoint ran from pristine clone `7caa1ce2`. D7.5 security probes
+were `20 passed`; Python 3.10, 3.11, 3.12, and 3.13 each reported `1493 passed`; the
+isolated Checkov 3.3.0 integration reported `6 passed`; and the real E0.3 protected
+cache reported all three independent results `PASS` before any Phase-E code changed.
+
+Failing-before E1 evidence was literal absence: no `adapters/kics.py`, no KICS adapter
+tests, and the support matrix said `adapter unsupported`. Passing-after evidence:
+
+```text
+KICS unit plus exact locked offline integration: 59 passed
+KICS branch coverage: 94.21%
+locked image: docker.io/checkmarx/kics@sha256:d6d12f269db55d9ca59e2886248997c0613f8d1855f0380716795b6b9cedce90
+network mode: none
+native finding similarity_id retained: PASS
+files_failed_to_scan=1: PARTIAL / KICS_FAILED_TO_SCAN
+queries_failed_to_execute=1: PARTIAL / KICS_QUERY_EXECUTION_FAILED
+queries_failed_to_compute_similarity_id=1: PARTIAL / KICS_SIMILARITY_ID_FAILED
+```
+
+The adapter emits typed evidence only and does not alter final policy or implement
+multi-scanner consensus. No benchmark inference or model-provider call occurred.
+
 ## 2026-08-12 — E0.3 physical cache and current Trivy execution evidence
 
 Failing-before probes against `5b29d702` produced these literal values:

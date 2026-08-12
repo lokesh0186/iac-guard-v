@@ -1,0 +1,462 @@
+"""E1 KICS fail-closed contract and mutation probes."""
+from __future__ import annotations
+
+import hashlib
+import json
+import shutil
+from pathlib import Path
+
+import pytest
+
+import iac_guard_v.adapters.kics as kics_module
+from iac_guard_v.adapters.base import AdapterReason
+from iac_guard_v.adapters.kics import KICS_CONTRACT, KicsAdapter, create_kics_scan_request
+from iac_guard_v.adapters.phase_e_lock import (
+    LockedContainerIdentity,
+    load_locked_container_identity,
+)
+from iac_guard_v.enums import ArtifactKind, Status
+from iac_guard_v.models import BoundInputFile, DomainError, ExpectedResource
+from iac_guard_v.process import CommandResult, ProcessReason
+
+
+LOCK = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
+
+
+def _process(
+    *, status: Status = Status.PASS, exit_code: int | None = 0,
+    reason: ProcessReason = ProcessReason.COMPLETED_WITHIN_CONTRACT,
+    timed_out: bool = False,
+) -> CommandResult:
+    return CommandResult(
+        argv=("docker",), status=status, exit_code=exit_code,
+        stdout=b"kics output", stderr=b"", duration_ms=3,
+        truncated=False, timed_out=timed_out, killed_signal=None,
+        reason_code=reason,
+        resolved_executable="/usr/local/bin/docker" if status is Status.PASS else "",
+        primary_execution_event=reason,
+    )
+
+
+def _query(
+    *, query_id: str = "f861041c-8c9f-4156-acfc-5e6e524f5884",
+    similarity: str = "a" * 64, severity: str = "HIGH",
+    resource_type: str = "aws_s3_bucket", resource_name: str = "demo",
+) -> dict:
+    return {
+        "query_name": "S3 Bucket Logging Disabled",
+        "query_id": query_id,
+        "query_url": "https://example.invalid/rule",
+        "severity": severity,
+        "platform": "Terraform",
+        "cwe": "778",
+        "risk_score": "5.1",
+        "cloud_provider": "AWS",
+        "category": "Observability",
+        "experimental": False,
+        "description": "Logging is required",
+        "description_id": "fa5c7c72",
+        "files": [{
+            "file_name": "../../iacgv-input/main.tf",
+            "similarity_id": similarity,
+            "line": 1,
+            "resource_type": resource_type,
+            "resource_name": resource_name,
+            "issue_type": "MissingAttribute",
+            "search_key": "aws_s3_bucket[demo]",
+            "search_line": 1,
+            "search_value": "",
+            "expected_value": "logging",
+            "actual_value": "undefined",
+        }],
+    }
+
+
+def _document(*, queries: list | None = None, **overrides) -> dict:
+    queries = [] if queries is None else queries
+    severities = {"CRITICAL": 0, "HIGH": 0, "INFO": 0, "LOW": 0, "MEDIUM": 0, "TRACE": 0}
+    for item in queries:
+        severities[item["severity"]] = severities.get(item["severity"], 0) + len(item["files"])
+    value = {
+        "kics_version": "v2.1.20",
+        "files_scanned": 1,
+        "lines_scanned": 1,
+        "files_parsed": 1,
+        "lines_parsed": 1,
+        "lines_ignored": 0,
+        "files_failed_to_scan": 0,
+        "queries_total": 1100,
+        "queries_failed_to_execute": 0,
+        "queries_failed_to_compute_similarity_id": 0,
+        "scan_id": "console",
+        "severity_counters": severities,
+        "total_counter": sum(len(item["files"]) for item in queries),
+        "total_bom_resources": 1 if queries else 0,
+        "start": "2026-08-12T00:00:00Z",
+        "end": "2026-08-12T00:00:01Z",
+        "paths": ["/iacgv-input"],
+        "queries": queries,
+    }
+    value.update(overrides)
+    return value
+
+
+def _request(tmp_path: Path, *, expected: bool = True, **overrides):
+    root = tmp_path / "repo"
+    root.mkdir(parents=True)
+    source = root / "main.tf"
+    source.write_text('resource "aws_s3_bucket" "demo" {}\n', encoding="utf-8")
+    stat_ = source.stat()
+    evidence = BoundInputFile(
+        "main.tf", "regular_file", stat_.st_size,
+        hashlib.sha256(source.read_bytes()).hexdigest(), stat_.st_dev, stat_.st_ino,
+    )
+    resources = (
+        ExpectedResource(
+            "main.tf", "aws_s3_bucket.demo", ArtifactKind.TERRAFORM_HCL,
+            "aws_s3_bucket.demo",
+        ),
+    ) if expected else ()
+    docker = Path(shutil.which("docker") or "/usr/bin/true")
+    values = {
+        "workspace_root": root,
+        "scan_root": root,
+        "files_eligible": ("main.tf",),
+        "eligible_file_evidence": (evidence,),
+        "expected_resources": resources,
+        "docker_executable": docker,
+        "locked_identity": load_locked_container_identity(LOCK, "kics", "linux/arm64"),
+    }
+    values.update(overrides)
+    return create_kics_scan_request(**values)
+
+
+def _normalize(tmp_path: Path, document: dict, **request_overrides):
+    return KicsAdapter().normalize(
+        json.dumps(document).encode(), _request(tmp_path, **request_overrides), _process()
+    )
+
+
+def test_contract_is_exact_e03_selection() -> None:
+    assert KICS_CONTRACT.supported_versions == ("2.1.20",)
+    assert KICS_CONTRACT.expected_exit_codes == (0, 40)
+
+
+def test_normal_finding_preserves_similarity_id(tmp_path: Path) -> None:
+    run = _normalize(tmp_path, _document(queries=[_query()]))
+    assert run.status is Status.PASS
+    assert run.findings[0].native_fingerprint == "a" * 64
+    assert run.findings[0].resource_address == "aws_s3_bucket.demo"
+    assert run.coverage.files_parsed == 1
+
+
+def test_valid_no_finding_result_can_pass(tmp_path: Path) -> None:
+    run = _normalize(tmp_path, _document(), expected=False)
+    assert run.status is Status.PASS
+    assert run.findings == ()
+
+
+@pytest.mark.parametrize(
+    ("field", "reason"),
+    [
+        ("files_failed_to_scan", AdapterReason.KICS_FAILED_TO_SCAN.value),
+        ("queries_failed_to_execute", AdapterReason.KICS_QUERY_EXECUTION_FAILED.value),
+        (
+            "queries_failed_to_compute_similarity_id",
+            AdapterReason.KICS_SIMILARITY_ID_FAILED.value,
+        ),
+    ],
+)
+def test_native_failure_counters_are_partial(
+    tmp_path: Path, field: str, reason: str
+) -> None:
+    document = _document(queries=[_query()], **{field: 1})
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.PARTIAL
+    assert reason in run.diagnostics
+
+
+@pytest.mark.parametrize(
+    ("raw", "reason"),
+    [
+        (b"not json", AdapterReason.MALFORMED_JSON.value),
+        (b"[]", AdapterReason.UNEXPECTED_TOP_LEVEL.value),
+        (b'{"kics_version":"v2.1.20","queries":[],"queries":[]}', AdapterReason.DUPLICATE_JSON_KEY.value),
+        (b"", AdapterReason.EMPTY_OUTPUT.value),
+    ],
+)
+def test_malformed_duplicate_and_wrong_shape_fail_closed(
+    tmp_path: Path, raw: bytes, reason: str
+) -> None:
+    run = KicsAdapter().normalize(raw, _request(tmp_path), _process())
+    assert run.status is Status.ERROR
+    assert reason in run.diagnostics
+
+
+def test_timeout_is_typed(tmp_path: Path) -> None:
+    process = _process(
+        status=Status.TIMEOUT, exit_code=None,
+        reason=ProcessReason.DEADLINE_EXCEEDED, timed_out=True,
+    )
+    run = KicsAdapter().normalize(b"{}", _request(tmp_path), process)
+    assert run.status is Status.TIMEOUT
+    assert AdapterReason.DEADLINE_EXCEEDED.value in run.diagnostics
+
+
+def test_unknown_native_category_is_partial(tmp_path: Path) -> None:
+    run = _normalize(tmp_path, _document(queries=[_query(severity="TRACE")]))
+    assert run.status is Status.PARTIAL
+    assert AdapterReason.UNKNOWN_NATIVE_CATEGORY.value in run.diagnostics
+
+
+def test_partial_file_coverage_cannot_pass(tmp_path: Path) -> None:
+    run = _normalize(
+        tmp_path,
+        _document(queries=[_query()], files_scanned=1, files_parsed=0),
+    )
+    assert run.status is Status.PARTIAL
+    assert AdapterReason.COVERAGE_MISMATCH.value in run.diagnostics
+
+
+def test_partial_resource_coverage_cannot_pass(tmp_path: Path) -> None:
+    run = _normalize(
+        tmp_path,
+        _document(queries=[_query(resource_name="other")]),
+    )
+    assert run.status is Status.PARTIAL
+    assert run.resource_coverage.expected_resources_missing == 1
+
+
+def test_version_drift_is_error(tmp_path: Path) -> None:
+    run = _normalize(tmp_path, _document(kics_version="v9.9.9"))
+    assert run.status is Status.ERROR
+    assert AdapterReason.VERSION_MISMATCH.value in run.diagnostics
+
+
+def test_lock_environment_drift_is_rejected(tmp_path: Path) -> None:
+    trusted = load_locked_container_identity(LOCK, "kics", "linux/arm64")
+    forged = LockedContainerIdentity(**trusted.canonical_dict())
+    with pytest.raises(DomainError, match="reviewed Phase-E lock"):
+        _request(tmp_path, locked_identity=forged)
+
+
+def test_lock_graph_mutation_is_rejected(tmp_path: Path) -> None:
+    payload = json.loads(LOCK.read_text())
+    payload["tools"]["kics"]["version"] = "2.1.19"
+    mutated = tmp_path / "lock.json"
+    mutated.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(DomainError, match="reviewed E0.3 seal"):
+        load_locked_container_identity(mutated, "kics", "linux/arm64")
+
+
+def test_native_order_reversal_has_identical_canonical_output(tmp_path: Path) -> None:
+    first = _query(query_id="11111111-1111-4111-8111-111111111111", similarity="1" * 64)
+    second = _query(query_id="22222222-2222-4222-8222-222222222222", similarity="2" * 64)
+    run_a = _normalize(tmp_path / "a", _document(queries=[first, second]))
+    run_b = _normalize(tmp_path / "b", _document(queries=[second, first]))
+    assert run_a.canonical_dict() == run_b.canonical_dict()
+
+
+def test_result_shape_count_contradiction_is_error(tmp_path: Path) -> None:
+    run = _normalize(tmp_path, _document(queries=[_query()], total_counter=0))
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
+
+
+def test_input_byte_change_is_detected_before_execution(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    (request.scan_root / "main.tf").write_text("changed\n", encoding="utf-8")
+    run = KicsAdapter().scan(request)
+    assert run.status is Status.ERROR
+    assert AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value in run.diagnostics
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"files_eligible": ["main.tf"]},
+        {"eligible_file_evidence": []},
+        {"files_eligible": ("main.tf", "main.tf")},
+        {"files_eligible": ("z.tf", "a.tf")},
+        {"eligible_file_evidence": ("not evidence",)},
+        {"expected_resources": []},
+        {"expected_resources": ("not resource",)},
+        {"timeout_seconds": 0},
+        {"max_output_bytes": 0},
+        {"max_total_eligible_bytes": 1},
+    ],
+)
+def test_request_contract_mutations_are_rejected(tmp_path: Path, overrides: dict) -> None:
+    with pytest.raises(DomainError):
+        _request(tmp_path, **overrides)
+
+
+def test_direct_request_construction_is_rejected(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    values = {
+        name: getattr(request, name)
+        for name in (
+            "workspace_root", "scan_root", "files_eligible", "eligible_file_evidence",
+            "expected_resources", "docker_executable", "locked_identity",
+        )
+    }
+    with pytest.raises(DomainError, match="sealed request factory"):
+        kics_module.KicsScanRequest(**values)
+
+
+def test_request_rejects_scan_root_outside_workspace(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    with pytest.raises(DomainError, match="inside workspace"):
+        create_kics_scan_request(
+            workspace_root=request.workspace_root,
+            scan_root=outside,
+            files_eligible=request.files_eligible,
+            eligible_file_evidence=request.eligible_file_evidence,
+            expected_resources=request.expected_resources,
+            docker_executable=request.docker_executable,
+            locked_identity=request.locked_identity,
+        )
+
+
+def test_missing_request_path_and_nonexecutable_launcher_are_rejected(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    with pytest.raises(DomainError, match="cannot be resolved"):
+        create_kics_scan_request(
+            workspace_root=request.workspace_root,
+            scan_root=tmp_path / "missing",
+            files_eligible=request.files_eligible,
+            eligible_file_evidence=request.eligible_file_evidence,
+            expected_resources=request.expected_resources,
+            docker_executable=request.docker_executable,
+            locked_identity=request.locked_identity,
+        )
+    launcher = tmp_path / "not-executable"
+    launcher.write_text("x")
+    with pytest.raises(DomainError, match="executable regular file"):
+        _request(tmp_path / "second", docker_executable=launcher)
+
+
+def test_oversize_and_missing_input_are_typed(tmp_path: Path) -> None:
+    source = tmp_path / "data"
+    source.write_bytes(b"xx")
+    with pytest.raises(DomainError, match=AdapterReason.INPUT_FILE_BYTES_EXCEEDED.value):
+        kics_module._read_bound(source, "data", 1)
+    with pytest.raises(DomainError, match=AdapterReason.INPUT_CHANGED_DURING_SCAN_PREPARATION.value):
+        kics_module._read_bound(tmp_path / "missing", "data", 1)
+
+
+def test_strict_json_depth_unicode_and_nested_duplicates_are_typed() -> None:
+    with pytest.raises(DomainError, match=AdapterReason.MALFORMED_JSON.value):
+        kics_module._strict_json(b"\xff")
+    deep = ("[" * 129 + "]" * 129).encode()
+    with pytest.raises(DomainError, match=AdapterReason.JSON_DEPTH_EXCEEDED.value):
+        kics_module._strict_json(deep)
+    with pytest.raises(DomainError, match=AdapterReason.DUPLICATE_JSON_KEY.value):
+        kics_module._strict_json(b'{"outer":{"x":1,"x":2}}')
+
+
+def test_native_path_and_resource_mutations_fail_closed() -> None:
+    with pytest.raises(DomainError, match=AdapterReason.INVALID_RESULTS_STRUCTURE.value):
+        kics_module._native_path(None, ("main.tf",))
+    with pytest.raises(DomainError, match=AdapterReason.COVERAGE_MISMATCH.value):
+        kics_module._native_path("other.tf", ("main.tf",))
+    with pytest.raises(DomainError, match=AdapterReason.INVALID_RESULTS_STRUCTURE.value):
+        kics_module._resource({}, "rule")
+    assert kics_module._resource(
+        {"resource_type": "n/a", "resource_name": "n/a"}, "rule"
+    ) == "kics-global-rule"
+
+
+@pytest.mark.parametrize(
+    ("platform_name", "path", "expected"),
+    [
+        ("Kubernetes", "pod.yaml", ArtifactKind.KUBERNETES_YAML),
+        ("Kubernetes", "pod.json", ArtifactKind.KUBERNETES_JSON),
+        ("CloudFormation", "stack.yaml", ArtifactKind.CLOUDFORMATION),
+        ("Mystery", "main.tf", ArtifactKind.UNKNOWN),
+    ],
+)
+def test_artifact_mapping_is_closed(platform_name: str, path: str, expected: ArtifactKind) -> None:
+    assert kics_module._artifact(platform_name, path) is expected
+
+
+@pytest.mark.parametrize(
+    ("mutator", "reason"),
+    [
+        (lambda d: d.pop("queries"), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d.update(files_scanned=0, files_parsed=1), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d.update(severity_counters=[]), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d["severity_counters"].update(HIGH=-1), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d.update(queries={}), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d["queries"].append({}), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d["queries"][0].update(platform=3), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d["queries"][0].update(files=[]), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d["queries"][0]["files"].append({}), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d["queries"][0]["files"][0].update(similarity_id="bad"), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+        (lambda d: d["queries"][0]["files"][0].update(line=0), AdapterReason.INVALID_RESULTS_STRUCTURE.value),
+    ],
+)
+def test_result_structure_mutations_are_errors(tmp_path: Path, mutator, reason: str) -> None:
+    document = _document(queries=[_query()])
+    mutator(document)
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.ERROR
+    assert reason in run.diagnostics
+
+
+def test_unknown_fields_and_unknown_severity_are_partial(tmp_path: Path) -> None:
+    document = _document(queries=[_query(severity="NOVEL")], extension=True)
+    document["severity_counters"] = {"NOVEL": 1}
+    document["queries"][0]["extension"] = "x"
+    document["queries"][0]["files"][0]["extension"] = "x"
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.PARTIAL
+    assert run.findings[0].severity.value == "UNKNOWN"
+    assert AdapterReason.UNKNOWN_NATIVE_CATEGORY.value in run.diagnostics
+
+
+@pytest.mark.parametrize(
+    ("status", "reason", "truncated", "expected"),
+    [
+        (Status.PARTIAL, ProcessReason.OUTPUT_LIMIT_EXCEEDED, True, AdapterReason.TRUNCATED_OUTPUT.value),
+        (Status.ERROR, ProcessReason.KILLED_BY_SIGNAL, False, AdapterReason.KILLED_PROCESS.value),
+        (Status.ERROR, ProcessReason.EXIT_CODE_OUTSIDE_CONTRACT, False, AdapterReason.EXIT_CODE_OUTSIDE_CONTRACT.value),
+        (Status.ERROR, ProcessReason.SPAWN_FAILED, False, AdapterReason.PROCESS_ERROR.value),
+    ],
+)
+def test_process_failures_never_parse(
+    tmp_path: Path, status: Status, reason: ProcessReason, truncated: bool, expected: str
+) -> None:
+    process = CommandResult(
+        argv=("docker",), status=status,
+        exit_code=-9 if reason is ProcessReason.KILLED_BY_SIGNAL else None,
+        stdout=b"", stderr=b"",
+        duration_ms=1, truncated=truncated, timed_out=False,
+        killed_signal=9 if reason is ProcessReason.KILLED_BY_SIGNAL else None,
+        reason_code=reason, resolved_executable="",
+        primary_execution_event=reason,
+    )
+    run = KicsAdapter().normalize(b"{}", _request(tmp_path), process)
+    assert run.status is not Status.PASS
+    assert expected in run.diagnostics
+
+
+def test_empty_scope_is_skipped_without_spawn(tmp_path: Path) -> None:
+    request = _request(
+        tmp_path, files_eligible=(), eligible_file_evidence=(), expected_resources=()
+    )
+    run = KicsAdapter().scan(request)
+    assert run.status is Status.SKIPPED
+    assert AdapterReason.EMPTY_ELIGIBLE_SCOPE.value in run.diagnostics
+
+
+def test_adapter_rejects_untrusted_request_and_process_type(tmp_path: Path) -> None:
+    with pytest.raises(DomainError, match="sealed request"):
+        KicsAdapter().normalize(b"{}", object(), _process())
+    with pytest.raises(DomainError, match="CommandResult"):
+        KicsAdapter().normalize(b"{}", _request(tmp_path), object())
+    with pytest.raises(DomainError, match="sealed request"):
+        KicsAdapter().scan(object())
+    assert KicsAdapter().contract() is KICS_CONTRACT

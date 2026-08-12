@@ -14,6 +14,17 @@ from .checkov import (
     evaluate_checkov_target,
     require_trusted_checkov_target_evidence,
 )
+from .kics import (
+    KICS_ADAPTER_CONTRACT,
+    KICS_CONTRACT,
+    KicsAdapter,
+    KicsScanRequest,
+    create_kics_scan_request,
+)
+from .phase_e_lock import (
+    LockedContainerIdentity,
+    load_locked_container_identity,
+)
 
 __all__ = [
     "AdapterReason",
@@ -24,9 +35,16 @@ __all__ = [
     "CheckovKubernetesIdentity",
     "CheckovScanRequest",
     "CheckovTargetEvidence",
+    "KICS_ADAPTER_CONTRACT",
+    "KICS_CONTRACT",
+    "KicsAdapter",
+    "KicsScanRequest",
+    "LockedContainerIdentity",
     "ScannerContract",
     "checkov_distribution_identity",
     "checkov_occurrence_token",
     "evaluate_checkov_target",
+    "create_kics_scan_request",
+    "load_locked_container_identity",
     "require_trusted_checkov_target_evidence",
 ]

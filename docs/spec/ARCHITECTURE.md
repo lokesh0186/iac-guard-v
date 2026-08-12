@@ -733,3 +733,12 @@ Repeated digest strings are never accepted as proof of those relationships.
 The packaged public validator rejects private synthetic gate registries. A private
 test-only path remains available to exercise trusted factories without making that
 provenance acceptable to `explain` or another public report consumer.
+
+## E1 locked KICS evidence adapter
+
+The KICS adapter is a scanner-evidence producer only. Its request is factory-bound to
+the exact E0.3 lock seal and one digest-qualified architecture child. It builds a
+private byte-bound input view, executes v2.1.20 with no network and a read-only root,
+strictly parses the native JSON, retains `similarity_id`, and reconciles native file and
+resource coverage with the independent inventory. KICS does not yet participate in
+multi-scanner consensus or verdict formation.

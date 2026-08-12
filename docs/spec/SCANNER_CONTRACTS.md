@@ -176,11 +176,10 @@ fix predicate.
 
 ## 2. KICS
 
-Not installed here. E0 selects v2.1.20 rather than the initial v2.1.21 candidate:
+E1 supports the exact E0.3-selected v2.1.20 container rather than the initial v2.1.21 candidate:
 v2.1.21 has a source release but no official binary archives or official image tag.
-The fields below come from official results documentation and an upstream v2.1.20
-fixture. They must be re-verified by runtime contract tests before the adapter is
-supported.
+The fields below come from official results documentation, the upstream v2.1.20
+fixture, and the E1 network-disabled locked integration.
 
 | Item | Value |
 | --- | --- |
@@ -215,6 +214,27 @@ target coverage is independently proven. `files_parsed < files_scanned` is likew
 
 `similarity_id` is preserved as `native_fingerprint` and never used as the
 IaC-Guard-V fingerprint.
+
+### 2.3 E1 execution and normalization contract
+
+`kics-adapter-contract-v1` accepts only an identity constructed from the exact sealed
+E0.3 lock graph. The selected platform-child image reference, OCI index and child
+digests, release commit, archive and fixture digests, invocation contract, and bundled
+query-set identity are separate evidence. Serialized callers cannot construct trusted
+lock evidence.
+
+The container runs with networking disabled, a read-only root, a bounded tmpfs, and
+read-only sealed input; candidate configuration and query paths are never mounted.
+KICS exit codes `0` and `40` are both output-bearing contract codes, so neither is used
+as a finding-count proxy. JSON uses strict UTF-8, duplicate-key rejection at every
+level, and a deterministic depth limit. Unknown top-level fields, query/file fields,
+platforms, or severity categories make the run `PARTIAL`.
+
+Native file paths must suffix-match exactly one independently eligible path. File
+coverage reconciles `files_scanned`, `files_parsed`, and `files_failed_to_scan` against
+the bound input set. Resource coverage reconciles native resource type/name evidence
+against the independent expected inventory. Global KICS queries without a resource
+identity remain findings but do not manufacture resource coverage.
 
 ---
 
@@ -286,7 +306,7 @@ container path; the support matrix below records that honestly.
 | Tool | Version(s) | Contract fixtures | Pinned integration test | Status |
 | --- | --- | --- | --- | --- |
 | Checkov | 3.2.517 (research), 3.3.0 (product) | **PASS, D4.1** for both versions | **PASS, D4.1**: five installed 3.3.0 tests cover Terraform/Kubernetes affirmative pass, inline skip, missing-file coverage, byte replacement, and inert candidate config; 3.2.517 executable re-run remains Phase E | product 3.3.0 supported; research 3.2.517 has a frozen-shape contract fixture and offline replay, but is not claimed as a current native integration |
-| KICS | E0-selected v2.1.20 | upstream fixture reviewed | not executed | immutable artifacts reviewed; adapter unsupported |
+| KICS | E0.3-selected v2.1.20 | strict E1 fixtures PASS | **PASS, E1**: exact digest image, network disabled, finding result and native similarity IDs | supported as typed scanner evidence; not yet authoritative in consensus |
 | Trivy | E0-selected v0.73.0 + external checks v2.2.0 | upstream fixture reviewed | not executed | binary/check locks reviewed; adapter unsupported |
 | terraform validate | v1.15.8, user-supplied only | upstream output fixture reviewed | not executed | never bundled; validator unsupported |
 | tofu validate | OpenTofu v1.12.5 | upstream output fixture reviewed | not executed | validator unsupported |

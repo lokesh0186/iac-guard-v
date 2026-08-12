@@ -116,3 +116,11 @@ schema lock, structured signature states, and Trivy source/fallback decision.
 cached source evidence. Mutation tests reject valid-looking substituted commits,
 archive and OCI digests, prose verification claims, missing architecture or
 schema locks, and embedded-check fallback.
+
+## E1 execution amendment
+
+The reviewed E0.3 KICS v2.1.20 lock is now consumed by a fail-closed adapter. Its first
+offline contract execution uses the exact platform digest with networking disabled and
+preserves official JSON and native similarity evidence. This amendment authorizes only
+KICS typed scanner evidence; it does not authorize Trivy, validators, consensus,
+production containers, or Actions.

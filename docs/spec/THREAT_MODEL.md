@@ -405,3 +405,12 @@ D7.1 validates every emitted report against the closed schema and rejects any
 verdict/exit/policy contradiction. Candidate syntax failure is evidence (`FAILED/1`),
 not malformed invocation (`2`). Unsupported candidate evidence and unavailable trusted
 baseline evidence remain `INCONCLUSIVE/3`. Every verification result names isolation.
+
+### E1 KICS-specific controls
+
+An attacker cannot select a nearby KICS version, floating image, candidate query tree,
+or candidate configuration: the adapter accepts only the exact E0.3 lock-derived
+identity and mounts only the sealed input. Network access is disabled. Duplicate keys,
+unknown result categories, malformed paths, absent similarity IDs, partial file or
+resource coverage, and each native failure counter remain typed non-PASS evidence.
+KICS evidence remains advisory until an independently reviewed consensus layer exists.

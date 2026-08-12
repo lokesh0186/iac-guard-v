@@ -1324,3 +1324,15 @@ reason makes passing preflight evidence contradictory. Scanner environment ident
 the SHA-256 of a canonical component manifest binding the non-policy package,
 installed distribution, dependency closure, custom checks, policy inventory, and
 runtime interpreter.
+
+## E1 KICS scanner evidence
+
+KICS evidence is accepted only under `kics-adapter-contract-v1` and the exact E0.3
+v2.1.20 lock-derived container identity. `similarity_id` is native occurrence evidence.
+`files_failed_to_scan`, `queries_failed_to_execute`, and
+`queries_failed_to_compute_similarity_id` are each decisive incompleteness indicators:
+any nonzero value makes the run `PARTIAL`. Incomplete file/resource coverage, unknown
+native categories, or version/environment drift is likewise non-PASS. The E1 reason
+extension is closed over `LOCK_IDENTITY_MISMATCH`, `DUPLICATE_JSON_KEY`,
+`KICS_FAILED_TO_SCAN`, `KICS_QUERY_EXECUTION_FAILED`,
+`KICS_SIMILARITY_ID_FAILED`, and `UNKNOWN_NATIVE_CATEGORY`.

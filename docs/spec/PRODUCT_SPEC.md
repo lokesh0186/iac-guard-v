@@ -434,3 +434,11 @@ resources and governed paths must produce the reported engine events and change
 metrics; and an exception-permitted decision must have exactly one active, trusted,
 exact-target exception source record. Private test registry provenance is never valid
 public evidence.
+
+## E1 KICS adapter acceptance
+
+KICS v2.1.20 is supported as typed adapter evidence only when executed through the
+exact E0.3 digest lock. Native `similarity_id` is retained. Nonzero failed-file,
+query-execution, or similarity-ID-computation counts, incomplete file/resource
+coverage, version or environment drift, and unknown/malformed output cannot become
+`PASS`. E1 does not change final policy or implement multi-scanner consensus.

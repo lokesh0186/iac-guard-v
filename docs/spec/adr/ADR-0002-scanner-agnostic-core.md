@@ -96,3 +96,10 @@ D4.7 makes one typed filesystem inventory the input to artifact detectors, scan 
 governed comparison, snapshot identity and final revalidation. Scanner-specific parsers
 receive only digest-bound regular bytes. Symlinks and supported special files remain
 scanner-agnostic rejected evidence and are never silently dropped.
+
+## Amendment, 2026-08-12: E1 KICS adapter
+
+KICS v2.1.20 now translates its official summary/query/file JSON into scanner-neutral
+`ScannerRun`, `Finding`, evaluation, and coverage evidence. It preserves native
+`similarity_id` and fails closed on all three native completeness counters. This is an
+adapter boundary only: no cross-scanner agreement or policy consequence was added.
