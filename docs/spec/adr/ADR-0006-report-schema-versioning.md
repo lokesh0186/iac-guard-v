@@ -96,3 +96,11 @@ D7.1 replaces permissive conditionals with closed verdict/exit branches and clos
 nested definitions. Runtime output is schema-validated and top-level policy agreement is
 mandatory. Execution isolation is first-class canonical evidence. Operational and
 verification payload members are mutually exclusive.
+
+## Amendment, 2026-08-12: semantic state table
+
+Shape validation is followed by a mandatory semantic state-table validation. JSON
+Schema alone cannot prove that a `VERIFIED` label agrees with scanner integrity,
+required gates, target outcomes, engine events and policy decisions. The
+full-verification/full-policy and artifact-failure/artifact-policy pairs are closed and
+cannot be crossed.

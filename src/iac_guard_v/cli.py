@@ -168,6 +168,88 @@ def _read_report(path: Path) -> dict:
     return payload
 
 
+def _explain_report(value: dict) -> str:
+    lines = [
+        "IaC-Guard-V report explanation",
+        f"kind: {value['result_kind']}",
+        f"verdict: {value['verdict']}",
+        f"exit_code: {value['exit_code']}",
+    ]
+    if value["result_kind"] == "operational_uncertainty":
+        diagnostic = value["diagnostic"]
+        lines.extend((
+            f"reason: {diagnostic['reason_code']}",
+            f"detail: {diagnostic['detail']}",
+            f"remediation: {diagnostic['remediation']}",
+        ))
+        return "\n".join(lines) + "\n"
+    isolation = value["execution_isolation"]
+    verification = value["verification"]
+    policy = value["policy"]
+    lines.append(f"isolation: {isolation['mode']}")
+    if "failure_stage" in verification:
+        lines.extend((
+            f"artifact: {verification['artifact_kind']}",
+            f"validator: {verification['validator_gate_id']} FAIL "
+            f"({verification['failure_reason']})",
+            "targets: unavailable because candidate syntax is invalid",
+            "scanner integrity: not executed",
+            "regression: not evaluated",
+            "policy decisions: candidate artifact invalid",
+            "remediation: correct the candidate artifact syntax and rerun verification",
+        ))
+        return "\n".join(lines) + "\n"
+    lines.append(
+        "scanner integrity: "
+        f"{verification['scanner_integrity']['status']} "
+        f"({verification['scanner_integrity']['reason_code']})"
+    )
+    lines.append("targets:")
+    for target in verification["targets"]:
+        identity = target["binding"]["identity"]
+        lines.append(
+            f"  {identity['rule_id']} {identity['scope']}: {target['outcome']} "
+            f"({target['target_reason']})"
+        )
+    gates = [verification["preflight"], *verification["validators"], *verification["oracles"]]
+    nonpassing = [item for item in gates if item["status"] != "PASS"]
+    lines.append("failing/inconclusive gates:")
+    lines.extend(
+        f"  {item['gate_id']}: {item['status']} ({item['reason_code']})"
+        for item in nonpassing
+    )
+    if not nonpassing:
+        lines.append("  none")
+    lines.append(
+        f"regression: {verification['regression']['status']} "
+        f"({verification['regression']['reason_code']})"
+    )
+    adverse_events = [
+        item for item in verification["engine_events"] if item["status"] != "PASS"
+    ]
+    lines.append("regressions/destructive changes:")
+    lines.extend(
+        f"  {item['delta_class']}: {item['status']} ({item['reason_code']})"
+        for item in adverse_events
+    )
+    if not adverse_events:
+        lines.append("  none")
+    lines.append("policy decisions:")
+    for decision in policy["decisions"]:
+        exception = decision["exception_id"] or "none"
+        lines.append(
+            f"  {decision['outcome']}: permitted={str(decision['policy_permitted']).lower()} "
+            f"exception={exception}"
+        )
+    remediation = (
+        "none; all required evidence passed"
+        if value["verdict"] == "VERIFIED"
+        else "review the listed target, gate, scanner, regression, and policy evidence"
+    )
+    lines.append(f"remediation: {remediation}")
+    return "\n".join(lines) + "\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
@@ -186,10 +268,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.format == "json":
                 sys.stdout.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
             else:
-                sys.stdout.write(
-                    f"IaC-Guard-V report explanation\nkind: {value['result_kind']}\n"
-                    f"verdict: {value['verdict']}\nexit_code: {value['exit_code']}\n"
-                )
+                sys.stdout.write(_explain_report(value))
             return 0
         if args.command == "doctor":
             result = doctor()

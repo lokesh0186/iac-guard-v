@@ -1031,6 +1031,16 @@ outcome, and the semantic standard is never relaxed to reach a number.
 1 means the change is bad. 3 and 4 mean the verifier could not establish a
 trustworthy result. Consumers must not treat them alike.
 
+### 9.1 Public report semantic validation
+
+Schema-valid JSON is not sufficient verdict evidence. `report-v1` is accepted only after
+an executable semantic pass proves the verdict predicates from its gates, scanner
+integrity, target outcomes, ambiguity/event evidence and exact policy decisions. Full
+verification and artifact-failure evidence have disjoint policy branches. Definite
+malformed candidate Terraform or Kubernetes syntax is `FAILED/1`; unsupported or
+indeterminate candidate representation and invalid/unavailable trusted baseline
+evidence are `INCONCLUSIVE/3`.
+
 ---
 
 ## 10. Determinism

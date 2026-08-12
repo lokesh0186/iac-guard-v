@@ -1402,7 +1402,7 @@ def _terraform_resources(relative: str, content: bytes) -> tuple[ExpectedResourc
     try:
         document = hcl2.loads(text)
     except Exception as exc:
-        raise DomainError("Terraform HCL syntax is invalid or unsupported") from exc
+        raise DomainError("Terraform HCL syntax is invalid") from exc
     if type(document) is not dict:
         raise DomainError("Terraform HCL parser returned an invalid document")
     resources: list[ExpectedResource] = []

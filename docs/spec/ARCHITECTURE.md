@@ -654,3 +654,14 @@ validation uses the shipped schema and additionally enforces top-level/policy ag
 Verification reports carry explicit execution-isolation evidence. `config-v1` encodes
 the native-executable condition and rejects same or nested role roots. The offline
 `demo` and read-only `explain` commands introduce no verification evidence.
+
+## 29. D7.2 semantic report contract
+
+JSON Schema establishes closed shape and branch pairing; a mandatory semantic validator
+then replays the report state table. A `VERIFIED` report requires passing preflight,
+scanner/run/ruleset integrity, every configured validator and oracle, regression and
+suppression gates, no ambiguity or adverse engine event, and exact target-to-policy
+decision agreement. `FAILED` requires decisive negative evidence without operational
+uncertainty. `INCONCLUSIVE` requires typed uncertainty. Full verification evidence may
+only pair with full policy evidence; definite candidate-artifact failure evidence may
+only pair with its restricted artifact-failure policy branch.

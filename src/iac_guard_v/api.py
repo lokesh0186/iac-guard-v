@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .adapters.checkov import CheckovScanRequest, checkov_distribution_identity
 from .config import ExecutionIsolation, PublicVerificationRequest
+from .enums import ArtifactKind
 from .engine import (
     VerificationRequest,
     attest_checkov_scan_plan,
@@ -86,9 +87,23 @@ def verify(
         candidate = attest_checkov_scan_plan(candidate_raw)
     except DomainError as exc:
         detail = str(exc)
-        if "Terraform HCL syntax is invalid" in detail:
+        definite_failure = any(marker in detail for marker in (
+            "syntax is invalid", "syntax is malformed", "must be UTF-8",
+            "unterminated", "duplicate Terraform", "duplicate Kubernetes",
+            "duplicate YAML", "duplicate Kubernetes JSON",
+        ))
+        if definite_failure:
+            if "Terraform" in detail:
+                artifact_kind = ArtifactKind.TERRAFORM_HCL
+                gate_id = "terraform_hcl_parse"
+            elif "JSON" in detail:
+                artifact_kind = ArtifactKind.KUBERNETES_JSON
+                gate_id = "kubernetes_yaml_parse"
+            else:
+                artifact_kind = ArtifactKind.KUBERNETES_YAML
+                gate_id = "kubernetes_yaml_parse"
             return CandidateArtifactFailureReportV1(
-                "ARTIFACT_SYNTAX_INVALID", detail, isolation
+                artifact_kind, gate_id, "ARTIFACT_SYNTAX_INVALID", detail, isolation
             )
         return OperationalReportV1(
             "CANDIDATE_ARTIFACT_INDETERMINATE", detail,

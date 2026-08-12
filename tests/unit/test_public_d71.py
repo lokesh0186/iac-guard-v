@@ -250,7 +250,9 @@ def test_candidate_failure_json_and_verification_isolation_guard(
     verified_engine: VerificationResult,
 ) -> None:
     isolation = ExecutionIsolationEvidence.reduced_verified()
-    report = CandidateArtifactFailureReportV1("BAD", "invalid", isolation)
+    report = CandidateArtifactFailureReportV1(
+        ArtifactKind.TERRAFORM_HCL, "terraform_hcl_parse", "BAD", "invalid", isolation
+    )
     assert json.loads(report.canonical_json())["exit_code"] == 1
     with pytest.raises(DomainError, match="typed execution"):
         VerificationReportV1(verified_engine, _verdict(verified_engine), "bad")

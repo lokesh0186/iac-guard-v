@@ -9,7 +9,7 @@ from pathlib import Path
 
 import jsonschema
 
-from .enums import Verdict
+from .enums import ArtifactKind, Verdict
 from .engine import VerificationResult, require_trusted_verification_result
 from .models import DomainError
 from .policy import PolicyResult, require_trusted_policy_result
@@ -67,6 +67,148 @@ def validate_report_payload(payload: dict) -> None:
             policy["verdict"], policy["exit_code"]
         ):
             raise DomainError("report-v1 top-level and policy verdict/exit disagree")
+        _validate_verification_semantics(payload)
+
+
+_UNCERTAIN_STATUSES = frozenset({
+    "ERROR", "TIMEOUT", "UNSUPPORTED", "SKIPPED", "PARTIAL", "INCONCLUSIVE",
+})
+_INCONCLUSIVE_OUTCOMES = frozenset({
+    "OUT_OF_SCOPE", "RULE_OR_SCANNER_DRIFT", "SCANNER_ERROR", "INCONCLUSIVE",
+})
+
+
+def _semantic_error(detail: str) -> None:
+    raise DomainError(f"report-v1 semantic violation: {detail}")
+
+
+def _binding_key(value: dict | None) -> str:
+    if type(value) is not dict:
+        return ""
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def _validate_artifact_failure_semantics(payload: dict) -> None:
+    verification = payload["verification"]
+    policy = payload["policy"]
+    if (payload["verdict"], payload["exit_code"]) != ("FAILED", 1):
+        _semantic_error("definite candidate artifact failure must be FAILED/1")
+    if verification["preflight"]["status"] != "PASS":
+        _semantic_error("candidate artifact failure requires a completed preflight")
+    validators = verification["validators"]
+    if len(validators) != 1 or validators[0]["status"] != "FAIL":
+        _semantic_error("candidate artifact failure requires exactly one failed validator")
+    if validators[0]["gate_id"] != verification["validator_gate_id"]:
+        _semantic_error("candidate artifact failure substituted its validator gate")
+    if validators[0]["reason_code"] != verification["failure_reason"]:
+        _semantic_error("candidate artifact failure reason disagrees with its validator")
+    if policy["verdict"] != "FAILED" or policy["exit_code"] != 1:
+        _semantic_error("candidate artifact failure policy must be FAILED/1")
+
+
+def _validate_full_semantics(payload: dict) -> None:
+    verification = payload["verification"]
+    policy = payload["policy"]
+    verdict = payload["verdict"]
+    required = verification["verification_config"]["required_gates"]
+    validators = verification["validators"]
+    oracles = verification["oracles"]
+    if [item["gate_id"] for item in validators] != required["validator_ids"]:
+        _semantic_error("validator evidence does not exactly cover required validators")
+    if [item["gate_id"] for item in oracles] != required["oracle_ids"]:
+        _semantic_error("oracle evidence does not exactly cover required oracles")
+
+    targets = {
+        _binding_key(item["binding"]): item for item in verification["targets"]
+    }
+    decisions = {
+        _binding_key(item["resolved_target"]): item for item in policy["decisions"]
+    }
+    if "" in decisions or set(targets) != set(decisions):
+        _semantic_error("policy decisions do not exactly cover resolved targets")
+    for key, target in targets.items():
+        decision = decisions[key]
+        if decision["outcome"] != target["outcome"]:
+            _semantic_error("policy decision outcome disagrees with target evidence")
+        if target["outcome"] != "FIXED" and target["outcome"] not in _INCONCLUSIVE_OUTCOMES:
+            if not decision["policy_permitted"]:
+                # This is valid negative evidence for FAILED, but never for VERIFIED.
+                pass
+
+    preflight_pass = verification["preflight"]["status"] == "PASS"
+    scanner_pass = verification["scanner_integrity"]["status"] == "PASS"
+    run_integrity_pass = all(
+        verification[name]["status"] == "PASS"
+        and verification[name]["ruleset_integrity"] == "PASS"
+        for name in ("baseline_run", "candidate_run")
+    )
+    required_gates_pass = all(
+        item["status"] == "PASS" for item in validators + oracles
+    )
+    policy_gates_pass = all(
+        verification[name]["status"] == "PASS"
+        for name in ("regression", "suppression")
+    )
+    events_pass = all(item["status"] == "PASS" for item in verification["engine_events"])
+    no_ambiguity = not verification["finding_diff"]["ambiguities"]
+    target_uncertainty = any(
+        item["outcome"] in _INCONCLUSIVE_OUTCOMES for item in verification["targets"]
+    )
+    unpermitted_nonfix = any(
+        target["outcome"] != "FIXED"
+        and target["outcome"] not in _INCONCLUSIVE_OUTCOMES
+        and not decisions[key]["policy_permitted"]
+        for key, target in targets.items()
+    )
+
+    if verdict == "VERIFIED":
+        if not all((
+            preflight_pass, scanner_pass, run_integrity_pass, required_gates_pass,
+            policy_gates_pass, events_pass, no_ambiguity,
+        )):
+            _semantic_error("VERIFIED requires every integrity and required gate to pass")
+        if target_uncertainty or unpermitted_nonfix:
+            _semantic_error("VERIFIED contains unresolved or unpermitted target evidence")
+        if policy["verdict"] != "VERIFIED" or policy["exit_code"] != 0:
+            _semantic_error("VERIFIED requires VERIFIED/0 policy evidence")
+        return
+
+    uncertain = (
+        not preflight_pass
+        or not scanner_pass
+        or not run_integrity_pass
+        or any(item["status"] in _UNCERTAIN_STATUSES for item in validators + oracles)
+        or verification["regression"]["status"] in _UNCERTAIN_STATUSES
+        or verification["suppression"]["status"] in _UNCERTAIN_STATUSES
+        or any(item["status"] in _UNCERTAIN_STATUSES for item in verification["engine_events"])
+        or target_uncertainty
+        or not no_ambiguity
+    )
+    decisive_failure = (
+        any(item["status"] == "FAIL" for item in validators + oracles)
+        or verification["regression"]["status"] == "FAIL"
+        or verification["suppression"]["status"] == "FAIL"
+        or any(item["status"] == "FAIL" for item in verification["engine_events"])
+        or unpermitted_nonfix
+    )
+    if verdict == "FAILED":
+        if uncertain or not decisive_failure:
+            _semantic_error("FAILED requires decisive negative evidence without uncertainty")
+        if policy["verdict"] != "FAILED" or policy["exit_code"] != 1:
+            _semantic_error("FAILED requires FAILED/1 policy evidence")
+    elif verdict == "INCONCLUSIVE":
+        if not uncertain:
+            _semantic_error("INCONCLUSIVE requires typed uncertainty evidence")
+        if policy["verdict"] != "INCONCLUSIVE" or policy["exit_code"] != 3:
+            _semantic_error("INCONCLUSIVE requires INCONCLUSIVE/3 policy evidence")
+
+
+def _validate_verification_semantics(payload: dict) -> None:
+    verification = payload["verification"]
+    if "failure_stage" in verification:
+        _validate_artifact_failure_semantics(payload)
+    else:
+        _validate_full_semantics(payload)
 
 
 @dataclass(frozen=True, slots=True)
@@ -177,9 +319,21 @@ class OperationalReportV1:
 
 @dataclass(frozen=True, slots=True)
 class CandidateArtifactFailureReportV1:
+    artifact_kind: ArtifactKind
+    validator_gate_id: str
     reason_code: str
     detail: str
     execution_isolation: ExecutionIsolationEvidence
+
+    def __post_init__(self) -> None:
+        if type(self.artifact_kind) is not ArtifactKind or self.artifact_kind is ArtifactKind.UNKNOWN:
+            raise DomainError("candidate artifact failure requires a concrete artifact kind")
+        for name in ("validator_gate_id", "reason_code", "detail"):
+            value = getattr(self, name)
+            if type(value) is not str or not value.strip() or any(ord(char) < 32 for char in value):
+                raise DomainError(f"candidate artifact failure {name} must be safe nonblank text")
+        if type(self.execution_isolation) is not ExecutionIsolationEvidence:
+            raise DomainError("candidate artifact failure requires isolation evidence")
 
     @property
     def verdict(self) -> Verdict:
@@ -198,12 +352,15 @@ class CandidateArtifactFailureReportV1:
             "execution_isolation": self.execution_isolation.canonical_dict(),
             "verification": {
                 "failure_stage": "V1",
+                "artifact_kind": self.artifact_kind.value,
+                "validator_gate_id": self.validator_gate_id,
+                "failure_reason": self.reason_code,
                 "preflight": {
                     "gate_id": "preflight", "status": "PASS",
                     "reason_code": "PUBLIC_REQUEST_BOUND", "detail": "",
                 },
                 "validators": [{
-                    "gate_id": "terraform_hcl_parse", "status": "FAIL",
+                    "gate_id": self.validator_gate_id, "status": "FAIL",
                     "reason_code": self.reason_code, "detail": self.detail,
                 }],
             },

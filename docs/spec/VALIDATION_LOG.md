@@ -862,6 +862,20 @@ reject every contradictory branch, enforce config isolation conditions and disjo
 roots, emit candidate V1 `FAILED/1`, retain literal `reduced-isolation`, validate real
 outputs, and prove deeply immutable doctor evidence.
 
+## Gate D7.2 — Semantic public report closure (2026-08-12)
+
+Failing-before: six schema-valid forged `VERIFIED` reports independently retained
+scanner-integrity `FAIL`, preflight `ERROR`, required-validator `FAIL`, target
+`STILL_PRESENT`, policy-decision `STILL_PRESENT`, or regression `FAIL`; all six passed
+`validate_report_payload`. Full verification could also pair with artifact-failure
+policy. The permanent D7.2 suite initially reported nine failures.
+
+Passing-after: schema and runtime validation reject every forged state and crossed
+branch, and `explain` rejects the same bytes as invalid input. Candidate failure evidence
+now binds artifact kind, actual validator id and typed reason. Console explanation
+projects isolation, target reasons, nonpassing gates, scanner integrity, regression and
+destructive events, policy decisions/exceptions and remediation without adding evidence.
+
 ## Gate D7 — CLI, API, config-v1 and report-v1
 
 ```text
