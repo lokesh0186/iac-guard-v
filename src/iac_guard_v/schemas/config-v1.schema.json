@@ -29,5 +29,20 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"execution_mode": {"const": "reduced-isolation"}}, "required": ["execution_mode"]},
+      "then": {"required": ["checkov_executable"]}
+    },
+    {
+      "if": {
+        "anyOf": [
+          {"properties": {"execution_mode": {"const": "hardened-container"}}, "required": ["execution_mode"]},
+          {"not": {"required": ["execution_mode"]}}
+        ]
+      },
+      "then": {"not": {"required": ["checkov_executable"]}}
+    }
+  ]
 }

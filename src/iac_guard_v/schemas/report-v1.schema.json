@@ -2,83 +2,191 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://iac-guard-v.invalid/schemas/report-v1.schema.json",
   "title": "IaC-Guard-V report-v1",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["schema_version", "result_kind", "verdict", "exit_code"],
-  "properties": {
-    "schema_version": {"const": "report-v1"},
-    "result_kind": {"enum": ["verification", "operational_uncertainty"]},
-    "verdict": {"enum": ["VERIFIED", "FAILED", "INCONCLUSIVE"]},
-    "exit_code": {"enum": [0, 1, 3]},
-    "verification": {"$ref": "#/$defs/verification"},
-    "policy": {"$ref": "#/$defs/policy"},
-    "diagnostic": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["reason_code", "detail", "remediation"],
-      "properties": {
-        "reason_code": {"type": "string", "minLength": 1},
-        "detail": {"type": "string", "minLength": 1},
-        "remediation": {"type": "string", "minLength": 1}
-      }
-    }
-  },
+  "oneOf": [
+    {"$ref": "#/$defs/verifiedReport"},
+    {"$ref": "#/$defs/failedReport"},
+    {"$ref": "#/$defs/inconclusiveReport"},
+    {"$ref": "#/$defs/operationalReport"}
+  ],
   "$defs": {
-    "verification": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["preflight", "scanner_integrity", "validators", "oracles", "targets", "finding_diff", "regression", "suppression", "engine_events", "change_metrics", "baseline_run", "candidate_run", "verification_config", "gate_implementations", "baseline_snapshot", "candidate_snapshot"],
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "safeString": {"type": "string"},
+    "status": {"enum": ["PASS", "FAIL", "ERROR", "TIMEOUT", "UNSUPPORTED", "SKIPPED", "PARTIAL", "INCONCLUSIVE"]},
+    "artifactKind": {"enum": ["terraform_hcl", "terraform_plan_json", "opentofu_hcl", "kubernetes_yaml", "kubernetes_json", "helm_rendered_yaml", "cloudformation", "unknown"]},
+    "isolation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mode", "hostile_input_support", "network_isolation_state", "filesystem_isolation_state", "scanner_environment_integrity_state"],
       "properties": {
-        "preflight": {"type": "object"}, "scanner_integrity": {"type": "object"},
-        "validators": {"type": "array"}, "oracles": {"type": "array"},
-        "targets": {"type": "array", "minItems": 1}, "finding_diff": {"type": "object"},
-        "regression": {"type": "object"}, "suppression": {"type": "object"},
-        "engine_events": {"type": "array"}, "change_metrics": {"type": "object"},
-        "baseline_run": {"type": "object"}, "candidate_run": {"type": "object"},
-        "verification_config": {"type": "object"},
-        "gate_implementations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/gate"}},
-        "baseline_snapshot": {"$ref": "#/$defs/snapshot"},
-        "candidate_snapshot": {"$ref": "#/$defs/snapshot"}
+        "mode": {"enum": ["hardened-container", "reduced-isolation"]},
+        "hostile_input_support": {"type": "boolean"},
+        "network_isolation_state": {"enum": ["PASS", "FAIL", "INCONCLUSIVE", "UNSUPPORTED"]},
+        "filesystem_isolation_state": {"enum": ["PASS", "FAIL", "INCONCLUSIVE", "UNSUPPORTED"]},
+        "scanner_environment_integrity_state": {"enum": ["PASS", "FAIL", "INCONCLUSIVE", "UNSUPPORTED"]}
       }
     },
     "gate": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["gate_id", "kind", "version", "code_sha256", "dependency_identity", "artifact_kinds"],
+      "type": "object", "additionalProperties": false,
+      "required": ["gate_id", "status", "reason_code", "detail"],
+      "properties": {"gate_id": {"type": "string", "minLength": 1}, "status": {"$ref": "#/$defs/status"}, "reason_code": {"type": "string"}, "detail": {"type": "string"}}
+    },
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scanner", "rule_id", "scope", "reference", "opaque_id", "display_ref"],
+      "properties": {"scanner": {"type": "string"}, "rule_id": {"type": "string"}, "scope": {"type": "string"}, "reference": {"type": "string"}, "opaque_id": {"type": "string"}, "display_ref": {"type": "string"}}
+    },
+    "binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "file_path", "artifact_kind", "scanner_native_lookup", "baseline_occurrences"],
+      "properties": {"identity": {"$ref": "#/$defs/identity"}, "file_path": {"type": "string"}, "artifact_kind": {"$ref": "#/$defs/artifactKind"}, "scanner_native_lookup": {"type": "string"}, "baseline_occurrences": {"type": "integer", "minimum": 1}}
+    },
+    "expectedResource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file_path", "resource_address", "artifact_kind", "scanner_native_lookup"],
+      "properties": {"file_path": {"type": "string"}, "resource_address": {"type": "string"}, "artifact_kind": {"$ref": "#/$defs/artifactKind"}, "scanner_native_lookup": {"type": "string"}}
+    },
+    "boundFile": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file_path", "file_type", "size", "sha256"],
+      "properties": {"file_path": {"type": "string"}, "file_type": {"$ref": "#/$defs/artifactKind"}, "size": {"type": "integer", "minimum": 0}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "classification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file_path", "sha256", "size", "syntax_kind", "classification", "resources", "reason"],
       "properties": {
-        "gate_id": {"type": "string"}, "kind": {"enum": ["validator", "oracle"]},
-        "version": {"type": "string"}, "code_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "dependency_identity": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "artifact_kinds": {"type": "array", "items": {"type": "string"}}
+        "file_path": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}, "size": {"type": "integer", "minimum": 0},
+        "syntax_kind": {"enum": ["terraform_hcl", "yaml", "json"]},
+        "classification": {"enum": ["TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES", "NON_KUBERNETES_YAML", "NON_KUBERNETES_JSON"]},
+        "resources": {"type": "array", "items": {"$ref": "#/$defs/expectedResource"}}, "reason": {"type": "string"}
       }
+    },
+    "filesystemEntry": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file_path", "kind", "size", "sha256", "symlink_target_kind", "symlink_target_sha256", "supported", "governed", "rejection_reason"],
+      "properties": {
+        "file_path": {"type": "string"}, "kind": {"enum": ["REGULAR_FILE", "REAL_DIRECTORY", "SYMLINK", "FIFO", "SOCKET", "BLOCK_DEVICE", "CHARACTER_DEVICE", "OTHER"]},
+        "size": {"type": "integer", "minimum": 0}, "sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "symlink_target_kind": {"enum": ["absolute", "relative", null]}, "symlink_target_sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+        "supported": {"type": "boolean"}, "governed": {"type": "boolean"}, "rejection_reason": {"type": "string"}
+      }
+    },
+    "governedPath": {
+      "type": "object", "additionalProperties": false,
+      "required": ["file_path", "kind", "sha256", "size"],
+      "properties": {"file_path": {"type": "string"}, "kind": {"type": "string"}, "sha256": {"$ref": "#/$defs/sha256"}, "size": {"type": "integer", "minimum": 0}}
     },
     "snapshot": {
-      "type": "object",
+      "type": "object", "additionalProperties": false,
       "required": ["role", "repository_identity", "repository_relative_subpath", "snapshot_sha256", "artifact_manifest_sha256", "resource_inventory_sha256", "config_sha256", "files", "classifications", "resources", "governed_paths", "filesystem_entries"],
       "properties": {
-        "role": {"enum": ["baseline", "candidate"]},
-        "repository_identity": {"type": "string"}, "repository_relative_subpath": {"type": "string"},
-        "snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "artifact_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "resource_inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-        "files": {"type": "array"}, "classifications": {"type": "array"},
-        "resources": {"type": "array"}, "governed_paths": {"type": "array"},
-        "filesystem_entries": {"type": "array"}
+        "role": {"enum": ["baseline", "candidate"]}, "repository_identity": {"type": "string"}, "repository_relative_subpath": {"type": "string"},
+        "snapshot_sha256": {"$ref": "#/$defs/sha256"}, "artifact_manifest_sha256": {"$ref": "#/$defs/sha256"}, "resource_inventory_sha256": {"$ref": "#/$defs/sha256"}, "config_sha256": {"$ref": "#/$defs/sha256"},
+        "files": {"type": "array", "items": {"$ref": "#/$defs/boundFile"}}, "classifications": {"type": "array", "items": {"$ref": "#/$defs/classification"}},
+        "resources": {"type": "array", "items": {"$ref": "#/$defs/expectedResource"}}, "governed_paths": {"type": "array", "items": {"$ref": "#/$defs/governedPath"}},
+        "filesystem_entries": {"type": "array", "items": {"$ref": "#/$defs/filesystemEntry"}}
       }
     },
-    "policy": {
-      "type": "object",
-      "required": ["verdict", "exit_code", "evaluation_date", "decisions", "policy_evidence"],
+    "gateImplementation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["gate_id", "kind", "version", "code_sha256", "dependency_identity", "contract_version", "product_build_digest", "parser_dependency_digest", "schema_loader_contract_digest", "artifact_kinds"],
       "properties": {
-        "verdict": {"enum": ["VERIFIED", "FAILED", "INCONCLUSIVE"]},
-        "exit_code": {"enum": [0, 1, 3]}, "evaluation_date": {"type": "string", "format": "date"},
-        "decisions": {"type": "array", "minItems": 1}, "policy_evidence": {"type": "object"}
+        "gate_id": {"type": "string"}, "kind": {"enum": ["validator", "oracle"]}, "version": {"type": "string"}, "code_sha256": {"$ref": "#/$defs/sha256"}, "dependency_identity": {"$ref": "#/$defs/sha256"},
+        "contract_version": {"type": "string"}, "product_build_digest": {"$ref": "#/$defs/sha256"}, "parser_dependency_digest": {"$ref": "#/$defs/sha256"}, "schema_loader_contract_digest": {"$ref": "#/$defs/sha256"},
+        "artifact_kinds": {"type": "array", "items": {"$ref": "#/$defs/artifactKind"}}
       }
+    },
+    "targetOutcome": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "binding", "outcome", "target_reason", "counts"],
+      "properties": {
+        "identity": {"$ref": "#/$defs/identity"}, "binding": {"$ref": "#/$defs/binding"},
+        "outcome": {"enum": ["FIXED", "STILL_PRESENT", "PARTIALLY_FIXED", "SUPPRESSED", "RESOURCE_DELETED", "FILE_DELETED_OR_RENAMED", "OUT_OF_SCOPE", "RULE_OR_SCANNER_DRIFT", "SCANNER_ERROR", "INCONCLUSIVE"]},
+        "target_reason": {"type": "string"},
+        "counts": {"type": "object", "additionalProperties": false, "required": ["baseline", "candidate"], "properties": {"baseline": {"type": "integer", "minimum": 1}, "candidate": {"type": "integer", "minimum": 0}}}
+      }
+    },
+    "findingLocation": {"type": "object", "additionalProperties": false, "required": ["file_path", "start_line", "end_line"], "properties": {"file_path": {"type": "string"}, "start_line": {"type": "integer", "minimum": 1}, "end_line": {"type": "integer", "minimum": 1}}},
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scanner", "scanner_version", "rule_id", "rule_name", "severity", "resource_address", "occurrence_index", "location", "message", "native_fingerprint", "iacgv_fingerprint", "artifact_kind", "suppressed"],
+      "properties": {"scanner": {"type": "string"}, "scanner_version": {"type": "string"}, "rule_id": {"type": "string"}, "rule_name": {"type": "string"}, "severity": {"enum": ["UNKNOWN", "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]}, "resource_address": {"type": "string"}, "occurrence_index": {"type": "integer", "minimum": 0}, "location": {"$ref": "#/$defs/findingLocation"}, "message": {"type": "string"}, "native_fingerprint": {"type": "string"}, "iacgv_fingerprint": {"type": "string"}, "artifact_kind": {"$ref": "#/$defs/artifactKind"}, "suppressed": {"type": "boolean"}}
+    },
+    "scopeEvidence": {"type": "object", "additionalProperties": false, "required": ["baseline_resources", "candidate_resources", "added_resources"], "properties": {"baseline_resources": {"type": "array", "items": {"type": "string"}}, "candidate_resources": {"type": "array", "items": {"type": "string"}}, "added_resources": {"type": "array", "items": {"type": "string"}}}},
+    "findingDelta": {
+      "type": "object", "additionalProperties": false,
+      "required": ["delta_class", "baseline", "candidate", "detail", "scope_evidence"],
+      "properties": {"delta_class": {"enum": ["NEW_FINDING", "LOCATION_CHANGED", "SEVERITY_INCREASED", "SCOPE_EXPANDED", "RULE_SUBSTITUTED", "SUPPRESSION_ADDED", "COVERAGE_DECREASED", "DIAGNOSTIC_ADDED", "DESTRUCTIVE_CHANGE", "POLICY_DRIFT", "RESOLVED_FINDING"]}, "baseline": {"oneOf": [{"$ref": "#/$defs/finding"}, {"type": "null"}]}, "candidate": {"oneOf": [{"$ref": "#/$defs/finding"}, {"type": "null"}]}, "detail": {"type": "string"}, "scope_evidence": {"oneOf": [{"$ref": "#/$defs/scopeEvidence"}, {"type": "null"}]}}
+    },
+    "engineEvent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["delta_class", "status", "reason_code", "affected_resource_records", "affected_resources", "affected_paths", "detail"],
+      "properties": {"delta_class": {"enum": ["RULE_SUBSTITUTED", "COVERAGE_DECREASED", "DIAGNOSTIC_ADDED", "DESTRUCTIVE_CHANGE", "POLICY_DRIFT"]}, "status": {"$ref": "#/$defs/status"}, "reason_code": {"type": "string"}, "affected_resource_records": {"type": "array", "items": {"$ref": "#/$defs/expectedResource"}}, "affected_resources": {"type": "array", "items": {"type": "string"}}, "affected_paths": {"type": "array", "items": {"type": "string"}}, "detail": {"type": "string"}}
+    },
+    "ambiguity": {"type": "object", "additionalProperties": false, "required": ["reason", "baseline", "candidate"], "properties": {"reason": {"const": "MATCHING_INCONCLUSIVE"}, "baseline": {"type": "array", "items": {"$ref": "#/$defs/finding"}}, "candidate": {"type": "array", "items": {"$ref": "#/$defs/finding"}}}},
+    "changeMetrics": {"type": "object", "additionalProperties": false, "required": ["lines_added", "lines_removed", "lines_changed", "diff_ratio", "files_changed", "resources_changed", "resources_added", "resources_deleted", "policy_files_changed", "unavailable_metrics"], "properties": {"lines_added": {"type": "integer", "minimum": 0}, "lines_removed": {"type": "integer", "minimum": 0}, "lines_changed": {"type": "integer", "minimum": 0}, "diff_ratio": {"type": "number", "minimum": 0}, "files_changed": {"type": "integer", "minimum": 0}, "resources_changed": {"type": "integer", "minimum": 0}, "resources_added": {"type": "integer", "minimum": 0}, "resources_deleted": {"type": "integer", "minimum": 0}, "policy_files_changed": {"type": ["integer", "null"], "minimum": 0}, "unavailable_metrics": {"type": "array", "items": {"type": "string"}}}},
+    "coverage": {"type": "object", "additionalProperties": false, "required": ["files_eligible", "files_discovered", "files_parsed", "files_failed", "evaluations_reported", "checks_failed_to_execute", "parse_errors"], "properties": {"files_eligible": {"type": "integer", "minimum": 0}, "files_discovered": {"type": "integer", "minimum": 0}, "files_parsed": {"type": "integer", "minimum": 0}, "files_failed": {"type": "integer", "minimum": 0}, "evaluations_reported": {"type": "integer", "minimum": 0}, "checks_failed_to_execute": {"type": "integer", "minimum": 0}, "parse_errors": {"type": "integer", "minimum": 0}}},
+    "resourceCoverage": {"type": "object", "additionalProperties": false, "required": ["resources_expected", "resources_observed", "expected_resources_observed", "expected_resources_missing", "unexpected_resources_observed", "summary_resources_reported"], "properties": {"resources_expected": {"type": "integer", "minimum": 0}, "resources_observed": {"type": "integer", "minimum": 0}, "expected_resources_observed": {"type": "integer", "minimum": 0}, "expected_resources_missing": {"type": "integer", "minimum": 0}, "unexpected_resources_observed": {"type": "integer", "minimum": 0}, "summary_resources_reported": {"type": "integer", "minimum": 0}}},
+    "evaluation": {"type": "object", "additionalProperties": false, "required": ["scanner", "scanner_version", "rule_id", "resource_address", "file_path", "native_result", "evaluated_keys", "source_bucket", "occurrence_token"], "properties": {"scanner": {"type": "string"}, "scanner_version": {"type": "string"}, "rule_id": {"type": "string"}, "resource_address": {"type": "string"}, "file_path": {"type": "string"}, "native_result": {"enum": ["PASSED", "FAILED", "SKIPPED", "UNKNOWN"]}, "evaluated_keys": {"type": "array", "items": {"type": "string"}}, "source_bucket": {"type": "string"}, "occurrence_token": {"type": "string"}}},
+    "scannerRun": {"type": "object", "additionalProperties": false, "required": ["scanner", "scanner_version", "status", "exit_code", "duration_ms", "stdout_sha256", "stderr_sha256", "raw_output_sha256", "resolved_launcher_path", "launcher_digest", "scanner_environment_digest", "policy_inventory_digest", "invocation_config_digest", "installed_distribution_digest", "dependency_lock_digest", "custom_check_digest", "ruleset_integrity", "coverage", "resource_coverage", "findings", "evaluations", "input_files", "diagnostics"], "properties": {"scanner": {"type": "string"}, "scanner_version": {"type": "string"}, "status": {"$ref": "#/$defs/status"}, "exit_code": {"type": "integer"}, "duration_ms": {"type": "integer", "minimum": 0}, "stdout_sha256": {"type": "string"}, "stderr_sha256": {"type": "string"}, "raw_output_sha256": {"type": "string"}, "resolved_launcher_path": {"type": "string"}, "launcher_digest": {"type": "string"}, "scanner_environment_digest": {"type": "string"}, "policy_inventory_digest": {"type": "string"}, "invocation_config_digest": {"type": "string"}, "installed_distribution_digest": {"type": "string"}, "dependency_lock_digest": {"type": "string"}, "custom_check_digest": {"type": "string"}, "ruleset_integrity": {"$ref": "#/$defs/status"}, "coverage": {"$ref": "#/$defs/coverage"}, "resource_coverage": {"$ref": "#/$defs/resourceCoverage"}, "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}, "evaluations": {"type": "array", "items": {"$ref": "#/$defs/evaluation"}}, "input_files": {"type": "array", "items": {"$ref": "#/$defs/boundFile"}}, "diagnostics": {"type": "array", "items": {"type": "string"}}}},
+    "verificationConfig": {"type": "object", "additionalProperties": false, "required": ["config_sha256", "source_identity", "source_provenance", "policy_source_authorization", "frameworks", "severity_floor", "fail_on_location_change", "required_gates", "gate_registry_identity", "gate_implementations", "governed_config", "role_snapshots", "role_subpaths"], "properties": {"config_sha256": {"$ref": "#/$defs/sha256"}, "source_identity": {"type": "string"}, "source_provenance": {"type": "string"}, "policy_source_authorization": {"type": "object", "additionalProperties": false, "required": ["mode", "repository_identity", "commit_sha", "candidate_identity", "context_identity"], "properties": {"mode": {"type": "string"}, "repository_identity": {"type": "string"}, "commit_sha": {"type": "string"}, "candidate_identity": {"type": "string"}, "context_identity": {"type": "string"}}}, "frameworks": {"type": "array", "items": {"type": "string"}}, "severity_floor": {"enum": ["UNKNOWN", "INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]}, "fail_on_location_change": {"type": "boolean"}, "required_gates": {"type": "object", "additionalProperties": false, "required": ["validator_ids", "oracle_ids"], "properties": {"validator_ids": {"type": "array", "items": {"type": "string"}}, "oracle_ids": {"type": "array", "items": {"type": "string"}}}}, "gate_registry_identity": {"type": "string"}, "gate_implementations": {"type": "array", "items": {"$ref": "#/$defs/gateImplementation"}}, "governed_config": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["file_path", "trusted_sha256", "candidate_sha256", "state", "trusted_kind", "candidate_kind", "trusted_size", "candidate_size"], "properties": {"file_path": {"type": "string"}, "trusted_sha256": {"type": ["string", "null"]}, "candidate_sha256": {"type": ["string", "null"]}, "state": {"type": "string"}, "trusted_kind": {"type": "string"}, "candidate_kind": {"type": "string"}, "trusted_size": {"type": "integer"}, "candidate_size": {"type": "integer"}}}}, "role_snapshots": {"type": "object", "additionalProperties": false, "required": ["baseline", "candidate"], "properties": {"baseline": {"$ref": "#/$defs/sha256"}, "candidate": {"$ref": "#/$defs/sha256"}}}, "role_subpaths": {"type": "object", "additionalProperties": false, "required": ["baseline", "candidate"], "properties": {"baseline": {"type": "string"}, "candidate": {"type": "string"}}}}},
+    "fullVerification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["preflight", "scanner_integrity", "validators", "oracles", "targets", "finding_diff", "regression", "suppression", "engine_events", "change_metrics", "baseline_run", "candidate_run", "verification_config", "gate_implementations", "baseline_snapshot", "candidate_snapshot"],
+      "properties": {
+        "preflight": {"$ref": "#/$defs/gate"}, "scanner_integrity": {"$ref": "#/$defs/gate"}, "validators": {"type": "array", "items": {"$ref": "#/$defs/gate"}}, "oracles": {"type": "array", "items": {"$ref": "#/$defs/gate"}}, "targets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/targetOutcome"}},
+        "finding_diff": {"type": "object", "additionalProperties": false, "required": ["deltas", "ambiguities"], "properties": {"deltas": {"type": "array", "items": {"$ref": "#/$defs/findingDelta"}}, "ambiguities": {"type": "array", "items": {"$ref": "#/$defs/ambiguity"}}}},
+        "regression": {"$ref": "#/$defs/gate"}, "suppression": {"$ref": "#/$defs/gate"}, "engine_events": {"type": "array", "items": {"$ref": "#/$defs/engineEvent"}},
+        "change_metrics": {"$ref": "#/$defs/changeMetrics"}, "baseline_run": {"$ref": "#/$defs/scannerRun"}, "candidate_run": {"$ref": "#/$defs/scannerRun"}, "verification_config": {"$ref": "#/$defs/verificationConfig"},
+        "gate_implementations": {"type": "array", "items": {"$ref": "#/$defs/gateImplementation"}}, "baseline_snapshot": {"$ref": "#/$defs/snapshot"}, "candidate_snapshot": {"$ref": "#/$defs/snapshot"}
+      }
+    },
+    "artifactFailureVerification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["failure_stage", "preflight", "validators"],
+      "properties": {"failure_stage": {"const": "V1"}, "preflight": {"$ref": "#/$defs/gate"}, "validators": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/gate"}}}
+    },
+    "decision": {
+      "type": "object", "additionalProperties": false,
+      "required": ["identity", "outcome", "policy_permitted", "exception_id", "rejection_reason", "resolved_target"],
+      "properties": {"identity": {"$ref": "#/$defs/identity"}, "outcome": {"type": "string"}, "policy_permitted": {"type": "boolean"}, "exception_id": {"type": "string"}, "rejection_reason": {"type": "string"}, "resolved_target": {"oneOf": [{"$ref": "#/$defs/binding"}, {"type": "null"}]}}
+    },
+    "policyEvidence": {"type": "object", "additionalProperties": false, "required": ["source_identity", "source_origin", "trusted_policy_sha256", "candidate_policy_sha256", "candidate_policy_state", "differing_governed_paths", "optional_gates", "evaluation_date", "evaluation_timezone", "evaluation_time_provenance", "governed_config_evidence", "source_repository", "source_commit", "execution_mode", "execution_context_identity", "verification_config_sha256", "candidate_root_identity", "candidate_snapshot_sha256", "candidate_tree_sha", "repository_relative_candidate_prefix", "applied_exception_sources"], "properties": {"source_identity": {"type": "string"}, "source_origin": {"enum": ["operator", "trusted_base", "protected_policy_repo", "candidate_head"]}, "trusted_policy_sha256": {"$ref": "#/$defs/sha256"}, "candidate_policy_sha256": {"type": ["string", "null"]}, "candidate_policy_state": {"type": "string"}, "differing_governed_paths": {"type": "array", "items": {"type": "string"}}, "optional_gates": {"type": "array", "items": {"type": "string"}}, "evaluation_date": {"type": "string", "format": "date"}, "evaluation_timezone": {"type": "string"}, "evaluation_time_provenance": {"type": "string"}, "governed_config_evidence": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["file_path", "trusted_sha256", "candidate_sha256", "state", "trusted_kind", "candidate_kind", "trusted_size", "candidate_size"], "properties": {"file_path": {"type": "string"}, "trusted_sha256": {"type": ["string", "null"]}, "candidate_sha256": {"type": ["string", "null"]}, "state": {"type": "string"}, "trusted_kind": {"type": "string"}, "candidate_kind": {"type": "string"}, "trusted_size": {"type": "integer"}, "candidate_size": {"type": "integer"}}}}, "source_repository": {"type": "string"}, "source_commit": {"type": "string"}, "execution_mode": {"enum": ["pr_base", "protected_policy_repository", "explicit_operator"]}, "execution_context_identity": {"type": "string"}, "verification_config_sha256": {"$ref": "#/$defs/sha256"}, "candidate_root_identity": {"type": "string"}, "candidate_snapshot_sha256": {"$ref": "#/$defs/sha256"}, "candidate_tree_sha": {"type": "string"}, "repository_relative_candidate_prefix": {"type": "string"}, "applied_exception_sources": {"type": "array", "items": {"type": "object", "additionalProperties": false, "required": ["exception_id", "source_origin", "source_identity"], "properties": {"exception_id": {"type": "string"}, "source_origin": {"type": "string"}, "source_identity": {"type": "string"}}}}}},
+    "fullPolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["verdict", "exit_code", "evaluation_date", "decisions", "policy_evidence"],
+      "properties": {"verdict": {"enum": ["VERIFIED", "FAILED", "INCONCLUSIVE"]}, "exit_code": {"enum": [0, 1, 3]}, "evaluation_date": {"type": "string", "format": "date"}, "decisions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/decision"}}, "policy_evidence": {"$ref": "#/$defs/policyEvidence"}}
+    },
+    "artifactFailurePolicy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["verdict", "exit_code", "decisions", "policy_evidence"],
+      "properties": {"verdict": {"const": "FAILED"}, "exit_code": {"const": 1}, "decisions": {"type": "array", "maxItems": 0}, "policy_evidence": {"type": "object", "additionalProperties": false, "required": ["source_origin", "reason_code"], "properties": {"source_origin": {"const": "operator"}, "reason_code": {"const": "CANDIDATE_ARTIFACT_INVALID"}}}}
+    },
+    "verificationBase": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "result_kind", "verdict", "exit_code", "execution_isolation", "verification", "policy"],
+      "properties": {"schema_version": {"const": "report-v1"}, "result_kind": {"const": "verification"}, "verdict": {"enum": ["VERIFIED", "FAILED", "INCONCLUSIVE"]}, "exit_code": {"enum": [0, 1, 3]}, "execution_isolation": {"$ref": "#/$defs/isolation"}, "verification": {"oneOf": [{"$ref": "#/$defs/fullVerification"}, {"$ref": "#/$defs/artifactFailureVerification"}]}, "policy": {"oneOf": [{"$ref": "#/$defs/fullPolicy"}, {"$ref": "#/$defs/artifactFailurePolicy"}]}}
+    },
+    "verifiedReport": {
+      "allOf": [
+        {"$ref": "#/$defs/verificationBase"},
+        {"properties": {"verdict": {"const": "VERIFIED"}, "exit_code": {"const": 0}, "policy": {"allOf": [{"$ref": "#/$defs/fullPolicy"}, {"properties": {"verdict": {"const": "VERIFIED"}, "exit_code": {"const": 0}}}]}}}
+      ]
+    },
+    "failedReport": {
+      "allOf": [
+        {"$ref": "#/$defs/verificationBase"},
+        {"properties": {"verdict": {"const": "FAILED"}, "exit_code": {"const": 1}, "policy": {"oneOf": [{"allOf": [{"$ref": "#/$defs/fullPolicy"}, {"properties": {"verdict": {"const": "FAILED"}, "exit_code": {"const": 1}}}]}, {"$ref": "#/$defs/artifactFailurePolicy"}]}}}
+      ]
+    },
+    "inconclusiveReport": {
+      "allOf": [
+        {"$ref": "#/$defs/verificationBase"},
+        {"properties": {"verdict": {"const": "INCONCLUSIVE"}, "exit_code": {"const": 3}, "policy": {"allOf": [{"$ref": "#/$defs/fullPolicy"}, {"properties": {"verdict": {"const": "INCONCLUSIVE"}, "exit_code": {"const": 3}}}]}}}
+      ]
+    },
+    "operationalReport": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "result_kind", "verdict", "exit_code", "diagnostic"],
+      "properties": {"schema_version": {"const": "report-v1"}, "result_kind": {"const": "operational_uncertainty"}, "verdict": {"const": "INCONCLUSIVE"}, "exit_code": {"const": 3}, "diagnostic": {"type": "object", "additionalProperties": false, "required": ["reason_code", "detail", "remediation"], "properties": {"reason_code": {"type": "string", "minLength": 1}, "detail": {"type": "string", "minLength": 1}, "remediation": {"type": "string", "minLength": 1}}}}
     }
-  },
-  "allOf": [
-    {"if": {"properties": {"result_kind": {"const": "verification"}}}, "then": {"required": ["verification", "policy"]}},
-    {"if": {"properties": {"result_kind": {"const": "operational_uncertainty"}}}, "then": {"required": ["diagnostic"]}}
-  ]
+  }
 }

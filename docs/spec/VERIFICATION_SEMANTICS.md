@@ -1205,3 +1205,11 @@ Gate records separate `contract_version`, `product_build_digest`,
 identity verifies actual installed python-hcl2 and PyYAML distribution bytes against
 RECORD and binds active parser callables. Raw symlink target text is noncanonical private
 state; changing it still changes its canonical hash and the sealed snapshot root.
+
+### D7.1 report and request state machine
+
+The only report-v1 branches are verification `VERIFIED/0`, `FAILED/1`,
+`INCONCLUSIVE/3`, and operational uncertainty `INCONCLUSIVE/3`. Verification requires
+verification, policy, and execution-isolation evidence and forbids an operational
+diagnostic; operational uncertainty requires the diagnostic and forbids verification or
+policy. Exit 2 is outside report-v1 and means malformed invocation/configuration only.

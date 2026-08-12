@@ -640,3 +640,12 @@ coverage identities, sealed snapshots, and trusted policy provenance. D9 therefo
 classifies all hardened results as `INCONCLUSIVE`; it never manufactures `VERIFIED`
 from legacy booleans. Its output is an analysis record, not report-v1 or a production
 verdict.
+
+## 28. D7.1 closed public contract
+
+`report-v1` is a closed four-branch state machine: verification `VERIFIED/0`,
+`FAILED/1`, `INCONCLUSIVE/3`, or operational uncertainty `INCONCLUSIVE/3`. Runtime
+validation uses the shipped schema and additionally enforces top-level/policy agreement.
+Verification reports carry explicit execution-isolation evidence. `config-v1` encodes
+the native-executable condition and rejects same or nested role roots. The offline
+`demo` and read-only `explain` commands introduce no verification evidence.

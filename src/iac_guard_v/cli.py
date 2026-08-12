@@ -9,27 +9,32 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
 from .api import verify
 from .config import load_public_config
 from .models import DomainError
-from .report import render_console
+from .report import OperationalReportV1, render_console, validate_report_payload
 from .redaction import redact_detail
 
 
 @dataclass(frozen=True, slots=True)
 class DoctorReportV1:
-    checkov: dict
-    hardened_container: dict
+    checkov: object
+    hardened_container: object
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "checkov", _freeze(self.checkov))
+        object.__setattr__(self, "hardened_container", _freeze(self.hardened_container))
 
     def canonical_dict(self) -> dict:
         return {
             "schema_version": "doctor-v1",
             "product_version": __version__,
-            "checkov": self.checkov,
-            "hardened_container": self.hardened_container,
+            "checkov": _thaw(self.checkov),
+            "hardened_container": _thaw(self.hardened_container),
         }
 
     def canonical_json(self) -> str:
@@ -50,6 +55,22 @@ def _version(executable: Path) -> str:
     if completed.returncode != 0 or not value:
         raise DomainError("Checkov version probe failed")
     return value[-1].strip().removeprefix("Checkov ")
+
+
+def _freeze(value):
+    if type(value) is dict:
+        return MappingProxyType({key: _freeze(item) for key, item in sorted(value.items())})
+    if type(value) in (list, tuple):
+        return tuple(_freeze(item) for item in value)
+    return value
+
+
+def _thaw(value):
+    if isinstance(value, MappingProxyType):
+        return {key: _thaw(item) for key, item in value.items()}
+    if type(value) is tuple:
+        return [_thaw(item) for item in value]
+    return value
 
 
 def doctor() -> DoctorReportV1:
@@ -82,11 +103,22 @@ def doctor() -> DoctorReportV1:
                 ),
             }
         except (DomainError, OSError) as exc:
+            detail = str(exc)
+            unsafe_bytecode = "bytecode/cache" in detail
+            unverifiable = "RECORD" in detail or "executable code" in detail
             checkov = {
                 "status": "INCONCLUSIVE",
-                "reason_code": "CHECKOV_ENVIRONMENT_INCOMPLETE",
-                "detail": redact_detail(str(exc)),
-                "remediation": "Reinstall Checkov 3.3.0 into a dedicated --copies virtual environment; remove symlinked or modified package content.",
+                "reason_code": (
+                    "CHECKOV_ENVIRONMENT_UNSAFE_BYTECODE" if unsafe_bytecode
+                    else "CHECKOV_ENVIRONMENT_UNVERIFIABLE" if unverifiable
+                    else "CHECKOV_ENVIRONMENT_INCOMPLETE"
+                ),
+                "detail": redact_detail(detail),
+                "remediation": (
+                    "Remove all __pycache__, .pyc and .pyo entries, then reinstall from pinned wheels."
+                    if unsafe_bytecode else
+                    "Reinstall Checkov 3.3.0 and its dependency closure from pinned wheels with valid RECORD hashes."
+                ),
             }
     docker = shutil.which("docker")
     hardened = {
@@ -100,18 +132,65 @@ def doctor() -> DoctorReportV1:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="iac-guard")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subcommands = parser.add_subparsers(dest="command", required=True)
     verify_parser = subcommands.add_parser("verify")
     verify_parser.add_argument("--config", required=True, type=Path)
     verify_parser.add_argument("--format", choices=("json", "console"), default="console")
     doctor_parser = subcommands.add_parser("doctor")
     doctor_parser.add_argument("--format", choices=("json", "console"), default="console")
+    demo_parser = subcommands.add_parser("demo")
+    demo_parser.add_argument("--format", choices=("json", "console"), default="console")
+    explain_parser = subcommands.add_parser("explain")
+    explain_parser.add_argument("report", type=Path)
+    explain_parser.add_argument("--format", choices=("json", "console"), default="console")
     return parser
+
+
+def _read_report(path: Path) -> dict:
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise DomainError(f"duplicate report JSON key: {key}")
+            result[key] = value
+        return result
+    try:
+        raw = path.read_bytes()
+        if len(raw) > 25 * 1024 * 1024:
+            raise DomainError("report exceeds the 25 MiB limit")
+        payload = json.loads(raw.decode("utf-8"), object_pairs_hook=unique)
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        raise DomainError("report is not strict UTF-8 JSON") from exc
+    if type(payload) is not dict:
+        raise DomainError("report-v1 must be a JSON object")
+    validate_report_payload(payload)
+    return payload
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
+        if args.command == "demo":
+            result = OperationalReportV1(
+                "OFFLINE_DEMO_ONLY",
+                "This deterministic fixture demonstrates report-v1 without executing a scanner.",
+                "Run verify with a trusted environment for production evidence.",
+            )
+            sys.stdout.write(
+                result.canonical_json() if args.format == "json" else render_console(result)
+            )
+            return 0
+        if args.command == "explain":
+            value = _read_report(args.report)
+            if args.format == "json":
+                sys.stdout.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+            else:
+                sys.stdout.write(
+                    f"IaC-Guard-V report explanation\nkind: {value['result_kind']}\n"
+                    f"verdict: {value['verdict']}\nexit_code: {value['exit_code']}\n"
+                )
+            return 0
         if args.command == "doctor":
             result = doctor()
             if args.format == "json":

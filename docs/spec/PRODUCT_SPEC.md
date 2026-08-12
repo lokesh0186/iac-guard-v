@@ -387,3 +387,6 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
 21. Validator provenance separates the Phase-D gate contract, IaC-Guard-V build/source
     digest, verified parser-distribution code digest, and schema/loader contract. Raw
     symlink target text is private; canonical evidence records target kind and SHA-256.
+22. Report-v1 has four closed verdict/exit branches and closed nested evidence.
+    Config-v1 enforces isolation-specific executable fields and disjoint role roots.
+    `--version`, offline `demo`, read-only `explain`, `verify`, and `doctor` are tested.

@@ -12,14 +12,17 @@ from .engine import (
     load_operator_verification_config,
     run_checkov_verification,
 )
-from .models import RequiredGates
+from .models import DomainError, RequiredGates
 from .policy import (
     PolicyRequest,
     evaluate_policy,
     load_operator_execution_context,
     load_operator_policy,
 )
-from .report import OperationalReportV1, VerificationReportV1
+from .report import (
+    CandidateArtifactFailureReportV1, ExecutionIsolationEvidence,
+    OperationalReportV1, VerificationReportV1,
+)
 
 
 def _launcher_digest(path: Path) -> str:
@@ -65,14 +68,32 @@ def verify(
             "select reduced-isolation only for operator-controlled local content.",
         )
     executable = request.checkov_executable
-    baseline_raw = _untrusted_scan_request(
-        request.baseline_root, request.baseline_root, executable, request.frameworks
-    )
-    candidate_raw = _untrusted_scan_request(
-        request.candidate_root, request.candidate_root, executable, request.frameworks
-    )
-    baseline = attest_checkov_scan_plan(baseline_raw)
-    candidate = attest_checkov_scan_plan(candidate_raw)
+    isolation = ExecutionIsolationEvidence.reduced_verified()
+    try:
+        baseline_raw = _untrusted_scan_request(
+            request.baseline_root, request.baseline_root, executable, request.frameworks
+        )
+        baseline = attest_checkov_scan_plan(baseline_raw)
+    except DomainError as exc:
+        return OperationalReportV1(
+            "TRUSTED_BASELINE_EVIDENCE_UNAVAILABLE", str(exc),
+            "Repair or restore the trusted baseline and verified scanner environment.",
+        )
+    try:
+        candidate_raw = _untrusted_scan_request(
+            request.candidate_root, request.candidate_root, executable, request.frameworks
+        )
+        candidate = attest_checkov_scan_plan(candidate_raw)
+    except DomainError as exc:
+        detail = str(exc)
+        if "Terraform HCL syntax is invalid" in detail:
+            return CandidateArtifactFailureReportV1(
+                "ARTIFACT_SYNTAX_INVALID", detail, isolation
+            )
+        return OperationalReportV1(
+            "CANDIDATE_ARTIFACT_INDETERMINATE", detail,
+            "Use a supported artifact representation and rerun verification.",
+        )
     validators = tuple(sorted(
         f"{name}_hcl_parse" if name == "terraform" else "kubernetes_yaml_parse"
         for name in request.frameworks
@@ -92,7 +113,7 @@ def verify(
         {"exceptions": [], "optional_gates": []}, context=context
     )
     return VerificationReportV1(
-        verification, evaluate_policy(PolicyRequest(verification, policy))
+        verification, evaluate_policy(PolicyRequest(verification, policy)), isolation
     )
 
 

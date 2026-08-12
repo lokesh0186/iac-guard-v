@@ -392,3 +392,8 @@ origin and clock fields—are invalid requests. Hostile mode does not auto-selec
 native runner when Docker/image evidence is absent. Doctor reports incomplete,
 symlinked or modified native Checkov environments and gives deterministic remediation;
 it does not upgrade them to trusted environments.
+
+D7.1 validates every emitted report against the closed schema and rejects any
+verdict/exit/policy contradiction. Candidate syntax failure is evidence (`FAILED/1`),
+not malformed invocation (`2`). Unsupported candidate evidence and unavailable trusted
+baseline evidence remain `INCONCLUSIVE/3`. Every verification result names isolation.

@@ -89,3 +89,10 @@ Canonical report-v1 never emits raw symlink target text. It emits target kind an
 SHA-256 so snapshot mutation remains bound without leaking machine-local paths. Gate
 records separately expose contract, product-build, parser-distribution, and loader/schema
 identities.
+
+## Amendment, 2026-08-12: closed report-v1 branches
+
+D7.1 replaces permissive conditionals with closed verdict/exit branches and closed
+nested definitions. Runtime output is schema-validated and top-level policy agreement is
+mandatory. Execution isolation is first-class canonical evidence. Operational and
+verification payload members are mutually exclusive.

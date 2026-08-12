@@ -75,6 +75,11 @@ class PublicVerificationRequest:
             object.__setattr__(self, field_name, resolved)
         if self.baseline_root == self.candidate_root:
             raise DomainError("baseline and candidate roots must be distinct")
+        if (
+            self.baseline_root in self.candidate_root.parents
+            or self.candidate_root in self.baseline_root.parents
+        ):
+            raise DomainError("baseline and candidate roots must not contain one another")
         if type(self.targets) is not tuple or not self.targets or any(
             type(item) is not PublicTarget for item in self.targets
         ):

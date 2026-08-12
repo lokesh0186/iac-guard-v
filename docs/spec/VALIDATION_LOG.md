@@ -808,6 +808,15 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Gate D7.1 — Closed public API, CLI, and schema contract
+
+Failing-before probes accepted operational `VERIFIED/0`, allowed reduced mode without
+an executable in JSON Schema, exposed no `--version`, `demo`, or `explain`, accepted
+nested roots, and mapped invalid candidate HCL to request exit 2. Passing-after probes
+reject every contradictory branch, enforce config isolation conditions and disjoint
+roots, emit candidate V1 `FAILED/1`, retain literal `reduced-isolation`, validate real
+outputs, and prove deeply immutable doctor evidence.
+
 ## Gate D7 — CLI, API, config-v1 and report-v1
 
 ```text
