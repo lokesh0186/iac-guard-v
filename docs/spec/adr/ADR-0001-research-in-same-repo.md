@@ -44,3 +44,10 @@ citations for a cosmetic gain.
 **Move research under `research/` in this repository.** Rejected: same reference
 breakage, and the byte manifest already provides the isolation that a move would only
 imply.
+
+## Amendment, 2026-08-11: quarantined D9 analysis
+
+The offline legacy-versus-hardened comparator lives under `research/compat/`, outside
+the product package. It reads stored frozen outputs and locally invokes only packaged
+deterministic parsers. It has no scanner subprocess, provider SDK, network path, or write
+path to frozen research data, and its result cannot be selected as a product profile.

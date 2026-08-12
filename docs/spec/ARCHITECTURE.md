@@ -609,3 +609,16 @@ to native execution. `reduced-isolation` requires an explicit operator-selected 
 executable and is labelled accordingly. `report-v1` is the sole canonical result;
 console output is a projection. It retains complete gate, scanner, snapshot, artifact,
 policy and decision evidence.
+
+## 24. D9 frozen legacy-versus-hardened analysis
+
+`research/compat/compare_legacy_hardened.py` reads the 630 frozen stored run records,
+patches and 70 stored baseline Checkov documents. It executes no scanner and no model.
+It locally recomputes only deterministic Phase-D parser/resource evidence, binds every
+input set by a manifest digest, and leaves all frozen bytes unchanged.
+
+Historical candidate outputs lack affirmative per-target evaluations, execution and
+coverage identities, sealed snapshots, and trusted policy provenance. D9 therefore
+classifies all hardened results as `INCONCLUSIVE`; it never manufactures `VERIFIED`
+from legacy booleans. Its output is an analysis record, not report-v1 or a production
+verdict.

@@ -670,6 +670,39 @@ MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
 
 ---
 
+## Gate D9 — Frozen legacy-versus-hardened comparison
+
+```text
+stored run records: 630
+stored patch records: 630
+stored baseline Checkov records: 70
+legacy VERIFIED -> hardened INCONCLUSIVE: 407
+legacy FAILED -> hardened INCONCLUSIVE: 223
+local candidate syntax PASS: 577
+local candidate syntax FAIL: 53
+hardened VERIFIED claims: 0
+new scanner executions: 0
+new benchmark inference runs: 0
+model-provider calls: 0
+focused D9 tests: 3 passed
+stored runs manifest: d9ef4318911bc70fba2c2c0286626978bf3376b0de95a2d22f63a3e6ff51aef8
+stored patches manifest: c081e50b40657980666141dac524ab2062f5e5cb5ebd7a21b92cc8eef516577a
+stored baselines manifest: 6027ae079029e5907bb69c15392775edc75758256cc8ab5058358c0a2d9d4ff3
+```
+
+All 630 hardened classifications remain inconclusive because the historical record does
+not retain affirmative candidate target evaluations, candidate execution/coverage
+identity, a historical sealed snapshot, or trusted policy provenance. This is a
+deliberate typed limitation, not a retroactive rewrite of the paper results.
+
+```text
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+```
+
+---
+
 ## Gate D7 — CLI, API, config-v1 and report-v1
 
 ```text

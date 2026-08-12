@@ -379,3 +379,8 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
     that Phase E runtime is unavailable; native execution requires the explicit name
     `reduced-isolation`. Canonical JSON is `report-v1`; `VERIFIED`, `FAILED`, invalid
     request and operational uncertainty map to exit codes 0, 1, 2 and 3 respectively.
+20. D9 compares all 630 frozen legacy records with locally recomputed deterministic
+    parser evidence without scanner execution, model inference, provider calls, paper
+    changes, or historical-result rewrites. Missing historical hardened evidence is
+    explicit uncertainty. The comparison is labelled research analysis and cannot emit
+    a production `VERIFIED` verdict.

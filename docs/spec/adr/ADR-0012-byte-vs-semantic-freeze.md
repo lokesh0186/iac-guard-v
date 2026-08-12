@@ -16,6 +16,14 @@ are **not** byte-identical, because Python's `csv` writer emits CRLF while git s
 under `* text=auto`. A byte comparison of regenerated output fails for a reason with no
 research meaning.
 
+## Amendment, 2026-08-11: D9 comparison is additive analysis
+
+D9 reads frozen run, patch and baseline-output bytes and hashes each input set before
+locally recomputing deterministic parser evidence. It neither edits frozen inputs nor
+replaces published classifications. Because required hardened execution, coverage,
+snapshot and policy evidence was not historically retained, its hardened final state is
+`INCONCLUSIVE`. The output is labelled analysis, never a production verdict.
+
 An initial design tried to do both with one four-field checksum manifest validated by
 `shasum -c`. That does not work: `shasum` treats everything after the digest as a
 filename, so a `<digest>  <mode>  <size>  <path>` record fails with
