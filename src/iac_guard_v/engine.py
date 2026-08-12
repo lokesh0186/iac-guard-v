@@ -9,15 +9,21 @@ from __future__ import annotations
 
 import difflib
 import base64
+import contextlib
 import hashlib
+import importlib
 import inspect
 import json
 import ntpath
 import os
 import stat
+import sys
+import tempfile
+import threading
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from collections.abc import Callable, Mapping
+from packaging.requirements import Requirement
 
 import hcl2
 import yaml
@@ -69,6 +75,8 @@ _TRUSTED_SCAN_PLAN_CONTEXT = object()
 _TRUSTED_CONFIG_CONTEXT = object()
 _TRUSTED_GATE_REGISTRY_CONTEXT = object()
 _TRUSTED_POLICY_AUTHORIZATION_CONTEXT = object()
+_HCL2_CACHE_LOCK = threading.Lock()
+_HCL2_SECURE_CACHE_READY = False
 _SHA256 = __import__("re").compile(r"^[0-9a-f]{64}$")
 _GOVERNED_FILE_NAMES = frozenset({
     ".iac-guard.yml", ".iac-guard.yaml", ".iac-guard.json",
@@ -428,6 +436,26 @@ def _production_gate_executor(
     return GateResult(gate_id, Status.PASS, "VALIDATOR_COMPLETED", f"files={checked}")
 
 
+@contextlib.contextmanager
+def _isolated_hcl2_parser_cache():
+    """Keep python-hcl2's generated Lark cache outside its verified package tree."""
+    global _HCL2_SECURE_CACHE_READY
+    with _HCL2_CACHE_LOCK:
+        parser_module = importlib.import_module("hcl2.parser")
+        if _HCL2_SECURE_CACHE_READY:
+            yield
+            return
+        original = parser_module.PARSER_FILE
+        parser_module.parser.cache_clear()
+        with tempfile.TemporaryDirectory(prefix="iacgv-hcl2-cache-") as directory:
+            parser_module.PARSER_FILE = Path(directory) / "lark-cache.bin"
+            try:
+                yield
+                _HCL2_SECURE_CACHE_READY = True
+            finally:
+                parser_module.PARSER_FILE = original
+
+
 def _callable_behavior_digest(value: Callable) -> str:
     code = getattr(value, "__code__", None)
     if code is None:
@@ -441,7 +469,7 @@ def _callable_behavior_digest(value: Callable) -> str:
 
 
 def _verified_parser_distribution_digest(name: str) -> str:
-    """Bind installed parser bytes and verify every RECORD-backed file."""
+    """Bind one installed parser distribution and its complete physical tree."""
     import importlib.metadata
 
     try:
@@ -451,16 +479,41 @@ def _verified_parser_distribution_digest(name: str) -> str:
     files = distribution.files
     if not files:
         raise DomainError(f"parser distribution has no RECORD manifest: {name}")
+    try:
+        installation_base = Path(distribution.locate_file("")).resolve(strict=True)
+    except (AttributeError, TypeError):
+        # Minimal metadata-provider test doubles may expose their installation root
+        # directly; production importlib distributions take the public empty path.
+        root = getattr(distribution, "root", None)
+        if root is None:
+            raise DomainError(f"parser distribution installation root is unavailable: {name}")
+        installation_base = Path(root).resolve(strict=True)
+    environment_root = Path(sys.prefix).resolve(strict=True)
+    allowed_root = (
+        environment_root
+        if installation_base == environment_root
+        or environment_root in installation_base.parents
+        else installation_base
+    )
     records = []
+    recorded_paths: set[Path] = set()
+    inventory_roots: set[Path] = set()
     for entry in sorted(files, key=str):
         relative = str(entry).replace("\\", "/")
         if "__pycache__" in relative.split("/") or relative.endswith((".pyc", ".pyo")):
-            continue
+            raise DomainError(
+                f"parser distribution contains prohibited Python bytecode/cache content: {name}"
+            )
         path = Path(distribution.locate_file(entry))
         try:
             metadata = path.lstat()
         except OSError as exc:
             raise DomainError(f"parser distribution file is missing: {name}") from exc
+        try:
+            resolved = path.resolve(strict=True)
+            resolved.relative_to(allowed_root)
+        except (OSError, ValueError) as exc:
+            raise DomainError(f"parser distribution RECORD path escape: {name}") from exc
         if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
             raise DomainError(f"parser distribution contains unsafe file type: {name}")
         if entry.hash is None:
@@ -477,14 +530,155 @@ def _verified_parser_distribution_digest(name: str) -> str:
             digest = actual.hex()
         if entry.size is not None and entry.size != metadata.st_size:
             raise DomainError(f"parser distribution RECORD size mismatch: {name}")
+        if relative.endswith(".pth"):
+            raise DomainError(f"parser distribution uses unverifiable path injection: {name}")
+        if relative.endswith(".dist-info/direct_url.json"):
+            try:
+                direct_url = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                raise DomainError(f"parser distribution direct-url evidence is malformed: {name}") from exc
+            if type(direct_url) is not dict:
+                raise DomainError(f"parser distribution direct-url evidence is malformed: {name}")
+            directory = direct_url.get("dir_info", {})
+            if type(directory) is dict and directory.get("editable") is True:
+                raise DomainError(f"parser distribution editable install is unverifiable: {name}")
         records.append((relative, metadata.st_size, digest))
+        recorded_paths.add(resolved)
+        try:
+            local = resolved.relative_to(installation_base)
+        except ValueError:
+            # Verified console scripts outside site-packages are not parser import roots.
+            continue
+        if local.parts:
+            root = installation_base / local.parts[0]
+            if root.is_dir():
+                inventory_roots.add(root)
+
+    def inspect_tree(directory: Path) -> None:
+        try:
+            children = sorted(os.scandir(directory), key=lambda item: item.name)
+        except OSError as exc:
+            raise DomainError(f"parser distribution tree is unreadable: {name}") from exc
+        for child in children:
+            path = Path(child.path)
+            try:
+                metadata = child.stat(follow_symlinks=False)
+            except OSError as exc:
+                raise DomainError(f"parser distribution tree is unreadable: {name}") from exc
+            if child.name == "__pycache__" or path.suffix.lower() in {".pyc", ".pyo"}:
+                raise DomainError(
+                    f"parser distribution contains prohibited Python bytecode/cache content: {name}"
+                )
+            if stat.S_ISLNK(metadata.st_mode):
+                raise DomainError(f"parser distribution contains symlinked code/content: {name}")
+            if stat.S_ISDIR(metadata.st_mode):
+                inspect_tree(path)
+                continue
+            if not stat.S_ISREG(metadata.st_mode):
+                raise DomainError(f"parser distribution contains unsafe file type: {name}")
+            resolved = path.resolve(strict=True)
+            if resolved not in recorded_paths:
+                raise DomainError(f"parser distribution contains unlisted executable code/content: {name}")
+
+    for root in sorted(inventory_roots):
+        inspect_tree(root)
     return hashlib.sha256(json.dumps(records, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def _verified_parser_environment() -> dict[str, str]:
+    """Verify and bind the complete runtime dependency closure of both parsers."""
+    import importlib.metadata
+
+    pending = ["python-hcl2", "PyYAML", "packaging"]
+    verified: dict[str, str] = {}
+    while pending:
+        requested = pending.pop()
+        try:
+            distribution = importlib.metadata.distribution(requested)
+        except importlib.metadata.PackageNotFoundError as exc:
+            raise DomainError(
+                f"required parser dependency is unavailable: {requested}"
+            ) from exc
+        canonical_name = distribution.metadata.get("Name", requested).lower().replace("_", "-")
+        if canonical_name in verified:
+            continue
+        verified[canonical_name] = _verified_parser_distribution_digest(requested)
+        for requirement_text in distribution.requires or ():
+            try:
+                requirement = Requirement(requirement_text)
+            except Exception as exc:
+                raise DomainError("parser dependency metadata is malformed") from exc
+            if requirement.marker is not None and not requirement.marker.evaluate({"extra": ""}):
+                continue
+            pending.append(requirement.name)
+    return dict(sorted(verified.items()))
+
+
+def _parser_environment_digest() -> str:
+    return hashlib.sha256(json.dumps(
+        _verified_parser_environment(), sort_keys=True, separators=(",", ":")
+    ).encode()).hexdigest()
+
+
+def _integrity_bound_gate_executor(expected_environment_digest: str | None) -> Callable:
+    """Run packaged validators only while the sealed parser bytes remain identical."""
+    def execute(
+        kind: str, gate_id: str, snapshot: "SealedVerificationSnapshot"
+    ) -> GateResult:
+        if expected_environment_digest is None:
+            return GateResult(
+                gate_id, Status.INCONCLUSIVE,
+                "GATE_IMPLEMENTATION_INTEGRITY_INCONCLUSIVE",
+                "parser distribution identity could not be completely verified",
+            )
+        try:
+            before = _parser_environment_digest()
+        except DomainError:
+            return GateResult(
+                gate_id, Status.INCONCLUSIVE,
+                "GATE_IMPLEMENTATION_INTEGRITY_INCONCLUSIVE",
+                "parser distribution identity could not be revalidated",
+            )
+        if before != expected_environment_digest:
+            return GateResult(
+                gate_id, Status.INCONCLUSIVE, "GATE_IMPLEMENTATION_CHANGED",
+                "parser distribution changed before validation",
+            )
+        prior_environment = os.environ.get("PYTHONDONTWRITEBYTECODE")
+        prior_runtime = sys.dont_write_bytecode
+        os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+        sys.dont_write_bytecode = True
+        try:
+            result = _production_gate_executor(kind, gate_id, snapshot)
+            try:
+                after = _parser_environment_digest()
+            except DomainError:
+                return GateResult(
+                    gate_id, Status.INCONCLUSIVE,
+                    "GATE_IMPLEMENTATION_INTEGRITY_INCONCLUSIVE",
+                    "parser distribution identity could not be revalidated after validation",
+                )
+            if after != expected_environment_digest:
+                return GateResult(
+                    gate_id, Status.INCONCLUSIVE, "GATE_IMPLEMENTATION_CHANGED",
+                    "parser distribution changed during validation",
+                )
+            return result
+        finally:
+            sys.dont_write_bytecode = prior_runtime
+            if prior_environment is None:
+                os.environ.pop("PYTHONDONTWRITEBYTECODE", None)
+            else:
+                os.environ["PYTHONDONTWRITEBYTECODE"] = prior_environment
+
+    return execute
 
 
 def production_gate_registry() -> TrustedGateRegistry:
 
     implementation_sources = (
         _production_gate_executor,
+        _isolated_hcl2_parser_cache,
         _terraform_resources,
         _construct_unique_mapping,
         _kubernetes_identity,
@@ -501,9 +695,16 @@ def production_gate_registry() -> TrustedGateRegistry:
         _filesystem_kind,
         _filesystem_inventory,
     )
+    try:
+        physical_environment = _verified_parser_environment()
+        expected_environment_digest = hashlib.sha256(json.dumps(
+            physical_environment, sort_keys=True, separators=(",", ":")
+        ).encode()).hexdigest()
+    except DomainError:
+        physical_environment = {"integrity": "INCONCLUSIVE"}
+        expected_environment_digest = None
     dependencies = {
-        "python-hcl2": _verified_parser_distribution_digest("python-hcl2"),
-        "PyYAML": _verified_parser_distribution_digest("PyYAML"),
+        "physical_environment": physical_environment,
         "hcl2.loads.behavior": _callable_behavior_digest(hcl2.loads),
         "yaml.load.behavior": _callable_behavior_digest(yaml.load),
     }
@@ -540,7 +741,7 @@ def production_gate_registry() -> TrustedGateRegistry:
                 schema_loader_digest,
             ),
         ),
-        _production_gate_executor,
+        _integrity_bound_gate_executor(expected_environment_digest),
         _trusted_context=_TRUSTED_GATE_REGISTRY_CONTEXT,
     )
 
@@ -1400,7 +1601,8 @@ def _terraform_resources(relative: str, content: bytes) -> tuple[ExpectedResourc
     if quote_count % 2:
         raise DomainError("unterminated Terraform string")
     try:
-        document = hcl2.loads(text)
+        with _isolated_hcl2_parser_cache():
+            document = hcl2.loads(text)
     except Exception as exc:
         raise DomainError("Terraform HCL syntax is invalid") from exc
     if type(document) is not dict:

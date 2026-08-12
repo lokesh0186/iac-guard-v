@@ -85,6 +85,11 @@ ADAPTER_REASONS = (
     "INPUT_TOTAL_BYTES_EXCEEDED",
     "JSON_DEPTH_EXCEEDED",
 )
+PACKAGED_IMPLEMENTATION_REASONS = (
+    "GATE_IMPLEMENTATION_CHANGED",
+    "GATE_IMPLEMENTATION_INTEGRITY_INCONCLUSIVE",
+    "CHECKOV_ENVIRONMENT_INTERNALLY_CONSISTENT",
+)
 
 REQUIRED_SECTIONS = {
     "PRODUCT_SPEC.md": ["Problem", "Personas", "Functional requirements",
@@ -223,6 +228,7 @@ def main() -> int:
         "CheckTargetReason": CHECK_TARGET_REASONS,
         "ExceptionOrigin": EXCEPTION_ORIGINS,
         "AdapterReason": ADAPTER_REASONS,
+        "PackagedImplementationReason": PACKAGED_IMPLEMENTATION_REASONS,
     }
     defined: set[str] = set()
     for family, members in families.items():

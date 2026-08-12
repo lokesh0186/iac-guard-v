@@ -89,7 +89,10 @@ def doctor() -> DoctorReportV1:
             supported = version in CHECKOV_CONTRACT.supported_versions
             checkov = {
                 "status": "PASS" if supported else "UNSUPPORTED",
-                "reason_code": "CHECKOV_ENVIRONMENT_VERIFIED" if supported else "CHECKOV_VERSION_UNSUPPORTED",
+                "reason_code": (
+                    "CHECKOV_ENVIRONMENT_INTERNALLY_CONSISTENT"
+                    if supported else "CHECKOV_VERSION_UNSUPPORTED"
+                ),
                 "launcher_name": executable.name,
                 "launcher_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
                 "version": version,

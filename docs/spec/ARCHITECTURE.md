@@ -665,3 +665,15 @@ decision agreement. `FAILED` requires decisive negative evidence without operati
 uncertainty. `INCONCLUSIVE` requires typed uncertainty. Full verification evidence may
 only pair with full policy evidence; definite candidate-artifact failure evidence may
 only pair with its restricted artifact-failure policy branch.
+
+## 30. D5.7 physical parser implementation identity
+
+The packaged validators contribute `PASS` only when python-hcl2, PyYAML, packaging and
+their active runtime dependency closure have complete, hash-valid wheel `RECORD`
+evidence. A no-follow physical inventory rejects bytecode/cache entries, unlisted
+content, missing or mismatched files, unsafe file types, symlinks and path escapes.
+
+Validator execution disables bytecode writing through both the interpreter switch and
+`PYTHONDONTWRITEBYTECODE=1`, then recomputes the environment identity. Missing or
+changed implementation evidence is typed `INCONCLUSIVE` and cannot support `VERIFIED`.
+This proves installed-manifest consistency; protected locks bind vendor provenance.

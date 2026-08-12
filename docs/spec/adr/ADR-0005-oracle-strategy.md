@@ -80,3 +80,11 @@ D5.6 separates the gate contract, product implementation, parser distribution/co
 schema/loader identities. Version strings alone are insufficient: python-hcl2 and PyYAML
 installed files are verified against RECORD evidence, and active parser behavior is
 bound. A modified or unverifiable dependency cannot silently retain the gate identity.
+
+## Amendment, 2026-08-12: physical parser closure
+
+D5.7 extends identity to every active parser dependency and to the complete physical
+installed trees. Bytecode caches, unlisted content, symlinks, unsafe types, path escapes
+and RECORD mismatches are incompatible with a trusted packaged gate. Parser identity is
+checked before and after execution with bytecode writing disabled. Failure to prove the
+identity is typed gate uncertainty, not absence of a validation defect.

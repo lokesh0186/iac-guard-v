@@ -124,6 +124,18 @@ budgets. Their status mappings are specified under V5.
 There is no fourth value. "Passed with warnings" is `VERIFIED` plus advisory
 findings; "probably fine" is `INCONCLUSIVE`.
 
+### 1.7 Packaged implementation integrity reasons
+
+The closed `PackagedImplementationReason` values are
+`GATE_IMPLEMENTATION_CHANGED`, `GATE_IMPLEMENTATION_INTEGRITY_INCONCLUSIVE`, and
+`CHECKOV_ENVIRONMENT_INTERNALLY_CONSISTENT`.
+
+`GATE_IMPLEMENTATION_CHANGED` means verified parser bytes changed before or during a
+validator. `GATE_IMPLEMENTATION_INTEGRITY_INCONCLUSIVE` means the complete installed
+parser dependency closure could not be established. Doctor uses
+`CHECKOV_ENVIRONMENT_INTERNALLY_CONSISTENT` for internally consistent native Checkov
+evidence; this does not claim vendor provenance.
+
 ---
 
 ## 2. Trusted configuration and policy provenance
@@ -1223,3 +1235,19 @@ The only report-v1 branches are verification `VERIFIED/0`, `FAILED/1`,
 verification, policy, and execution-isolation evidence and forbids an operational
 diagnostic; operational uncertainty requires the diagnostic and forbids verification or
 policy. Exit 2 is outside report-v1 and means malformed invocation/configuration only.
+
+### D5.7 packaged-validator physical identity
+
+Gate identity covers the physical installed files for python-hcl2, PyYAML and every
+active runtime dependency reached from their installed metadata. Wheel `RECORD`
+SHA-256/size evidence is checked against bytes and each installed package tree is
+checked for unlisted content. `__pycache__`, `.pyc`, `.pyo`, symlinks, path escapes,
+non-regular entries, editable/unmanifested code, missing files and hash mismatches make
+implementation integrity `INCONCLUSIVE`.
+
+Validation runs with bytecode writing disabled and repeats the identity check afterward.
+Mutation yields `GATE_IMPLEMENTATION_CHANGED`; an identity that cannot be established
+yields `GATE_IMPLEMENTATION_INTEGRITY_INCONCLUSIVE`. Doctor uses
+`CHECKOV_ENVIRONMENT_INTERNALLY_CONSISTENT` terminology because protected
+lock/container evidence, not an installed manifest alone, establishes authentic
+provenance.

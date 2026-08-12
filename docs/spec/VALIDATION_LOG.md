@@ -876,6 +876,20 @@ now binds artifact kind, actual validator id and typed reason. Console explanati
 projects isolation, target reasons, nonpassing gates, scanner integrity, regression and
 destructive events, policy decisions/exceptions and remediation without adding evidence.
 
+## Gate D5.7 — Physical parser implementation closure (2026-08-12)
+
+Failing-before, adding unlisted
+`parser_pkg/__pycache__/evil.cpython-313.pyc` left the parser distribution digest
+unchanged. Unlisted `.py`, `.pyi`, `.so`, `.pyd`, `.dylib`, a symlinked helper and an
+escaping `RECORD` path were also accepted: eight focused failures.
+
+Passing-after, the no-follow installed-tree inventory rejects all eight mutations. The
+active parser dependency closure is rechecked before and after validation while
+`PYTHONDONTWRITEBYTECODE=1` and the interpreter bytecode switch are active. Unavailable,
+unverifiable or changed evidence returns typed gate `INCONCLUSIVE`; it cannot reach
+`VERIFIED`. Doctor calls successful native Checkov evidence
+`CHECKOV_ENVIRONMENT_INTERNALLY_CONSISTENT`, reserving provenance for protected locks.
+
 ## Gate D7 — CLI, API, config-v1 and report-v1
 
 ```text
