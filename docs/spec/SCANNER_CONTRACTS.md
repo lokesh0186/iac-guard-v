@@ -215,7 +215,7 @@ target coverage is independently proven. `files_parsed < files_scanned` is likew
 `similarity_id` is preserved as `native_fingerprint` and never used as the
 IaC-Guard-V fingerprint.
 
-### 2.3 E1 execution and normalization contract
+### 2.3 E1.1 execution and normalization contract
 
 `kics-adapter-contract-v1` accepts only an identity constructed from the exact sealed
 E0.3 lock graph. The selected platform-child image reference, OCI index and child
@@ -225,8 +225,9 @@ lock evidence.
 
 The container runs with networking disabled, a read-only root, a bounded tmpfs, and
 read-only sealed input; candidate configuration and query paths are never mounted.
-KICS exit codes `0` and `40` are both output-bearing contract codes, so neither is used
-as a finding-count proxy. JSON uses strict UTF-8, duplicate-key rejection at every
+Docker uses `--pull never`. KICS exit codes `0`, `20`, `30`, `40`, `50`, and `60` are
+output-bearing result codes, so none is used as a finding-count proxy. JSON uses strict
+UTF-8, duplicate-key rejection at every
 level, and a deterministic depth limit. Unknown top-level fields, query/file fields,
 platforms, or severity categories make the run `PARTIAL`.
 
@@ -235,6 +236,15 @@ coverage reconciles `files_scanned`, `files_parsed`, and `files_failed_to_scan` 
 the bound input set. Resource coverage reconciles native resource type/name evidence
 against the independent expected inventory. Global KICS queries without a resource
 identity remain findings but do not manufacture resource coverage.
+
+Every documented summary field has an exact type and feasible arithmetic.
+`total_counter` equals the non-TRACE severity counts; TRACE equals
+`total_bom_resources` and is retained as BOM diagnostic evidence rather than a finding
+or generic resource count. Official optional query/file fields remain optional and
+understood. Missing resource identity produces visible global evidence. Query execution
+failure makes ruleset integrity `INCONCLUSIVE`; file failure is coverage incompleteness;
+similarity failure is occurrence-evidence incompleteness. KICS supplies no affirmative
+per-resource PASS record and cannot independently prove target resolution.
 
 ---
 

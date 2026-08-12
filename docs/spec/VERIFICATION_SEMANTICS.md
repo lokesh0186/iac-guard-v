@@ -1337,6 +1337,12 @@ extension is closed over `LOCK_IDENTITY_MISMATCH`, `DUPLICATE_JSON_KEY`,
 `KICS_FAILED_TO_SCAN`, `KICS_QUERY_EXECUTION_FAILED`,
 `KICS_SIMILARITY_ID_FAILED`, and `UNKNOWN_NATIVE_CATEGORY`.
 
+E1.1 recognizes result exits `0/20/30/40/50/60`, validates every summary type and
+arithmetic relation, and separates TRACE/BOM from findings and generic resources.
+Query execution failure makes ruleset integrity `INCONCLUSIVE`; file failure is
+coverage `PARTIAL`; similarity failure makes occurrence evidence incomplete without
+claiming ruleset drift. KICS has no affirmative target-PASS contract.
+
 ## E2 Trivy scanner evidence
 
 Trivy evidence is accepted only under `trivy-config-adapter-contract-v1`, the exact

@@ -1,5 +1,23 @@
 # Validation Log
 
+## 2026-08-12 — E1.1 complete KICS contract
+
+Failing-before at `6da9073d`: exits were `(0, 40)`, locked argv omitted `--pull never`,
+top-level type/arithmetic contradictions were not all checked, TRACE/BOM was conflated,
+and official optional fields were required or unknown. Passing-after:
+
+```text
+result exits: (0, 20, 30, 40, 50, 60)
+HIGH/50 and CRITICAL/60: parsed PASS scanner evidence
+type/arithmetic mutations: INVALID_RESULTS_STRUCTURE
+TRACE=1, total_counter=0, total_bom_resources=1: BOM-only evidence
+locked argv: --pull never
+focused tests: 80 passed
+branch coverage: 94%
+```
+
+KICS remains advisory. No benchmark inference or provider call occurred.
+
 ## 2026-08-12 — E2 externally locked Trivy adapter
 
 Failing-before E2 evidence was literal absence: no `adapters/trivy.py`, no Trivy adapter

@@ -443,6 +443,10 @@ query-execution, or similarity-ID-computation counts, incomplete file/resource
 coverage, version or environment drift, and unknown/malformed output cannot become
 `PASS`. E1 does not change final policy or implement multi-scanner consensus.
 
+E1.1 also requires official `0/20/30/40/50/60` result exits, `--pull never`, exact
+summary types/arithmetic, separate TRACE/BOM accounting, optional native metadata
+compatibility, and reason-specific integrity. KICS remains advisory.
+
 ## E2 Trivy adapter acceptance
 
 Trivy v0.73.0 is supported as typed evidence only through the exact E0.3 image and

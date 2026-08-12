@@ -415,6 +415,11 @@ unknown result categories, malformed paths, absent similarity IDs, partial file 
 resource coverage, and each native failure counter remain typed non-PASS evidence.
 KICS evidence remains advisory until an independently reviewed consensus layer exists.
 
+E1.1 prevents severity-dependent result exits from becoming engine errors, prevents
+implicit pulls, rejects native type/arithmetic contradictions, and prevents TRACE/BOM
+from masquerading as findings or covered resources. Missing optional metadata remains
+visible global evidence rather than disappearing.
+
 ### E2 Trivy-specific controls
 
 Candidate content cannot select the Trivy image, checks source, cache, or update policy.

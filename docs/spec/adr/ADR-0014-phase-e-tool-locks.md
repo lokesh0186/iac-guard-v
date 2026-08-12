@@ -134,3 +134,9 @@ are bound separately. The finding fixture is a complete PASS; a live finding-fre
 with only repository-global positives remains `PARTIAL` because it cannot affirm file
 or resource coverage. This authorizes typed Trivy evidence only, not consensus,
 validators, production containers, or Actions.
+
+## E1.1 contract amendment
+
+The E0.3 KICS image now runs with `--pull never` and the complete severity/result exit
+family. Summary arithmetic, TRACE/BOM separation, and optional native fields are bound
+without authorizing consensus.

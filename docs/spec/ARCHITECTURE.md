@@ -743,6 +743,11 @@ strictly parses the native JSON, retains `similarity_id`, and reconciles native 
 resource coverage with the independent inventory. KICS does not yet participate in
 multi-scanner consensus or verdict formation.
 
+E1.1 completes the native contract: all six result exits are parsed, `--pull never`
+prevents registry access, summary types/arithmetic are closed, TRACE/BOM is separate,
+and official optional fields remain optional. Clean KICS output remains negative
+scanner evidence, not affirmative per-resource target-pass evidence.
+
 ## E2 externally locked Trivy evidence adapter
 
 Trivy executes only the E0.3 digest-qualified v0.73.0 platform child with the external

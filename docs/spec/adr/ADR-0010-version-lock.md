@@ -115,3 +115,8 @@ image child/index, external checks manifest/layer/cache, current cache bytes, in
 and native output. A binary-only change and checks-only change are distinguishable.
 Embedded fallback changes the checks source and is non-PASS. Network-disabled execution
 and `--skip-check-update` prevent the runtime from silently selecting a moving bundle.
+
+## Amendment, 2026-08-12: E1.1 local-only KICS execution
+
+KICS uses `--pull never`; a missing locked image is operational uncertainty. Exit codes
+`0/20/30/40/50/60` are the complete v2.1.20 result-bearing contract.

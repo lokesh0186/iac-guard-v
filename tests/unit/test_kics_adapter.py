@@ -90,8 +90,12 @@ def _document(*, queries: list | None = None, **overrides) -> dict:
         "queries_failed_to_compute_similarity_id": 0,
         "scan_id": "console",
         "severity_counters": severities,
-        "total_counter": sum(len(item["files"]) for item in queries),
-        "total_bom_resources": 1 if queries else 0,
+        "total_counter": sum(
+            len(item["files"]) for item in queries if item["severity"] != "TRACE"
+        ),
+        "total_bom_resources": sum(
+            len(item["files"]) for item in queries if item["severity"] == "TRACE"
+        ),
         "start": "2026-08-12T00:00:00Z",
         "end": "2026-08-12T00:00:01Z",
         "paths": ["/iacgv-input"],
@@ -139,7 +143,28 @@ def _normalize(tmp_path: Path, document: dict, **request_overrides):
 
 def test_contract_is_exact_e03_selection() -> None:
     assert KICS_CONTRACT.supported_versions == ("2.1.20",)
-    assert KICS_CONTRACT.expected_exit_codes == (0, 40)
+    assert KICS_CONTRACT.expected_exit_codes == (0, 20, 30, 40, 50, 60)
+
+
+@pytest.mark.parametrize(
+    ("severity", "exit_code"),
+    [(None, 0), ("INFO", 20), ("LOW", 30), ("MEDIUM", 40), ("HIGH", 50), ("CRITICAL", 60)],
+)
+def test_official_result_bearing_exit_codes_are_parsed(
+    tmp_path: Path, severity: str | None, exit_code: int,
+) -> None:
+    queries = [] if severity is None else [_query(severity=severity)]
+    run = KicsAdapter().normalize(
+        json.dumps(_document(queries=queries)).encode(),
+        _request(tmp_path, expected=severity is not None),
+        _process(exit_code=exit_code),
+    )
+    assert run.status is Status.PASS
+
+
+@pytest.mark.parametrize("exit_code", [1, 2, 10, 70, 126, 127])
+def test_engine_error_exits_are_outside_result_contract(exit_code: int) -> None:
+    assert exit_code not in KICS_CONTRACT.expected_exit_codes
 
 
 def test_normal_finding_preserves_similarity_id(tmp_path: Path) -> None:
@@ -171,9 +196,15 @@ def test_native_failure_counters_are_partial(
     tmp_path: Path, field: str, reason: str
 ) -> None:
     document = _document(queries=[_query()], **{field: 1})
+    if field == "files_failed_to_scan":
+        document.update(files_scanned=2, files_parsed=1)
     run = _normalize(tmp_path, document)
     assert run.status is Status.PARTIAL
     assert reason in run.diagnostics
+    if field == "queries_failed_to_execute":
+        assert run.ruleset_integrity is Status.INCONCLUSIVE
+    else:
+        assert run.ruleset_integrity is Status.PASS
 
 
 @pytest.mark.parametrize(
@@ -204,7 +235,7 @@ def test_timeout_is_typed(tmp_path: Path) -> None:
 
 
 def test_unknown_native_category_is_partial(tmp_path: Path) -> None:
-    run = _normalize(tmp_path, _document(queries=[_query(severity="TRACE")]))
+    run = _normalize(tmp_path, _document(queries=[_query(severity="NOVEL")]))
     assert run.status is Status.PARTIAL
     assert AdapterReason.UNKNOWN_NATIVE_CATEGORY.value in run.diagnostics
 
@@ -261,6 +292,63 @@ def test_result_shape_count_contradiction_is_error(tmp_path: Path) -> None:
     run = _normalize(tmp_path, _document(queries=[_query()], total_counter=0))
     assert run.status is Status.ERROR
     assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        {"queries_total": "1100"},
+        {"paths": "not-list"},
+        {"lines_scanned": 1, "lines_parsed": 2},
+        {"lines_scanned": 1, "lines_parsed": 1, "lines_ignored": 1},
+        {"queries_total": 1, "queries_failed_to_execute": 1,
+         "queries_failed_to_compute_similarity_id": 1},
+        {"queries_total": 0},
+    ],
+)
+def test_top_level_type_and_arithmetic_contradictions_are_errors(
+    tmp_path: Path, mutation: dict,
+) -> None:
+    document = _document(queries=[_query()])
+    document.update(mutation)
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
+
+
+def test_trace_is_bom_not_finding_or_resource_count(tmp_path: Path) -> None:
+    document = _document(queries=[_query(severity="TRACE")])
+    run = _normalize(tmp_path, document, expected=False)
+    assert run.status is Status.PARTIAL
+    assert run.findings == ()
+    assert run.resource_coverage.summary_resources_reported == 0
+    assert "KICS_BILL_OF_MATERIALS_REPORTED:1" in run.diagnostics
+
+
+def test_official_optional_query_and_file_fields_are_understood(tmp_path: Path) -> None:
+    query = _query()
+    for key in ("cwe", "risk_score", "cloud_provider", "query_url", "category",
+                "experimental", "description", "description_id"):
+        query.pop(key, None)
+    file_record = query["files"][0]
+    for key in ("resource_type", "resource_name", "issue_type", "search_key",
+                "search_line", "search_value", "expected_value", "actual_value"):
+        file_record.pop(key, None)
+    run = _normalize(tmp_path, _document(queries=[query]), expected=False)
+    assert run.status is Status.PASS
+    assert run.findings[0].resource_address.startswith("kics-global-")
+
+    query = _query()
+    query.update({
+        "cis_description_id": "1.2", "cis_description_title": "title",
+        "cis_description_text": "text", "cis_description_url": "https://example.invalid/cis",
+    })
+    query["files"][0].update({
+        "old_similarity_id": "b" * 64, "value": "x", "remediation": "fix",
+        "remediation_type": "manual",
+    })
+    run = _normalize(tmp_path / "present", _document(queries=[query]))
+    assert AdapterReason.UNKNOWN_NATIVE_CATEGORY.value not in run.diagnostics
 
 
 def test_input_byte_change_is_detected_before_execution(tmp_path: Path) -> None:
@@ -362,8 +450,9 @@ def test_native_path_and_resource_mutations_fail_closed() -> None:
         kics_module._native_path(None, ("main.tf",))
     with pytest.raises(DomainError, match=AdapterReason.COVERAGE_MISMATCH.value):
         kics_module._native_path("other.tf", ("main.tf",))
+    assert kics_module._resource({}, "rule") == "kics-global-rule"
     with pytest.raises(DomainError, match=AdapterReason.INVALID_RESULTS_STRUCTURE.value):
-        kics_module._resource({}, "rule")
+        kics_module._resource({"resource_type": "x"}, "rule")
     assert kics_module._resource(
         {"resource_type": "n/a", "resource_name": "n/a"}, "rule"
     ) == "kics-global-rule"
@@ -460,3 +549,25 @@ def test_adapter_rejects_untrusted_request_and_process_type(tmp_path: Path) -> N
     with pytest.raises(DomainError, match="sealed request"):
         KicsAdapter().scan(object())
     assert KicsAdapter().contract() is KICS_CONTRACT
+
+
+def test_locked_scan_uses_pull_never_and_all_result_exit_codes(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    request = _request(tmp_path)
+
+    def execute(command):
+        assert command.expected_exit_codes == (0, 20, 30, 40, 50, 60)
+        pull = command.argv.index("--pull")
+        assert command.argv[pull + 1] == "never"
+        output_mount = next(item for item in command.argv if item.endswith(":/iacgv-output:rw"))
+        output = Path(output_mount.removesuffix(":/iacgv-output:rw"))
+        (output / "results.json").write_text(
+            json.dumps(_document(queries=[_query()])), encoding="utf-8"
+        )
+        return _process(exit_code=50)
+
+    monkeypatch.setattr(kics_module, "run_command", execute)
+    run = KicsAdapter().scan(request)
+    assert run.status is Status.PASS
+    assert run.exit_code == 50

@@ -111,3 +111,9 @@ into scanner-neutral findings, PASS/FAIL evaluations, and file/resource coverage
 Binary and checks drift remain independent. Global positive aggregates cannot prove a
 sealed file/resource was evaluated. This remains an evidence adapter only; no
 multi-scanner agreement or policy consequence was added.
+
+## Amendment, 2026-08-12: E1.1 complete KICS contract
+
+All official result exits are output-bearing; native types/arithmetic fail closed;
+TRACE is separate BOM evidence; optional metadata remains optional; and `--pull never`
+keeps locked execution offline. KICS supplies no affirmative target PASS.
