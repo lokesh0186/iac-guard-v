@@ -390,6 +390,9 @@ evidence and recomputes it from factory-produced child records and actual plan b
 E5.7 prevents a non-decisive oracle status from being promoted merely because its
 validation universe passed. Windows HostProcess is evaluated explicitly instead of
 being mistaken for a safe omission of the Linux `privileged` field.
+E5.8 treats plan readiness and domain presence as aggregate inputs, not merely
+orchestrator control flow. Thus an internal caller cannot attach passing children to a
+blocked plan or turn an empty required Kubernetes domain into affirmative proof.
 
 D6.4 prevents a commit label from blessing unrelated working-tree bytes. Protected
 contexts require the authorized candidate at `HEAD`, a clean checkout, and no untracked

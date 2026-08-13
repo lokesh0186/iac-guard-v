@@ -964,6 +964,12 @@ its protected plan privately and rechecks its own status/reason/evidence relatio
 E5.6 re-derives the aggregate status and reason from every required child and the sealed
 plan blockers. A caller cannot stamp PASS over a failing child, stamp FAIL over all-PASS
 children, or pair a child status with a reason outside that validator's closed contract.
+E5.8 also evaluates plan readiness before child aggregation. Unsupported Terraform JSON
+or unresolved physical/artifact entries prohibit decided evidence and require their
+exact typed `INCONCLUSIVE` reason. A required Kubernetes universe with no protected
+files or resources is `INCONCLUSIVE/EMPTY_REQUIRED_KUBERNETES_UNIVERSE`; zero counters
+never constitute affirmative validation. Optional Kubernetes gating is not represented
+by this required-universe result contract and must be selected by protected policy.
 
 ## E3.9 kubeconform coherence and authoritative registry runtime
 

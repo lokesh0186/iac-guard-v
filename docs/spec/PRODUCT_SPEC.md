@@ -146,6 +146,10 @@ E5.7 requires decisive `PASS`/`FAIL` oracle evidence for authoritative use and e
 Windows HostProcess under the no-privileged baseline assertion. The separate
 allow-privilege-escalation oracle proves only explicit Boolean field state, not effective
 runtime privilege semantics involving `privileged` or `CAP_SYS_ADMIN`.
+E5.8 prohibits PASS whenever the sealed validation plan contains unsupported Terraform
+JSON or unresolved entries. Required empty Kubernetes and Terraform domains remain
+typed non-PASS states rather than affirmative evidence; protected policy owns whether a
+gate is optional.
 
 ## 5. Non-functional requirements
 

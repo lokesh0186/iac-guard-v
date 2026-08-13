@@ -3083,3 +3083,13 @@ Windows HostProcess state under the protected Baseline contract and admits only 
 `PASS`/`FAIL` results with nonempty observations. The privilege-escalation oracle is
 documented as the narrow exact-field assertion; it does not claim effective privilege
 semantics beyond that field.
+
+## 2026-08-13 — E5.8 validation-universe blocker invariants
+
+Failing-before, internally trusted passing module evidence could be attached to a plan
+blocked by `.tf.json`, and zero-file/zero-resource kubeconform evidence could be stamped
+as aggregate PASS. Passing-after re-derives plan readiness before aggregation, forbids
+all decided evidence on blocked plans, and requires exact `TF_JSON_UNSUPPORTED` or
+`ARTIFACT_UNIVERSE_UNRESOLVED` uncertainty. An empty required Kubernetes domain is now
+`INCONCLUSIVE/EMPTY_REQUIRED_KUBERNETES_UNIVERSE`; it cannot carry affirmative child
+evidence.

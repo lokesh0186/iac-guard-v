@@ -457,6 +457,28 @@ class ValidationUniverseResult:
             require_trusted_validator_evidence(item)
         if self.kubernetes_result is not None:
             require_trusted_validator_evidence(self.kubernetes_result)
+        authoritative_registry = {
+            "opentofu_validate": False,
+            "terraform_validate": False,
+            "tflint_advisory": True,
+            "kubeconform_validate": False,
+        }
+        if (
+            self.validator_id not in authoritative_registry
+            or self.advisory_only is not authoritative_registry[self.validator_id]
+        ):
+            raise DomainError("validation universe validator identity is inconsistent")
+        if not self._plan.ready:
+            blocker_reason = _plan_blocker_reason(self._plan)
+            if (
+                self.status is not Status.INCONCLUSIVE
+                or self.reason != blocker_reason
+                or self.module_results
+                or self.kubernetes_result is not None
+            ):
+                raise DomainError("blocked validation universe cannot carry decided evidence")
+            return
+        if self.kubernetes_result is not None:
             if (
                 self.validator_id != "kubeconform_validate"
                 or self.kubernetes_result.validator_id != self.validator_id
@@ -469,10 +491,18 @@ class ValidationUniverseResult:
                 raise DomainError("Kubernetes universe result contains module evidence")
             if self.kubernetes_result is None:
                 if (self.status is not Status.INCONCLUSIVE
-                        or self.reason != "EMPTY_OR_UNRESOLVED_KUBERNETES_UNIVERSE"
-                        or (self._plan.ready and self._plan.kubernetes_files)):
+                        or self.reason != "EMPTY_REQUIRED_KUBERNETES_UNIVERSE"
+                        or (
+                            self._plan.kubernetes_files
+                            and self._plan.kubernetes_resource_identities
+                        )):
                     raise DomainError("empty Kubernetes universe result is contradictory")
             else:
+                if (
+                    not self._plan.kubernetes_files
+                    or not self._plan.kubernetes_resource_identities
+                ):
+                    raise DomainError("empty Kubernetes universe cannot carry PASS evidence")
                 if self.status not in {Status.PASS, Status.FAIL, Status.INCONCLUSIVE}:
                     raise DomainError("Kubernetes universe aggregate status is unsupported")
                 expected_reason = (
@@ -511,9 +541,7 @@ class ValidationUniverseResult:
                     )
             else:
                 expected_reason = (
-                    TF_JSON_REASON if self._plan.unsupported_tf_json
-                    else "ARTIFACT_UNIVERSE_UNRESOLVED" if self._plan.unresolved_entries
-                    else "EMPTY_OR_UNRESOLVED_MODULE_UNIVERSE"
+                    "EMPTY_OR_UNRESOLVED_MODULE_UNIVERSE"
                     if self.validator_id == "tflint_advisory"
                     else "EMPTY_REQUIRED_MODULE_UNIVERSE"
                 )
@@ -548,6 +576,14 @@ def _aggregate_module_results(
         validator_id, plan.role, plan.universe_sha256, status, reason, advisory,
         ordered, _plan=plan, _trusted_context=_RESULT_CONTEXT,
     )
+
+
+def _plan_blocker_reason(plan: TrustedValidationUniversePlan) -> str:
+    if plan.unsupported_tf_json:
+        return TF_JSON_REASON
+    if plan.unresolved_entries:
+        return "ARTIFACT_UNIVERSE_UNRESOLVED"
+    raise DomainError("validation universe plan does not contain a typed blocker")
 
 
 def _derived_module_aggregate(
@@ -618,7 +654,7 @@ class ValidationUniverseOrchestrator:
             return ValidationUniverseResult(
                 f"{locked_identity.tool}_validate", plan.role, plan.universe_sha256,
                 Status.INCONCLUSIVE,
-                TF_JSON_REASON if plan.unsupported_tf_json else "ARTIFACT_UNIVERSE_UNRESOLVED",
+                _plan_blocker_reason(plan),
                 False, (), _plan=plan, _trusted_context=_RESULT_CONTEXT,
             )
         if not plan.terraform_modules:
@@ -654,7 +690,8 @@ class ValidationUniverseOrchestrator:
             return ValidationUniverseResult(
                 "tflint_advisory", plan.role, plan.universe_sha256,
                 Status.INCONCLUSIVE,
-                TF_JSON_REASON if plan.unsupported_tf_json else "EMPTY_OR_UNRESOLVED_MODULE_UNIVERSE",
+                _plan_blocker_reason(plan) if not plan.ready
+                else "EMPTY_OR_UNRESOLVED_MODULE_UNIVERSE",
                 True, (), _plan=plan, _trusted_context=_RESULT_CONTEXT,
             )
         registry = production_validator_registry()
@@ -684,7 +721,9 @@ class ValidationUniverseOrchestrator:
         if not plan.ready or not plan.kubernetes_files:
             return ValidationUniverseResult(
                 "kubeconform_validate", plan.role, plan.universe_sha256,
-                Status.INCONCLUSIVE, "EMPTY_OR_UNRESOLVED_KUBERNETES_UNIVERSE",
+                Status.INCONCLUSIVE,
+                _plan_blocker_reason(plan) if not plan.ready
+                else "EMPTY_REQUIRED_KUBERNETES_UNIVERSE",
                 False, (), _plan=plan, _trusted_context=_RESULT_CONTEXT,
             )
         revalidate_validation_universe_plan(plan, scan_root)

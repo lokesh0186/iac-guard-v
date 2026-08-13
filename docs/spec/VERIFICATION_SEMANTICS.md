@@ -1204,6 +1204,13 @@ It additionally re-derives PASS/FAIL/INCONCLUSIVE from all required child status
 any required FAIL yields FAIL, otherwise any non-PASS or typed plan blocker yields
 INCONCLUSIVE, and only all-PASS children yield PASS. Child status/reason pairs are
 validator-specific and closed; `FAIL/NEEDS_INIT` is invalid evidence.
+E5.8 additionally derives aggregate eligibility from the plan itself. Any
+`unsupported_tf_json` entry forces `INCONCLUSIVE/TF_JSON_UNSUPPORTED`; any unresolved
+entry forces `INCONCLUSIVE/ARTIFACT_UNIVERSE_UNRESOLVED`; neither state may carry
+decided child evidence. A required kubeconform universe without at least one protected
+Kubernetes file and exact resource is
+`INCONCLUSIVE/EMPTY_REQUIRED_KUBERNETES_UNIVERSE`, never PASS. Optional gate omission
+is a separate trusted-policy decision, not an empty affirmative result.
 
 ## 14. D5.2 protected configuration and exact target binding
 

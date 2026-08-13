@@ -361,6 +361,39 @@ def test_tf_json_is_explicitly_unsupported(tmp_path: Path) -> None:
     assert TF_JSON_REASON == ValidationReason.TF_JSON_UNSUPPORTED.value
 
 
+def test_blocked_tf_json_plan_cannot_be_stamped_pass(tmp_path: Path) -> None:
+    # Discovery keeps Terraform JSON as an out-of-scope physical entry so the
+    # Phase-E universe can prove the explicit end-to-end unsupported blocker.
+    raw = adapter_request(tmp_path, frameworks=("kubernetes",))
+    (raw.scan_root / "pod.yaml").write_text(
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: demo}\n", encoding="utf-8",
+    )
+    (raw.scan_root / "main.tf").write_text("locals { safe = true }\n")
+    (raw.scan_root / "bad.tf.json").write_text("{}\n")
+    plan = create_trusted_validation_universe_plan(
+        _role_snapshot(attest_checkov_scan_plan(raw))
+    )
+    assert not plan.ready and plan.unsupported_tf_json == ("bad.tf.json",)
+    passing = (
+        _result(
+            plan.terraform_modules[0], Status.PASS, ValidationReason.COMPLETED,
+            plan=plan,
+        ),
+    )
+    with pytest.raises(DomainError, match="blocked validation universe"):
+        ValidationUniverseResult(
+            "opentofu_validate", plan.role, plan.universe_sha256, Status.PASS,
+            "ALL_REQUIRED_MODULES_PASSED", False, passing,
+            _plan=plan, _trusted_context=_RESULT_CONTEXT,
+        )
+    typed = ValidationUniverseResult(
+        "opentofu_validate", plan.role, plan.universe_sha256,
+        Status.INCONCLUSIVE, TF_JSON_REASON, False, (),
+        _plan=plan, _trusted_context=_RESULT_CONTEXT,
+    )
+    assert typed.reason == TF_JSON_REASON
+
+
 def test_universe_plan_cannot_be_forged(tmp_path: Path) -> None:
     _root, snapshot = _terraform_snapshot(tmp_path)
     plan = create_trusted_validation_universe_plan(snapshot)
@@ -547,6 +580,17 @@ def test_unresolved_supported_and_governed_entries_block_readiness(tmp_path: Pat
     assert result.status is Status.INCONCLUSIVE
     assert result.reason == "ARTIFACT_UNIVERSE_UNRESOLVED"
 
+    passing = tuple(
+        _result(item, Status.PASS, ValidationReason.COMPLETED, plan=plan)
+        for item in plan.terraform_modules
+    )
+    with pytest.raises(DomainError, match="blocked validation universe"):
+        ValidationUniverseResult(
+            "opentofu_validate", plan.role, plan.universe_sha256, Status.PASS,
+            "ALL_REQUIRED_MODULES_PASSED", False, passing,
+            _plan=plan, _trusted_context=_RESULT_CONTEXT,
+        )
+
 
 def test_result_and_aggregate_consistency_guards(tmp_path: Path) -> None:
     _root, snapshot = _terraform_snapshot(tmp_path)
@@ -699,6 +743,28 @@ def test_empty_and_wrong_tool_orchestration_is_conservative(tmp_path: Path) -> N
         locked_identity=SimpleNamespace(tool="opentofu"),
     )
     assert empty.status is Status.INCONCLUSIVE
+    empty_root = tmp_path / "empty"
+    empty_root.mkdir()
+    empty_raw = adapter_request(empty_root, frameworks=("kubernetes",))
+    (empty_raw.scan_root / "pod.yaml").unlink()
+    empty_plan = create_trusted_validation_universe_plan(
+        _role_snapshot(attest_checkov_scan_plan(empty_raw))
+    )
+    empty_kubernetes = orchestrator.validate_kubernetes(
+        plan=empty_plan, workspace_root=empty_raw.scan_root,
+        scan_root=empty_raw.scan_root, runtime=object(),
+        locked_identity=object(), schema_identity=object(),
+    )
+    assert empty_kubernetes.status is Status.INCONCLUSIVE
+    assert empty_kubernetes.reason == "EMPTY_REQUIRED_KUBERNETES_UNIVERSE"
+    forged_child = _kube_result(empty_plan)
+    with pytest.raises(DomainError, match="empty Kubernetes universe"):
+        ValidationUniverseResult(
+            "kubeconform_validate", empty_plan.role, empty_plan.universe_sha256,
+            Status.PASS,
+            "COMPLETE_KUBERNETES_UNIVERSE_PASSED", False, (), forged_child,
+            _plan=empty_plan, _trusted_context=_RESULT_CONTEXT,
+        )
     with pytest.raises(DomainError, match="TFLint lock"):
         orchestrator.validate_tflint(
             plan=plan, workspace_root=root, scan_root=root, runtime=object(),
