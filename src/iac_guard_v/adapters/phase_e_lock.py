@@ -720,7 +720,7 @@ def load_locked_container_identity(
         or seal != _lock_seal(payload)
     ):
         raise DomainError("Phase-E lock graph differs from the reviewed E0.3 seal")
-    if tool not in {"kics", "trivy", "opentofu", "terraform", "kubeconform"} or architecture not in {
+    if tool not in {"kics", "trivy", "opentofu", "terraform", "kubeconform", "tflint"} or architecture not in {
         "linux/amd64", "linux/arm64",
     }:
         raise DomainError("tool or architecture is outside the E0.3 adapter lock")
@@ -733,6 +733,7 @@ def load_locked_container_identity(
         "opentofu": ("1.12.5", "tofu-validate-contract-research-v1"),
         "terraform": ("1.15.8", "terraform-validate-contract-research-v1"),
         "kubeconform": ("0.8.0", "kubeconform-validator-contract-research-v1"),
+        "tflint": ("0.64.0", "tflint-advisory-contract-research-v1"),
     }[tool]
     if (
         record.get("version") != expected[0]

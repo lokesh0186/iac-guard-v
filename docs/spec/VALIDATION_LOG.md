@@ -2887,3 +2887,13 @@ baseline uncertainty, missing schemas, protected/unprotected CRDs, schema mutati
 malformed and duplicate JSON, exact resource coverage, native ordering, runtime/input
 mutation, hardened argv, and the private trusted-evidence boundary. The schema licence
 remains `NOASSERTION`; no public redistribution occurred.
+
+## 2026-08-12 — E3.3 optional TFLint and shared trust boundary
+
+The exact locked TFLint 0.64.0 arm64 integration completed offline with the closed
+built-in-rules configuration. Permanent probes cover ordinary diagnostics, clean
+results, plugin initialization, candidate-config rejection, malformed and duplicate
+JSON, timeout, exit contradictions, input/runtime mutation, extra output entries,
+native-order determinism, and advisory-only semantics. The shared registry rejects
+callbacks, wrong request types, tool/gate substitution, and mismatched returned evidence.
+Focused branch-aware coverage recorded 96% for `tflint.py` and 91% for `registry.py`.

@@ -837,3 +837,16 @@ the same sealed resource evidence consumed by the validator. Native result
 ordering is normalized only for the semantic digest; raw bytes remain separately
 bound. Protected CRD schemas require their own digest-bound capability. The
 schema bundle remains private because its recorded licence is `NOASSERTION`.
+
+## E3.3 optional lint and closed validator registry
+
+TFLint 0.64.0 runs through the same sealed-input, protected-runtime, hardened
+container, and exact-output boundary, but its evidence is permanently marked
+`advisory_only`. It uses a closed bundled-rules-only configuration; candidate
+`.tflint.hcl`, candidate plugin state, and plugin initialization are forbidden.
+
+The production validator registry is a closed map of packaged implementations.
+It accepts a gate identifier and the exact sealed request type, never a callback
+or process result. Registry records bind gate contract, module bytes, supported
+artifact kinds, and advisory role. Test execution capabilities remain exclusively
+under `tests/` and are absent from wheel and sdist.

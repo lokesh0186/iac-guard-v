@@ -518,6 +518,18 @@ Every expected Kubernetes resource from the sealed YAML/JSON, multi-document, or
 `List` input is counted. CRD schemas must be protected and digest-bound. The
 `NOASSERTION` schema-bundle licence is retained in validator evidence and blocks
 public redistribution.
+
+## E3.3 TFLint and shared-registry acceptance
+
+TFLint 0.64.0 is `OPTIONAL_NON_SECURITY`. Clean and finding-bearing runs retain
+deterministic advisory evidence, but neither independently proves security
+correctness or a final `VERIFIED` verdict. Missing plugin initialization is
+`INCONCLUSIVE`; diagnostics remain visible.
+
+Only the protected built-in-rules configuration is authorized in E3.3. No plugin
+download or initialization, candidate `.tflint.hcl`, network access, or candidate
+plugin/cache state is accepted. All production validators execute through the
+closed packaged registry with sealed requests and trusted runtime evidence.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

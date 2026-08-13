@@ -356,10 +356,10 @@ container path; the support matrix below records that honestly.
 | Checkov | 3.2.517 (research), 3.3.0 (product) | **PASS, D4.1** for both versions | **PASS, D4.1**: five installed 3.3.0 tests cover Terraform/Kubernetes affirmative pass, inline skip, missing-file coverage, byte replacement, and inert candidate config; 3.2.517 executable re-run remains Phase E | product 3.3.0 supported; research 3.2.517 has a frozen-shape contract fixture and offline replay, but is not claimed as a current native integration |
 | KICS | E0.3-selected v2.1.20 | strict E1 fixtures PASS | **PASS, E1**: exact digest image, network disabled, finding result and native similarity IDs | supported as typed scanner evidence; not yet authoritative in consensus |
 | Trivy | E0.3-selected v0.73.0 + external checks v2.2.0 | strict E2 fixtures PASS | **PASS/PARTIAL as specified, E2**: exact platform image, network disabled, external bundle observed, finding PASS and global-only empty PARTIAL | supported as typed scanner evidence; not yet authoritative in consensus |
-| terraform validate | v1.15.8, user-supplied only | upstream output fixture reviewed | not executed | never bundled; validator unsupported |
-| tofu validate | OpenTofu v1.12.5 | upstream output fixture reviewed | not executed | validator unsupported |
-| kubeconform | v0.8.0 | upstream formatter fixture reviewed | not executed | validator unsupported |
-| tflint | v0.64.0 | upstream formatter fixture reviewed | not executed | optional/non-security; adapter unsupported |
+| terraform validate | v1.15.8, user-supplied only | strict E3.1 JSON fixtures PASS | exact locked offline validation PASS | never bundled; protected operator runtime only |
+| tofu validate | OpenTofu v1.12.5 | strict E3.1 JSON fixtures PASS | exact digest offline validation PASS | supported independent validator |
+| kubeconform | v0.8.0 | strict E3.2 JSON/coverage fixtures PASS | exact digest and signed-schema offline validation PASS | supported privately; schema redistribution blocked by `NOASSERTION` licence |
+| tflint | v0.64.0 | strict E3.3 JSON advisory fixtures PASS | exact digest offline invocation PASS | optional/non-security; never authoritative |
 
 ## 6. Contract test set
 
@@ -531,5 +531,25 @@ Candidate invalidity is `FAIL`; baseline invalidity, missing schema, unsupported
 CRD, incomplete coverage, malformed output, timeout, and execution failure are
 `INCONCLUSIVE`. Native array order is excluded from the semantic hash while exact
 bytes retain their own digest.
+
+## E3.3 TFLint advisory contract
+
+`tflint_advisory` executes the exact TFLint 0.64.0 platform image using only the
+closed protected bundled-rules configuration. The command is JSON/no-color,
+network-disabled, non-root, read-only, resource-bounded, and contains no init or
+plugin acquisition operation. Candidate configuration and `.terraform` state do
+not enter the view.
+
+The native object contains exactly `issues` and `errors`. Issues retain a closed
+rule, range, caller, and fix-state shape and must bind an eligible sealed input.
+Exit 0 denotes no issues, exit 2 denotes advisory issues, and exit 1 carries typed
+operational/plugin diagnostics. Plugin initialization need is `INCONCLUSIVE`.
+Ordinary issues remain visible `PASS/COMPLETED` evidence with
+`advisory_only=true`; they cannot establish a security result.
+
+All E3 validators are available only through
+`phase-e-closed-validator-registry-v1`. Each registry record binds its packaged
+module digest, artifact kinds, and advisory role. The registry accepts no callable,
+raw process result, or external evidence object.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

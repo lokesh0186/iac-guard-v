@@ -166,3 +166,16 @@ def execute_kubeconform_fixture(request, process: CommandResult):
         return_value=request.container_runtime.identity,
     ), patch.object(ProtectedKubernetesSchemaIdentity, "revalidate", return_value="1" * 64):
         return KubeconformValidator().validate(request)
+
+
+def execute_tflint_fixture(request, process: CommandResult):
+    from iac_guard_v.validators.tflint import TflintValidator
+
+    def execute(command):
+        return replace(process, argv=command.argv)
+
+    with patch("iac_guard_v.validators.tflint.run_command", execute), patch(
+        "iac_guard_v.validators.tflint.revalidate_trusted_container_runtime",
+        return_value=request.container_runtime.identity,
+    ):
+        return TflintValidator().validate(request)

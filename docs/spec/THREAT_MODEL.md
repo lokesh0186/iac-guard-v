@@ -495,3 +495,16 @@ Missing schemas, unsupported CRDs, resource-count disagreement, malformed native
 JSON, and schema/runtime mutation cannot become `PASS`. An invalid trusted baseline
 is uncertainty rather than a candidate failure. Private schema testing does not
 authorize redistribution while licence evidence remains `NOASSERTION`.
+
+### E3.3 TFLint and validator-registry controls
+
+Candidate content cannot select TFLint configuration, plugins, executable,
+container image, command, network, or writable outputs. Candidate `.tflint.hcl`
+and `.terraform` state are rejected, and the protected configuration enables no
+external plugins. A plugin initialization requirement is uncertainty, not an
+automatic download.
+
+The closed registry prevents public callers from substituting a validator callback
+or laundering a caller-created process result. It verifies the exact request type,
+tool-specific gate identity, adapter-owned trusted evidence marker, and returned
+gate identifier. TFLint always retains its optional non-security advisory label.

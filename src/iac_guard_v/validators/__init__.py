@@ -16,6 +16,18 @@ from .kubeconform import (
     KubeconformValidator,
     create_kubeconform_validation_request,
 )
+from .tflint import (
+    ProtectedTflintConfig,
+    TflintValidationRequest,
+    TflintValidator,
+    create_tflint_validation_request,
+    load_protected_tflint_config,
+)
+from .registry import (
+    TrustedValidatorRegistry,
+    ValidatorImplementationRecord,
+    production_validator_registry,
+)
 
 __all__ = [
     "TerraformValidationRequest",
@@ -27,5 +39,13 @@ __all__ = [
     "KubeconformValidationRequest",
     "KubeconformValidator",
     "create_kubeconform_validation_request",
+    "ProtectedTflintConfig",
+    "TflintValidationRequest",
+    "TflintValidator",
+    "create_tflint_validation_request",
+    "load_protected_tflint_config",
+    "TrustedValidatorRegistry",
+    "ValidatorImplementationRecord",
+    "production_validator_registry",
     "require_trusted_validator_evidence",
 ]
