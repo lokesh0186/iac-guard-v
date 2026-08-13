@@ -135,6 +135,9 @@ uncertainty remains a typed non-PASS state and scanner consensus remains advisor
 E5.3 requires exact Kubernetes field types, covers ordinary/init/ephemeral containers,
 types non-applicable Windows assertions separately, and permits trusted result creation
 only inside closed-registry execution. Empty-observation `PASS` evidence is invalid.
+E5.4 requires repository-universe aggregation to reconcile exact role, snapshot, scope,
+module, input-file, resource, validator/tool, count, and status/reason evidence before a
+child `PASS` can contribute to a universe `PASS`.
 
 ## 5. Non-functional requirements
 

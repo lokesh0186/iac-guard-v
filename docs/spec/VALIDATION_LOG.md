@@ -3011,3 +3011,26 @@ identity, requires affirmative PASS observations, and owns the only trusted-resu
 construction path. Its implementation identity binds all oracle helpers, models,
 loaders, parser dependency bytes, registry code, and policy bytes. The focused permanent
 probe set records 21 passes.
+
+## 2026-08-13 — E5.4 validation-universe evidence closure
+
+Failing-before probes constructed internally marked module and kubeconform `PASS`
+records with zero validated files/resources, baseline role, or unrelated scope hashes;
+the E5.2 aggregator accepted them. The v2 universe plan now proves its repository,
+subpath, artifact, physical-inventory, module, and Kubernetes contents directly against
+the sealed snapshot. Both aggregation and the immutable result reconcile exact child
+validator/tool/role/scope identities, sealed inputs, coverage counts, resources, and
+closed status/reason pairs. The focused permanent set records 19 passes, including
+missing/duplicate module, wrong-role, fake-snapshot, zero-coverage, and resource-set
+mutations.
+
+The final declared-dependency non-integration matrix recorded `1927 passed` on each of
+Python 3.10, 3.11, 3.12, and 3.13 with bytecode disabled before interpreter startup.
+Focused branch coverage was 95% for the source-attested catalog checker, 94% for the
+protected-oracle modules, and 93% for validation-universe orchestration. The exact
+locked integration set recorded 14 passes and the expected macOS skip for the
+native-Linux UID/bind-mount portability probe. Specification lint inspected 26 documents
+and 164 enum values with zero warnings. The frozen manifest remained 4,842/4,842 at
+root `a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`;
+replay remained 630/630 and 10,080/10,080 with zero verdict mismatches; all seven
+derived tables were `SEMANTIC_MATCH`; and the frozen-scope diff was empty.

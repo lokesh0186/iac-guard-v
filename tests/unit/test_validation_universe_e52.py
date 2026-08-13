@@ -26,8 +26,10 @@ from iac_guard_v.validators.universe import (
     ValidationUniverseResult,
     _PLAN_CONTEXT,
     _RESULT_CONTEXT,
+    _expected_kubernetes_scope,
     _sha,
     _aggregate_module_results,
+    _validate_kubernetes_evidence,
     create_trusted_validation_universe_plan,
     revalidate_validation_universe_plan,
 )
@@ -71,13 +73,30 @@ def _kubernetes_snapshot(tmp_path: Path):
 
 
 def _result(
-    module, status: Status, reason: ValidationReason, *,
+    module, status: Status, reason: ValidationReason, *, plan=None,
     validator_id: str = "opentofu_validate", tool: str = "opentofu",
     advisory: bool = False,
 ):
     inputs = tuple(BoundInputFile(
         item.file_path, "terraform_hcl", item.size, item.sha256, 0, 0,
     ) for item in module.files)
+    expected_plan = plan
+    if expected_plan is None:
+        expected_plan = SimpleNamespace(role=ScanRole.CANDIDATE)
+    input_payload = tuple(item.canonical_dict() for item in inputs)
+    module_snapshot = _sha(list(input_payload))
+    scope_identity = _sha({
+        "contract": "trusted-validation-scope-v1", "role": expected_plan.role.value,
+        "scope_kind": "terraform-module", "module_root": module.module_root,
+        "files": list(input_payload), "resource_identities": [],
+    })
+    scope = {
+        "kind": "terraform-module", "role": expected_plan.role.value,
+        "module_root": module.module_root,
+        "module_snapshot_sha256": module_snapshot, "tool": tool,
+    }
+    if tool == "tflint":
+        scope["module_execution_complete"] = "true"
     return ValidatorExecutionEvidence._from_execution(
         validator_id=validator_id, tool=tool, version="1.12.5",
         status=status, reason=reason, advisory_only=advisory, diagnostics=(),
@@ -85,17 +104,12 @@ def _result(
         files_validated=len(inputs) if status is Status.PASS else 0,
         resources_expected=0, resources_validated=0,
         runtime_identity="1" * 64, tool_environment_identity="2" * 64,
-        invocation_identity="3" * 64, sealed_snapshot_identity="4" * 64,
+        invocation_identity="3" * 64, sealed_snapshot_identity=scope_identity,
         materialized_view_sha256="5" * 64, stdout_sha256=EMPTY,
         stderr_sha256=EMPTY, native_output_bytes_sha256=EMPTY,
         canonical_native_output_sha256=EMPTY,
         output_directory_manifest_sha256=EMPTY, exit_code=0, duration_ms=1,
-        validation_scope=tuple(sorted({
-            "kind": "terraform-module", "role": "candidate",
-            "module_root": module.module_root,
-            "module_snapshot_sha256": module.manifest_sha256,
-            "tool": tool,
-        }.items())), execution_controls=("sealed-input",),
+        validation_scope=tuple(sorted(scope.items())), execution_controls=("sealed-input",),
     )
 
 
@@ -103,6 +117,8 @@ def _kube_result(plan, status=Status.PASS):
     inputs = tuple(BoundInputFile(
         item.file_path, "kubernetes_yaml", item.size, item.sha256, 0, 0,
     ) for item in plan.kubernetes_files)
+    _expected_inputs, scope_identity = _expected_kubernetes_scope(plan)
+    resource_digest = _sha(list(plan.kubernetes_resource_identities))
     return ValidatorExecutionEvidence._from_execution(
         validator_id="kubeconform_validate", tool="kubeconform", version="0.8.0",
         status=status,
@@ -114,12 +130,16 @@ def _kube_result(plan, status=Status.PASS):
         resources_expected=len(plan.kubernetes_resource_identities),
         resources_validated=len(plan.kubernetes_resource_identities) if status is Status.PASS else 0,
         runtime_identity="1" * 64, tool_environment_identity="2" * 64,
-        invocation_identity="3" * 64, sealed_snapshot_identity="4" * 64,
+        invocation_identity="3" * 64, sealed_snapshot_identity=scope_identity,
         materialized_view_sha256="5" * 64, stdout_sha256=EMPTY,
         stderr_sha256=EMPTY, native_output_bytes_sha256=EMPTY,
         canonical_native_output_sha256=EMPTY,
         output_directory_manifest_sha256=EMPTY, exit_code=0, duration_ms=1,
-        validation_scope=(("kind", "kubernetes-resource-set"),),
+        validation_scope=tuple(sorted({
+            "kind": "kubernetes-resource-set", "role": plan.role.value,
+            "expected_resources_sha256": resource_digest,
+            "observed_resources_sha256": resource_digest,
+        }.items())),
         execution_controls=("sealed-input",),
     )
 
@@ -339,6 +359,10 @@ def test_validation_universe_value_guards(tmp_path: Path) -> None:
         ({"kubernetes_files": ("bad",)}, "Kubernetes files"),
         ({"unsupported_tf_json": ("z", "z")}, "unsupported Terraform JSON"),
         ({"sealed_snapshot_identity": "0" * 64}, "disagrees"),
+        ({"repository_identity": "different_repository"}, "repository identity"),
+        ({"repository_relative_subpath": "different"}, "repository subpath"),
+        ({"sealed_artifact_manifest_identity": "0" * 64}, "artifact manifest"),
+        ({"physical_inventory_sha256": "0" * 64}, "physical inventory"),
         ({"universe_sha256": "0" * 64}, "not canonical"),
     ):
         with pytest.raises(DomainError, match=message):
@@ -399,6 +423,7 @@ def test_result_and_aggregate_consistency_guards(tmp_path: Path) -> None:
         ({"role": ScanRole.DISCOVERY}, "role"),
         ({"universe_sha256": "bad"}, "identity"),
         ({"status": "PASS"}, "status"),
+        ({"status": Status.FAIL}, "status/reason"),
         ({"advisory_only": "false"}, "advisory"),
         ({"module_results": []}, "module results"),
     ):
@@ -437,6 +462,90 @@ def test_result_and_aggregate_consistency_guards(tmp_path: Path) -> None:
         _aggregate_module_results(
             plan, "opentofu_validate", (changed, passing[1]), advisory=False,
         )
+
+
+def test_module_pass_requires_exact_role_snapshot_and_complete_coverage(
+    tmp_path: Path,
+) -> None:
+    _root, snapshot = _terraform_snapshot(tmp_path)
+    plan = create_trusted_validation_universe_plan(snapshot)
+    passing = tuple(
+        _result(item, Status.PASS, ValidationReason.COMPLETED)
+        for item in plan.terraform_modules
+    )
+    context = __import__(
+        "iac_guard_v.validators.base", fromlist=["_EVIDENCE_CONTEXT"]
+    )._EVIDENCE_CONTEXT
+    mutations = (
+        (
+            replace(passing[0], _trusted_context=context, files_validated=0),
+            "incomplete",
+        ),
+        (
+            replace(
+                passing[0], _trusted_context=context,
+                validation_scope=tuple(sorted({
+                    **dict(passing[0].validation_scope), "role": "baseline",
+                }.items())),
+            ),
+            "scope contradicts",
+        ),
+        (
+            replace(
+                passing[0], _trusted_context=context,
+                sealed_snapshot_identity="0" * 64,
+            ),
+            "snapshot identity",
+        ),
+    )
+    for mutation, message in mutations:
+        with pytest.raises(DomainError, match=message):
+            _aggregate_module_results(
+                plan, "opentofu_validate", (mutation, passing[1]), advisory=False,
+            )
+
+
+def test_kubernetes_pass_requires_exact_files_resources_role_and_scope(
+    tmp_path: Path,
+) -> None:
+    _root, snapshot = _kubernetes_snapshot(tmp_path)
+    plan = create_trusted_validation_universe_plan(snapshot)
+    passing = _kube_result(plan)
+    context = __import__(
+        "iac_guard_v.validators.base", fromlist=["_EVIDENCE_CONTEXT"]
+    )._EVIDENCE_CONTEXT
+    mutations = (
+        (
+            replace(
+                passing, _trusted_context=context, files_validated=0,
+                resources_validated=0, resource_identities=(),
+            ),
+            "incomplete",
+        ),
+        (
+            replace(
+                passing, _trusted_context=context,
+                validation_scope=tuple(sorted({
+                    **dict(passing.validation_scope), "role": "baseline",
+                }.items())),
+            ),
+            "scope is inconsistent",
+        ),
+        (
+            replace(
+                passing, _trusted_context=context,
+                sealed_snapshot_identity="0" * 64,
+            ),
+            "snapshot identity",
+        ),
+        (
+            replace(passing, _trusted_context=context, resource_identities=("other",)),
+            "incomplete",
+        ),
+    )
+    for mutation, message in mutations:
+        with pytest.raises(DomainError, match=message):
+            _validate_kubernetes_evidence(plan, mutation)
 
 
 def test_empty_and_wrong_tool_orchestration_is_conservative(tmp_path: Path) -> None:

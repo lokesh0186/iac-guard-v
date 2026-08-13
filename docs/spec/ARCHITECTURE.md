@@ -943,6 +943,12 @@ one exact trusted PASS for every module. TFLint uses the same modules and remain
 advisory. Kubeconform consumes the plan's complete Kubernetes universe. No consensus or
 final-policy integration is introduced here.
 
+E5.4 makes the universe result a second defensive evidence boundary. It reconstructs
+the exact role-specific child scope identities from the sealed universe, requires exact
+validator/tool/module/file/resource identities and complete PASS counters, and rejects
+missing, duplicate, cross-role, or snapshot-mismatched evidence. A universe result keeps
+its protected plan privately and rechecks its own status/reason/evidence relationships.
+
 ## E3.9 kubeconform coherence and authoritative registry runtime
 
 Kubeconform native paths are accepted only as the exact sealed relative path or the

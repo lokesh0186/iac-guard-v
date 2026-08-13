@@ -88,12 +88,20 @@ def _canonical_sha(value: object) -> str:
 
 
 def _safe_file(relative: str) -> Path:
-    candidate = (ROOT / relative).resolve()
+    unresolved = ROOT / relative
+    candidate = unresolved.resolve()
     try:
         candidate.relative_to(ROOT)
     except ValueError as exc:
         raise ValueError("catalog evidence path escapes repository") from exc
-    if not candidate.is_file() or candidate.is_symlink():
+    cursor = ROOT
+    has_symlink = False
+    for part in Path(relative).parts:
+        cursor = cursor / part
+        if cursor.is_symlink():
+            has_symlink = True
+            break
+    if not candidate.is_file() or has_symlink:
         raise ValueError(f"catalog evidence is unavailable or unsafe: {relative}")
     return candidate
 

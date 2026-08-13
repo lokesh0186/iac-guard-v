@@ -379,6 +379,11 @@ supported/governed inventory around every tool run. Thus one clean root-module r
 cannot bless an omitted nested module, and a late module or Kubernetes artifact is
 typed snapshot uncertainty rather than PASS. TFLint evidence remains advisory.
 
+E5.4 assumes even an internally marked child record may be malformed or misbound. The
+universe result therefore re-derives child scope hashes and exact coverage from the
+sealed role snapshot. Wrong-role, zero-coverage, fake-snapshot, missing/duplicate-module,
+and Kubernetes file/resource-set contradictions are rejected before aggregation.
+
 D6.4 prevents a commit label from blessing unrelated working-tree bytes. Protected
 contexts require the authorized candidate at `HEAD`, a clean checkout, and no untracked
 or ignored supported/governed input; loaders recheck that state and read candidate policy

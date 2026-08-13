@@ -3,8 +3,11 @@ from __future__ import annotations
 import importlib.util
 import hashlib
 import json
+import copy
 import shutil
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -23,6 +26,28 @@ def _catalog(tmp_path: Path, mutate) -> Path:
     target = tmp_path / "catalog.yml"
     target.write_text(yaml.safe_dump(data, sort_keys=False))
     return target
+
+
+def _runtime_catalog(tmp_path: Path, mutate, monkeypatch) -> Path:
+    copied_root = tmp_path / "runtime-root"
+    (copied_root / "controls").mkdir(parents=True)
+    shutil.copytree(ROOT / "controls/fixtures", copied_root / "controls/fixtures")
+    evidence = json.loads(
+        (ROOT / "controls/runtime-evidence-v1.json").read_text(encoding="utf-8")
+    )
+    mutate(evidence)
+    if "evidence_root_sha256" in evidence:
+        payload = dict(evidence)
+        payload.pop("evidence_root_sha256")
+        evidence["evidence_root_sha256"] = CHECKER._canonical_sha(payload)
+    runtime = copied_root / "controls/runtime-evidence-v1.json"
+    runtime.write_text(json.dumps(evidence, sort_keys=True), encoding="utf-8")
+    catalog = yaml.safe_load((ROOT / "controls/catalog-v1.yml").read_text())
+    catalog["runtime_evidence"]["sha256"] = hashlib.sha256(runtime.read_bytes()).hexdigest()
+    path = copied_root / "controls/catalog-v1.yml"
+    path.write_text(yaml.safe_dump(catalog, sort_keys=False), encoding="utf-8")
+    monkeypatch.setattr(CHECKER, "ROOT", copied_root)
+    return path
 
 
 def test_catalog_is_valid_and_deliberately_has_no_exact_mapping() -> None:
@@ -126,3 +151,237 @@ def test_runtime_evidence_outer_digest_is_enforced(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="file digest"):
         CHECKER.validate_catalog(_catalog(tmp_path, mutate))
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    (
+        (lambda data: data.update(contract="wrong"), "contract"),
+        (lambda data: data.update(catalog_status="TRUST_ME"), "advisory"),
+        (lambda data: data.update(relationships={}), "list"),
+        (lambda data: data["relationships"][0].pop("semantics"), "fields"),
+        (
+            lambda data: data["relationships"][1].update(
+                relationship_id=data["relationships"][0]["relationship_id"]
+            ),
+            "unique",
+        ),
+        (lambda data: data["relationships"][0].update(relationship_id=""), "unique"),
+        (
+            lambda data: data["relationships"][1].update(
+                checkov_rule_id=data["relationships"][0]["checkov_rule_id"]
+            ),
+            "duplicated",
+        ),
+        (lambda data: data["relationships"][0].update(semantics={}), "semantics"),
+        (
+            lambda data: data["relationships"][0].update(authoritative_sources={}),
+            "source evidence",
+        ),
+        (lambda data: data["relationships"][0].update(fixtures={}), "fixtures"),
+        (
+            lambda data: data["relationships"][0].update(
+                expected_locked_observations={}
+            ),
+            "observations",
+        ),
+        (lambda data: data["relationships"][0].update(resource_type_scope=[]), "scope"),
+        (lambda data: data["relationships"][0].update(exact_blockers=[]), "blockers"),
+        (lambda data: data.update(exact_mapping_count=1), "count"),
+        (lambda data: data.update(runtime_evidence={}), "reference"),
+    ),
+)
+def test_closed_catalog_graph_rejects_structural_mutations(
+    tmp_path: Path, mutate, message: str,
+) -> None:
+    with pytest.raises((ValueError, AttributeError), match=message):
+        CHECKER.validate_catalog(_catalog(tmp_path, mutate))
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    (
+        (lambda locks: locks.pop("trivy"), "three scanner locks"),
+        (lambda locks: locks["checkov"].pop("policy_identity"), "incomplete"),
+        (
+            lambda locks: locks["checkov"].update(tag_ref_commit="0" * 40),
+            "tag relation",
+        ),
+        (lambda locks: locks["checkov"].update(policy_identity=""), "missing"),
+        (
+            lambda locks: locks["checkov"].update(runtime_policy_digest="bad"),
+            "runtime identity",
+        ),
+    ),
+)
+def test_scanner_lock_contract_rejects_incomplete_evidence(mutate, message: str) -> None:
+    data = yaml.safe_load((ROOT / "controls/catalog-v1.yml").read_text())
+    locks = copy.deepcopy(data["scanner_locks"])
+    mutate(locks)
+    with pytest.raises(ValueError, match=message):
+        CHECKER._validate_locks(locks)
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    (
+        (lambda source: source.pop("sha256"), "incomplete"),
+        (lambda source: source.update(relative_path="../escape"), "unsafe"),
+        (
+            lambda source: source.update(source_attestation_identity="0" * 64),
+            "not canonical",
+        ),
+    ),
+)
+def test_source_attestation_rejects_incomplete_children(mutate, message: str) -> None:
+    data = yaml.safe_load((ROOT / "controls/catalog-v1.yml").read_text())
+    source = copy.deepcopy(data["relationships"][0]["authoritative_sources"]["checkov"])
+    mutate(source)
+    with pytest.raises(ValueError, match=message):
+        CHECKER._validate_source("checkov", source, data["scanner_locks"]["checkov"])
+
+
+@pytest.mark.parametrize(
+    ("mutate", "message"),
+    (
+        (lambda runtime: runtime.update(contract="wrong"), "contract"),
+        (lambda runtime: runtime.update(records={}), "records"),
+        (lambda runtime: runtime["records"][0].pop("native_result"), "fields"),
+        (
+            lambda runtime: runtime["records"].append(copy.deepcopy(runtime["records"][0])),
+            "duplicate",
+        ),
+        (
+            lambda runtime: runtime["records"][0].update(fixture_sha256="0" * 64),
+            "fixture digest",
+        ),
+        (
+            lambda runtime: runtime["records"][0].update(scanner_version="wrong"),
+            "version",
+        ),
+        (
+            lambda runtime: runtime["records"][0].update(policy_identity="wrong"),
+            "policy identity",
+        ),
+        (
+            lambda runtime: runtime["records"][0].update(environment_identity="0" * 64),
+            "environment identity",
+        ),
+        (
+            lambda runtime: runtime["records"][0].update(
+                expected_relationship_observation="INCONCLUSIVE"
+            ),
+            "expectation",
+        ),
+        (
+            lambda runtime: runtime["records"][0].update(normalized_result="INCONCLUSIVE"),
+            "contradicts",
+        ),
+        (
+            lambda runtime: runtime["records"][0].update(invocation_identity="bad"),
+            "invocation_identity",
+        ),
+    ),
+)
+def test_runtime_evidence_rejects_every_unbound_child(
+    tmp_path: Path, monkeypatch, mutate, message: str,
+) -> None:
+    path = _runtime_catalog(tmp_path, mutate, monkeypatch)
+    with pytest.raises(ValueError, match=message):
+        CHECKER.validate_catalog(path)
+
+
+def test_runtime_evidence_rejects_malformed_json_and_root(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    copied_root = tmp_path / "malformed-root"
+    (copied_root / "controls").mkdir(parents=True)
+    shutil.copytree(ROOT / "controls/fixtures", copied_root / "controls/fixtures")
+    runtime = copied_root / "controls/runtime-evidence-v1.json"
+    runtime.write_text("not-json", encoding="utf-8")
+    catalog = yaml.safe_load((ROOT / "controls/catalog-v1.yml").read_text())
+    catalog["runtime_evidence"]["sha256"] = hashlib.sha256(runtime.read_bytes()).hexdigest()
+    path = copied_root / "controls/catalog-v1.yml"
+    path.write_text(yaml.safe_dump(catalog, sort_keys=False))
+    monkeypatch.setattr(CHECKER, "ROOT", copied_root)
+    with pytest.raises(ValueError, match="malformed"):
+        CHECKER.validate_catalog(path)
+
+    runtime.write_text(json.dumps({
+        "contract": "phase-e-control-fixture-runtime-evidence-v1",
+        "records": [], "evidence_root_sha256": "0" * 64,
+    }), encoding="utf-8")
+    catalog["runtime_evidence"]["sha256"] = hashlib.sha256(runtime.read_bytes()).hexdigest()
+    path.write_text(yaml.safe_dump(catalog, sort_keys=False))
+    with pytest.raises(ValueError, match="root"):
+        CHECKER.validate_catalog(path)
+
+
+def test_safe_file_rejects_escape_missing_and_symlink(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(CHECKER, "ROOT", tmp_path)
+    with pytest.raises(ValueError, match="escapes"):
+        CHECKER._safe_file("../outside")
+    with pytest.raises(ValueError, match="unavailable"):
+        CHECKER._safe_file("missing")
+    target = tmp_path / "target"
+    target.write_text("x")
+    (tmp_path / "link").symlink_to(target)
+    with pytest.raises(ValueError, match="unsafe"):
+        CHECKER._safe_file("link")
+
+
+def test_source_verification_binds_exact_refs_and_bytes(monkeypatch) -> None:
+    data = CHECKER.validate_catalog(ROOT / "controls/catalog-v1.yml")
+
+    def run(command, **_kwargs):
+        scanner = next(
+            lock for lock in data["scanner_locks"].values()
+            if command[2] == lock["source_repository"] + ".git"
+        )
+        ref = command[3]
+        return SimpleNamespace(stdout=f"{scanner['source_commit']}\t{ref}\n")
+
+    class Response:
+        def __init__(self, raw):
+            self.raw = raw
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            return False
+        def read(self):
+            return self.raw
+
+    hashes = {
+        source["url"]: source["sha256"]
+        for relationship in data["relationships"]
+        for source in relationship["authoritative_sources"].values()
+    }
+    # Digest preimages are not available here, so exercise the URL branch with a
+    # patched hashlib wrapper that preserves the reviewed expected identity.
+    current = {"url": ""}
+    def open_url(url, **_kwargs):
+        current["url"] = url
+        return Response(url.encode())
+    real_sha = hashlib.sha256
+    def sha256(raw=b""):
+        if raw == current["url"].encode() and current["url"] in hashes:
+            return SimpleNamespace(hexdigest=lambda: hashes[current["url"]])
+        return real_sha(raw)
+
+    monkeypatch.setattr(CHECKER.subprocess, "run", run)
+    monkeypatch.setattr(CHECKER.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(CHECKER.hashlib, "sha256", sha256)
+    CHECKER.verify_sources(data)
+
+    monkeypatch.setattr(
+        CHECKER.subprocess, "run",
+        lambda *_args, **_kwargs: SimpleNamespace(stdout="0" * 40 + "\trefs/tags/x\n"),
+    )
+    with pytest.raises(ValueError, match="release tag"):
+        CHECKER.verify_sources(data)
+
+
+def test_main_prints_pinned_catalog_result(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(sys, "argv", ["check_catalog.py"])
+    assert CHECKER.main() == 0
+    assert "sources=PINNED" in capsys.readouterr().out

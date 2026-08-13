@@ -1181,6 +1181,14 @@ uses the identical module universe but is advisory and cannot establish `VERIFIE
 The closed validator reason is `TF_JSON_UNSUPPORTED`; it never aliases malformed
 invocation or definitive candidate invalidity.
 
+E5.4 repository-universe evidence is valid only when its repository identity, relative
+subpath, artifact manifest, physical inventory, and derived module/Kubernetes contents
+equal the protected role snapshot. Module `PASS` requires exact validator/tool/role,
+module scope and snapshot, exact input files, and
+`files_eligible == files_validated == module file count`. Kubeconform `PASS` additionally
+requires exact planned file/resource sets and equal expected/validated counters. The
+universe result revalidates these predicates and its closed status/reason relationship.
+
 ## 14. D5.2 protected configuration and exact target binding
 
 `VerificationRequest` contains independently discovered plans, target selectors, and a
