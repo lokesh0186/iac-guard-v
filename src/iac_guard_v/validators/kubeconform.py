@@ -6,7 +6,7 @@ import json
 import os
 import tempfile
 from dataclasses import InitVar, dataclass, field
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any
 
 from ..adapters.base import (
@@ -220,11 +220,42 @@ def _custom_resources(resources: tuple[str, ...]) -> bool:
 def _native_path(value: Any, eligible: tuple[str, ...]) -> str:
     if type(value) is not str or not value:
         raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
-    parts = PurePosixPath(value.replace("\\", "/")).parts
-    matches = [item for item in eligible if tuple(PurePosixPath(item).parts) == parts[-len(PurePosixPath(item).parts):]]
-    if len(matches) != 1:
+    if "\\" in value:
         raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
-    return matches[0]
+    if value.startswith("/iacgv-input/"):
+        relative = value.removeprefix("/iacgv-input/")
+    elif not value.startswith("/"):
+        relative = value.removeprefix("./")
+    else:
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    try:
+        canonical = canonical_repo_path(relative, "kubeconform native path")
+    except DomainError as exc:
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value) from exc
+    if canonical not in eligible or value not in {
+        canonical, f"/iacgv-input/{canonical}", f"./{canonical}",
+    }:
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    return canonical
+
+
+def _validation_errors(value: Any) -> tuple[tuple[str, str], ...]:
+    if value is None:
+        return ()
+    if type(value) is not list or len(value) > 1_000:
+        raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+    result = []
+    for item in value:
+        if type(item) is not dict or set(item) != {"path", "msg"}:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        if type(item["path"]) is not str or type(item["msg"]) is not str:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        path = safe_report_text(item["path"], "validation error path", 4_096)
+        message = safe_report_text(item["msg"], "validation error message", 16_384)
+        if not path or not message:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        result.append((path, message))
+    return tuple(result)
 
 
 def _parse_native(
@@ -273,6 +304,14 @@ def _parse_native(
         status = item["status"]
         if status not in status_counts:
             raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        message = safe_report_text(item["msg"], "kubeconform message", 16_384) if item["msg"] else ""
+        validation_errors = _validation_errors(item.get("validationErrors"))
+        if status == "statusValid" and (message or validation_errors):
+            raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+        if status == "statusInvalid" and not (message or validation_errors):
+            raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+        if status in {"statusError", "statusSkipped"} and not message:
+            raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
         matches = expected.get((path, item["version"], item["kind"], item["name"]), ())
         if len(matches) != 1:
             raise DomainError(
@@ -284,7 +323,7 @@ def _parse_native(
         if status != "statusValid":
             severity = "error" if status != "statusSkipped" else "warning"
             diagnostics.append(
-                ValidationDiagnostic(severity, status, item["msg"] or status, path)
+                ValidationDiagnostic(severity, status, message or status, path)
             )
     if len(observed) != len(set(observed)):
         raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)

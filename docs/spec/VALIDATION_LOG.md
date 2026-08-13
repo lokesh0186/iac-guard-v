@@ -2948,3 +2948,14 @@ trusted scope factory now proves exact module membership or the complete indepen
 classified Kubernetes universe. Each validator re-derives that universe before and
 after execution. Permanent probes reject omitted Terraform/TFLint siblings and type
 late Terraform or Kubernetes additions as `SNAPSHOT_CHANGED_DURING_VALIDATION`.
+
+## 2026-08-13 — E3.9 kubeconform and registry runtime closure
+
+The old kubeconform parser accepted `statusValid` alongside native validation errors
+and mapped `/totally-other/manifest.yaml` by suffix to the sealed input. Permanent
+probes now return `DIAGNOSTIC_CONTRADICTION` and `INCOMPLETE_COVERAGE`, respectively.
+The registry's writable-environment bytecode failure is now a canonical integrity
+state instead of an unexpected construction exception. It refuses authoritative
+execution while inconclusive, checks for caches before and after calls, and exposes
+pre-start `PYTHONDONTWRITEBYTECODE=1` remediation through doctor. A clean installed
+wheel is invoked twice under that package contract without generating cache entries.

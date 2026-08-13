@@ -8,6 +8,7 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..enums import Status
 from ..models import DomainError, canonical_identifier
 from .base import ValidatorExecutionEvidence, canonical_sha256, require_trusted_validator_evidence
 from .kubeconform import KubeconformValidationRequest, KubeconformValidator
@@ -15,12 +16,12 @@ from .terraform import TerraformValidationRequest, TerraformValidator
 from .tflint import TflintValidationRequest, TflintValidator
 
 
-_REGISTRY_CONTRACT = "phase-e-closed-validator-registry-v1"
+_REGISTRY_CONTRACT = "phase-e-closed-validator-registry-v2"
 _VALIDATOR_CONTRACTS = {
-    "opentofu_validate": "opentofu-validate-contract-v2",
-    "terraform_validate": "terraform-validate-contract-v2",
-    "kubeconform_schema": "kubeconform-schema-contract-v2",
-    "tflint_advisory": "tflint-advisory-contract-v2",
+    "opentofu_validate": "opentofu-validate-contract-v3",
+    "terraform_validate": "terraform-validate-contract-v3",
+    "kubeconform_schema": "kubeconform-schema-contract-v3",
+    "tflint_advisory": "tflint-advisory-contract-v3",
 }
 _IMPLEMENTATIONS = {
     "opentofu_validate": (TerraformValidationRequest, TerraformValidator, "terraform.py", ("terraform_hcl",), False),
@@ -36,6 +37,12 @@ _SHARED_IMPLEMENTATION_FILES = (
     "validators/materialization.py", "validators/registry.py",
 )
 _SHA = re.compile(r"[0-9a-f]{64}")
+_INTEGRITY_REASON_PASS = "BYTECODE_FREE_PRODUCT_BUILD"
+_INTEGRITY_REASON_NATIVE = "WRITABLE_NATIVE_PACKAGE_HAS_EXECUTABLE_CACHE"
+_INTEGRITY_REMEDIATION = (
+    "Use the read-only bytecode-free hardened installation and set "
+    "PYTHONDONTWRITEBYTECODE=1 before Python starts."
+)
 
 
 def _read_source_bytes(relative: str) -> bytes:
@@ -61,9 +68,10 @@ def _source_digest(relative: str) -> str:
     return hashlib.sha256(_read_source_bytes(relative)).hexdigest()
 
 
-def _product_source_paths() -> tuple[str, ...]:
+def _product_source_inventory() -> tuple[tuple[str, ...], tuple[str, ...]]:
     root = Path(__file__).parents[1]
     records = []
+    unsafe = []
     pending = [root]
     while pending:
         directory = pending.pop()
@@ -72,18 +80,21 @@ def _product_source_paths() -> tuple[str, ...]:
             metadata = entry.stat(follow_symlinks=False)
             relative = path.relative_to(root).as_posix()
             if stat.S_ISLNK(metadata.st_mode):
-                raise DomainError("product implementation tree contains a symlink")
+                unsafe.append(f"SYMLINK:{relative}")
             if stat.S_ISDIR(metadata.st_mode):
                 if entry.name == "__pycache__":
-                    raise DomainError("product implementation tree contains bytecode cache")
-                pending.append(path)
+                    unsafe.append(f"BYTECODE_CACHE:{relative}")
+                elif not stat.S_ISLNK(metadata.st_mode):
+                    pending.append(path)
             elif stat.S_ISREG(metadata.st_mode):
                 if path.suffix.lower() in {".pyc", ".pyo"}:
-                    raise DomainError("product implementation tree contains bytecode")
-                records.append(relative)
+                    unsafe.append(f"BYTECODE:{relative}")
+                else:
+                    records.append(relative)
             else:
-                raise DomainError("product implementation tree contains a special entry")
-    return tuple(sorted(records))
+                if not stat.S_ISLNK(metadata.st_mode):
+                    unsafe.append(f"SPECIAL:{relative}")
+    return tuple(sorted(records)), tuple(sorted(unsafe))
 
 
 def _manifest_digest(paths: tuple[str, ...]) -> str:
@@ -182,6 +193,9 @@ class ValidatorImplementationRecord:
 class TrustedValidatorRegistry:
     records: tuple
     contract: str
+    integrity_status: Status = Status.PASS
+    integrity_reason: str = _INTEGRITY_REASON_PASS
+    remediation: str = ""
 
     def __post_init__(self) -> None:
         if self.contract != _REGISTRY_CONTRACT:
@@ -193,15 +207,34 @@ class TrustedValidatorRegistry:
         ids = tuple(item.gate_id for item in self.records)
         if ids != tuple(sorted(_IMPLEMENTATIONS)):
             raise DomainError("validator registry is not the complete closed production set")
+        if self.integrity_status not in {Status.PASS, Status.INCONCLUSIVE}:
+            raise DomainError("validator registry integrity status is invalid")
+        if type(self.integrity_reason) is not str or not self.integrity_reason:
+            raise DomainError("validator registry integrity reason is required")
+        if type(self.remediation) is not str:
+            raise DomainError("validator registry remediation must be a string")
+        if self.integrity_status is Status.PASS and self.remediation:
+            raise DomainError("passing validator registry cannot require remediation")
 
     @property
     def identity(self) -> str:
         return canonical_sha256(self.canonical_dict())
 
     def canonical_dict(self) -> dict:
-        return {"contract": self.contract, "records": [item.canonical_dict() for item in self.records]}
+        return {
+            "contract": self.contract,
+            "integrity_status": self.integrity_status.value,
+            "integrity_reason": self.integrity_reason,
+            "remediation": self.remediation,
+            "records": [item.canonical_dict() for item in self.records],
+        }
 
     def execute(self, gate_id: str, request: object) -> ValidatorExecutionEvidence:
+        if self.integrity_status is not Status.PASS:
+            raise DomainError("VALIDATOR_REGISTRY_INTEGRITY_INCONCLUSIVE")
+        _paths, unsafe = _product_source_inventory()
+        if unsafe:
+            raise DomainError("VALIDATOR_REGISTRY_INTEGRITY_INCONCLUSIVE")
         if gate_id not in _IMPLEMENTATIONS:
             raise DomainError("validator id is outside the closed production registry")
         request_type, validator_type, _, _, _ = _IMPLEMENTATIONS[gate_id]
@@ -212,6 +245,9 @@ class TrustedValidatorRegistry:
             if request.locked_identity.tool != expected_tool:
                 raise DomainError("Terraform-family validator identity was substituted")
         evidence = validator_type().validate(request)
+        _paths, unsafe = _product_source_inventory()
+        if unsafe:
+            raise DomainError("VALIDATOR_REGISTRY_INTEGRITY_INCONCLUSIVE")
         require_trusted_validator_evidence(evidence)
         if evidence.validator_id != gate_id:
             raise DomainError("validator returned evidence for a different gate")
@@ -219,9 +255,17 @@ class TrustedValidatorRegistry:
 
 
 def production_validator_registry() -> TrustedValidatorRegistry:
-    product_build = _manifest_digest(_product_source_paths())
+    product_paths, unsafe = _product_source_inventory()
+    product_build = _manifest_digest(product_paths)
     shared_manifest = _manifest_digest(_SHARED_IMPLEMENTATION_FILES)
-    parser_dependencies = _parser_dependency_identity()
+    parser_unsafe = ""
+    try:
+        parser_dependencies = _parser_dependency_identity()
+    except DomainError as exc:
+        parser_unsafe = str(exc)
+        parser_dependencies = canonical_sha256({
+            "integrity": "INCONCLUSIVE", "reason": parser_unsafe,
+        })
     runtime_contract = _runtime_contract_identity()
     schema_contract = _schema_contract_identity()
     records = tuple(
@@ -231,7 +275,16 @@ def production_validator_registry() -> TrustedValidatorRegistry:
         )
         for gate_id, (_, _, filename, artifacts, advisory) in sorted(_IMPLEMENTATIONS.items())
     )
-    return TrustedValidatorRegistry(records, _REGISTRY_CONTRACT)
+    return TrustedValidatorRegistry(
+        records, _REGISTRY_CONTRACT,
+        Status.INCONCLUSIVE if unsafe or parser_unsafe else Status.PASS,
+        (
+            _INTEGRITY_REASON_NATIVE if unsafe
+            else "PARSER_DEPENDENCY_INTEGRITY_INCONCLUSIVE" if parser_unsafe
+            else _INTEGRITY_REASON_PASS
+        ),
+        _INTEGRITY_REMEDIATION if unsafe or parser_unsafe else "",
+    )
 
 
 def _implementation_record(

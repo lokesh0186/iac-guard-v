@@ -562,6 +562,16 @@ snapshot. The same scope is revalidated at every process boundary. Late addition
 removals, byte changes, type changes, and governed/transient module state are non-PASS.
 TFLint's clean output proves only that the complete module invocation ran; it does not
 invent file-level affirmative evidence.
+
+## E3.9 native and registry integrity acceptance
+
+Kubeconform PASS requires coherent per-resource status, message, validation-error, and
+exact locked-path evidence. `statusValid` plus adverse validation errors and an
+unrelated absolute path are non-PASS. The closed validator registry is authoritative
+only in a bytecode-free protected product installation whose parser dependencies also
+pass physical integrity checks. An ordinary writable environment that has generated
+`__pycache__`, `.pyc`, or `.pyo` content is explicitly `INCONCLUSIVE`; doctor reports
+how to use the protected pre-start bytecode-disabled mode.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

@@ -908,3 +908,18 @@ spawn, after execution, and before evidence construction. Added, removed, replac
 or changed relevant entries therefore produce typed uncertainty rather than PASS.
 TFLint records complete module execution but makes no fabricated per-file affirmative
 claim and remains permanently advisory.
+
+## E3.9 kubeconform coherence and authoritative registry runtime
+
+Kubeconform native paths are accepted only as the exact sealed relative path or the
+locked `/iacgv-input/<relative-path>` form; suffix matches under unrelated roots are
+rejected. Each status has a closed diagnostic contract. In particular, a valid result
+cannot carry validation errors, while invalid/error/skipped records must carry the
+corresponding typed adverse evidence.
+
+The production registry now reports its implementation integrity independently from
+its implementation identity. Authoritative mode requires a read-only bytecode-free
+product and verified parser closure with `PYTHONDONTWRITEBYTECODE=1` active before
+interpreter startup. Cache-bearing writable native installs are typed `INCONCLUSIVE`,
+the registry refuses to return authoritative evidence, and doctor provides deterministic
+remediation. Product bytecode absence is checked both before and after validator calls.

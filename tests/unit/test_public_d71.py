@@ -16,7 +16,7 @@ from iac_guard_v.config import (
     ExecutionIsolation, PublicTarget, PublicVerificationRequest, load_public_config,
 )
 from iac_guard_v.engine import VerificationResult
-from iac_guard_v.enums import ArtifactKind, Verdict
+from iac_guard_v.enums import ArtifactKind, Status, Verdict
 from iac_guard_v.models import DomainError
 from iac_guard_v.report import (
     CandidateArtifactFailureReportV1, ExecutionIsolationEvidence, OperationalReportV1,
@@ -109,6 +109,20 @@ def test_doctor_report_deeply_copies_source_mappings() -> None:
     before = report.canonical_json()
     source["status"] = "FAIL"; source["nested"]["values"].append("c")
     assert report.canonical_json() == before
+
+
+def test_doctor_exposes_validator_registry_integrity(monkeypatch) -> None:
+    class Registry:
+        integrity_status = Status.INCONCLUSIVE
+        integrity_reason = "WRITABLE_NATIVE_PACKAGE_HAS_EXECUTABLE_CACHE"
+        identity = "1" * 64
+        remediation = "set PYTHONDONTWRITEBYTECODE before Python starts"
+
+    import iac_guard_v.validators.registry as registry_module
+    monkeypatch.setattr(registry_module, "production_validator_registry", lambda: Registry())
+    report = CLI.doctor().canonical_dict()["validator_registry"]
+    assert report["status"] == "INCONCLUSIVE"
+    assert "PYTHONDONTWRITEBYTECODE" in report["remediation"]
 
 
 def test_real_reports_validate_and_unknown_nested_fields_fail(verified_engine: VerificationResult) -> None:
@@ -306,6 +320,7 @@ def test_cli_doctor_explain_json_and_internal_error(tmp_path: Path, capsys, monk
     doctor_report = CLI.DoctorReportV1(
         {"status": "PASS", "reason_code": "OK"},
         {"status": "PASS", "reason_code": "OK"},
+        {"status": "PASS", "reason_code": "OK", "remediation": "none"},
     )
     monkeypatch.setattr(CLI, "doctor", lambda: doctor_report)
     assert CLI.main(["doctor", "--format", "json"]) == 0

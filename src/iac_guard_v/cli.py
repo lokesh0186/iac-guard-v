@@ -7,7 +7,7 @@ import json
 import shutil
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import MappingProxyType
 
@@ -24,10 +24,16 @@ from .redaction import redact_detail
 class DoctorReportV1:
     checkov: object
     hardened_container: object
+    validator_registry: object = field(default_factory=lambda: {
+        "status": "INCONCLUSIVE",
+        "reason_code": "VALIDATOR_REGISTRY_NOT_EVALUATED",
+        "remediation": "Run doctor in the protected bytecode-free product environment.",
+    })
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "checkov", _freeze(self.checkov))
         object.__setattr__(self, "hardened_container", _freeze(self.hardened_container))
+        object.__setattr__(self, "validator_registry", _freeze(self.validator_registry))
 
     def canonical_dict(self) -> dict:
         return {
@@ -35,6 +41,7 @@ class DoctorReportV1:
             "product_version": __version__,
             "checkov": _thaw(self.checkov),
             "hardened_container": _thaw(self.hardened_container),
+            "validator_registry": _thaw(self.validator_registry),
         }
 
     def canonical_json(self) -> str:
@@ -130,7 +137,28 @@ def doctor() -> DoctorReportV1:
         "docker_cli_present": docker is not None,
         "remediation": "Install and pin the Phase E hardened image before verifying hostile pull-request input.",
     }
-    return DoctorReportV1(checkov, hardened)
+    try:
+        from .validators.registry import production_validator_registry
+        registry = production_validator_registry()
+        validator_registry = {
+            "status": registry.integrity_status.value,
+            "reason_code": registry.integrity_reason,
+            "registry_identity": registry.identity,
+            "remediation": registry.remediation or (
+                "Run the bytecode-free installed product in its protected environment."
+            ),
+        }
+    except DomainError as exc:
+        validator_registry = {
+            "status": "INCONCLUSIVE",
+            "reason_code": "VALIDATOR_REGISTRY_INTEGRITY_UNAVAILABLE",
+            "detail": redact_detail(str(exc)),
+            "remediation": (
+                "Reinstall from the protected wheel, remove executable caches, and set "
+                "PYTHONDONTWRITEBYTECODE=1 before Python starts."
+            ),
+        }
+    return DoctorReportV1(checkov, hardened, validator_registry)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -283,11 +311,14 @@ def main(argv: list[str] | None = None) -> int:
                     f"IaC-Guard-V doctor\nCheckov: {value['checkov']['status']} "
                     f"({value['checkov']['reason_code']})\nHardened container: "
                     f"{value['hardened_container']['status']} "
-                    f"({value['hardened_container']['reason_code']})\n"
+                    f"({value['hardened_container']['reason_code']})\nValidator registry: "
+                    f"{value['validator_registry']['status']} "
+                    f"({value['validator_registry']['reason_code']})\n"
                 )
             return 0 if (
                 result.checkov["status"] == "PASS"
                 and result.hardened_container["status"] == "PASS"
+                and result.validator_registry["status"] == "PASS"
             ) else 3
         request = load_public_config(args.config)
         report = verify(request)

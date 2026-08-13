@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import os
 import tarfile
 import zipfile
 from pathlib import Path
@@ -34,3 +35,29 @@ def test_wheel_and_sdist_contain_no_validator_test_capability(tmp_path: Path) ->
         assert b"execute_tflint_fixture" not in payload
         assert b"make_test_container_runtime" not in payload
         assert b"_normalize_for_test" not in payload
+
+    installed = tmp_path / "installed"
+    install = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--no-deps", "--no-compile",
+         "--target", str(installed), str(wheel)],
+        capture_output=True, text=True, check=False, timeout=120,
+    )
+    assert install.returncode == 0, install.stderr
+    environment = {
+        **os.environ,
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "PYTHONPATH": str(installed),
+    }
+    command = [
+        sys.executable, "-c",
+        "from iac_guard_v.validators.registry import _product_source_inventory; "
+        "print('PASS' if not _product_source_inventory()[1] else 'INCONCLUSIVE')",
+    ]
+    for _attempt in range(2):
+        invocation = subprocess.run(
+            command, cwd=tmp_path, env=environment, capture_output=True, text=True,
+            check=False, timeout=60,
+        )
+        assert invocation.returncode == 0, invocation.stderr
+        assert invocation.stdout.strip() == "PASS"
+    assert not tuple(installed.rglob("__pycache__"))

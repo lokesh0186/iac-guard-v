@@ -430,6 +430,21 @@ def test_registry_records_expose_complete_implementation_children() -> None:
     } <= set(record)
 
 
+def test_native_bytecode_cache_is_typed_registry_uncertainty(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    paths, unsafe = registry_module._product_source_inventory()
+    assert not unsafe
+    with patch.object(
+        registry_module, "_product_source_inventory",
+        return_value=(paths, ("BYTECODE_CACHE:validators/__pycache__",)),
+    ):
+        registry = production_validator_registry()
+        assert registry.integrity_status is Status.INCONCLUSIVE
+        assert "PYTHONDONTWRITEBYTECODE" in registry.remediation
+        with pytest.raises(DomainError, match="INTEGRITY_INCONCLUSIVE"):
+            registry.execute("tflint_advisory", request)
+
+
 @pytest.mark.parametrize("mutation", [
     {"issues": {}},
     {"issues": [], "errors": [], "extra": True},

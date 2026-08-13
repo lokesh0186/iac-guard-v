@@ -382,6 +382,30 @@ def test_complete_kubernetes_scope_detects_late_file(tmp_path: Path) -> None:
         Status.INCONCLUSIVE, ValidationReason.SNAPSHOT_CHANGED_DURING_VALIDATION,
     )
 
+
+def test_native_valid_status_cannot_carry_validation_errors(tmp_path: Path) -> None:
+    request = _request(tmp_path, POD)
+    record = _affirmative(request)[0]
+    record["validationErrors"] = [{"path": "/spec", "msg": "bad"}]
+    run = execute_kubeconform_fixture(
+        request, _process(_native(resources=[record])),
+    )
+    assert (run.status, run.reason) == (
+        Status.INCONCLUSIVE, ValidationReason.DIAGNOSTIC_CONTRADICTION,
+    )
+
+
+def test_native_path_requires_exact_locked_prefix(tmp_path: Path) -> None:
+    request = _request(tmp_path, POD)
+    record = _affirmative(request)[0]
+    record["filename"] = "/totally-other/manifest.yaml"
+    run = execute_kubeconform_fixture(
+        request, _process(_native(resources=[record])),
+    )
+    assert (run.status, run.reason) == (
+        Status.INCONCLUSIVE, ValidationReason.INCOMPLETE_COVERAGE,
+    )
+
 def test_input_extension_symlink_size_and_duplicate_paths_are_rejected(tmp_path: Path) -> None:
     request = _request(tmp_path / "base", POD)
     root = request.scan_root
