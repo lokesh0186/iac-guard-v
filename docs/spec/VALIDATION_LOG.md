@@ -3093,3 +3093,15 @@ all decided evidence on blocked plans, and requires exact `TF_JSON_UNSUPPORTED` 
 `ARTIFACT_UNIVERSE_UNRESOLVED` uncertainty. An empty required Kubernetes domain is now
 `INCONCLUSIVE/EMPTY_REQUIRED_KUBERNETES_UNIVERSE`; it cannot carry affirmative child
 evidence.
+
+## 2026-08-13 — E4.3 catalog runtime qualification
+
+Catalog v3 retains the actual protected matrix without promotion: 18 records comprise
+six Checkov PASS results, five KICS PARTIAL results, one KICS ERROR, and six Trivy
+ERROR results. Both `OVERLAPPING` relationships are explicitly
+`NOT_READY_FOR_VALIDATED_SCREENING`, with KICS-incomplete and Trivy-error blockers.
+The checker rejects fabricated readiness while any of the nine relationship cells is
+non-definitive, and future EXACT promotion still requires complete PASS execution and
+mechanically verified sign-off. The focused catalog suite records 81 passes. The
+current non-integration suite contains 1,969 collected tests; this supersedes the stale
+1,927 count while preserving the historical counts above.

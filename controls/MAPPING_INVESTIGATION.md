@@ -2,7 +2,7 @@
 
 ## Decision
 
-Catalog v2 (retained at the stable `catalog-v1.yml` path) publishes **zero `EXACT`
+Catalog v3 (retained at the stable `catalog-v1.yml` path) publishes **zero `EXACT`
 mappings**. It records two useful `OVERLAPPING` Kubernetes relationships without
 treating scanner agreement as ground truth. A target count was deliberately not used.
 
@@ -39,6 +39,10 @@ the matrix with complete expected resource bindings. Its current distribution is
 `PASS`, five KICS `PARTIAL/COVERAGE_MISMATCH`, and seven typed `ERROR` records. All six
 Trivy cells remain `ERROR/INVALID_RESULTS_STRUCTURE`, while Checkov completes all six.
 These are bound execution records, not 18 successful behavioral demonstrations.
+Both relationships therefore carry the machine-checked status
+`NOT_READY_FOR_VALIDATED_SCREENING`, with explicit KICS-incomplete and Trivy-error
+blockers. They may support observation-level research, but they cannot certify an
+automated validated discrepancy.
 
 The v2 runtime evidence closes its top-level architecture and protected-evidence
 identity, retains exit code, diagnostics, portable locked argv, duration and raw/canonical
@@ -72,4 +76,6 @@ missing-field behavior is part of the relationship, not incidental test data.
 This catalog is advisory research evidence. It cannot prove target resolution,
 override a protected oracle, or change a final policy verdict. Promotion to
 `EXACT` requires a new catalog version and the complete evidence package
-enforced by `tools/check_catalog.py`.
+enforced by `tools/check_catalog.py`. Independently, validated-screening readiness
+requires definitive positive, negative, and boundary executions from every locked
+scanner; a self-authored readiness label cannot override a partial or error cell.

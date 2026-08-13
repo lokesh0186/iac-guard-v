@@ -985,3 +985,12 @@ product and verified parser closure with `PYTHONDONTWRITEBYTECODE=1` active befo
 interpreter startup. Cache-bearing writable native installs are typed `INCONCLUSIVE`,
 the registry refuses to return authoritative evidence, and doctor provides deterministic
 remediation. Product bytecode absence is checked both before and after validator calls.
+
+## E4.3 validated-screening qualification
+
+Relationship research and discrepancy authority remain separate. Each catalog
+relationship carries a closed validated-screening readiness state and typed blockers.
+The checker derives eligibility from all nine locked scanner/fixture records: any
+non-definitive cell forces `NOT_READY_FOR_VALIDATED_SCREENING`. The present two
+`OVERLAPPING` relationships remain advisory observations because KICS is incomplete
+and every Trivy cell is an error.

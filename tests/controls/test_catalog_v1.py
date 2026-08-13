@@ -59,6 +59,44 @@ def test_catalog_is_valid_and_deliberately_has_no_exact_mapping() -> None:
     data = CHECKER.validate_catalog(ROOT / "controls/catalog-v1.yml")
     assert data["exact_mapping_count"] == 0
     assert {item["classification"] for item in data["relationships"]} == {"OVERLAPPING"}
+    assert {
+        item["validated_screening_status"] for item in data["relationships"]
+    } == {"NOT_READY_FOR_VALIDATED_SCREENING"}
+    assert all(item["validated_screening_blockers"] for item in data["relationships"])
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        (
+            lambda relationship: relationship.update(
+                validated_screening_status="READY_FOR_VALIDATED_SCREENING",
+                validated_screening_blockers=[],
+            ),
+            "validated screening",
+        ),
+        (
+            lambda relationship: relationship.update(
+                validated_screening_blockers=[]
+            ),
+            "requires blockers",
+        ),
+        (
+            lambda relationship: relationship.update(
+                validated_screening_status="CLAIMED_READY"
+            ),
+            "not closed",
+        ),
+    ),
+)
+def test_incomplete_runtime_cells_cannot_be_qualified_for_validated_screening(
+    tmp_path: Path, mutation, message: str,
+) -> None:
+    def mutate(data):
+        mutation(data["relationships"][0])
+
+    with pytest.raises(ValueError, match=message):
+        CHECKER.validate_catalog(_catalog(tmp_path, mutate))
 
 
 def test_exact_mapping_without_independent_signoff_is_rejected(tmp_path: Path) -> None:

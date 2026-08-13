@@ -1,4 +1,4 @@
-contract: iac-guard-v-control-relationship-catalog-v2
+contract: iac-guard-v-control-relationship-catalog-v3
 catalog_status: ADVISORY_ONLY
 exact_mapping_count: 0
 runtime_evidence:
@@ -85,6 +85,10 @@ relationships:
       - Finding locations and occurrence identities are scanner-native and not interchangeable.
     exact_blockers:
       - No independent reviewer has signed exact set equality for every supported workload kind and malformed-input boundary.
+    validated_screening_status: NOT_READY_FOR_VALIDATED_SCREENING
+    validated_screening_blockers:
+      - KICS_LOCKED_FIXTURE_EXECUTION_INCOMPLETE
+      - TRIVY_LOCKED_FIXTURE_EXECUTION_ERROR
     independent_reviewer_signoff: null
   - relationship_id: k8s-allow-privilege-escalation-v1
     classification: OVERLAPPING
@@ -138,4 +142,8 @@ relationships:
       - Scanner-native location and occurrence evidence is not interchangeable.
     exact_blockers:
       - No independent reviewer has signed exact set equality across all selected workload and defaulting boundaries.
+    validated_screening_status: NOT_READY_FOR_VALIDATED_SCREENING
+    validated_screening_blockers:
+      - KICS_LOCKED_FIXTURE_EXECUTION_INCOMPLETE
+      - TRIVY_LOCKED_FIXTURE_EXECUTION_ERROR
     independent_reviewer_signoff: null

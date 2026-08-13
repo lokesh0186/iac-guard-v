@@ -1546,3 +1546,11 @@ ambiguous same-file identities are uncertainty rather than fabricated coverage.
 The native result is the exact five-field `format_version=1.0` object. `valid=true`
 requires exit 0, zero errors, and matching counts. `valid=false` requires exit 1 and
 retained error evidence.
+
+## E4.3 catalog screening readiness
+
+`READY_FOR_VALIDATED_SCREENING` requires nine definitive locked cells per relationship:
+positive, negative, and boundary evidence from Checkov, KICS, and Trivy. Any non-PASS
+execution state forces `NOT_READY_FOR_VALIDATED_SCREENING` and a nonempty blocker set.
+This qualification is advisory research metadata and cannot alter the verification
+verdict.

@@ -605,3 +605,8 @@ and inventory before use.
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow
 writable-output allowlist with per-file/total caps, and removal of all test evidence
 factories from distributable product modules.
+
+E4.3 publishes zero exact mappings and zero relationships ready for automated validated
+screening. The catalog retains the actual 18-cell result distribution—six PASS, five
+PARTIAL, and seven ERROR—and exposes explicit non-readiness blockers rather than
+converting incomplete locked execution into scanner agreement.

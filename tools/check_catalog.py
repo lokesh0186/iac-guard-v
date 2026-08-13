@@ -54,7 +54,8 @@ REQUIRED_RELATIONSHIP = {
     "trivy_check_id", "semantics", "authoritative_sources", "fixtures",
     "expected_locked_observations", "variable_default_behavior",
     "resource_type_scope", "known_semantic_differences", "exact_blockers",
-    "independent_reviewer_signoff",
+    "independent_reviewer_signoff", "validated_screening_status",
+    "validated_screening_blockers",
 }
 RUNTIME_FIELDS = {
     "relationship_id", "fixture_kind", "fixture_sha256", "scanner",
@@ -92,6 +93,10 @@ NATIVE_RESULTS = {
     "FAILED", "PASSED", "SKIPPED", "ABSENT", "INVALID_RESULTS_STRUCTURE",
     "COVERAGE_MISMATCH", "PROCESS_ERROR", "TIMEOUT", "EXIT_CODE_OUTSIDE_CONTRACT",
     "EXIT_RESULT_MISMATCH", "SCANNER_ERROR", "PARTIAL_SCAN",
+}
+SCREENING_STATUSES = {
+    "READY_FOR_VALIDATED_SCREENING",
+    "NOT_READY_FOR_VALIDATED_SCREENING",
 }
 
 
@@ -393,7 +398,7 @@ def _validate_execution_attestation(runtime: dict) -> None:
 
 def validate_catalog(path: Path) -> dict:
     data = yaml.load(path.read_text(encoding="utf-8"), Loader=UniqueLoader)
-    if type(data) is not dict or data.get("contract") != "iac-guard-v-control-relationship-catalog-v2":
+    if type(data) is not dict or data.get("contract") != "iac-guard-v-control-relationship-catalog-v3":
         raise ValueError("catalog contract is unsupported")
     if data.get("catalog_status") != "ADVISORY_ONLY":
         raise ValueError("scanner relationship catalog must remain advisory")
@@ -436,6 +441,20 @@ def validate_catalog(path: Path) -> dict:
             raise ValueError("locked fixture observations are incomplete")
         if not item["resource_type_scope"]:
             raise ValueError("resource type scope cannot be empty")
+        screening_status = item["validated_screening_status"]
+        screening_blockers = item["validated_screening_blockers"]
+        if screening_status not in SCREENING_STATUSES:
+            raise ValueError("validated screening status is not closed")
+        if (
+            type(screening_blockers) is not list
+            or any(type(value) is not str or not value for value in screening_blockers)
+            or screening_blockers != sorted(set(screening_blockers))
+        ):
+            raise ValueError("validated screening blockers are invalid")
+        if screening_status == "NOT_READY_FOR_VALIDATED_SCREENING" and not screening_blockers:
+            raise ValueError("validated screening non-readiness requires blockers")
+        if screening_status == "READY_FOR_VALIDATED_SCREENING" and screening_blockers:
+            raise ValueError("validated screening readiness contradicts blockers")
         if item["classification"] == "EXACT":
             exact_count += 1
             if item["exact_blockers"]:
@@ -452,16 +471,31 @@ def validate_catalog(path: Path) -> dict:
         data, relationships, data["scanner_locks"], reference,
     )
     for item in relationships:
-        if item["classification"] != "EXACT":
-            continue
         records = tuple(
             value for key, value in runtime_records.items()
             if key[0] == item["relationship_id"]
         )
-        if len(records) != 9 or any(
+        definitive = len(records) == 9 and not any(
             value["execution_status"] != "PASS"
             or value["normalized_result"] not in {"FINDING", "NO_FINDING", "SUPPRESSED"}
             for value in records
+        )
+        if (
+            not definitive
+            and item["validated_screening_status"]
+            != "NOT_READY_FOR_VALIDATED_SCREENING"
+        ):
+            raise ValueError(
+                "incomplete locked execution is not ready for validated screening"
+            )
+        if (
+            item["validated_screening_status"] == "READY_FOR_VALIDATED_SCREENING"
+            and not definitive
+        ):
+            raise ValueError("validated screening requires definitive locked results")
+        if item["classification"] == "EXACT" and (
+            not definitive
+            or item["validated_screening_status"] != "READY_FOR_VALIDATED_SCREENING"
         ):
             raise ValueError("EXACT mapping requires definitive locked scanner results")
     return data

@@ -580,3 +580,9 @@ engines. The materializer now makes only the mounted input/protected trees globa
 readable and traversable, never writable. Output is the sole writable mount. Mode,
 type, and content are verified both before and after the child process; a candidate
 cannot use this portability correction to mutate trusted inputs or configuration.
+
+### E4.3 screening-authority inflation
+
+A relationship cannot become ready for validated screening merely by changing prose or
+a status field. The catalog checker reconciles readiness with the protected execution
+matrix and keeps all incomplete KICS and failing Trivy cells as explicit blockers.
