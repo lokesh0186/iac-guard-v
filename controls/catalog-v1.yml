@@ -1,0 +1,82 @@
+contract: iac-guard-v-control-relationship-catalog-v1
+catalog_status: ADVISORY_ONLY
+exact_mapping_count: 0
+scanner_locks:
+  checkov:
+    version: 3.3.0
+    source_repository: https://github.com/bridgecrewio/checkov
+    source_commit: 5b5ce3e65339c78ca9977e06beb504240db95fdc
+    policy_identity: checkov-3.3.0-packaged-kubernetes-checks
+  kics:
+    version: 2.1.20
+    source_repository: https://github.com/Checkmarx/kics
+    source_commit: e1f23cad9640f55b963f22a116b04906b8c16ac6
+    policy_identity: kics-v2.1.20-embedded-query-set
+  trivy:
+    version: 0.73.0
+    source_repository: https://github.com/aquasecurity/trivy-checks
+    source_commit: d7c9302130a9b7e614a5c5d32854f6a08b4bc52e
+    policy_identity: sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45
+relationships:
+  - relationship_id: k8s-privileged-container-v1
+    classification: OVERLAPPING
+    checkov_rule_id: CKV_K8S_16
+    kics_query_id: dd29336b-fe57-445b-a26e-e6aa867ae609
+    trivy_check_id: AVD-KSV-0017
+    semantics:
+      checkov: Fails supported Pod and workload container or initContainer entries when securityContext.privileged is true.
+      kics: Reports container and initContainer entries when securityContext.privileged is true.
+      trivy: Reports selected Kubernetes workload containers when securityContext.privileged is true.
+    authoritative_sources:
+      checkov: https://github.com/bridgecrewio/checkov/blob/3.3.0/checkov/kubernetes/checks/resource/k8s/PrivilegedContainers.py
+      kics: https://github.com/Checkmarx/kics/blob/v2.1.20/assets/queries/k8s/container_is_privileged/query.rego
+      trivy: https://github.com/aquasecurity/trivy-checks/blob/v2.2.0/policies/kubernetes/policies/privileged.rego
+    fixtures:
+      positive: controls/fixtures/k8s-privileged/positive.yaml
+      negative: controls/fixtures/k8s-privileged/negative.yaml
+      boundary: controls/fixtures/k8s-privileged/boundary.yaml
+    variable_default_behavior: The field is a Kubernetes literal; omission differs from true and does not create a finding in these pinned implementations.
+    resource_type_scope:
+      - Pod
+      - Deployment
+      - DaemonSet
+      - StatefulSet
+      - Job
+      - CronJob
+    known_semantic_differences:
+      - Each scanner owns a distinct workload-kind selector and resource-normalization library.
+      - Finding locations and occurrence identities are scanner-native and not interchangeable.
+    exact_blockers:
+      - No independent reviewer has signed exact set equality for every supported workload kind and malformed-input boundary.
+    independent_reviewer_signoff: null
+  - relationship_id: k8s-allow-privilege-escalation-v1
+    classification: OVERLAPPING
+    checkov_rule_id: CKV_K8S_20
+    kics_query_id: 5572cc5e-1e4c-4113-92a6-7a8a3bd25e6d
+    trivy_check_id: AVD-KSV-0001
+    semantics:
+      checkov: Requires securityContext.allowPrivilegeEscalation to be explicitly false for supported Pod and workload containers.
+      kics: Reports true or absent allowPrivilegeEscalation for container and initContainer entries.
+      trivy: Reports selected Kubernetes workload containers unless allowPrivilegeEscalation is explicitly false.
+    authoritative_sources:
+      checkov: https://github.com/bridgecrewio/checkov/blob/3.3.0/checkov/kubernetes/checks/resource/k8s/AllowPrivilegeEscalation.py
+      kics: https://github.com/Checkmarx/kics/blob/v2.1.20/assets/queries/k8s/privilege_escalation_allowed/query.rego
+      trivy: https://github.com/aquasecurity/trivy-checks/blob/v2.2.0/policies/kubernetes/policies/can_elevate_its_own_privileges.rego
+    fixtures:
+      positive: controls/fixtures/k8s-allow-privilege-escalation/positive.yaml
+      negative: controls/fixtures/k8s-allow-privilege-escalation/negative.yaml
+      boundary: controls/fixtures/k8s-allow-privilege-escalation/boundary.yaml
+    variable_default_behavior: Explicit false passes; true and omission are adverse under the pinned rule implementations.
+    resource_type_scope:
+      - Pod
+      - Deployment
+      - DaemonSet
+      - StatefulSet
+      - Job
+      - CronJob
+    known_semantic_differences:
+      - Each scanner owns a distinct workload-kind selector and malformed-container behavior.
+      - Scanner-native location and occurrence evidence is not interchangeable.
+    exact_blockers:
+      - No independent reviewer has signed exact set equality across all selected workload and defaulting boundaries.
+    independent_reviewer_signoff: null
