@@ -2917,3 +2917,15 @@ sole nested module at its exact path. Kubeconform now uses verbose output and re
 one-to-one native identity and status reconciliation; aggregate-only output is
 `AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE`. The preserved E3/E3.4 set plus permanent
 E3.5 probes recorded 110 passing tests.
+
+## 2026-08-13 — E3.6 complete validator implementation provenance
+
+The old selected-module registry digest remained unchanged when shared validator code
+changed. The new product/build and shared-code manifests bind validator base semantics,
+sealed materialization, process execution, Phase-E runtime/lock verification, artifact
+discovery, leaf parsers, physical parser dependency code, and schema contracts.
+Permanent source-evidence mutations across all required helper classes, plus a parser
+distribution identity mutation, change the registry identity. Registry-focused tests
+recorded 46 passes. The combined E3.1–E3.6 focused set recorded 129 passes with
+branch-aware coverage of 91% Terraform/OpenTofu, 91% kubeconform, 95% TFLint, and
+90% registry before the final matrix.

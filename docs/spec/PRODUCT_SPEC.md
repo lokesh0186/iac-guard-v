@@ -537,6 +537,14 @@ Terraform/OpenTofu and TFLint PASS covers one explicitly sealed module directory
 recursive paths. A mixed-root input is rejected until partitioned into separate module
 requests. Kubeconform PASS requires verbose affirmative native evidence for the exact
 sealed resource set; matching aggregate counts without identities are inconclusive.
+
+## E3.6 implementation provenance acceptance
+
+An authoritative validator record must bind the complete product build, its leaf
+module, shared security implementation, parser dependency code, schema contract, and
+runtime contract. The aggregate implementation digest is recomputed from these child
+identities. Changes to shared evidence or materialization behavior must change the
+closed registry identity.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

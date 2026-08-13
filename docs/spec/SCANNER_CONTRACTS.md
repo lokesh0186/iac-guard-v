@@ -576,5 +576,14 @@ Kubeconform uses `-verbose` and reconciles every native `statusValid`, invalid, 
 or skipped record to one independently discovered resource. Aggregate summary counts
 alone cannot prove coverage. Exact file/version/kind/name reconciliation, duplicate
 rejection, summary agreement, and full expected-set equality are required for PASS.
+
+## E3.6 validator provenance contract
+
+Each closed-registry record exposes `contract_version`, `product_build_digest`,
+`validator_module_sha256`, `shared_code_manifest_root`,
+`parser_dependency_identity`, `schema_contract_identity`, and
+`runtime_contract_identity`. `implementation_sha256` is derived from these records and
+the gate id; it is not a selected-function or selected-module alias. Physical parser
+identity uses the complete RECORD-backed installed dependency closure.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

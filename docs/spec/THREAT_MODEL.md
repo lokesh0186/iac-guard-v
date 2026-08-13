@@ -528,3 +528,11 @@ module. Terraform/OpenTofu and TFLint therefore bind one module directory per se
 request and reject mixed roots. Kubeconform aggregate counts are likewise not exact
 identity proof: verbose native records must reconcile one-to-one with independently
 discovered resources, or coverage remains inconclusive.
+
+### E3.6 incomplete implementation provenance
+
+Hashing only a leaf validator file permits security-relevant shared behavior to change
+without changing the registry identity. The registry now hashes the complete packaged
+implementation and a named shared-code manifest, plus physical dependency, schema, and
+runtime contract identities. Mutation of materialization, parsing, resource discovery,
+evidence semantics, process execution, or lock verification changes the registry.

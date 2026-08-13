@@ -13,12 +13,13 @@ import iac_guard_v.validators.terraform as terraform_module
 from iac_guard_v.adapters.phase_e_lock import (
     load_locked_container_identity, load_protected_phase_e_evidence,
 )
-from iac_guard_v.enums import Status
+from iac_guard_v.enums import ScanRole, Status
 from iac_guard_v.models import DomainError
 from iac_guard_v.process import CommandResult, ProcessReason
 from iac_guard_v.validators import (
     TerraformValidationRequest, ValidationDiagnostic, ValidationReason,
     ValidatorExecutionEvidence, TerraformValidator,
+    ValidationModule,
     create_terraform_validation_request, require_trusted_validator_evidence,
 )
 from tests.phase_e_test_support import (
@@ -383,3 +384,37 @@ def test_validation_diagnostic_model_is_closed() -> None:
     for args in (("fatal", "x"), ("error", "x", "", 1), ("error", "x", "", "", 0)):
         with pytest.raises(DomainError):
             ValidationDiagnostic(*args)
+
+
+@pytest.mark.parametrize("values", [
+    (object(), ".", ("main.tf",), "0" * 64, "opentofu"),
+    (ScanRole.CANDIDATE, ".", (), "0" * 64, "opentofu"),
+    (ScanRole.CANDIDATE, ".", ("sub/main.tf",), "0" * 64, "opentofu"),
+    (ScanRole.CANDIDATE, ".", ("main.tf",), "bad", "opentofu"),
+    (ScanRole.CANDIDATE, ".", ("main.tf",), "0" * 64, "other"),
+])
+def test_validation_module_model_is_closed(values: tuple) -> None:
+    with pytest.raises(DomainError):
+        ValidationModule(*values)
+
+
+def test_nested_module_diagnostic_must_bind_its_sealed_file(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    (request.scan_root / "main.tf").unlink()
+    nested = request.scan_root / "sub"
+    nested.mkdir()
+    (nested / "main.tf").write_text("broken = }\n", encoding="utf-8")
+    nested_request = create_terraform_validation_request(
+        workspace_root=request.workspace_root, scan_root=request.scan_root,
+        files_eligible=("sub/main.tf",), container_runtime=request.container_runtime,
+        locked_identity=request.locked_identity,
+    )
+    diagnostic = {
+        "severity": "error", "summary": "bad", "detail": "bad",
+        "range": {"filename": "other.tf", "start": {"line": 1}},
+    }
+    run = execute_terraform_validator_fixture(
+        nested_request,
+        _process(_native(valid=False, diagnostics=[diagnostic]), exit_code=1),
+    )
+    assert run.reason is ValidationReason.INCOMPLETE_COVERAGE

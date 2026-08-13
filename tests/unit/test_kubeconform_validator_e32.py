@@ -310,6 +310,50 @@ def test_native_path_count_exit_and_error_reason_are_closed(tmp_path: Path) -> N
     assert run.reason is ValidationReason.UNSUPPORTED_CONDITION
 
 
+def test_affirmative_identity_duplicates_and_status_counts_are_reconciled(
+    tmp_path: Path,
+) -> None:
+    request = _request(tmp_path, POD)
+    valid = _affirmative(request)[0]
+    wrong = dict(valid, name="another")
+    run = execute_kubeconform_fixture(
+        request, _process(_native(resources=[wrong]))
+    )
+    assert run.reason is ValidationReason.AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE
+    run = execute_kubeconform_fixture(
+        request, _process(_native(resources=[valid, valid]))
+    )
+    assert run.reason is ValidationReason.DIAGNOSTIC_CONTRADICTION
+    invalid = dict(valid, status="statusInvalid", msg="bad")
+    run = execute_kubeconform_fixture(
+        request, _process(_native(resources=[invalid]))
+    )
+    assert run.reason is ValidationReason.DIAGNOSTIC_CONTRADICTION
+
+
+def test_namespace_ambiguous_native_identity_is_inconclusive(tmp_path: Path) -> None:
+    content = """apiVersion: v1
+kind: List
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata: {name: demo, namespace: one}
+- apiVersion: v1
+  kind: Pod
+  metadata: {name: demo, namespace: two}
+"""
+    request = _request(tmp_path, content)
+    assert len(request.resource_identities) == 2
+    native = [{
+        "filename": "/iacgv-input/manifest.yaml", "kind": "Pod",
+        "name": "demo", "version": "v1", "status": "statusValid", "msg": "",
+    }] * 2
+    run = execute_kubeconform_fixture(
+        request, _process(_native(valid=2, resources=native))
+    )
+    assert run.reason is ValidationReason.AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE
+
+
 def test_input_change_and_wrong_process_argv_are_rejected(tmp_path: Path) -> None:
     request = _request(tmp_path / "changed", POD)
     (request.scan_root / "manifest.yaml").write_text(POD.replace("demo", "changed"), encoding="utf-8")

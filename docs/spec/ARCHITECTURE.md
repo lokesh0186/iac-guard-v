@@ -875,3 +875,12 @@ Kubeconform runs in verbose mode. Its positive and adverse native resource recor
 normalized and reconciled exactly against sealed discovery evidence; request-side
 identities are never copied into the result as a substitute for native affirmative
 evidence. Aggregate-only success is typed uncertainty.
+
+## E3.6 complete validator implementation identity
+
+The closed registry binds more than each leaf validator module. Every implementation
+record separately retains the validator contract, complete product/package build,
+validator module, shared security-code manifest, physical parser-dependency closure,
+schema contract, and protected-runtime contract identities. One aggregate digest is
+recomputed from those children. The shared manifest includes materialization, evidence
+models, process execution, runtime/lock verification, and artifact discovery.

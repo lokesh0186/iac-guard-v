@@ -340,9 +340,11 @@ def test_registry_record_and_graph_invariants() -> None:
     registry = production_validator_registry()
     record = registry.records[0]
     with pytest.raises(DomainError, match="digest"):
-        ValidatorImplementationRecord(record.gate_id, record.contract_version, "bad", record.supported_artifact_kinds, False)
+        replace(record, implementation_sha256="bad")
     with pytest.raises(DomainError, match="sorted"):
-        ValidatorImplementationRecord(record.gate_id, record.contract_version, "0" * 64, ("z", "a"), False)
+        replace(record, supported_artifact_kinds=("z", "a"))
+    with pytest.raises(DomainError, match="bind its children"):
+        replace(record, product_build_digest="0" * 64)
     with pytest.raises(DomainError, match="contract"):
         TrustedValidatorRegistry(registry.records, "wrong")
     with pytest.raises(DomainError, match="records"):
@@ -365,6 +367,46 @@ def test_registry_detects_substitution_and_wrong_returned_gate(tmp_path: Path) -
             production_validator_registry().execute("tflint_advisory", request)
     finally:
         registry_module._IMPLEMENTATIONS["tflint_advisory"] = original
+
+
+@pytest.mark.parametrize("relative", [
+    "validators/materialization.py",
+    "validators/base.py",
+    "validators/terraform.py",
+    "validators/kubeconform.py",
+    "validators/tflint.py",
+    "engine.py",
+    "process.py",
+    "adapters/phase_e_runtime.py",
+    "adapters/phase_e_lock.py",
+])
+def test_registry_identity_binds_security_relevant_source_bytes(relative: str) -> None:
+    baseline = production_validator_registry().identity
+    original = registry_module._read_source_bytes
+    def changed(path: str) -> bytes:
+        content = original(path)
+        return content + b"\n# mutation probe\n" if path == relative else content
+    with patch.object(registry_module, "_read_source_bytes", side_effect=changed):
+        assert production_validator_registry().identity != baseline
+
+
+def test_registry_identity_binds_physical_parser_dependency_evidence() -> None:
+    baseline = production_validator_registry().identity
+    with patch(
+        "iac_guard_v.engine._verified_parser_environment",
+        return_value={"python-hcl2": "0" * 64, "pyyaml": "1" * 64},
+    ):
+        assert production_validator_registry().identity != baseline
+
+
+def test_registry_records_expose_complete_implementation_children() -> None:
+    record = production_validator_registry().records[0].canonical_dict()
+    assert {
+        "contract_version", "implementation_sha256", "product_build_digest",
+        "validator_module_sha256", "shared_code_manifest_root",
+        "parser_dependency_identity", "schema_contract_identity",
+        "runtime_contract_identity", "supported_artifact_kinds",
+    } <= set(record)
 
 
 @pytest.mark.parametrize("mutation", [
