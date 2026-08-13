@@ -2,14 +2,14 @@
 
 ## Decision
 
-Catalog v1 publishes **zero `EXACT` mappings**. It records two useful
-`OVERLAPPING` Kubernetes relationships without treating scanner agreement as
-ground truth. A target count was deliberately not used.
+Catalog v2 (retained at the stable `catalog-v1.yml` path) publishes **zero `EXACT`
+mappings**. It records two useful `OVERLAPPING` Kubernetes relationships without
+treating scanner agreement as ground truth. A target count was deliberately not used.
 
 The machine-readable source is [`catalog-v1.yml`](catalog-v1.yml). The checker
-rejects unknown relationship classes, mutable source references, missing
-fixtures, duplicate scanner IDs, and any `EXACT` entry without complete signed
-review evidence.
+rejects unknown relationship classes, unapproved repositories, tag/commit drift,
+non-commit source URLs, source-byte drift, missing locked fixture evidence, duplicate
+scanner IDs, and any `EXACT` entry without mechanically verified review evidence.
 
 ## Method
 
@@ -24,8 +24,22 @@ identities pinned by Phase E:
 
 For each candidate, the review retained a positive, negative, and boundary
 fixture; compared explicit/default values; recorded resource selectors and
-known differences; and checked the actual rule/query source rather than names
-or descriptions alone.
+known differences; and checked the actual rule/query source rather than names or
+descriptions alone. Each source record binds the exact reviewed repository, release
+tag and commit, commit-pinned URL, relative path, byte digest, and canonical
+source-attestation identity. `tools/check_catalog.py --verify-sources` re-resolves the
+official tag refs and verifies the six source files.
+
+## Locked execution evidence
+
+`runtime-evidence-v1.json` records all 18 scanner/fixture cells from the protected
+arm64 execution environment. Checkov and KICS produced the expected ordinary
+finding/no-finding observations, and Checkov detected the privileged init container.
+The strict KICS adapter rejected that init-container output as
+`INVALID_RESULTS_STRUCTURE`; the strict Trivy adapter rejected each Kubernetes fixture
+under its current pinned native contract. Those cells remain explicit `ERROR` evidence.
+They are not rewritten as agreement and are an additional reason the relationships
+cannot yet support validated discrepancy claims.
 
 ## Findings
 

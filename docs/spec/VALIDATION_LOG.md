@@ -2989,3 +2989,12 @@ fresh bytecode-free wheel installation. Specification lint reported 26 documents
 `a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`; replay remained
 630/630 and 10,080/10,080 with zero verdict mismatches; all seven derived tables were
 `SEMANTIC_MATCH`; and the frozen-scope diff was empty.
+
+## 2026-08-13 — E4.1 source-attested advisory catalog
+
+The catalog retains zero `EXACT` mappings. Its v2 contract binds the three reviewed
+upstream repositories, exact release tag-to-commit relations, six commit-pinned source
+URLs and file digests, and an 18-cell protected scanner/fixture execution matrix.
+Online source verification re-resolved all three official tag refs and all six source
+files. Runtime errors from the strict KICS init-container and Trivy Kubernetes contracts
+remain visible as `ERROR`; they are not converted into scanner agreement.
