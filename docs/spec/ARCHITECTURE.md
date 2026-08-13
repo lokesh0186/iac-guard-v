@@ -823,3 +823,17 @@ Each invocation consumes a private materialization of sealed input evidence and
 revalidates source bytes and the live runtime around execution. Candidate transient
 state and configuration cannot enter the view. Provider/module initialization need is
 `INCONCLUSIVE`, not a fabricated validation result.
+
+## E3.2 offline Kubernetes schema validation
+
+`kubeconform_schema` executes the exact kubeconform 0.8.0 image against the
+E0.3-signed strict Kubernetes schema tree. The schema capability binds every
+regular schema byte, its repository commit, extracted manifest root, and the
+complete protected-cache attestation. Network schema resolution and
+`ignore-missing-schemas` are forbidden.
+
+YAML, JSON, multiple documents, and Kubernetes `List` items are discovered from
+the same sealed resource evidence consumed by the validator. Native result
+ordering is normalized only for the semantic digest; raw bytes remain separately
+bound. Protected CRD schemas require their own digest-bound capability. The
+schema bundle remains private because its recorded licence is `NOASSERTION`.

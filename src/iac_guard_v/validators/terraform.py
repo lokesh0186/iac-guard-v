@@ -320,8 +320,10 @@ def _evidence(
         validator_id=_VALIDATOR_IDS[request.locked_identity.tool],
         tool=request.locked_identity.tool, version=request.locked_identity.version,
         status=status, reason=reason, advisory_only=False, diagnostics=diagnostics,
+        resource_identities=(),
         input_files=request.input_evidence, files_eligible=len(request.input_evidence),
         files_validated=(len(request.input_evidence) if raw else 0),
+        resources_expected=0, resources_validated=0,
         runtime_identity=request.container_runtime.identity,
         tool_environment_identity=request.locked_identity.environment_digest,
         invocation_identity=(

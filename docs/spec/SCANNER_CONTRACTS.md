@@ -514,5 +514,22 @@ The pinned `format_version=1.0` JSON rejects duplicate keys, excess depth,
 unknown/missing fields, diagnostic/count contradictions, malformed ranges, and
 exit/result contradictions. Valid is `PASS`; definite invalidity is
 `FAIL/INVALID_CONFIGURATION`; initialization need is `INCONCLUSIVE/NEEDS_INIT`.
+
+## E3.2 kubeconform validation contract
+
+`kubeconform_schema` uses kubeconform 0.8.0 and the exact signed Kubernetes
+1.34.0 strict schema tree. Its command contains a local `file:///schemas/...`
+location, never a network schema URL, and never `-ignore-missing-schemas`.
+The runtime, platform image, schema commit and tree root, sealed snapshot,
+resource identities, argv, streams, native output, and empty writable-output
+manifest are independently bound.
+
+The strict native object contains exactly `resources` and `summary`; summary
+counts are nonnegative and total exactly the sealed expected-resource count.
+Nonvalid entries carry a bound input filename and closed native status.
+Candidate invalidity is `FAIL`; baseline invalidity, missing schema, unsupported
+CRD, incomplete coverage, malformed output, timeout, and execution failure are
+`INCONCLUSIVE`. Native array order is excluded from the semantic hash while exact
+bytes retain their own digest.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

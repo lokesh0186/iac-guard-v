@@ -38,6 +38,7 @@ class ValidationReason(str, Enum):
     INCOMPLETE_COVERAGE = "INCOMPLETE_COVERAGE"
     ADVISORY_FINDINGS = "ADVISORY_FINDINGS"
     PLUGIN_INITIALIZATION_REQUIRED = "PLUGIN_INITIALIZATION_REQUIRED"
+    BASELINE_EVIDENCE_INVALID = "BASELINE_EVIDENCE_INVALID"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,9 +76,12 @@ class ValidatorExecutionEvidence:
     reason: ValidationReason
     advisory_only: bool
     diagnostics: tuple
+    resource_identities: tuple
     input_files: tuple
     files_eligible: int
     files_validated: int
+    resources_expected: int
+    resources_validated: int
     runtime_identity: str
     tool_environment_identity: str
     invocation_identity: str
@@ -110,14 +114,25 @@ class ValidatorExecutionEvidence:
             type(item) is not BoundInputFile for item in self.input_files
         ):
             raise DomainError("validator inputs must be exact BoundInputFile evidence")
+        if type(self.resource_identities) is not tuple or any(
+            type(item) is not str or not item for item in self.resource_identities
+        ):
+            raise DomainError("validator resource identities must be an exact string tuple")
+        if tuple(sorted(set(self.resource_identities))) != self.resource_identities:
+            raise DomainError("validator resource identities must be sorted and unique")
         if len({item.file_path for item in self.input_files}) != len(self.input_files):
             raise DomainError("validator input paths must be unique")
-        for name in ("files_eligible", "files_validated", "duration_ms"):
+        for name in (
+            "files_eligible", "files_validated", "resources_expected",
+            "resources_validated", "duration_ms",
+        ):
             value = getattr(self, name)
             if type(value) is not int or value < 0:
                 raise DomainError(f"{name} must be an integer >= 0")
         if self.files_validated > self.files_eligible:
             raise DomainError("files_validated cannot exceed files_eligible")
+        if self.resources_validated > self.resources_expected:
+            raise DomainError("resources_validated cannot exceed resources_expected")
         for name in (
             "runtime_identity", "tool_environment_identity", "invocation_identity",
             "sealed_snapshot_identity", "stdout_sha256", "stderr_sha256",
@@ -160,8 +175,11 @@ class ValidatorExecutionEvidence:
             "status": self.status.value, "reason": self.reason.value,
             "advisory_only": self.advisory_only,
             "diagnostics": [item.canonical_dict() for item in self.diagnostics],
+            "resource_identities": list(self.resource_identities),
             "input_files": [item.canonical_dict() for item in self.input_files],
             "files_eligible": self.files_eligible, "files_validated": self.files_validated,
+            "resources_expected": self.resources_expected,
+            "resources_validated": self.resources_validated,
             "runtime_identity": self.runtime_identity,
             "tool_environment_identity": self.tool_environment_identity,
             "invocation_identity": self.invocation_identity,

@@ -33,6 +33,7 @@ _CACHE_MANIFEST_CONTRACT = "phase-e-cache-manifest-v2"
 _CACHE_ATTESTATION_CONTRACT = "phase-e-protected-cache-attestation-v2"
 _TRIVY_CACHE_PREFIX = "runtime-v2/trivy-cache"
 _BUNDLE_CONTEXT = object()
+_SCHEMA_CONTEXT = object()
 PHASE_E_EVIDENCE_BUNDLE_CONTRACT = "protected-phase-e-evidence-bundle-v1"
 
 
@@ -549,6 +550,140 @@ def load_protected_checks_cache_identity(
     )
 
 
+def _schema_tree_manifest(root: Path) -> tuple[str, int, int]:
+    try:
+        metadata = root.lstat()
+    except OSError as exc:
+        raise DomainError("protected Kubernetes schema tree is unavailable") from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        raise DomainError("protected Kubernetes schema tree must be a real directory")
+    digest = hashlib.sha256()
+    count = total = 0
+    for path in sorted(root.rglob("*"), key=lambda item: item.relative_to(root).as_posix()):
+        item = path.lstat()
+        if stat.S_ISLNK(item.st_mode) or not (
+            stat.S_ISDIR(item.st_mode) or stat.S_ISREG(item.st_mode)
+        ):
+            raise DomainError("protected Kubernetes schema tree contains an unsafe entry")
+        if stat.S_ISDIR(item.st_mode):
+            continue
+        raw = _regular_nofollow_bytes(path, "Kubernetes schema")
+        relative = path.relative_to(root).as_posix()
+        file_digest = hashlib.sha256(raw).hexdigest()
+        digest.update(f"{relative}\0{len(raw)}\0{file_digest}\n".encode())
+        count += 1
+        total += len(raw)
+    return digest.hexdigest(), count, total
+
+
+@dataclass(frozen=True, slots=True)
+class ProtectedKubernetesSchemaIdentity:
+    """Signed E0.3 kubeconform schema capability; local paths are noncanonical."""
+
+    repository: str
+    commit: str
+    kubernetes_version: str
+    strict: bool
+    tree_manifest_root: str
+    file_count: int
+    total_bytes: int
+    bundle_content_digest: str
+    license_id: str
+    protected_cache_manifest_root: str
+    cache_attestation_identity: str
+    _schema_root: Path = field(repr=False, compare=False)
+    _protected_cache: ProtectedChecksCacheIdentity = field(repr=False, compare=False)
+    _trusted_context: InitVar[object] = None
+    _trusted_schema_evidence: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        if self.repository != "https://github.com/yannh/kubernetes-json-schema":
+            raise DomainError("Kubernetes schema repository is not authorized")
+        if _COMMIT.fullmatch(self.commit) is None or self.kubernetes_version != "1.34.0":
+            raise DomainError("Kubernetes schema commit/version is unsupported")
+        if type(self.strict) is not bool or self.strict is not True:
+            raise DomainError("kubeconform requires the strict schema tree")
+        for name in ("tree_manifest_root", "bundle_content_digest", "protected_cache_manifest_root"):
+            _sha(getattr(self, name), name)
+        if type(self.file_count) is not int or self.file_count <= 0:
+            raise DomainError("Kubernetes schema file count must be positive")
+        if type(self.total_bytes) is not int or self.total_bytes <= 0:
+            raise DomainError("Kubernetes schema byte count must be positive")
+        if self.license_id != "NOASSERTION" or not self.cache_attestation_identity:
+            raise DomainError("Kubernetes schema licence/attestation evidence is incomplete")
+        if not isinstance(self._schema_root, Path):
+            raise DomainError("Kubernetes schema private root is invalid")
+        if (
+            type(self._protected_cache) is not ProtectedChecksCacheIdentity
+            or not self._protected_cache._trusted_cache_evidence
+        ):
+            raise DomainError("Kubernetes schema requires signed cache evidence")
+        if _trusted_context is _SCHEMA_CONTEXT:
+            object.__setattr__(self, "_trusted_schema_evidence", True)
+
+    @property
+    def schema_root(self) -> Path:
+        return self._schema_root
+
+    @property
+    def identity(self) -> str:
+        return _canonical_sha256(self.canonical_dict())
+
+    def canonical_dict(self) -> dict:
+        return {
+            "repository": self.repository, "commit": self.commit,
+            "kubernetes_version": self.kubernetes_version, "strict": self.strict,
+            "tree_manifest_root": self.tree_manifest_root,
+            "file_count": self.file_count, "total_bytes": self.total_bytes,
+            "bundle_content_digest": self.bundle_content_digest,
+            "license_id": self.license_id,
+            "protected_cache_manifest_root": self.protected_cache_manifest_root,
+            "cache_attestation_identity": self.cache_attestation_identity,
+        }
+
+    def revalidate(self) -> str:
+        self._protected_cache.revalidate_full()
+        observed = _schema_tree_manifest(self._schema_root)
+        if observed != (self.tree_manifest_root, self.file_count, self.total_bytes):
+            raise DomainError("SCHEMA_BUNDLE_CHANGED")
+        return self.tree_manifest_root
+
+
+def load_protected_kubernetes_schema_identity(
+    evidence_bundle: ProtectedPhaseEEvidenceBundle, protected_cache_root: Path,
+) -> ProtectedKubernetesSchemaIdentity:
+    """Verify the signed cache and exact strict kubeconform schema tree."""
+    bundle = require_protected_phase_e_evidence(evidence_bundle)
+    cache = load_protected_checks_cache_identity(bundle, protected_cache_root)
+    payload = _strict_object(
+        _regular_nofollow_bytes(bundle._lock_path, "Phase-E lock"), "Phase-E lock"
+    )
+    schema = payload.get("tools", {}).get("kubeconform", {}).get("schema_bundle")
+    if type(schema) is not dict:
+        raise DomainError("kubeconform schema lock is absent")
+    strict_tree = schema.get("strict_tree")
+    if type(strict_tree) is not dict:
+        raise DomainError("kubeconform strict schema lock is absent")
+    root = protected_cache_root.resolve(strict=True) / schema["cache_root"] / strict_tree["relative_path"]
+    observed = _schema_tree_manifest(root)
+    expected = (
+        strict_tree.get("manifest_root"), strict_tree.get("file_count"),
+        strict_tree.get("total_bytes"),
+    )
+    if observed != expected:
+        raise DomainError("SCHEMA_BUNDLE_CHANGED")
+    return ProtectedKubernetesSchemaIdentity(
+        repository=schema["repository"], commit=schema["commit"],
+        kubernetes_version=schema["supported_kubernetes_versions"][0], strict=True,
+        tree_manifest_root=observed[0], file_count=observed[1], total_bytes=observed[2],
+        bundle_content_digest=schema["content_digest"],
+        license_id=schema["license"]["id"],
+        protected_cache_manifest_root=cache.protected_manifest_root,
+        cache_attestation_identity=cache.cache_attestation_identity,
+        _schema_root=root, _protected_cache=cache, _trusted_context=_SCHEMA_CONTEXT,
+    )
+
+
 def require_locked_identity(value: object, tool: str) -> LockedContainerIdentity:
     if type(value) is not LockedContainerIdentity or not value._trusted_lock_evidence:
         raise DomainError("scanner identity must come from the reviewed Phase-E lock")
@@ -585,7 +720,7 @@ def load_locked_container_identity(
         or seal != _lock_seal(payload)
     ):
         raise DomainError("Phase-E lock graph differs from the reviewed E0.3 seal")
-    if tool not in {"kics", "trivy", "opentofu", "terraform"} or architecture not in {
+    if tool not in {"kics", "trivy", "opentofu", "terraform", "kubeconform"} or architecture not in {
         "linux/amd64", "linux/arm64",
     }:
         raise DomainError("tool or architecture is outside the E0.3 adapter lock")
@@ -597,6 +732,7 @@ def load_locked_container_identity(
         "trivy": ("0.73.0", "trivy-config-adapter-contract-research-v1"),
         "opentofu": ("1.12.5", "tofu-validate-contract-research-v1"),
         "terraform": ("1.15.8", "terraform-validate-contract-research-v1"),
+        "kubeconform": ("0.8.0", "kubeconform-validator-contract-research-v1"),
     }[tool]
     if (
         record.get("version") != expected[0]
@@ -636,6 +772,11 @@ def load_locked_container_identity(
             "fallback_used": checks.get("fallback_used"),
         }
     )
+    if tool == "kubeconform":
+        schema = record.get("schema_bundle", {})
+        policy_payload["schema_content_digest"] = schema.get("content_digest")
+        policy_payload["schema_commit"] = schema.get("commit")
+        policy_payload["strict_tree"] = schema.get("strict_tree", {}).get("manifest_root")
     return LockedContainerIdentity(
         tool=tool,
         version=record["version"],
@@ -663,12 +804,14 @@ __all__ = [
     "LockedContainerIdentity",
     "ProtectedPhaseEEvidenceBundle",
     "ProtectedChecksCacheIdentity",
+    "ProtectedKubernetesSchemaIdentity",
     "PHASE_E_LOCK_CONTRACT",
     "PHASE_E_LOCK_PAYLOAD_SHA256",
     "PHASE_E_EVIDENCE_BUNDLE_CONTRACT",
     "load_locked_container_identity",
     "load_protected_phase_e_evidence",
     "load_protected_checks_cache_identity",
+    "load_protected_kubernetes_schema_identity",
     "require_locked_identity",
     "require_protected_phase_e_evidence",
 ]

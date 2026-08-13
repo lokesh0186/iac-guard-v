@@ -2876,3 +2876,14 @@ E3.1 adds distinct locked OpenTofu 1.12.5 and protected user-supplied Terraform 
 validation. Focused probes cover valid, invalid, `NEEDS_INIT`, malformed/duplicate JSON,
 timeout, diagnostic contradiction, transient-state rejection, mutation, and trust. Both
 exact arm64 integrations returned `PASS/COMPLETED` for a self-contained module.
+
+## 2026-08-12 — E3.2 pinned offline kubeconform validation
+
+The E0.3 protected cache authenticated 1,304 strict schema files totaling 56,498,213
+bytes under tree root `0c8bd99e642e35c975be957a7520cd29977446711aed9c56f8c099bb4a1abbc5`.
+The exact locked kubeconform 0.8.0 integration validated a sealed Pod without network
+access. Permanent tests cover YAML, JSON, multiple documents, `List`, definite invalidity,
+baseline uncertainty, missing schemas, protected/unprotected CRDs, schema mutation,
+malformed and duplicate JSON, exact resource coverage, native ordering, runtime/input
+mutation, hardened argv, and the private trusted-evidence boundary. The schema licence
+remains `NOASSERTION`; no public redistribution occurred.

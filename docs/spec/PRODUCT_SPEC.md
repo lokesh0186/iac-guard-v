@@ -504,6 +504,20 @@ config, credentials, and candidate `.terraform` state are forbidden.
 Definite invalidity is `FAIL`. Missing dependencies, unsupported states, timeouts,
 malformed evidence, and operational failures are `INCONCLUSIVE`. `PASS` binds the
 sealed snapshot, exact tool/runtime/argv, controls, output inventory, and coherent JSON.
+
+## E3.2 kubeconform acceptance
+
+kubeconform 0.8.0 is accepted only with the exact E0.3 image and signed offline
+schema-tree identity. Valid complete resource coverage is `PASS`; definite
+candidate schema or syntax invalidity is `FAIL`; unavailable schemas, unsupported
+CRDs, incomplete coverage, malformed output, and trusted-baseline defects are
+typed `INCONCLUSIVE`. The validator never enables network schema retrieval or
+`ignore-missing-schemas`, and it never converts missing schema evidence to success.
+
+Every expected Kubernetes resource from the sealed YAML/JSON, multi-document, or
+`List` input is counted. CRD schemas must be protected and digest-bound. The
+`NOASSERTION` schema-bundle licence is retained in validator evidence and blocks
+public redistribution.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

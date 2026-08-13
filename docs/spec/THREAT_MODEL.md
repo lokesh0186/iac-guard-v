@@ -482,3 +482,16 @@ and network access are absent from the locked contract.
 Missing providers/modules become `NEEDS_INIT/INCONCLUSIVE`, while definite native
 invalidity is `FAIL`. Caller-created process and validator objects cannot cross the
 trusted evidence boundary.
+
+### E3.2 kubeconform controls
+
+Candidate input cannot select the kubeconform image, schema repository, schema
+version, strictness, CRD schema, or network endpoint. The validator mounts only a
+private sealed input view and the signed schema tree, both read-only, and executes
+with the hardened container-runtime restrictions. The schema tree and source
+snapshot are revalidated on both sides of execution.
+
+Missing schemas, unsupported CRDs, resource-count disagreement, malformed native
+JSON, and schema/runtime mutation cannot become `PASS`. An invalid trusted baseline
+is uncertainty rather than a candidate failure. Private schema testing does not
+authorize redistribution while licence evidence remains `NOASSERTION`.

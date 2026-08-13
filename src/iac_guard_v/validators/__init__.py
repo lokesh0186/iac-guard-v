@@ -11,6 +11,11 @@ from .terraform import (
     TerraformValidationRequest,
     create_terraform_validation_request,
 )
+from .kubeconform import (
+    KubeconformValidationRequest,
+    KubeconformValidator,
+    create_kubeconform_validation_request,
+)
 
 __all__ = [
     "TerraformValidationRequest",
@@ -19,5 +24,8 @@ __all__ = [
     "ValidationReason",
     "ValidatorExecutionEvidence",
     "create_terraform_validation_request",
+    "KubeconformValidationRequest",
+    "KubeconformValidator",
+    "create_kubeconform_validation_request",
     "require_trusted_validator_evidence",
 ]
