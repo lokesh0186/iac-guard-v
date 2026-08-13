@@ -22,7 +22,6 @@ from ..models import DomainError, canonical_identifier
 
 _LOCK_CONTEXT = object()
 _CACHE_CONTEXT = object()
-_TEST_CACHE_CONTEXT = object()
 _SHA = re.compile(r"[0-9a-f]{64}")
 _PREFIXED_SHA = re.compile(r"sha256:([0-9a-f]{64})")
 _COMMIT = re.compile(r"[0-9a-f]{40}")
@@ -228,7 +227,7 @@ class ProtectedChecksCacheIdentity:
             raise DomainError("cache attestation identity is required")
         if not isinstance(self._cache_root, Path) or type(self._expected_subtree_entries) is not tuple:
             raise DomainError("protected checks cache private evidence is invalid")
-        if _trusted_context in {_CACHE_CONTEXT, _TEST_CACHE_CONTEXT}:
+        if _trusted_context is _CACHE_CONTEXT:
             object.__setattr__(self, "_trusted_cache_evidence", True)
 
     @property
@@ -343,27 +342,6 @@ def load_protected_checks_cache_identity(
         cache_attestation_signature_sha256=record["signature_sha256"],
         _cache_root=cache_root, _expected_subtree_entries=subtree,
         _trusted_context=_CACHE_CONTEXT,
-    )
-
-
-def _create_test_protected_checks_cache_identity(
-    cache_root: Path, locked: LockedContainerIdentity,
-) -> ProtectedChecksCacheIdentity:
-    """Private unit-test capability; never exported or accepted as production provenance."""
-    container = cache_root.parent.parent
-    subtree = _physical_inventory(cache_root, prefix=_TRIVY_CACHE_PREFIX)
-    metadata = cache_root / "policy/metadata.json"
-    return ProtectedChecksCacheIdentity(
-        protected_manifest_root="0" * 64,
-        trivy_subtree_root=_canonical_sha256(list(subtree)),
-        external_manifest_digest=locked.checks_manifest_digest,
-        external_layer_digest=locked.checks_layer_digest,
-        cache_metadata_sha256=hashlib.sha256(metadata.read_bytes()).hexdigest(),
-        cache_attestation_identity="private-test-cache-attestation",
-        cache_attestation_record_sha256="0" * 64,
-        cache_attestation_signature_sha256="0" * 64,
-        _cache_root=container, _expected_subtree_entries=subtree,
-        _trusted_context=_TEST_CACHE_CONTEXT,
     )
 
 

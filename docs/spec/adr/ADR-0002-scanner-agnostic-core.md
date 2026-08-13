@@ -127,8 +127,8 @@ from exact native-byte identity.
 ## Amendment, 2026-08-12: E1/E2 private normalization
 
 Production evidence is constructed only after adapter-owned locked execution. Public
-normalization rejects caller process/JSON combinations; private unit helpers are
-unexported and cannot enter the public adapter or future consensus surface.
+normalization rejects caller process/JSON combinations. Test capabilities live only in
+the excluded tests tree and do not ship in product modules.
 
 ## Amendment, 2026-08-12: E1.2 KICS native coherence
 
@@ -141,3 +141,9 @@ separate; similarity-ID failure is typed identity uncertainty. KICS remains advi
 Official `EXCEPTION` records are visible skipped evidence. Documented omitted native
 fields are retained conservatively. The portable execution record carries the full
 E0.3 cache attestation and equal pre/post subtree roots.
+
+## Amendment, 2026-08-12: E1/E2.2 hardened execution boundary
+
+Both adapters use the complete locked non-root Docker security/resource contract and
+an exact, twice-verified, bounded writable-output allowlist. Product modules contain no
+test evidence factory; tests exercise private capabilities from the excluded tests tree.

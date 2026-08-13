@@ -474,3 +474,7 @@ E1/E2.1 production evidence requires actual locked execution. Public callers can
 combine a sealed request, caller-authored process result, and arbitrary JSON to obtain
 adapter evidence. Trivy obtains `IACGV_PHASE_E_CACHE` and verifies its E0.3 signature
 and inventory before use.
+
+E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow
+writable-output allowlist with per-file/total caps, and removal of all test evidence
+factories from distributable product modules.

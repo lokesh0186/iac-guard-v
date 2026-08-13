@@ -319,6 +319,15 @@ Portable execution evidence retains the signed protected-cache manifest root, Tr
 subtree root, external OCI manifest/layer, metadata digest, attestation signer and
 record/signature digests, and equal pre/post subtree roots. It contains no cache path.
 
+### 3.6 Shared E1/E2.2 execution boundary
+
+Both containers use `--pull never`, `--network none`, `--read-only`,
+`--cap-drop ALL`, `--security-opt no-new-privileges`, locked PID/memory/CPU limits,
+and explicit non-root user `65532:65532`. Removing any guard invalidates the locked
+command contract. The output mount admits exactly `results.json` as a regular file;
+extra files, links, FIFOs, sockets, devices, path/type races, per-file overflow, or
+total overflow yield `OUTPUT_DIRECTORY_INTEGRITY_FAILED`.
+
 ---
 
 ## 4. Independent validators

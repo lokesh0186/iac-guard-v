@@ -1352,7 +1352,7 @@ resource-coverage claims.
 
 ## E2 Trivy scanner evidence
 
-Trivy evidence is accepted only under `trivy-config-adapter-contract-v1`, the exact
+Trivy evidence is accepted only under `trivy-config-adapter-contract-v2`, the exact
 E0.3 v0.73.0 platform-image identity, and the independently pinned external checks
 v2.2.0 manifest/layer/cache. Source `external` with `fallback_used=false`, network
 disabled, updates disabled, and unchanged cache bytes are required for `PASS`.
@@ -1387,4 +1387,10 @@ roots.
 
 E1/E2 production evidence is derived only from adapter-owned execution whose
 `CommandResult.argv` exactly equals the locked invocation. Public normalization is
-invalid. Private test normalization is unexported and establishes no public trust path.
+invalid. Test normalization capabilities exist only under the excluded `tests/` tree;
+product wheels and sdists contain no capability that stamps test data trusted.
+
+E1/E2.2 requires the same hardened container guards and exact output-directory
+allowlist for both scanners. The output manifest is read twice before cleanup, and any
+unexpected entry, non-regular type, change, or byte-limit violation is typed
+`OUTPUT_DIRECTORY_INTEGRITY_FAILED`.

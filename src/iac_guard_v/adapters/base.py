@@ -1,8 +1,15 @@
 """Scanner-neutral adapter contract evidence."""
 from __future__ import annotations
 
+import hashlib
+import json
+import os
+import re
+import shutil
+import stat
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
 
 from ..models import DomainError, canonical_identifier, require_int
 
@@ -101,6 +108,134 @@ class ScannerContract:
             "frameworks": list(self.frameworks),
             "expected_exit_codes": list(self.expected_exit_codes),
         }
+
+
+def read_locked_output_directory(
+    root: Path,
+    *,
+    allowed_files: tuple[str, ...],
+    max_file_bytes: int,
+    max_total_bytes: int,
+) -> tuple[dict[str, bytes], str]:
+    """Read one flat scanner output directory through an exact no-follow contract."""
+    if type(allowed_files) is not tuple or not allowed_files:
+        raise DomainError("scanner output allowlist must be a nonempty tuple")
+    if len(set(allowed_files)) != len(allowed_files) or tuple(sorted(allowed_files)) != allowed_files:
+        raise DomainError("scanner output allowlist must be unique and sorted")
+    if max_file_bytes <= 0 or max_total_bytes <= 0:
+        raise DomainError("scanner output limits must be positive")
+    try:
+        root_metadata = root.lstat()
+        entries = sorted(os.scandir(root), key=lambda item: item.name)
+    except OSError as exc:
+        raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value) from exc
+    if not stat.S_ISDIR(root_metadata.st_mode) or stat.S_ISLNK(root_metadata.st_mode):
+        raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
+    if tuple(item.name for item in entries) != allowed_files:
+        raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
+    result: dict[str, bytes] = {}
+    manifest: list[dict] = []
+    total = 0
+    for entry in entries:
+        try:
+            metadata = entry.stat(follow_symlinks=False)
+        except OSError as exc:
+            raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value) from exc
+        if not stat.S_ISREG(metadata.st_mode) or stat.S_ISLNK(metadata.st_mode):
+            raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
+        if metadata.st_size > max_file_bytes:
+            raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
+        total += metadata.st_size
+        if total > max_total_bytes:
+            raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
+        path = root / entry.name
+        try:
+            descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+            try:
+                opened = os.fstat(descriptor)
+                if not stat.S_ISREG(opened.st_mode) or opened.st_size != metadata.st_size:
+                    raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
+                chunks: list[bytes] = []
+                size = 0
+                digest = hashlib.sha256()
+                while True:
+                    chunk = os.read(descriptor, min(64 * 1024, max_file_bytes + 1 - size))
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    if size > max_file_bytes:
+                        raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
+                    chunks.append(chunk)
+                    digest.update(chunk)
+            finally:
+                os.close(descriptor)
+        except OSError as exc:
+            raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value) from exc
+        result[entry.name] = b"".join(chunks)
+        manifest.append({
+            "path": entry.name,
+            "kind": "REGULAR_FILE",
+            "size": size,
+            "sha256": digest.hexdigest(),
+        })
+    manifest_root = hashlib.sha256(
+        json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return result, manifest_root
+
+
+def remove_private_tree(root: Path) -> None:
+    """Restore owner permissions without following links, then remove a private tree."""
+    def restore(directory: Path) -> None:
+        for entry in os.scandir(directory):
+            path = Path(entry.path)
+            metadata = entry.stat(follow_symlinks=False)
+            if stat.S_ISDIR(metadata.st_mode):
+                restore(path)
+                os.chmod(path, 0o700, follow_symlinks=False)
+            elif stat.S_ISREG(metadata.st_mode):
+                os.chmod(path, 0o600, follow_symlinks=False)
+        os.chmod(directory, 0o700, follow_symlinks=False)
+
+    restore(root)
+    shutil.rmtree(root)
+
+
+def require_hardened_docker_argv(
+    argv: tuple[str, ...], *, pids_limit: str, memory: str, cpus: str, user: str,
+) -> None:
+    """Reject any locked invocation missing one material container guard."""
+    required = (
+        ("--pull", "never"), ("--network", "none"),
+        ("--cap-drop", "ALL"),
+        ("--security-opt", "no-new-privileges"),
+        ("--pids-limit", pids_limit), ("--memory", memory),
+        ("--cpus", cpus), ("--user", user),
+    )
+    if "--read-only" not in argv:
+        raise DomainError("locked Docker invocation omits read-only root")
+    for flag, value in required:
+        if argv.count(flag) != 1:
+            raise DomainError(f"locked Docker invocation omits {flag}")
+        index = argv.index(flag)
+        if index + 1 >= len(argv) or argv[index + 1] != value:
+            raise DomainError(f"locked Docker invocation changes {flag}")
+    try:
+        uid = int(user.split(":", 1)[0])
+    except (ValueError, IndexError) as exc:
+        raise DomainError("locked Docker user is malformed") from exc
+    if uid == 0:
+        raise DomainError("locked Docker execution must be non-root")
+
+
+def semantic_output_manifest(path: str, semantic_sha256: str) -> str:
+    """Portable manifest identity over an already verified output and its semantics."""
+    if not re.fullmatch(r"[0-9a-f]{64}", semantic_sha256):
+        raise DomainError("semantic output digest must be a SHA-256")
+    return hashlib.sha256(json.dumps(
+        [{"path": path, "kind": "REGULAR_FILE", "semantic_sha256": semantic_sha256}],
+        sort_keys=True, separators=(",", ":"),
+    ).encode()).hexdigest()
 
 
 __all__ = ["AdapterReason", "ScannerContract"]

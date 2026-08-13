@@ -13,7 +13,6 @@ import iac_guard_v.adapters.trivy as trivy_module
 from iac_guard_v.adapters.base import AdapterReason
 from iac_guard_v.adapters.phase_e_lock import (
     LockedContainerIdentity,
-    _create_test_protected_checks_cache_identity,
     load_locked_container_identity,
     load_protected_checks_cache_identity,
 )
@@ -21,6 +20,10 @@ from iac_guard_v.adapters.trivy import TRIVY_CONTRACT, TrivyAdapter, create_triv
 from iac_guard_v.enums import ArtifactKind, Status
 from iac_guard_v.models import BoundInputFile, DomainError, ExpectedResource
 from iac_guard_v.process import CommandResult, ProcessReason
+from tests.phase_e_test_support import (
+    normalize_trivy_fixture,
+    test_protected_checks_cache_identity as make_test_checks_cache,
+)
 
 
 LOCK = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
@@ -115,7 +118,7 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
             "aws_s3_bucket.demo",
         ),) if expected else (),
         "docker_executable": Path(shutil.which("docker") or "/usr/bin/true"),
-        "protected_checks_cache": _create_test_protected_checks_cache_identity(
+        "protected_checks_cache": make_test_checks_cache(
             cache, identity
         ),
         "locked_identity": identity,
@@ -126,7 +129,7 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
 
 def _normalize(tmp_path: Path, document: dict, **kwargs):
     request = _request(tmp_path, **kwargs)
-    return trivy_module._normalize_for_test(
+    return normalize_trivy_fixture(
         json.dumps(document).encode(), request, _process()
     )
 
@@ -230,7 +233,7 @@ def test_external_bundle_absence_and_change_are_rejected(tmp_path: Path) -> None
 
 def test_embedded_fallback_is_distinct_nonpass_evidence(tmp_path: Path) -> None:
     request = _request(tmp_path)
-    evidence = trivy_module._normalize_for_test(
+    evidence = normalize_trivy_fixture(
         json.dumps(_document()).encode(), request,
         _process(external_bundle_observed=False),
     )
@@ -259,7 +262,7 @@ def test_missing_misconfigurations_with_failures_is_error(tmp_path: Path) -> Non
 )
 def test_malformed_and_duplicate_json_fail_closed(tmp_path: Path, raw: bytes, reason: str) -> None:
     request = _request(tmp_path)
-    evidence = trivy_module._normalize_for_test(
+    evidence = normalize_trivy_fixture(
         raw, request, _process(),
     )
     assert evidence.scanner_run.status is Status.ERROR
@@ -343,7 +346,7 @@ def test_arbitrary_cache_cannot_be_stamped_protected(tmp_path: Path) -> None:
 
 def test_timeout_is_typed(tmp_path: Path) -> None:
     request = _request(tmp_path)
-    evidence = trivy_module._normalize_for_test(
+    evidence = normalize_trivy_fixture(
         b"{}", request,
         _process(status=Status.TIMEOUT, reason=ProcessReason.DEADLINE_EXCEEDED, timed_out=True),
     )
@@ -371,6 +374,7 @@ def test_execution_evidence_is_immutable_and_trusted(tmp_path: Path) -> None:
             invocation_identity="0" * 64, source="external", fallback_used=False,
             network_disabled=True, updates_disabled=True, canonical_output_sha256="0" * 64,
             native_output_bytes_sha256="0" * 64,
+            output_directory_manifest_sha256="0" * 64,
         )
 
 
@@ -416,23 +420,10 @@ def test_direct_request_and_untrusted_adapter_inputs_are_rejected(tmp_path: Path
     assert TrivyAdapter().contract() is TRIVY_CONTRACT
 
 
-def test_private_execution_capability_and_argv_are_closed(tmp_path: Path) -> None:
-    request = _request(tmp_path)
-    process = _process()
-    with pytest.raises(DomainError, match="capability"):
-        TrivyAdapter._normalize_execution(b"{}", request, process, process.argv, object())
-    with pytest.raises(DomainError, match="sealed request"):
-        TrivyAdapter._normalize_execution(
-            b"{}", object(), process, process.argv, trivy_module._PRIVATE_TEST_CONTEXT
-        )
-    with pytest.raises(DomainError, match="CommandResult"):
-        TrivyAdapter._normalize_execution(
-            b"{}", request, object(), process.argv, trivy_module._PRIVATE_TEST_CONTEXT
-        )
-    with pytest.raises(DomainError, match="locked invocation"):
-        TrivyAdapter._normalize_execution(
-            b"{}", request, process, ("other",), trivy_module._PRIVATE_TEST_CONTEXT
-        )
+def test_product_module_has_no_test_execution_capability() -> None:
+    assert not hasattr(trivy_module, "_normalize_execution")
+    assert not hasattr(trivy_module, "_normalize_for_test")
+    assert not hasattr(trivy_module, "_PRIVATE_TEST_CONTEXT")
 
 
 def test_request_path_and_launcher_boundaries(tmp_path: Path) -> None:
@@ -560,7 +551,7 @@ def test_process_failures_never_parse(
         resolved_executable="", primary_execution_event=reason,
     )
     request = _request(tmp_path)
-    evidence = trivy_module._normalize_for_test(
+    evidence = normalize_trivy_fixture(
         b"{}", request, process,
     )
     assert evidence.scanner_run.status is not Status.PASS
@@ -582,6 +573,13 @@ def _mock_container_run(monkeypatch, document: dict, *, mutate_cache: Path | Non
         assert "--skip-check-update" in command.argv
         assert "--include-non-failures" in command.argv
         assert "--pull" in command.argv and command.argv[command.argv.index("--pull") + 1] == "never"
+        for flag, expected in (
+            ("--cap-drop", "ALL"),
+            ("--security-opt", "no-new-privileges"),
+            ("--pids-limit", "128"), ("--memory", "512m"),
+            ("--cpus", "1.0"), ("--user", "65532:65532"),
+        ):
+            assert command.argv[command.argv.index(flag) + 1] == expected
         output_mount = next(item for item in command.argv if item.endswith(":/out:rw"))
         output = Path(output_mount.removesuffix(":/out:rw"))
         (output / "results.json").write_text(json.dumps(document), encoding="utf-8")
@@ -608,6 +606,28 @@ def test_scan_builds_private_view_and_revalidates_cache(tmp_path: Path, monkeypa
     assert AdapterReason.CACHE_CHANGED_DURING_EXECUTION.value in evidence.scanner_run.diagnostics
 
 
+def test_unexpected_output_file_fails_complete_directory_integrity(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    request = _request(tmp_path, max_output_bytes=8192)
+
+    def execute(command):
+        output_mount = next(item for item in command.argv if item.endswith(":/out:rw"))
+        output = Path(output_mount.removesuffix(":/out:rw"))
+        (output / "results.json").write_text(
+            json.dumps(_document(items=[_misconfiguration()])), encoding="utf-8"
+        )
+        (output / "unbounded-extra.bin").write_bytes(b"x" * 16384)
+        return _process(argv=command.argv)
+
+    monkeypatch.setattr(trivy_module, "run_command", execute)
+    evidence = TrivyAdapter().scan(request)
+    assert evidence.scanner_run.status is Status.ERROR
+    assert AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value in (
+        evidence.scanner_run.diagnostics
+    )
+
+
 def test_scan_rejects_command_result_for_another_argv(
     tmp_path: Path, monkeypatch,
 ) -> None:
@@ -630,11 +650,14 @@ def test_scan_input_change_missing_output_and_cleanup_failure_are_typed(
         trivy_module, "run_command", lambda command: _process(argv=command.argv)
     )
     evidence = TrivyAdapter().scan(missing)
-    assert AdapterReason.SCAN_VIEW_PREPARATION_FAILED.value in evidence.scanner_run.diagnostics
+    assert AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value in evidence.scanner_run.diagnostics
 
     cleanup = _request(tmp_path / "cleanup")
     _mock_container_run(monkeypatch, _document(items=[_misconfiguration()]))
-    monkeypatch.setattr(trivy_module.shutil, "rmtree", lambda path: (_ for _ in ()).throw(OSError("no")))
+    monkeypatch.setattr(
+        trivy_module, "remove_private_tree",
+        lambda path: (_ for _ in ()).throw(OSError("no")),
+    )
     evidence = TrivyAdapter().scan(cleanup)
     assert AdapterReason.OUTPUT_CLEANUP_FAILED.value in evidence.scanner_run.diagnostics
 

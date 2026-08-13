@@ -441,3 +441,10 @@ The shared boundary rejects evidence laundering through caller-constructed proce
 results and JSON. Locked argv equality and adapter-owned execution are required. No
 developer cache path is committed; configured cache bytes are signature- and
 inventory-verified before Trivy use.
+
+E1/E2.2 does not claim to defend against arbitrary hostile Python already executing in
+the trusted IaC-Guard-V interpreter. It does prevent CLI, config, report, and public API
+inputs from asserting trusted scanner evidence. Test-only evidence capabilities are
+outside the distributable package. Scanner containers have the complete locked
+non-root/resource/security guard set, and their whole writable output directory is an
+exact bounded no-follow allowlist.

@@ -1,5 +1,17 @@
 # Validation Log
 
+## 2026-08-12 — E1/E2.2 hardened runtime and output boundary
+
+Failing-before, both scanners ignored extra output files; KICS lacked capability,
+no-new-privileges, PID, memory and CPU guards; Trivy lacked memory and CPU guards; and
+product modules shipped explicit test evidence factories. Passing-after applies the
+complete non-root guard set, twice inventories an exact bounded output allowlist, binds
+the portable output manifest, and moves all test capabilities outside `src/`.
+Focused adapter/boundary tests: 176 passed; combined branch coverage: 91% (KICS 93%,
+Trivy 90%). Exact locked KICS offline integration: 1 passed. Fresh wheel and sdist each
+contain 28 entries, no tests tree, and none of the removed capability markers. Trivy
+live integration requires the protected cache through `IACGV_PHASE_E_CACHE`.
+
 ## 2026-08-12 — E2.2 Trivy status and cache provenance closure
 
 Failing-before, `EXCEPTION` disappeared as an unknown category, documented omitted

@@ -9,10 +9,9 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import stat
 import tempfile
-from dataclasses import InitVar, dataclass, field
+from dataclasses import InitVar, dataclass, field, fields
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -36,7 +35,10 @@ from ..models import (
 )
 from ..normalisation import assign_occurrence_indices
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
-from .base import AdapterReason, ScannerContract
+from .base import (
+    AdapterReason, ScannerContract, read_locked_output_directory,
+    remove_private_tree, require_hardened_docker_argv, semantic_output_manifest,
+)
 from .phase_e_lock import LockedContainerIdentity, require_locked_identity
 
 
@@ -49,8 +51,6 @@ KICS_CONTRACT = ScannerContract(
 KICS_MAX_JSON_NESTING_DEPTH = 128
 KICS_ADAPTER_CONTRACT = "kics-adapter-contract-v2"
 _REQUEST_CONTEXT = object()
-_EXECUTION_CONTEXT = object()
-_PRIVATE_TEST_CONTEXT = object()
 _SHA = re.compile(r"[0-9a-f]{64}")
 _TOP_LEVEL_FIELDS = frozenset({
     "kics_version", "files_scanned", "lines_scanned", "files_parsed",
@@ -84,6 +84,10 @@ _FILE_FIELDS = frozenset({
 _SEVERITY_KEYS = frozenset({"CRITICAL", "HIGH", "INFO", "LOW", "MEDIUM", "TRACE"})
 _RESULT_EXIT = {"INFO": 20, "LOW": 30, "MEDIUM": 40, "HIGH": 50, "CRITICAL": 60}
 _SEVERITY_RANK = {name: index for index, name in enumerate(("INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"))}
+_DOCKER_USER = "65532:65532"
+_DOCKER_PIDS_LIMIT = "128"
+_DOCKER_MEMORY = "512m"
+_DOCKER_CPUS = "1.0"
 
 
 def _native_time(value: Any) -> datetime:
@@ -354,6 +358,12 @@ def _invocation_digest(request: KicsScanRequest) -> str:
         "execution_reference": request.locked_identity.execution_reference,
         "network": "none",
         "read_only_root": True,
+        "cap_drop": "ALL",
+        "no_new_privileges": True,
+        "pids_limit": _DOCKER_PIDS_LIMIT,
+        "memory": _DOCKER_MEMORY,
+        "cpus": _DOCKER_CPUS,
+        "user": _DOCKER_USER,
         "report_formats": ["json"],
         "no_progress": True,
         "minimal_ui": True,
@@ -376,7 +386,7 @@ def _reason_run(
     diagnostics: tuple[str, ...] = (),
 ) -> ScannerRun:
     expected = len(request.expected_resources)
-    return ScannerRun._from_adapter(
+    return ScannerRun(
         scanner="kics",
         scanner_version=request.locked_identity.version,
         status=status,
@@ -418,11 +428,18 @@ def _process_failure(request: KicsScanRequest, process: CommandResult) -> Scanne
     return _reason_run(request, reason, status=process.status, process=process)
 
 
-def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> ScannerRun:
+def _normalize(
+    raw: bytes, request: KicsScanRequest, process: CommandResult,
+    output_manifest_sha256: str = "",
+) -> ScannerRun:
     payload = _strict_json(raw)
     if not _TOP_LEVEL_REQUIRED_FIELDS <= set(payload):
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     diagnostics: list[str] = []
+    if output_manifest_sha256:
+        if _SHA.fullmatch(output_manifest_sha256) is None:
+            raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
+        diagnostics.append(f"output_directory_manifest_sha256:{output_manifest_sha256}")
     unknown_top = sorted(set(payload) - _TOP_LEVEL_FIELDS)
     if unknown_top:
         diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
@@ -607,9 +624,17 @@ def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> 
         diagnostics.append(AdapterReason.COVERAGE_MISMATCH.value)
     if expected and (missing or unexpected):
         diagnostics.append(AdapterReason.COVERAGE_MISMATCH.value)
-    adverse = [item for item in diagnostics if not item.startswith("KICS_BILL_OF_MATERIALS_REPORTED:")]
+    adverse = [
+        item for item in diagnostics
+        if not item.startswith((
+            "KICS_BILL_OF_MATERIALS_REPORTED:",
+            "output_directory_manifest_sha256:",
+        ))
+    ]
     status = Status.PARTIAL if adverse else Status.PASS
-    return ScannerRun._from_adapter(
+    if status is Status.PASS:
+        diagnostics.append(AdapterReason.COMPLETED.value)
+    return ScannerRun(
         scanner="kics",
         scanner_version=request.locked_identity.version,
         status=status,
@@ -631,7 +656,7 @@ def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> 
         evaluations=tuple(evaluations),
         input_files=request.eligible_file_evidence,
         duration_ms=process.duration_ms,
-        diagnostics=tuple(sorted(set(diagnostics))) if diagnostics else (AdapterReason.COMPLETED.value,),
+        diagnostics=tuple(sorted(set(diagnostics))),
     )
 
 
@@ -645,29 +670,6 @@ class KicsAdapter:
 
     def normalize(self, raw_output: bytes, request: KicsScanRequest, process: CommandResult) -> ScannerRun:
         raise DomainError("KICS production normalization requires actual adapter execution")
-
-    @staticmethod
-    def _normalize_execution(
-        raw_output: bytes, request: KicsScanRequest, process: CommandResult,
-        expected_argv: tuple[str, ...], context: object,
-    ) -> ScannerRun:
-        if context not in {_EXECUTION_CONTEXT, _PRIVATE_TEST_CONTEXT}:
-            raise DomainError("KICS execution capability is invalid")
-        if type(request) is not KicsScanRequest or not request._trusted_request:
-            raise DomainError("KICS normalize requires a sealed request")
-        if type(process) is not CommandResult:
-            raise DomainError("KICS process evidence must be CommandResult")
-        if process.argv != expected_argv:
-            raise DomainError("KICS process argv differs from the locked invocation")
-        failure = _process_failure(request, process)
-        if failure is not None:
-            return failure
-        try:
-            return _normalize(raw_output, request, process)
-        except DomainError as exc:
-            value = str(exc)
-            reason = next((item for item in AdapterReason if item.value == value), AdapterReason.INVALID_RESULTS_STRUCTURE)
-            return _reason_run(request, reason, process=process, raw_output=raw_output if type(raw_output) is bytes else None)
 
     @staticmethod
     def _revalidate(request: KicsScanRequest) -> None:
@@ -694,30 +696,56 @@ class KicsAdapter:
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)
+            os.chmod(target, 0o444)
+        directories = sorted(
+            (item for item in root.rglob("*") if item.is_dir()),
+            key=lambda item: len(item.parts), reverse=True,
+        )
+        for directory in directories:
+            os.chmod(directory, 0o555)
+        os.chmod(root, 0o555)
 
     def scan(self, request: KicsScanRequest) -> ScannerRun:
         if type(request) is not KicsScanRequest or not request._trusted_request:
             raise DomainError("KICS scan requires a sealed request")
+        def trusted(run: ScannerRun) -> ScannerRun:
+            values = {
+                item.name: getattr(run, item.name)
+                for item in fields(ScannerRun) if item.init
+            }
+            return ScannerRun._from_adapter(**values)
         if not request.files_eligible:
-            return _reason_run(request, AdapterReason.EMPTY_ELIGIBLE_SCOPE, status=Status.SKIPPED)
+            return trusted(_reason_run(
+                request, AdapterReason.EMPTY_ELIGIBLE_SCOPE, status=Status.SKIPPED
+            ))
         work = Path(tempfile.mkdtemp(prefix="iacgv-kics-"))
         process: CommandResult | None = None
         raw: bytes | None = None
+        output_manifest_sha256 = ""
         terminal: ScannerRun | None = None
         try:
             self._revalidate(request)
             view = work / "scan"
             output = work / "output"
             self._build_view(request, view)
-            output.mkdir(mode=0o700)
+            output.mkdir(mode=0o733)
             argv = (
                 str(request.docker_executable), "run", "--rm", "--pull", "never",
                 "--network", "none",
-                "--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+                "--read-only", "--cap-drop", "ALL",
+                "--security-opt", "no-new-privileges",
+                "--pids-limit", _DOCKER_PIDS_LIMIT,
+                "--memory", _DOCKER_MEMORY, "--cpus", _DOCKER_CPUS,
+                "--user", _DOCKER_USER,
+                "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
                 "-v", f"{view}:/iacgv-input:ro", "-v", f"{output}:/iacgv-output:rw",
                 "--entrypoint", "/app/bin/kics", request.locked_identity.execution_reference,
                 "scan", "--path", "/iacgv-input", "--output-path", "/iacgv-output",
                 "--report-formats", "json", "--no-progress", "--minimal-ui",
+            )
+            require_hardened_docker_argv(
+                argv, pids_limit=_DOCKER_PIDS_LIMIT, memory=_DOCKER_MEMORY,
+                cpus=_DOCKER_CPUS, user=_DOCKER_USER,
             )
             process = run_command(CommandRequest(
                 argv=argv,
@@ -736,44 +764,54 @@ class KicsAdapter:
             if failure is not None:
                 terminal = failure
             else:
-                result = output / "results.json"
-                metadata = result.lstat()
-                if not stat.S_ISREG(metadata.st_mode) or result.is_symlink() or metadata.st_size > request.max_output_bytes:
+                outputs, output_manifest_sha256 = read_locked_output_directory(
+                    output, allowed_files=("results.json",),
+                    max_file_bytes=request.max_output_bytes,
+                    max_total_bytes=request.max_output_bytes,
+                )
+                raw = outputs["results.json"]
+                repeated, repeated_root = read_locked_output_directory(
+                    output, allowed_files=("results.json",),
+                    max_file_bytes=request.max_output_bytes,
+                    max_total_bytes=request.max_output_bytes,
+                )
+                if repeated_root != output_manifest_sha256 or repeated["results.json"] != raw:
                     raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
-                descriptor = os.open(result, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-                try:
-                    raw = os.read(descriptor, request.max_output_bytes + 1)
-                finally:
-                    os.close(descriptor)
-                if len(raw) > request.max_output_bytes:
-                    raise DomainError(AdapterReason.TRUNCATED_OUTPUT.value)
+                output_manifest_sha256 = semantic_output_manifest(
+                    "results.json", _canonical_native_hash(_strict_json(raw))
+                )
         except (DomainError, OSError) as exc:
             value = str(exc)
             reason = next((item for item in AdapterReason if item.value == value), AdapterReason.SCAN_VIEW_PREPARATION_FAILED)
             terminal = _reason_run(request, reason, process=process, raw_output=raw)
         cleanup_failed = False
         try:
-            shutil.rmtree(work)
+            remove_private_tree(work)
         except OSError:
             cleanup_failed = True
         if cleanup_failed:
-            return _reason_run(request, AdapterReason.OUTPUT_CLEANUP_FAILED, process=process, raw_output=raw)
+            return trusted(_reason_run(
+                request, AdapterReason.OUTPUT_CLEANUP_FAILED,
+                process=process, raw_output=raw,
+            ))
         if terminal is not None:
-            return terminal
+            return trusted(terminal)
         if process is None or raw is None:
-            return _reason_run(request, AdapterReason.RAW_OUTPUT_MISSING, process=process)
-        return self._normalize_execution(
-            raw, request, process, argv, _EXECUTION_CONTEXT,
-        )
-
-
-def _normalize_for_test(
-    raw_output: bytes, request: KicsScanRequest, process: CommandResult,
-) -> ScannerRun:
-    """Private unit-fixture normalizer; never exported as production evidence API."""
-    return KicsAdapter._normalize_execution(
-        raw_output, request, process, process.argv, _PRIVATE_TEST_CONTEXT,
-    )
+            return trusted(_reason_run(
+                request, AdapterReason.RAW_OUTPUT_MISSING, process=process
+            ))
+        try:
+            parsed = _normalize(raw, request, process, output_manifest_sha256)
+        except DomainError as exc:
+            value = str(exc)
+            reason = next(
+                (item for item in AdapterReason if item.value == value),
+                AdapterReason.INVALID_RESULTS_STRUCTURE,
+            )
+            parsed = _reason_run(
+                request, reason, process=process, raw_output=raw,
+            )
+        return trusted(parsed)
 
 
 __all__ = [

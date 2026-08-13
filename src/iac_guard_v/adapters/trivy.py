@@ -5,11 +5,10 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import stat
 import tempfile
 import uuid
-from dataclasses import InitVar, dataclass, field
+from dataclasses import InitVar, dataclass, field, fields
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -33,7 +32,10 @@ from ..models import (
 )
 from ..normalisation import assign_occurrence_indices
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
-from .base import AdapterReason, ScannerContract
+from .base import (
+    AdapterReason, ScannerContract, read_locked_output_directory,
+    remove_private_tree, require_hardened_docker_argv, semantic_output_manifest,
+)
 from .kics import _read_bound, _strict_json
 from .phase_e_lock import (
     LockedContainerIdentity,
@@ -48,11 +50,9 @@ TRIVY_CONTRACT = ScannerContract(
     frameworks=("kubernetes", "terraform"),
     expected_exit_codes=(0,),
 )
-TRIVY_ADAPTER_CONTRACT = "trivy-config-adapter-contract-v1"
+TRIVY_ADAPTER_CONTRACT = "trivy-config-adapter-contract-v2"
 _REQUEST_CONTEXT = object()
 _RESULT_CONTEXT = object()
-_EXECUTION_CONTEXT = object()
-_PRIVATE_TEST_CONTEXT = object()
 _SHA = re.compile(r"[0-9a-f]{64}")
 _CACHE_IDENTITY = re.compile(r"trivy-checks-cache-v1:sha256:[0-9a-f]{64}")
 _TOP_FIELDS = frozenset({
@@ -69,6 +69,10 @@ _MISCONFIG_FIELDS = frozenset({
     "Query", "Resolution", "Severity", "PrimaryURL", "References", "Status",
     "CauseMetadata", "IacMetadata",
 })
+_DOCKER_USER = "65532:65532"
+_DOCKER_PIDS_LIMIT = "128"
+_DOCKER_MEMORY = "512m"
+_DOCKER_CPUS = "1.0"
 
 
 def _cache_manifest(root: Path) -> str:
@@ -255,6 +259,7 @@ class TrivyExecutionEvidence:
     updates_disabled: bool
     canonical_output_sha256: str
     native_output_bytes_sha256: str
+    output_directory_manifest_sha256: str
     _trusted_context: InitVar[object] = None
     _trusted_evidence: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -276,6 +281,7 @@ class TrivyExecutionEvidence:
             "cache_attestation_record_sha256", "cache_attestation_signature_sha256",
             "pre_run_cache_root", "post_run_cache_root", "invocation_identity",
             "canonical_output_sha256", "native_output_bytes_sha256",
+            "output_directory_manifest_sha256",
         ):
             value = getattr(self, name)
             if type(value) is not str or _SHA.fullmatch(value) is None:
@@ -329,6 +335,7 @@ class TrivyExecutionEvidence:
             "updates_disabled": self.updates_disabled,
             "canonical_output_sha256": self.canonical_output_sha256,
             "native_output_bytes_sha256": self.native_output_bytes_sha256,
+            "output_directory_manifest_sha256": self.output_directory_manifest_sha256,
         }
 
 
@@ -339,6 +346,9 @@ def _invocation_digest(request: TrivyScanRequest) -> str:
         "execution_reference": request.locked_identity.execution_reference,
         "format": "json", "skip_check_update": True, "network": "none",
         "include_non_failures": True, "read_only_root": True,
+        "cap_drop": "ALL", "no_new_privileges": True,
+        "pids_limit": _DOCKER_PIDS_LIMIT, "memory": _DOCKER_MEMORY,
+        "cpus": _DOCKER_CPUS, "user": _DOCKER_USER,
         "max_output_bytes": request.max_output_bytes,
         "max_file_bytes": request.max_file_bytes,
         "max_total_eligible_bytes": request.max_total_eligible_bytes,
@@ -453,7 +463,7 @@ def _reason_run(
     raw: bytes | None = None, diagnostics: tuple[str, ...] = (),
 ) -> ScannerRun:
     expected = len(request.expected_resources)
-    return ScannerRun._from_adapter(
+    return ScannerRun(
         scanner="trivy", scanner_version=request.locked_identity.version,
         status=status,
         coverage=CoverageCounters(files_eligible=len(request.files_eligible)),
@@ -675,7 +685,7 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
         summary_resources_reported=len(observed_resources),
     )
     status = Status.PARTIAL if diagnostics else Status.PASS
-    return ScannerRun._from_adapter(
+    return ScannerRun(
         scanner="trivy", scanner_version=request.locked_identity.version,
         status=status, findings=assign_occurrence_indices(findings),
         coverage=coverage, resource_coverage=resource_coverage,
@@ -698,6 +708,7 @@ def _evidence(
     *, cache_digest: str, fallback_used: bool,
     pre_run_cache_root: str | None = None,
     post_run_cache_root: str | None = None,
+    output_directory_manifest_sha256: str | None = None,
 ) -> TrivyExecutionEvidence:
     canonical_output = _canonical_native_hash(raw) if raw else hashlib.sha256(b"").hexdigest()
     return TrivyExecutionEvidence(
@@ -729,6 +740,9 @@ def _evidence(
         fallback_used=fallback_used, network_disabled=True, updates_disabled=True,
         canonical_output_sha256=canonical_output, _trusted_context=_RESULT_CONTEXT,
         native_output_bytes_sha256=hashlib.sha256(raw or b"").hexdigest(),
+        output_directory_manifest_sha256=(
+            output_directory_manifest_sha256 or hashlib.sha256(b"").hexdigest()
+        ),
     )
 
 
@@ -757,53 +771,6 @@ class TrivyAdapter:
     ) -> TrivyExecutionEvidence:
         raise DomainError("Trivy production normalization requires actual adapter execution")
 
-    @classmethod
-    def _normalize_execution(
-        cls, raw_output: bytes, request: TrivyScanRequest, process: CommandResult,
-        expected_argv: tuple[str, ...], context: object,
-        pre_run_cache_root: str | None = None,
-    ) -> TrivyExecutionEvidence:
-        if context not in {_EXECUTION_CONTEXT, _PRIVATE_TEST_CONTEXT}:
-            raise DomainError("Trivy execution capability is invalid")
-        if type(request) is not TrivyScanRequest or not request._trusted_request:
-            raise DomainError("Trivy normalize requires a sealed request")
-        if type(process) is not CommandResult:
-            raise DomainError("Trivy process evidence must be CommandResult")
-        if process.argv != expected_argv:
-            raise DomainError("Trivy process argv differs from the locked invocation")
-        cache_digest = cls._revalidate(request)
-        pre_cache = pre_run_cache_root or cache_digest
-        failure = _process_failure(request, process)
-        if failure is not None:
-            return _evidence(
-                request, failure, None, cache_digest=cache_digest, fallback_used=False,
-                pre_run_cache_root=pre_cache, post_run_cache_root=cache_digest,
-            )
-        stderr = process.stderr.decode("utf-8", errors="replace").casefold()
-        fallback = not (
-            "loading from existing cache" in stderr
-            and "downloading the checks bundle" not in stderr
-        )
-        if fallback:
-            run = _reason_run(
-                request, AdapterReason.EMBEDDED_CHECKS_FALLBACK,
-                status=Status.INCONCLUSIVE, process=process, raw=raw_output,
-            )
-            return _evidence(
-                request, run, raw_output, cache_digest=cache_digest, fallback_used=True,
-                pre_run_cache_root=pre_cache, post_run_cache_root=cache_digest,
-            )
-        try:
-            run = _normalize(raw_output, request, process)
-        except DomainError as exc:
-            value = str(exc)
-            reason = next((item for item in AdapterReason if item.value == value), AdapterReason.INVALID_RESULTS_STRUCTURE)
-            run = _reason_run(request, reason, process=process, raw=raw_output)
-        return _evidence(
-            request, run, raw_output, cache_digest=cache_digest, fallback_used=False,
-            pre_run_cache_root=pre_cache, post_run_cache_root=cache_digest,
-        )
-
     @staticmethod
     def _build_view(request: TrivyScanRequest, root: Path) -> None:
         root.mkdir(mode=0o700)
@@ -819,12 +786,28 @@ class TrivyAdapter:
                 os.fsync(descriptor)
             finally:
                 os.close(descriptor)
+            os.chmod(target, 0o444)
+        directories = sorted(
+            (item for item in root.rglob("*") if item.is_dir()),
+            key=lambda item: len(item.parts), reverse=True,
+        )
+        for directory in directories:
+            os.chmod(directory, 0o555)
+        os.chmod(root, 0o555)
 
     def scan(self, request: TrivyScanRequest) -> TrivyExecutionEvidence:
         if type(request) is not TrivyScanRequest or not request._trusted_request:
             raise DomainError("Trivy scan requires a sealed request")
+        def trusted(run: ScannerRun) -> ScannerRun:
+            values = {
+                item.name: getattr(run, item.name)
+                for item in fields(ScannerRun) if item.init
+            }
+            return ScannerRun._from_adapter(**values)
         if not request.files_eligible:
-            run = _reason_run(request, AdapterReason.EMPTY_ELIGIBLE_SCOPE, status=Status.SKIPPED)
+            run = trusted(_reason_run(
+                request, AdapterReason.EMPTY_ELIGIBLE_SCOPE, status=Status.SKIPPED
+            ))
             return _evidence(
                 request, run, None, cache_digest=request._cache_content_sha256,
                 fallback_used=False,
@@ -834,17 +817,21 @@ class TrivyAdapter:
         raw: bytes | None = None
         terminal: ScannerRun | None = None
         cache_digest = request._cache_content_sha256
+        pre_run_cache_root = cache_digest
+        output_manifest_sha256 = ""
         try:
             cache_digest = self._revalidate(request)
             pre_run_cache_root = cache_digest
             view = work / "scan"
             output = work / "output"
             self._build_view(request, view)
-            output.mkdir(mode=0o700)
+            output.mkdir(mode=0o733)
             argv = (
                 str(request.docker_executable), "run", "--rm", "--pull", "never",
                 "--network", "none", "--read-only", "--cap-drop", "ALL",
                 "--security-opt", "no-new-privileges", "--pids-limit", "128",
+                "--memory", _DOCKER_MEMORY, "--cpus", _DOCKER_CPUS,
+                "--user", _DOCKER_USER,
                 "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
                 "-e", "TRIVY_CACHE_DIR=/cache",
                 "-v", f"{request.protected_checks_cache.cache_root}:/cache:ro",
@@ -852,6 +839,10 @@ class TrivyAdapter:
                 "-w", "/work", request.locked_identity.execution_reference,
                 "config", "--format", "json", "--output", "/out/results.json",
                 "--skip-check-update", "--include-non-failures", ".",
+            )
+            require_hardened_docker_argv(
+                argv, pids_limit=_DOCKER_PIDS_LIMIT, memory=_DOCKER_MEMORY,
+                cpus=_DOCKER_CPUS, user=_DOCKER_USER,
             )
             process = run_command(CommandRequest(
                 argv=argv, expected_exit_codes=TRIVY_CONTRACT.expected_exit_codes,
@@ -869,46 +860,75 @@ class TrivyAdapter:
             if failure is not None:
                 terminal = failure
             else:
-                result = output / "results.json"
-                metadata = result.lstat()
-                if not stat.S_ISREG(metadata.st_mode) or result.is_symlink() or metadata.st_size > request.max_output_bytes:
+                outputs, output_manifest_sha256 = read_locked_output_directory(
+                    output, allowed_files=("results.json",),
+                    max_file_bytes=request.max_output_bytes,
+                    max_total_bytes=request.max_output_bytes,
+                )
+                raw = outputs["results.json"]
+                repeated, repeated_root = read_locked_output_directory(
+                    output, allowed_files=("results.json",),
+                    max_file_bytes=request.max_output_bytes,
+                    max_total_bytes=request.max_output_bytes,
+                )
+                if repeated_root != output_manifest_sha256 or repeated["results.json"] != raw:
                     raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
-                descriptor = os.open(result, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-                try:
-                    raw = os.read(descriptor, request.max_output_bytes + 1)
-                finally:
-                    os.close(descriptor)
-                if len(raw) > request.max_output_bytes:
-                    raise DomainError(AdapterReason.TRUNCATED_OUTPUT.value)
+                output_manifest_sha256 = semantic_output_manifest(
+                    "results.json", _canonical_native_hash(raw)
+                )
         except (DomainError, OSError) as exc:
             value = str(exc)
             reason = next((item for item in AdapterReason if item.value == value), AdapterReason.SCAN_VIEW_PREPARATION_FAILED)
             terminal = _reason_run(request, reason, process=process, raw=raw)
         cleanup_failed = False
         try:
-            shutil.rmtree(work)
+            remove_private_tree(work)
         except OSError:
             cleanup_failed = True
         if cleanup_failed:
             terminal = _reason_run(request, AdapterReason.OUTPUT_CLEANUP_FAILED, process=process, raw=raw)
         if terminal is not None:
-            return _evidence(request, terminal, raw, cache_digest=cache_digest, fallback_used=False)
+            return _evidence(
+                request, trusted(terminal), raw, cache_digest=cache_digest,
+                fallback_used=False, pre_run_cache_root=pre_run_cache_root,
+                post_run_cache_root=cache_digest,
+                output_directory_manifest_sha256=output_manifest_sha256 or None,
+            )
         if process is None or raw is None:
-            run = _reason_run(request, AdapterReason.RAW_OUTPUT_MISSING, process=process)
-            return _evidence(request, run, None, cache_digest=cache_digest, fallback_used=False)
-        return self._normalize_execution(
-            raw, request, process, argv, _EXECUTION_CONTEXT,
-            pre_run_cache_root=pre_run_cache_root,
+            run = trusted(_reason_run(
+                request, AdapterReason.RAW_OUTPUT_MISSING, process=process
+            ))
+            return _evidence(
+                request, run, None, cache_digest=cache_digest, fallback_used=False,
+                pre_run_cache_root=pre_run_cache_root,
+                post_run_cache_root=cache_digest,
+            )
+        stderr = process.stderr.decode("utf-8", errors="replace").casefold()
+        fallback = not (
+            "loading from existing cache" in stderr
+            and "downloading the checks bundle" not in stderr
         )
-
-
-def _normalize_for_test(
-    raw_output: bytes, request: TrivyScanRequest, process: CommandResult,
-) -> TrivyExecutionEvidence:
-    """Private unit-fixture normalizer; never exported as production evidence API."""
-    return TrivyAdapter._normalize_execution(
-        raw_output, request, process, process.argv, _PRIVATE_TEST_CONTEXT,
-    )
+        if fallback:
+            parsed = _reason_run(
+                request, AdapterReason.EMBEDDED_CHECKS_FALLBACK,
+                status=Status.INCONCLUSIVE, process=process, raw=raw,
+            )
+        else:
+            try:
+                parsed = _normalize(raw, request, process)
+            except DomainError as exc:
+                value = str(exc)
+                reason = next(
+                    (item for item in AdapterReason if item.value == value),
+                    AdapterReason.INVALID_RESULTS_STRUCTURE,
+                )
+                parsed = _reason_run(request, reason, process=process, raw=raw)
+        return _evidence(
+            request, trusted(parsed), raw, cache_digest=cache_digest,
+            fallback_used=fallback, pre_run_cache_root=pre_run_cache_root,
+            post_run_cache_root=cache_digest,
+            output_directory_manifest_sha256=output_manifest_sha256,
+        )
 
 
 __all__ = [

@@ -18,6 +18,7 @@ from iac_guard_v.adapters.phase_e_lock import (
 from iac_guard_v.enums import ArtifactKind, Status
 from iac_guard_v.models import BoundInputFile, DomainError, ExpectedResource
 from iac_guard_v.process import CommandResult, ProcessReason
+from tests.phase_e_test_support import normalize_kics_fixture
 
 
 LOCK = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
@@ -141,7 +142,7 @@ def _normalize(tmp_path: Path, document: dict, **request_overrides):
     ranks = {name: index for index, name in enumerate(exits)}
     present = [name for name in exits if type(counters) is dict and counters.get(name, 0)]
     exit_code = 0 if not present else exits[max(present, key=ranks.get)]
-    return kics_module._normalize_for_test(
+    return normalize_kics_fixture(
         json.dumps(document).encode(), _request(tmp_path, **request_overrides),
         _process(exit_code=exit_code),
     )
@@ -160,7 +161,7 @@ def test_official_result_bearing_exit_codes_are_parsed(
     tmp_path: Path, severity: str | None, exit_code: int,
 ) -> None:
     queries = [] if severity is None else [_query(severity=severity)]
-    run = kics_module._normalize_for_test(
+    run = normalize_kics_fixture(
         json.dumps(_document(queries=queries)).encode(),
         _request(tmp_path, expected=severity is not None),
         _process(exit_code=exit_code),
@@ -175,7 +176,7 @@ def test_official_result_bearing_exit_codes_are_parsed(
 def test_result_exit_must_match_native_highest_severity(
     tmp_path: Path, document: dict, exit_code: int,
 ) -> None:
-    run = kics_module._normalize_for_test(
+    run = normalize_kics_fixture(
         json.dumps(document).encode(), _request(tmp_path), _process(exit_code=exit_code)
     )
     assert run.status is Status.ERROR
@@ -290,7 +291,7 @@ def test_native_failure_counters_are_partial(
 def test_malformed_duplicate_and_wrong_shape_fail_closed(
     tmp_path: Path, raw: bytes, reason: str
 ) -> None:
-    run = kics_module._normalize_for_test(raw, _request(tmp_path), _process())
+    run = normalize_kics_fixture(raw, _request(tmp_path), _process())
     assert run.status is Status.ERROR
     assert reason in run.diagnostics
 
@@ -300,7 +301,7 @@ def test_timeout_is_typed(tmp_path: Path) -> None:
         status=Status.TIMEOUT, exit_code=None,
         reason=ProcessReason.DEADLINE_EXCEEDED, timed_out=True,
     )
-    run = kics_module._normalize_for_test(b"{}", _request(tmp_path), process)
+    run = normalize_kics_fixture(b"{}", _request(tmp_path), process)
     assert run.status is Status.TIMEOUT
     assert AdapterReason.DEADLINE_EXCEEDED.value in run.diagnostics
 
@@ -603,7 +604,7 @@ def test_process_failures_never_parse(
         reason_code=reason, resolved_executable="",
         primary_execution_event=reason,
     )
-    run = kics_module._normalize_for_test(b"{}", _request(tmp_path), process)
+    run = normalize_kics_fixture(b"{}", _request(tmp_path), process)
     assert run.status is not Status.PASS
     assert expected in run.diagnostics
 
@@ -636,6 +637,14 @@ def test_locked_scan_uses_pull_never_and_all_result_exit_codes(
         assert command.expected_exit_codes == (0, 20, 30, 40, 50, 60)
         pull = command.argv.index("--pull")
         assert command.argv[pull + 1] == "never"
+        for flag, expected in (
+            ("--network", "none"), ("--cap-drop", "ALL"),
+            ("--security-opt", "no-new-privileges"),
+            ("--pids-limit", "128"), ("--memory", "512m"),
+            ("--cpus", "1.0"), ("--user", "65532:65532"),
+        ):
+            assert command.argv[command.argv.index(flag) + 1] == expected
+        assert "--read-only" in command.argv
         output_mount = next(item for item in command.argv if item.endswith(":/iacgv-output:rw"))
         output = Path(output_mount.removesuffix(":/iacgv-output:rw"))
         (output / "results.json").write_text(
@@ -647,6 +656,28 @@ def test_locked_scan_uses_pull_never_and_all_result_exit_codes(
     run = KicsAdapter().scan(request)
     assert run.status is Status.PASS
     assert run.exit_code == 50
+
+
+def test_unexpected_output_file_fails_complete_directory_integrity(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    request = _request(tmp_path, max_output_bytes=4096)
+
+    def execute(command):
+        output_mount = next(
+            item for item in command.argv if item.endswith(":/iacgv-output:rw")
+        )
+        output = Path(output_mount.removesuffix(":/iacgv-output:rw"))
+        (output / "results.json").write_text(
+            json.dumps(_document(queries=[_query()])), encoding="utf-8"
+        )
+        (output / "unbounded-extra.bin").write_bytes(b"x" * 8192)
+        return _process(exit_code=50, argv=command.argv)
+
+    monkeypatch.setattr(kics_module, "run_command", execute)
+    run = KicsAdapter().scan(request)
+    assert run.status is Status.ERROR
+    assert AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value in run.diagnostics
 
 
 def test_scan_rejects_command_result_for_another_argv(

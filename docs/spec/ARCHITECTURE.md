@@ -781,4 +781,11 @@ into portable execution evidence without exposing its filesystem path.
 Production adapters expose sealed request construction and `scan`; native normalization
 is not a public evidence factory. A trusted scan binds the locked argv to the actual
 `CommandResult`, private scan view and output bytes, plus pre/post source and cache
-revalidation. Unit fixture normalization uses an unexported private capability.
+revalidation. Test fixture capabilities live only under `tests/` and are excluded from
+wheel and sdist contents; no product module contains a test evidence factory.
+
+E1/E2.2 applies one hardened Docker contract to both adapters: no pull, no network,
+read-only root, all capabilities dropped, no-new-privileges, PID/CPU/memory limits,
+and explicit non-root UID/GID. The complete writable output directory is inventoried
+twice with no-follow reads; only the expected regular JSON file is allowed and its
+portable semantic manifest is retained.
