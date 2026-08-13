@@ -32,6 +32,8 @@ PHASE_E_LOCK_PAYLOAD_SHA256 = (
 _CACHE_MANIFEST_CONTRACT = "phase-e-cache-manifest-v2"
 _CACHE_ATTESTATION_CONTRACT = "phase-e-protected-cache-attestation-v2"
 _TRIVY_CACHE_PREFIX = "runtime-v2/trivy-cache"
+_BUNDLE_CONTEXT = object()
+PHASE_E_EVIDENCE_BUNDLE_CONTRACT = "protected-phase-e-evidence-bundle-v1"
 
 
 def _canonical_sha256(value: Any) -> str:
@@ -54,6 +56,172 @@ def _sha(value: Any, field_name: str, *, prefixed: bool = False) -> str:
     return value
 
 
+def _regular_nofollow_bytes(path: Path, label: str) -> bytes:
+    try:
+        metadata = path.lstat()
+    except OSError as exc:
+        raise DomainError(f"{label} is unavailable") from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise DomainError(f"{label} must be a nonsymlink regular file")
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        opened = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(opened.st_mode)
+            or opened.st_dev != metadata.st_dev
+            or opened.st_ino != metadata.st_ino
+        ):
+            raise DomainError(f"{label} changed during verification")
+        chunks = []
+        while True:
+            chunk = os.read(descriptor, 64 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+    finally:
+        os.close(descriptor)
+    return b"".join(chunks)
+
+
+@dataclass(frozen=True, slots=True)
+class ProtectedPhaseEEvidenceBundle:
+    """Portable Phase-E lock and signed-cache evidence rooted outside adapter input."""
+
+    contract: str
+    lock_sha256: str
+    manifest_sha256: str
+    attestation_sha256: str
+    signature_sha256: str
+    public_key_sha256: str
+    expected_manifest_root: str
+    cache_attestation_identity: str
+    runtime_evidence_record_identities_sha256: str
+    container_engine_contract: str
+    _root: Path = field(repr=False, compare=False)
+    _lock_path: Path = field(repr=False, compare=False)
+    _manifest_path: Path = field(repr=False, compare=False)
+    _attestation_path: Path = field(repr=False, compare=False)
+    _signature_path: Path = field(repr=False, compare=False)
+    _public_key_path: Path = field(repr=False, compare=False)
+    _trusted_context: InitVar[object] = None
+    _trusted_evidence: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        if self.contract != PHASE_E_EVIDENCE_BUNDLE_CONTRACT:
+            raise DomainError("Phase-E evidence bundle contract is unsupported")
+        for name in (
+            "lock_sha256", "manifest_sha256", "attestation_sha256",
+            "signature_sha256", "public_key_sha256", "expected_manifest_root",
+            "runtime_evidence_record_identities_sha256",
+        ):
+            _sha(getattr(self, name), name)
+        if type(self.cache_attestation_identity) is not str or not self.cache_attestation_identity:
+            raise DomainError("Phase-E cache attestation identity is required")
+        if type(self.container_engine_contract) is not str or not self.container_engine_contract:
+            raise DomainError("Phase-E container engine contract is required")
+        for path in (
+            self._root, self._lock_path, self._manifest_path, self._attestation_path,
+            self._signature_path, self._public_key_path,
+        ):
+            if not isinstance(path, Path):
+                raise DomainError("Phase-E evidence bundle private path is invalid")
+        if _trusted_context is _BUNDLE_CONTEXT:
+            object.__setattr__(self, "_trusted_evidence", True)
+
+    @property
+    def identity(self) -> str:
+        return _canonical_sha256(self.canonical_dict())
+
+    def canonical_dict(self) -> dict:
+        return {
+            "contract": self.contract,
+            "lock_sha256": self.lock_sha256,
+            "manifest_sha256": self.manifest_sha256,
+            "attestation_sha256": self.attestation_sha256,
+            "signature_sha256": self.signature_sha256,
+            "public_key_sha256": self.public_key_sha256,
+            "expected_manifest_root": self.expected_manifest_root,
+            "cache_attestation_identity": self.cache_attestation_identity,
+            "runtime_evidence_record_identities_sha256": (
+                self.runtime_evidence_record_identities_sha256
+            ),
+            "container_engine_contract": self.container_engine_contract,
+        }
+
+
+def load_protected_phase_e_evidence(root: Path) -> ProtectedPhaseEEvidenceBundle:
+    """Load a portable bundle from an explicit protected root, never from __file__."""
+    if not isinstance(root, Path):
+        raise DomainError("protected Phase-E evidence root must be pathlib.Path")
+    try:
+        canonical = root.resolve(strict=True)
+        metadata = root.lstat()
+    except (OSError, RuntimeError) as exc:
+        raise DomainError("protected Phase-E evidence root is unavailable") from exc
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISDIR(metadata.st_mode):
+        raise DomainError("protected Phase-E evidence root must be a real directory")
+    lock_path = canonical / "tools/locks/phase-e-locks.json"
+    lock_raw = _regular_nofollow_bytes(lock_path, "Phase-E lock")
+    lock = _strict_object(lock_raw, "Phase-E lock")
+    record = lock.get("protected_cache_attestation")
+    if type(record) is not dict or record.get("contract") != _CACHE_ATTESTATION_CONTRACT:
+        raise DomainError("protected cache attestation record is invalid")
+
+    def protected_path(field_name: str) -> Path:
+        value = record.get(field_name)
+        if type(value) is not str or not value or Path(value).is_absolute():
+            raise DomainError("protected evidence path must be repository relative")
+        path = canonical / value
+        try:
+            path.relative_to(canonical)
+        except ValueError as exc:
+            raise DomainError("protected evidence path escapes its bundle") from exc
+        return path
+
+    paths = {
+        "manifest": protected_path("manifest_path"),
+        "attestation": protected_path("attestation_path"),
+        "signature": protected_path("signature_path"),
+        "public_key": protected_path("public_key_path"),
+    }
+    raw = {
+        name: _regular_nofollow_bytes(path, f"Phase-E {name}")
+        for name, path in paths.items()
+    }
+    expected = {
+        "manifest": "manifest_sha256", "attestation": "attestation_sha256",
+        "signature": "signature_sha256", "public_key": "public_key_sha256",
+    }
+    for name, field_name in expected.items():
+        if hashlib.sha256(raw[name]).hexdigest() != record.get(field_name):
+            raise DomainError("protected Phase-E evidence bytes changed")
+    manifest = _strict_object(raw["manifest"], "cache manifest")
+    if (
+        manifest.get("contract") != _CACHE_MANIFEST_CONTRACT
+        or _canonical_sha256(manifest.get("entries")) != record.get("manifest_root")
+    ):
+        raise DomainError("protected Phase-E cache manifest is invalid")
+    attestation = _strict_object(raw["attestation"], "cache attestation")
+    runtime_records = attestation.get("runtime_record_identities")
+    if type(runtime_records) is not dict:
+        raise DomainError("Phase-E runtime evidence records are absent")
+    return ProtectedPhaseEEvidenceBundle(
+        contract=PHASE_E_EVIDENCE_BUNDLE_CONTRACT,
+        lock_sha256=hashlib.sha256(lock_raw).hexdigest(),
+        manifest_sha256=record["manifest_sha256"],
+        attestation_sha256=record["attestation_sha256"],
+        signature_sha256=record["signature_sha256"],
+        public_key_sha256=record["public_key_sha256"],
+        expected_manifest_root=record["manifest_root"],
+        cache_attestation_identity=record["signer_identity"],
+        runtime_evidence_record_identities_sha256=_canonical_sha256(runtime_records),
+        container_engine_contract=attestation.get("container_engine"),
+        _root=canonical, _lock_path=lock_path, _manifest_path=paths["manifest"],
+        _attestation_path=paths["attestation"], _signature_path=paths["signature"],
+        _public_key_path=paths["public_key"], _trusted_context=_BUNDLE_CONTEXT,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class LockedContainerIdentity:
     """Portable executable identity for one E0.3-authorized platform child."""
@@ -70,6 +238,7 @@ class LockedContainerIdentity:
     output_fixture_sha256: str
     lock_payload_sha256: str
     policy_inventory_digest: str
+    protected_evidence_identity: str
     checks_manifest_digest: str = ""
     checks_layer_digest: str = ""
     checks_cache_identity: str = ""
@@ -94,6 +263,7 @@ class LockedContainerIdentity:
         for name in (
             "archive_sha256", "output_fixture_sha256",
             "lock_payload_sha256", "policy_inventory_digest",
+            "protected_evidence_identity",
         ):
             _sha(getattr(self, name), name)
         if type(self.release_commit) is not str or _COMMIT.fullmatch(self.release_commit) is None:
@@ -129,6 +299,7 @@ class LockedContainerIdentity:
             "output_fixture_sha256": self.output_fixture_sha256,
             "lock_payload_sha256": self.lock_payload_sha256,
             "policy_inventory_digest": self.policy_inventory_digest,
+            "protected_evidence_identity": self.protected_evidence_identity,
             "checks_manifest_digest": self.checks_manifest_digest,
             "checks_layer_digest": self.checks_layer_digest,
             "checks_cache_identity": self.checks_cache_identity,
@@ -277,17 +448,22 @@ def _strict_object(raw: bytes, label: str) -> dict:
 
 
 def load_protected_checks_cache_identity(
-    lock_path: Path, protected_cache_root: Path,
+    evidence_bundle: ProtectedPhaseEEvidenceBundle, protected_cache_root: Path,
 ) -> ProtectedChecksCacheIdentity:
     """Verify the signed E0.3 cache and bind its exact Trivy subtree."""
-    locked = load_locked_container_identity(lock_path, "trivy", "linux/amd64")
-    repo_root = Path(__file__).resolve().parents[3]
-    payload = _strict_object(lock_path.read_bytes(), "Phase-E lock")
+    bundle = require_protected_phase_e_evidence(evidence_bundle)
+    locked = load_locked_container_identity(bundle, "trivy", "linux/amd64")
+    payload = _strict_object(
+        _regular_nofollow_bytes(bundle._lock_path, "Phase-E lock"), "Phase-E lock"
+    )
     record = payload.get("protected_cache_attestation")
     if type(record) is not dict or record.get("contract") != _CACHE_ATTESTATION_CONTRACT:
         raise DomainError("protected cache attestation contract is invalid")
     evidence_paths = {
-        name: repo_root / record[field]
+        name: getattr(bundle, {
+            "manifest": "_manifest_path", "attestation": "_attestation_path",
+            "signature": "_signature_path", "public_key": "_public_key_path",
+        }[name])
         for name, field in {
             "manifest": "manifest_path", "attestation": "attestation_path",
             "signature": "signature_path", "public_key": "public_key_path",
@@ -298,15 +474,21 @@ def load_protected_checks_cache_identity(
         "signature": "signature_sha256", "public_key": "public_key_sha256",
     }.items():
         path = evidence_paths[name]
-        if path.is_symlink() or not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != record[field]:
+        if hashlib.sha256(_regular_nofollow_bytes(path, name)).hexdigest() != record[field]:
             raise DomainError("protected cache repository attestation evidence changed")
-    manifest = _strict_object(evidence_paths["manifest"].read_bytes(), "cache manifest")
+    manifest = _strict_object(
+        _regular_nofollow_bytes(evidence_paths["manifest"], "cache manifest"),
+        "cache manifest",
+    )
     entries = manifest.get("entries")
     if manifest.get("contract") != _CACHE_MANIFEST_CONTRACT or type(entries) is not list:
         raise DomainError("protected cache manifest is invalid")
     if _canonical_sha256(entries) != record.get("manifest_root"):
         raise DomainError("protected cache manifest root is invalid")
-    attestation = _strict_object(evidence_paths["attestation"].read_bytes(), "cache attestation")
+    attestation = _strict_object(
+        _regular_nofollow_bytes(evidence_paths["attestation"], "cache attestation"),
+        "cache attestation",
+    )
     if (
         attestation.get("manifest_root") != record.get("manifest_root")
         or attestation.get("manifest_sha256") != record.get("manifest_sha256")
@@ -353,14 +535,24 @@ def require_locked_identity(value: object, tool: str) -> LockedContainerIdentity
     return value
 
 
+def require_protected_phase_e_evidence(
+    value: object,
+) -> ProtectedPhaseEEvidenceBundle:
+    if type(value) is not ProtectedPhaseEEvidenceBundle or not value._trusted_evidence:
+        raise DomainError("Phase-E evidence must come from the protected bundle loader")
+    return value
+
+
 def load_locked_container_identity(
-    lock_path: Path, tool: str, architecture: str
+    evidence_bundle: ProtectedPhaseEEvidenceBundle, tool: str, architecture: str
 ) -> LockedContainerIdentity:
     """Load one tool identity only after the exact E0.3 graph seal is verified."""
-    if not isinstance(lock_path, Path):
-        raise DomainError("lock_path must be pathlib.Path")
+    bundle = require_protected_phase_e_evidence(evidence_bundle)
     try:
-        payload = json.loads(lock_path.read_text(encoding="utf-8"))
+        payload = json.loads(
+            _regular_nofollow_bytes(bundle._lock_path, "Phase-E lock")
+            .decode("utf-8", errors="strict")
+        )
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise DomainError("Phase-E lock cannot be decoded") from exc
     if type(payload) is not dict or payload.get("lock_contract") != PHASE_E_LOCK_CONTRACT:
@@ -433,6 +625,7 @@ def load_locked_container_identity(
         output_fixture_sha256=_sha(fixture.get("sha256"), "fixture SHA-256"),
         lock_payload_sha256=seal,
         policy_inventory_digest=_canonical_sha256(policy_payload),
+        protected_evidence_identity=bundle.identity,
         checks_manifest_digest=checks.get("external_manifest_digest", ""),
         checks_layer_digest=checks.get("external_layer_digest", ""),
         checks_cache_identity=checks.get("cache_identity", ""),
@@ -444,10 +637,14 @@ def load_locked_container_identity(
 
 __all__ = [
     "LockedContainerIdentity",
+    "ProtectedPhaseEEvidenceBundle",
     "ProtectedChecksCacheIdentity",
     "PHASE_E_LOCK_CONTRACT",
     "PHASE_E_LOCK_PAYLOAD_SHA256",
+    "PHASE_E_EVIDENCE_BUNDLE_CONTRACT",
     "load_locked_container_identity",
+    "load_protected_phase_e_evidence",
     "load_protected_checks_cache_identity",
     "require_locked_identity",
+    "require_protected_phase_e_evidence",
 ]

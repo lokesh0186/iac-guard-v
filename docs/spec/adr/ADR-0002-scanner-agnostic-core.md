@@ -147,3 +147,9 @@ E0.3 cache attestation and equal pre/post subtree roots.
 Both adapters use the complete locked non-root Docker security/resource contract and
 an exact, twice-verified, bounded writable-output allowlist. Product modules contain no
 test evidence factory; tests exercise private capabilities from the excluded tests tree.
+## Amendment, 2026-08-12: E1E2.3 protected runtime authority
+
+Phase-E container adapters receive an opaque runtime capability issued by protected
+operator/workflow plumbing. They do not receive a path selected by candidate or public
+configuration. Portable lock/cache evidence is rooted explicitly and is independent of
+the installed package or source checkout location.

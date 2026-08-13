@@ -432,6 +432,15 @@ binary drift. Strict duplicate-key JSON handling, unknown-category uncertainty, 
 independent file/resource coverage prevent malformed or incomplete native evidence from
 becoming success. Trivy remains advisory until consensus is separately authorized.
 
+### E1E2.3 runtime selection and portable evidence
+
+Candidate/config/API input cannot choose the container-runtime executable. A fake
+program that writes plausible scanner JSON is rejected before scan execution because
+it lacks a protected live Docker client/server/context attestation. Runtime binary,
+daemon, or context drift after attestation is typed uncertainty and cannot yield
+production-trusted scanner evidence. Absolute runtime and evidence-bundle paths are
+private diagnostics rather than canonical report identity.
+
 E2.1 closes metadata-only cache substitution by comparing signed manifest evidence to
 every physical subtree entry, rejecting links, special files, additions, removals, and
 byte changes. Current cache, invocation, update, network, and diagnostics jointly prove

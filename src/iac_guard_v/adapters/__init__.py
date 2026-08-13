@@ -23,7 +23,9 @@ from .kics import (
 )
 from .phase_e_lock import (
     LockedContainerIdentity,
+    ProtectedPhaseEEvidenceBundle,
     load_locked_container_identity,
+    load_protected_phase_e_evidence,
 )
 from .trivy import (
     TRIVY_ADAPTER_CONTRACT,
@@ -48,6 +50,7 @@ __all__ = [
     "KicsAdapter",
     "KicsScanRequest",
     "LockedContainerIdentity",
+    "ProtectedPhaseEEvidenceBundle",
     "ScannerContract",
     "TRIVY_ADAPTER_CONTRACT",
     "TRIVY_CONTRACT",
@@ -60,5 +63,6 @@ __all__ = [
     "create_kics_scan_request",
     "create_trivy_scan_request",
     "load_locked_container_identity",
+    "load_protected_phase_e_evidence",
     "require_trusted_checkov_target_evidence",
 ]

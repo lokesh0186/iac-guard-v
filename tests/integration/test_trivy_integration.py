@@ -10,7 +10,9 @@ from pathlib import Path
 from iac_guard_v.adapters.phase_e_lock import (
     load_locked_container_identity,
     load_protected_checks_cache_identity,
+    load_protected_phase_e_evidence,
 )
+from iac_guard_v.adapters.phase_e_runtime import attest_container_runtime
 from iac_guard_v.adapters.trivy import TrivyAdapter, create_trivy_scan_request
 from iac_guard_v.enums import ArtifactKind, Status
 from iac_guard_v.models import BoundInputFile, ExpectedResource
@@ -27,11 +29,12 @@ def test_locked_trivy_finding_external_bundle_and_offline_execution(tmp_path: Pa
         hashlib.sha256(source.read_bytes()).hexdigest(), metadata.st_dev, metadata.st_ino,
     )
     architecture = "linux/arm64" if platform.machine() in {"arm64", "aarch64"} else "linux/amd64"
-    lock_path = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
+    repo_root = Path(__file__).parents[2]
+    bundle = load_protected_phase_e_evidence(repo_root)
     cache_setting = os.environ.get("IACGV_PHASE_E_CACHE")
     assert cache_setting, "IACGV_PHASE_E_CACHE must name the E0.3 protected cache root"
     protected_cache = load_protected_checks_cache_identity(
-        lock_path, Path(cache_setting)
+        bundle, Path(cache_setting)
     )
     request = create_trivy_scan_request(
         workspace_root=root, scan_root=root,
@@ -40,9 +43,16 @@ def test_locked_trivy_finding_external_bundle_and_offline_execution(tmp_path: Pa
             "main.tf", "aws_s3_bucket.demo", ArtifactKind.TERRAFORM_HCL,
             "aws_s3_bucket.demo",
         ),),
-        docker_executable=Path(shutil.which("docker") or "docker"),
+        container_runtime=attest_container_runtime(
+            Path(shutil.which("docker") or "docker").resolve(strict=True),
+            protected_execution_context_identity=hashlib.sha256(
+                b"phase-e-locked-integration"
+            ).hexdigest(),
+            protected_evidence=bundle,
+            evaluated_workspaces=(root,),
+        ),
         protected_checks_cache=protected_cache,
-        locked_identity=load_locked_container_identity(lock_path, "trivy", architecture),
+        locked_identity=load_locked_container_identity(bundle, "trivy", architecture),
     )
     result = TrivyAdapter().scan(request)
     assert result.scanner_run.status is Status.PASS
@@ -74,7 +84,8 @@ def test_locked_trivy_valid_empty_result(tmp_path: Path) -> None:
         hashlib.sha256(source.read_bytes()).hexdigest(), metadata.st_dev, metadata.st_ino,
     )
     architecture = "linux/arm64" if platform.machine() in {"arm64", "aarch64"} else "linux/amd64"
-    lock_path = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
+    repo_root = Path(__file__).parents[2]
+    bundle = load_protected_phase_e_evidence(repo_root)
     cache_setting = os.environ.get("IACGV_PHASE_E_CACHE")
     assert cache_setting, "IACGV_PHASE_E_CACHE must name the E0.3 protected cache root"
     request = create_trivy_scan_request(
@@ -84,12 +95,19 @@ def test_locked_trivy_valid_empty_result(tmp_path: Path) -> None:
             "main.tf", "aws_s3_bucket_public_access_block.demo",
             ArtifactKind.TERRAFORM_HCL, "aws_s3_bucket_public_access_block.demo",
         ),),
-        docker_executable=Path(shutil.which("docker") or "docker"),
+        container_runtime=attest_container_runtime(
+            Path(shutil.which("docker") or "docker").resolve(strict=True),
+            protected_execution_context_identity=hashlib.sha256(
+                b"phase-e-locked-integration"
+            ).hexdigest(),
+            protected_evidence=bundle,
+            evaluated_workspaces=(root,),
+        ),
         protected_checks_cache=load_protected_checks_cache_identity(
-            lock_path, Path(cache_setting)
+            bundle, Path(cache_setting)
         ),
         locked_identity=load_locked_container_identity(
-            lock_path, "trivy", architecture,
+            bundle, "trivy", architecture,
         ),
     )
     result = TrivyAdapter().scan(request)

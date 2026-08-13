@@ -42,6 +42,11 @@ from .phase_e_lock import (
     ProtectedChecksCacheIdentity,
     require_locked_identity,
 )
+from .phase_e_runtime import (
+    TrustedContainerRuntime,
+    require_trusted_container_runtime,
+    revalidate_trusted_container_runtime,
+)
 
 
 TRIVY_CONTRACT = ScannerContract(
@@ -139,7 +144,7 @@ class TrivyScanRequest:
     files_eligible: tuple
     eligible_file_evidence: tuple
     expected_resources: tuple
-    docker_executable: Path
+    container_runtime: TrustedContainerRuntime
     protected_checks_cache: ProtectedChecksCacheIdentity
     locked_identity: LockedContainerIdentity
     timeout_seconds: int = 180
@@ -159,7 +164,6 @@ class TrivyScanRequest:
         try:
             workspace = self.workspace_root.resolve(strict=True)
             scan_root = self.scan_root.resolve(strict=True)
-            docker = self.docker_executable.resolve(strict=True)
         except OSError as exc:
             raise DomainError("Trivy request path cannot be resolved") from exc
         if not workspace.is_dir() or not scan_root.is_dir():
@@ -168,8 +172,10 @@ class TrivyScanRequest:
             scan_root.relative_to(workspace)
         except ValueError as exc:
             raise DomainError("Trivy scan_root must be inside workspace_root") from exc
-        if not stat.S_ISREG(docker.stat().st_mode) or not os.access(docker, os.X_OK):
-            raise DomainError("Docker launcher must be executable")
+        runtime = require_trusted_container_runtime(
+            self.container_runtime, workspace_root=workspace,
+            protected_evidence_identity=identity.protected_evidence_identity,
+        )
         if type(self.files_eligible) is not tuple or type(self.eligible_file_evidence) is not tuple:
             raise DomainError("Trivy eligible inputs must be exact tuples")
         paths = tuple(canonical_repo_path(item, "Trivy eligible path") for item in self.files_eligible)
@@ -222,7 +228,7 @@ class TrivyScanRequest:
         cache_digest = checks_identity.revalidate()
         object.__setattr__(self, "workspace_root", workspace)
         object.__setattr__(self, "scan_root", scan_root)
-        object.__setattr__(self, "docker_executable", docker)
+        object.__setattr__(self, "container_runtime", runtime)
         object.__setattr__(self, "eligible_file_evidence", tuple(evidence))
         object.__setattr__(self, "expected_resources", tuple(sorted(resources, key=lambda item: item.canonical_key)))
         object.__setattr__(self, "_cache_content_sha256", cache_digest)
@@ -238,6 +244,7 @@ class TrivyExecutionEvidence:
     """ScannerRun plus external-bundle and execution facts absent from generic models."""
 
     scanner_run: ScannerRun
+    container_runtime_identity: str
     binary_image_identity: str
     image_index_digest: str
     checks_manifest_digest: str
@@ -276,7 +283,7 @@ class TrivyExecutionEvidence:
             if type(value) is not str or re.fullmatch(r"sha256:[0-9a-f]{64}", value) is None:
                 raise DomainError(f"{name} must be a prefixed SHA-256")
         for name in (
-            "checks_cache_content_sha256", "protected_cache_manifest_root",
+            "container_runtime_identity", "checks_cache_content_sha256", "protected_cache_manifest_root",
             "trivy_cache_subtree_root", "cache_metadata_digest",
             "cache_attestation_record_sha256", "cache_attestation_signature_sha256",
             "pre_run_cache_root", "post_run_cache_root", "invocation_identity",
@@ -314,6 +321,7 @@ class TrivyExecutionEvidence:
     def canonical_dict(self) -> dict:
         return {
             "scanner_run": self.scanner_run.canonical_dict(),
+            "container_runtime_identity": self.container_runtime_identity,
             "binary_image_identity": self.binary_image_identity,
             "image_index_digest": self.image_index_digest,
             "checks_manifest_digest": self.checks_manifest_digest,
@@ -344,6 +352,7 @@ def _invocation_digest(request: TrivyScanRequest) -> str:
         "adapter": TRIVY_ADAPTER_CONTRACT,
         "lock_contract": request.locked_identity.invocation_contract,
         "execution_reference": request.locked_identity.execution_reference,
+        "container_runtime_identity": request.container_runtime.identity,
         "format": "json", "skip_check_update": True, "network": "none",
         "include_non_failures": True, "read_only_root": True,
         "cap_drop": "ALL", "no_new_privileges": True,
@@ -474,8 +483,8 @@ def _reason_run(
         stdout_sha256=process.stdout_sha256 if process else "",
         stderr_sha256=process.stderr_sha256 if process else "",
         raw_output_sha256=hashlib.sha256(raw).hexdigest() if raw else "",
-        resolved_launcher_path="trivy-container",
-        launcher_digest=request.locked_identity.launcher_digest,
+        resolved_launcher_path="protected-container-runtime",
+        launcher_digest=request.container_runtime.executable_sha256,
         scanner_environment_digest=request.locked_identity.environment_digest,
         policy_inventory_digest=request.locked_identity.policy_inventory_digest,
         invocation_config_digest=_invocation_digest(request),
@@ -487,6 +496,11 @@ def _reason_run(
                 AdapterReason.LOCK_IDENTITY_MISMATCH,
                 AdapterReason.CONTRADICTORY_EVALUATION_EVIDENCE,
             } else Status.INCONCLUSIVE if reason is AdapterReason.EXTERNAL_CHECKS_MISSING
+            or reason in {
+                AdapterReason.CONTAINER_RUNTIME_INTEGRITY_INCONCLUSIVE,
+                AdapterReason.CONTAINER_RUNTIME_CHANGED,
+                AdapterReason.CONTAINER_RUNTIME_CONTEXT_CHANGED,
+            }
             else Status.PASS
         ),
         input_files=request.eligible_file_evidence,
@@ -692,8 +706,8 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
         exit_code=process.exit_code if process.exit_code is not None else -1,
         stdout_sha256=process.stdout_sha256, stderr_sha256=process.stderr_sha256,
         raw_output_sha256=_canonical_native_hash(raw),
-        resolved_launcher_path="trivy-container",
-        launcher_digest=request.locked_identity.launcher_digest,
+        resolved_launcher_path="protected-container-runtime",
+        launcher_digest=request.container_runtime.executable_sha256,
         scanner_environment_digest=request.locked_identity.environment_digest,
         policy_inventory_digest=request.locked_identity.policy_inventory_digest,
         invocation_config_digest=_invocation_digest(request), ruleset_integrity=Status.PASS,
@@ -713,6 +727,7 @@ def _evidence(
     canonical_output = _canonical_native_hash(raw) if raw else hashlib.sha256(b"").hexdigest()
     return TrivyExecutionEvidence(
         scanner_run=run,
+        container_runtime_identity=request.container_runtime.identity,
         binary_image_identity=request.locked_identity.image_architecture_digest,
         image_index_digest=request.locked_identity.image_index_digest,
         checks_manifest_digest=request.locked_identity.checks_manifest_digest,
@@ -755,6 +770,9 @@ class TrivyAdapter:
     @staticmethod
     def _revalidate(request: TrivyScanRequest) -> str:
         require_locked_identity(request.locked_identity, "trivy")
+        revalidate_trusted_container_runtime(
+            request.container_runtime, workspace_root=request.workspace_root
+        )
         if not request.protected_checks_cache._trusted_cache_evidence:
             raise DomainError(AdapterReason.EXTERNAL_CHECKS_MISSING.value)
         _external_metadata(request.protected_checks_cache.cache_root, request.locked_identity)
@@ -827,7 +845,7 @@ class TrivyAdapter:
             self._build_view(request, view)
             output.mkdir(mode=0o733)
             argv = (
-                str(request.docker_executable), "run", "--rm", "--pull", "never",
+                str(request.container_runtime.executable_path), "run", "--rm", "--pull", "never",
                 "--network", "none", "--read-only", "--cap-drop", "ALL",
                 "--security-opt", "no-new-privileges", "--pids-limit", "128",
                 "--memory", _DOCKER_MEMORY, "--cpus", _DOCKER_CPUS,
@@ -843,6 +861,9 @@ class TrivyAdapter:
             require_hardened_docker_argv(
                 argv, pids_limit=_DOCKER_PIDS_LIMIT, memory=_DOCKER_MEMORY,
                 cpus=_DOCKER_CPUS, user=_DOCKER_USER,
+            )
+            revalidate_trusted_container_runtime(
+                request.container_runtime, workspace_root=request.workspace_root
             )
             process = run_command(CommandRequest(
                 argv=argv, expected_exit_codes=TRIVY_CONTRACT.expected_exit_codes,

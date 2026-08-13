@@ -7,7 +7,10 @@ import shutil
 from pathlib import Path
 
 from iac_guard_v.adapters.kics import KicsAdapter, create_kics_scan_request
-from iac_guard_v.adapters.phase_e_lock import load_locked_container_identity
+from iac_guard_v.adapters.phase_e_lock import (
+    load_locked_container_identity, load_protected_phase_e_evidence,
+)
+from iac_guard_v.adapters.phase_e_runtime import attest_container_runtime
 from iac_guard_v.enums import ArtifactKind, Status
 from iac_guard_v.models import BoundInputFile, ExpectedResource
 
@@ -23,7 +26,9 @@ def test_locked_kics_finding_and_offline_execution(tmp_path: Path) -> None:
         hashlib.sha256(source.read_bytes()).hexdigest(), metadata.st_dev, metadata.st_ino,
     )
     architecture = "linux/arm64" if platform.machine() in {"arm64", "aarch64"} else "linux/amd64"
-    lock_path = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
+    repo_root = Path(__file__).parents[2]
+    bundle = load_protected_phase_e_evidence(repo_root)
+    locked = load_locked_container_identity(bundle, "kics", architecture)
     request = create_kics_scan_request(
         workspace_root=root,
         scan_root=root,
@@ -33,8 +38,15 @@ def test_locked_kics_finding_and_offline_execution(tmp_path: Path) -> None:
             "main.tf", "aws_s3_bucket.demo", ArtifactKind.TERRAFORM_HCL,
             "aws_s3_bucket.demo",
         ),),
-        docker_executable=Path(shutil.which("docker") or "docker"),
-        locked_identity=load_locked_container_identity(lock_path, "kics", architecture),
+        container_runtime=attest_container_runtime(
+            Path(shutil.which("docker") or "docker").resolve(strict=True),
+            protected_execution_context_identity=hashlib.sha256(
+                b"phase-e-locked-integration"
+            ).hexdigest(),
+            protected_evidence=bundle,
+            evaluated_workspaces=(root,),
+        ),
+        locked_identity=locked,
     )
     run = KicsAdapter().scan(request)
     assert run.status is Status.PASS

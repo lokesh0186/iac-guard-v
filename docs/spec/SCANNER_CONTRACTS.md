@@ -453,5 +453,20 @@ metadata; semantic hashing omits them and raw-output hashing binds their exact b
 
 The production normalization path follows `run_command` inside adapter `scan`. Returned
 argv must equal the locked invocation; source/output and Trivy cache bytes are bound
+
+### E1E2.3 protected container runtime
+
+KICS and Trivy requests accept `TrustedContainerRuntime`, never a caller-selected
+executable path. The capability binds the no-follow regular Docker client bytes, live
+client/server versions, daemon and context identities, platform, architecture,
+supported isolation controls, protected execution context, and portable Phase-E
+evidence bundle. Binary and live daemon/context evidence are revalidated immediately
+before spawn. `CONTAINER_RUNTIME_INTEGRITY_INCONCLUSIVE`,
+`CONTAINER_RUNTIME_CHANGED`, and `CONTAINER_RUNTIME_CONTEXT_CHANGED` are non-PASS.
+
+The reviewed lock, cache manifest, signature, public key, and runtime records are
+loaded from `ProtectedPhaseEEvidenceBundle` at an explicit protected root. Adapter
+code performs no source-checkout discovery through `__file__`; canonical bundle and
+runtime identities exclude local paths.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

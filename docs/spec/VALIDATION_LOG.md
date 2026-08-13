@@ -2835,3 +2835,12 @@ records `20 passed`; the combined D7.4/D7.5 regression set records `71 passed`. 
 complete D7 public-boundary suite in a clean Python 3.11 wheel environment records
 `194 passed` and 91.22% combined branch-aware coverage. The complete non-integration
 suite in that environment records `1489 passed`.
+## 2026-08-12 — E1E2.3 protected container-runtime authority
+
+KICS and Trivy requests no longer accept `docker_executable`. A portable protected
+Phase-E evidence bundle replaces source-relative `__file__` discovery, and an opaque
+runtime capability binds the no-follow Docker client digest to live client/server,
+daemon, context, platform, architecture, isolation-control, and protected execution
+identities. The runtime is revalidated immediately before spawn. Permanent probes
+reject fake KICS/Trivy-producing executables, binary and context drift, and local-path
+dependence; 183 focused adapter/runtime/boundary tests passed.

@@ -15,6 +15,7 @@ from iac_guard_v.adapters.phase_e_lock import (
     LockedContainerIdentity,
     load_locked_container_identity,
     load_protected_checks_cache_identity,
+    load_protected_phase_e_evidence,
 )
 from iac_guard_v.adapters.trivy import TRIVY_CONTRACT, TrivyAdapter, create_trivy_scan_request
 from iac_guard_v.enums import ArtifactKind, Status
@@ -22,11 +23,22 @@ from iac_guard_v.models import BoundInputFile, DomainError, ExpectedResource
 from iac_guard_v.process import CommandResult, ProcessReason
 from tests.phase_e_test_support import (
     normalize_trivy_fixture,
+    make_test_container_runtime,
     test_protected_checks_cache_identity as make_test_checks_cache,
 )
 
 
 LOCK = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
+ROOT = Path(__file__).parents[2]
+BUNDLE = load_protected_phase_e_evidence(ROOT)
+
+
+@pytest.fixture(autouse=True)
+def _private_runtime_revalidation(monkeypatch):
+    monkeypatch.setattr(
+        trivy_module, "revalidate_trusted_container_runtime",
+        lambda runtime, **_: runtime.identity,
+    )
 
 
 def _process(
@@ -101,7 +113,7 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
         "main.tf", "regular_file", metadata.st_size,
         hashlib.sha256(source.read_bytes()).hexdigest(), metadata.st_dev, metadata.st_ino,
     )
-    identity = load_locked_container_identity(LOCK, "trivy", "linux/arm64")
+    identity = load_locked_container_identity(BUNDLE, "trivy", "linux/arm64")
     protected = tmp_path / "protected"
     cache = protected / "runtime-v2/trivy-cache"
     (cache / "policy/content/policies").mkdir(parents=True)
@@ -117,7 +129,9 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
             "main.tf", "aws_s3_bucket.demo", ArtifactKind.TERRAFORM_HCL,
             "aws_s3_bucket.demo",
         ),) if expected else (),
-        "docker_executable": Path(shutil.which("docker") or "/usr/bin/true"),
+        "container_runtime": make_test_container_runtime(
+            identity, Path(shutil.which("docker") or "/usr/bin/true")
+        ),
         "protected_checks_cache": make_test_checks_cache(
             cache, identity
         ),
@@ -341,7 +355,7 @@ def test_arbitrary_cache_cannot_be_stamped_protected(tmp_path: Path) -> None:
     arbitrary.mkdir()
     (arbitrary / "rule.rego").write_text("package attacker\n", encoding="utf-8")
     with pytest.raises(DomainError, match="physical inventory"):
-        load_protected_checks_cache_identity(LOCK, arbitrary)
+        load_protected_checks_cache_identity(BUNDLE, arbitrary)
 
 
 def test_timeout_is_typed(tmp_path: Path) -> None:
@@ -360,6 +374,7 @@ def test_execution_evidence_is_immutable_and_trusted(tmp_path: Path) -> None:
     with pytest.raises(DomainError, match="adapter-owned"):
         trivy_module.TrivyExecutionEvidence(
             scanner_run=object(), binary_image_identity="sha256:" + "0" * 64,
+            container_runtime_identity="0" * 64,
             image_index_digest="sha256:" + "0" * 64,
             checks_manifest_digest="sha256:" + "0" * 64,
             checks_layer_digest="sha256:" + "0" * 64,
@@ -405,7 +420,7 @@ def test_direct_request_and_untrusted_adapter_inputs_are_rejected(tmp_path: Path
         name: getattr(request, name)
         for name in (
             "workspace_root", "scan_root", "files_eligible", "eligible_file_evidence",
-            "expected_resources", "docker_executable", "protected_checks_cache",
+            "expected_resources", "container_runtime", "protected_checks_cache",
             "locked_identity",
         )
     }
@@ -426,7 +441,7 @@ def test_product_module_has_no_test_execution_capability() -> None:
     assert not hasattr(trivy_module, "_PRIVATE_TEST_CONTEXT")
 
 
-def test_request_path_and_launcher_boundaries(tmp_path: Path) -> None:
+def test_request_path_and_runtime_boundaries(tmp_path: Path) -> None:
     request = _request(tmp_path)
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -436,16 +451,14 @@ def test_request_path_and_launcher_boundaries(tmp_path: Path) -> None:
             files_eligible=request.files_eligible,
             eligible_file_evidence=request.eligible_file_evidence,
             expected_resources=request.expected_resources,
-            docker_executable=request.docker_executable,
+            container_runtime=request.container_runtime,
             protected_checks_cache=request.protected_checks_cache,
             locked_identity=request.locked_identity,
         )
     with pytest.raises(DomainError, match="cannot be resolved"):
         _request(tmp_path / "missing", scan_root=tmp_path / "does-not-exist")
-    launcher = tmp_path / "launcher"
-    launcher.write_text("x", encoding="utf-8")
-    with pytest.raises(DomainError, match="must be executable"):
-        _request(tmp_path / "launcher-case", docker_executable=launcher)
+    with pytest.raises(DomainError, match="TrustedContainerRuntime"):
+        _request(tmp_path / "runtime-case", container_runtime=object())
 
 
 def test_cache_rejects_symlink_and_special_entries(tmp_path: Path) -> None:

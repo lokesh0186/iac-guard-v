@@ -40,6 +40,11 @@ from .base import (
     remove_private_tree, require_hardened_docker_argv, semantic_output_manifest,
 )
 from .phase_e_lock import LockedContainerIdentity, require_locked_identity
+from .phase_e_runtime import (
+    TrustedContainerRuntime,
+    require_trusted_container_runtime,
+    revalidate_trusted_container_runtime,
+)
 
 
 KICS_CONTRACT = ScannerContract(
@@ -151,7 +156,7 @@ class KicsScanRequest:
     files_eligible: tuple
     eligible_file_evidence: tuple
     expected_resources: tuple
-    docker_executable: Path
+    container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
     timeout_seconds: int = 180
     max_output_bytes: int = 16 * 1024 * 1024
@@ -167,14 +172,14 @@ class KicsScanRequest:
         try:
             workspace = self.workspace_root.resolve(strict=True)
             scan_root = self.scan_root.resolve(strict=True)
-            docker = self.docker_executable.resolve(strict=True)
         except OSError as exc:
             raise DomainError("KICS request path cannot be resolved") from exc
         if not workspace.is_dir() or not scan_root.is_dir() or not _inside(scan_root, workspace):
             raise DomainError("KICS scan_root must be a directory inside workspace_root")
-        metadata = docker.stat()
-        if not stat.S_ISREG(metadata.st_mode) or not os.access(docker, os.X_OK):
-            raise DomainError("Docker launcher must be an executable regular file")
+        runtime = require_trusted_container_runtime(
+            self.container_runtime, workspace_root=workspace,
+            protected_evidence_identity=identity.protected_evidence_identity,
+        )
         if type(self.files_eligible) is not tuple or type(self.eligible_file_evidence) is not tuple:
             raise DomainError("KICS eligible files and evidence must be exact tuples")
         paths = tuple(canonical_repo_path(item, "KICS eligible path") for item in self.files_eligible)
@@ -211,7 +216,7 @@ class KicsScanRequest:
             raise DomainError(AdapterReason.INPUT_TOTAL_BYTES_EXCEEDED.value)
         object.__setattr__(self, "workspace_root", workspace)
         object.__setattr__(self, "scan_root", scan_root)
-        object.__setattr__(self, "docker_executable", docker)
+        object.__setattr__(self, "container_runtime", runtime)
         object.__setattr__(self, "eligible_file_evidence", tuple(evidence))
         object.__setattr__(self, "expected_resources", tuple(sorted(resources, key=lambda x: x.canonical_key)))
         object.__setattr__(self, "_trusted_request", True)
@@ -356,6 +361,7 @@ def _invocation_digest(request: KicsScanRequest) -> str:
         "adapter": KICS_ADAPTER_CONTRACT,
         "locked_invocation": request.locked_identity.invocation_contract,
         "execution_reference": request.locked_identity.execution_reference,
+        "container_runtime_identity": request.container_runtime.identity,
         "network": "none",
         "read_only_root": True,
         "cap_drop": "ALL",
@@ -398,13 +404,18 @@ def _reason_run(
         stdout_sha256=process.stdout_sha256 if process else "",
         stderr_sha256=process.stderr_sha256 if process else "",
         raw_output_sha256=(hashlib.sha256(raw_output).hexdigest() if raw_output else ""),
-        resolved_launcher_path="kics-container",
-        launcher_digest=request.locked_identity.launcher_digest,
+        resolved_launcher_path="protected-container-runtime",
+        launcher_digest=request.container_runtime.executable_sha256,
         scanner_environment_digest=request.locked_identity.environment_digest,
         policy_inventory_digest=request.locked_identity.policy_inventory_digest,
         invocation_config_digest=_invocation_digest(request),
         ruleset_integrity=(
-            Status.FAIL if reason is AdapterReason.LOCK_IDENTITY_MISMATCH else Status.PASS
+            Status.FAIL if reason is AdapterReason.LOCK_IDENTITY_MISMATCH
+            else Status.INCONCLUSIVE if reason in {
+                AdapterReason.CONTAINER_RUNTIME_INTEGRITY_INCONCLUSIVE,
+                AdapterReason.CONTAINER_RUNTIME_CHANGED,
+                AdapterReason.CONTAINER_RUNTIME_CONTEXT_CHANGED,
+            } else Status.PASS
         ),
         input_files=request.eligible_file_evidence,
         duration_ms=process.duration_ms if process else 0,
@@ -645,8 +656,8 @@ def _normalize(
         stdout_sha256=process.stdout_sha256,
         stderr_sha256=process.stderr_sha256,
         raw_output_sha256=_canonical_native_hash(payload),
-        resolved_launcher_path="kics-container",
-        launcher_digest=request.locked_identity.launcher_digest,
+        resolved_launcher_path="protected-container-runtime",
+        launcher_digest=request.container_runtime.executable_sha256,
         scanner_environment_digest=request.locked_identity.environment_digest,
         policy_inventory_digest=request.locked_identity.policy_inventory_digest,
         invocation_config_digest=_invocation_digest(request),
@@ -674,6 +685,9 @@ class KicsAdapter:
     @staticmethod
     def _revalidate(request: KicsScanRequest) -> None:
         require_locked_identity(request.locked_identity, "kics")
+        revalidate_trusted_container_runtime(
+            request.container_runtime, workspace_root=request.workspace_root
+        )
         for relative, expected in zip(request.files_eligible, request.eligible_file_evidence):
             current = _read_bound(request.scan_root / relative, relative, request.max_file_bytes)
             if current != expected:
@@ -730,7 +744,7 @@ class KicsAdapter:
             self._build_view(request, view)
             output.mkdir(mode=0o733)
             argv = (
-                str(request.docker_executable), "run", "--rm", "--pull", "never",
+                str(request.container_runtime.executable_path), "run", "--rm", "--pull", "never",
                 "--network", "none",
                 "--read-only", "--cap-drop", "ALL",
                 "--security-opt", "no-new-privileges",
@@ -746,6 +760,9 @@ class KicsAdapter:
             require_hardened_docker_argv(
                 argv, pids_limit=_DOCKER_PIDS_LIMIT, memory=_DOCKER_MEMORY,
                 cpus=_DOCKER_CPUS, user=_DOCKER_USER,
+            )
+            revalidate_trusted_container_runtime(
+                request.container_runtime, workspace_root=request.workspace_root
             )
             process = run_command(CommandRequest(
                 argv=argv,

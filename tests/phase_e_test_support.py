@@ -15,7 +15,44 @@ from iac_guard_v.adapters.phase_e_lock import (
     _physical_inventory,
 )
 from iac_guard_v.adapters.trivy import TrivyAdapter
+from iac_guard_v.adapters.phase_e_runtime import (
+    REQUIRED_ISOLATION_CONTROLS,
+    RUNTIME_CONTRACT,
+    TrustedContainerRuntime,
+)
 from iac_guard_v.process import CommandResult
+
+
+def make_test_container_runtime(
+    locked: LockedContainerIdentity, executable: Path,
+) -> TrustedContainerRuntime:
+    """Create nonshipped runtime evidence for isolated parser/adapter unit tests."""
+    resolved = executable.resolve(strict=True)
+    metadata = resolved.stat()
+    digest = hashlib.sha256(resolved.read_bytes()).hexdigest()
+    value = object.__new__(TrustedContainerRuntime)
+    fields = {
+        "executable_sha256": digest,
+        "runtime_kind": "docker",
+        "runtime_contract": RUNTIME_CONTRACT,
+        "client_version": "private-test-client",
+        "client_identity": "1" * 64,
+        "server_version": "private-test-server",
+        "daemon_identity": "2" * 64,
+        "context_identity": "3" * 64,
+        "platform": "linux",
+        "architecture": "arm64",
+        "supported_isolation_controls": REQUIRED_ISOLATION_CONTROLS,
+        "protected_execution_context_identity": "4" * 64,
+        "protected_evidence_identity": locked.protected_evidence_identity,
+        "_executable_path": resolved,
+        "_device": metadata.st_dev,
+        "_inode": metadata.st_ino,
+        "_trusted_runtime": True,
+    }
+    for name, item in fields.items():
+        object.__setattr__(value, name, item)
+    return value
 
 
 def test_protected_checks_cache_identity(
@@ -56,7 +93,10 @@ def normalize_kics_fixture(
             (output / "results.json").write_bytes(raw)
         return replace(process, argv=command.argv)
 
-    with patch("iac_guard_v.adapters.kics.run_command", execute):
+    with patch("iac_guard_v.adapters.kics.run_command", execute), patch(
+        "iac_guard_v.adapters.kics.revalidate_trusted_container_runtime",
+        return_value=request.container_runtime.identity,
+    ):
         return KicsAdapter().scan(request)
 
 
@@ -70,5 +110,8 @@ def normalize_trivy_fixture(
             (output / "results.json").write_bytes(raw)
         return replace(process, argv=command.argv)
 
-    with patch("iac_guard_v.adapters.trivy.run_command", execute):
+    with patch("iac_guard_v.adapters.trivy.run_command", execute), patch(
+        "iac_guard_v.adapters.trivy.revalidate_trusted_container_runtime",
+        return_value=request.container_runtime.identity,
+    ):
         return TrivyAdapter().scan(request)

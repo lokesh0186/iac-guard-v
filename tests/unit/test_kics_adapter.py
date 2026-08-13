@@ -14,14 +14,27 @@ from iac_guard_v.adapters.kics import KICS_CONTRACT, KicsAdapter, create_kics_sc
 from iac_guard_v.adapters.phase_e_lock import (
     LockedContainerIdentity,
     load_locked_container_identity,
+    load_protected_phase_e_evidence,
 )
 from iac_guard_v.enums import ArtifactKind, Status
 from iac_guard_v.models import BoundInputFile, DomainError, ExpectedResource
 from iac_guard_v.process import CommandResult, ProcessReason
-from tests.phase_e_test_support import normalize_kics_fixture
+from tests.phase_e_test_support import (
+    make_test_container_runtime, normalize_kics_fixture,
+)
 
 
 LOCK = Path(__file__).parents[2] / "tools/locks/phase-e-locks.json"
+ROOT = Path(__file__).parents[2]
+BUNDLE = load_protected_phase_e_evidence(ROOT)
+
+
+@pytest.fixture(autouse=True)
+def _private_runtime_revalidation(monkeypatch):
+    monkeypatch.setattr(
+        kics_module, "revalidate_trusted_container_runtime",
+        lambda runtime, **_: runtime.identity,
+    )
 
 
 def _process(
@@ -123,14 +136,15 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
         ),
     ) if expected else ()
     docker = Path(shutil.which("docker") or "/usr/bin/true")
+    locked = load_locked_container_identity(BUNDLE, "kics", "linux/arm64")
     values = {
         "workspace_root": root,
         "scan_root": root,
         "files_eligible": ("main.tf",),
         "eligible_file_evidence": (evidence,),
         "expected_resources": resources,
-        "docker_executable": docker,
-        "locked_identity": load_locked_container_identity(LOCK, "kics", "linux/arm64"),
+        "container_runtime": make_test_container_runtime(locked, docker),
+        "locked_identity": locked,
     }
     values.update(overrides)
     return create_kics_scan_request(**values)
@@ -337,7 +351,7 @@ def test_version_drift_is_error(tmp_path: Path) -> None:
 
 
 def test_lock_environment_drift_is_rejected(tmp_path: Path) -> None:
-    trusted = load_locked_container_identity(LOCK, "kics", "linux/arm64")
+    trusted = load_locked_container_identity(BUNDLE, "kics", "linux/arm64")
     forged = LockedContainerIdentity(**trusted.canonical_dict())
     with pytest.raises(DomainError, match="reviewed Phase-E lock"):
         _request(tmp_path, locked_identity=forged)
@@ -346,10 +360,14 @@ def test_lock_environment_drift_is_rejected(tmp_path: Path) -> None:
 def test_lock_graph_mutation_is_rejected(tmp_path: Path) -> None:
     payload = json.loads(LOCK.read_text())
     payload["tools"]["kics"]["version"] = "2.1.19"
-    mutated = tmp_path / "lock.json"
+    bundle_root = tmp_path / "bundle"
+    shutil.copytree(ROOT / "tools", bundle_root / "tools")
+    mutated = bundle_root / "tools/locks/phase-e-locks.json"
     mutated.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(DomainError, match="reviewed E0.3 seal"):
-        load_locked_container_identity(mutated, "kics", "linux/arm64")
+        load_locked_container_identity(
+            load_protected_phase_e_evidence(bundle_root), "kics", "linux/arm64"
+        )
 
 
 def test_native_order_reversal_has_identical_canonical_output(tmp_path: Path) -> None:
@@ -464,7 +482,7 @@ def test_direct_request_construction_is_rejected(tmp_path: Path) -> None:
         name: getattr(request, name)
         for name in (
             "workspace_root", "scan_root", "files_eligible", "eligible_file_evidence",
-            "expected_resources", "docker_executable", "locked_identity",
+            "expected_resources", "container_runtime", "locked_identity",
         )
     }
     with pytest.raises(DomainError, match="sealed request factory"):
@@ -482,12 +500,12 @@ def test_request_rejects_scan_root_outside_workspace(tmp_path: Path) -> None:
             files_eligible=request.files_eligible,
             eligible_file_evidence=request.eligible_file_evidence,
             expected_resources=request.expected_resources,
-            docker_executable=request.docker_executable,
+            container_runtime=request.container_runtime,
             locked_identity=request.locked_identity,
         )
 
 
-def test_missing_request_path_and_nonexecutable_launcher_are_rejected(tmp_path: Path) -> None:
+def test_missing_request_path_and_untrusted_runtime_are_rejected(tmp_path: Path) -> None:
     request = _request(tmp_path)
     with pytest.raises(DomainError, match="cannot be resolved"):
         create_kics_scan_request(
@@ -496,13 +514,11 @@ def test_missing_request_path_and_nonexecutable_launcher_are_rejected(tmp_path: 
             files_eligible=request.files_eligible,
             eligible_file_evidence=request.eligible_file_evidence,
             expected_resources=request.expected_resources,
-            docker_executable=request.docker_executable,
+            container_runtime=request.container_runtime,
             locked_identity=request.locked_identity,
         )
-    launcher = tmp_path / "not-executable"
-    launcher.write_text("x")
-    with pytest.raises(DomainError, match="executable regular file"):
-        _request(tmp_path / "second", docker_executable=launcher)
+    with pytest.raises(DomainError, match="TrustedContainerRuntime"):
+        _request(tmp_path / "second", container_runtime=object())
 
 
 def test_oversize_and_missing_input_are_typed(tmp_path: Path) -> None:

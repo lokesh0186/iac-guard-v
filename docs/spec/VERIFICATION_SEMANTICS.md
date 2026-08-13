@@ -874,6 +874,10 @@ interpreter JSON decoder runs. Structural brackets inside strings do not count. 
 makes the rejection reason deterministic across the supported Python matrix rather than
 depending on an interpreter recursion threshold.
 
+E1E2.3 adds `CONTAINER_RUNTIME_INTEGRITY_INCONCLUSIVE`,
+`CONTAINER_RUNTIME_CHANGED`, and `CONTAINER_RUNTIME_CONTEXT_CHANGED`. Each is typed
+non-PASS execution evidence and prevents production-trusted scanner evidence.
+
 ### V6 — Independent oracle
 
 Optional for routine CI. **Required** before any case may be labelled a validated
@@ -1353,6 +1357,12 @@ resource-coverage claims.
 ## E2 Trivy scanner evidence
 
 Trivy evidence is accepted only under `trivy-config-adapter-contract-v2`, the exact
+
+## E1E2.3 protected execution evidence
+
+`TrustedContainerRuntime` is execution authority, not user configuration. Its
+canonical identity and the protected evidence-bundle identity are bound into adapter
+invocation evidence. Runtime-integrity uncertainty prevents downstream `VERIFIED`.
 E0.3 v0.73.0 platform-image identity, and the independently pinned external checks
 v2.2.0 manifest/layer/cache. Source `external` with `fallback_used=false`, network
 disabled, updates disabled, and unchanged cache bytes are required for `PASS`.

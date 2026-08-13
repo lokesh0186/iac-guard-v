@@ -768,6 +768,14 @@ policy verdict or implement multi-scanner consensus.
 
 E2.1 replaces a caller-selected cache directory with a signed-cache identity created by
 the E0.3 physical verifier. The complete Trivy subtree is compared before and after
+
+## E1E2.3 protected runtime authority
+
+Protected operator/workflow plumbing constructs the portable Phase-E evidence bundle
+and live-attested container runtime. Scanner requests contain those opaque capabilities
+and cannot select `docker` or another executable. The process runner executes the exact
+capability path with the locked argument vector; request bytes, runtime identity,
+process evidence, and bounded output evidence form one execution chain.
 execution. Contradictory pass/fail records for one evaluation identity fail closed.
 Validated volatile report metadata is omitted from the semantic digest while exact
 native bytes retain a separate hash.
