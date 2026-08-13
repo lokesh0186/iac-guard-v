@@ -1445,6 +1445,7 @@ BASELINE_EVIDENCE_INVALID
 MATERIALIZED_VIEW_INTEGRITY_FAILED
 MODULE_SCOPE_UNRESOLVED
 AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE
+SNAPSHOT_CHANGED_DURING_VALIDATION
 ```
 
 `COMPLETED` alone is compatible with `PASS`. `INVALID_CONFIGURATION` is definite
@@ -1468,6 +1469,8 @@ claiming recursively discovered modules it did not execute. Each accepted reques
 contains exactly one immutable module plan. `AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE`
 means aggregate kubeconform counts could not be reconciled to exact native positive
 resource identities; it is always `INCONCLUSIVE`.
+`SNAPSHOT_CHANGED_DURING_VALIDATION` means the complete module or Kubernetes artifact
+universe changed at a pre-spawn, post-execution, or evidence-construction boundary.
 `DUPLICATE_JSON_KEY`, `JSON_DEPTH_EXCEEDED`,
 `OUTPUT_DIRECTORY_INTEGRITY_FAILED`, `PROCESS_ERROR`, and `TIMEOUT`.
 
