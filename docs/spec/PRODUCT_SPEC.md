@@ -486,6 +486,13 @@ KICS evidence is accepted only when retained severities, counters, result exit, 
 container scan path, ordinary/BOM query totals, unique query IDs, and issue types agree.
 Raw bytes, canonical native semantics, and the physical output directory are bound by
 three independent identities. KICS remains advisory.
+
+## E2.3 Trivy provenance acceptance
+
+Authoritative Trivy adapter evidence requires the exact E0.3 signed cache, external
+checks identity, protected runtime, locked image/invocation, current nonfallback proof,
+pre/post full and subtree roots, and independent raw/semantic/physical output hashes.
+Missing cache remains an explicit blocked integration prerequisite, never a PASS.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

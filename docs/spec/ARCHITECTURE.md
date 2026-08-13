@@ -804,3 +804,10 @@ The KICS boundary now returns `KicsExecutionEvidence`: its trusted scanner run p
 the runtime/image/invocation identities and separate raw, semantic, and physical output
 identities. Query/file severities, summary counters, exit, scan path, ordinary/BOM
 query totals, and pinned issue-type vocabulary form one validated evidence graph.
+
+## E2.3 Trivy locked execution provenance
+
+The Trivy execution object binds one protected runtime, platform image, external checks
+bundle, complete signed cache, invocation, process streams, results file, semantic JSON,
+and physical output directory. Full-cache and scanner-subtree inventories are checked
+before and after the process. Fallback/source state is recomputed from current evidence.

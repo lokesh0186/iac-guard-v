@@ -62,6 +62,21 @@ def test_locked_trivy_finding_external_bundle_and_offline_execution(tmp_path: Pa
     assert result.network_disabled and result.updates_disabled
     assert result.checks_manifest_digest == request.locked_identity.checks_manifest_digest
     assert result.checks_cache_content_sha256 == request._cache_content_sha256
+    assert result.container_runtime_identity == request.container_runtime.identity
+    assert result.scanner_run.launcher_digest == request.container_runtime.executable_sha256
+    assert result.raw_stdout_sha256 == (
+        result.scanner_run.stdout_sha256 or hashlib.sha256(b"").hexdigest()
+    )
+    assert result.raw_stderr_sha256 == (
+        result.scanner_run.stderr_sha256 or hashlib.sha256(b"").hexdigest()
+    )
+    assert result.raw_results_file_sha256 == result.native_output_bytes_sha256
+    assert len(result.canonical_output_sha256) == 64
+    assert len(result.output_directory_physical_manifest_sha256) == 64
+    assert len(result.fallback_determination_sha256) == 64
+    assert result.cache_attestation_public_key_sha256 == (
+        request.protected_checks_cache.cache_attestation_public_key_sha256
+    )
 
 
 def test_locked_trivy_valid_empty_result(tmp_path: Path) -> None:

@@ -464,3 +464,10 @@ A forged KICS report cannot pair LOW retained evidence with HIGH counters/exit, 
 different scan path, hide BOM queries outside `queries_total`, reuse query IDs across
 buckets, or invent an issue type. Raw-output and physical-directory identities prevent
 semantic canonicalization from hiding byte-level provenance.
+
+### E2.3 Trivy provenance controls
+
+An attacker cannot replace selected Rego content, cache metadata, the signed cache,
+runtime, image child, bundle layer, process streams, results bytes, or extra output
+content while retaining the same complete execution evidence. Embedded fallback is
+derived as a different non-PASS identity rather than trusted from serialized state.

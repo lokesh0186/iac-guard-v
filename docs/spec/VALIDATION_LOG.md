@@ -2852,3 +2852,14 @@ native paths outside `/iacgv-input`, BOM queries outside `queries_total`, duplic
 ordinary/BOM query IDs, and unknown issue types. Compact/pretty JSON has distinct raw
 and physical identities but one semantic identity. The exact E0.3 KICS integration
 passed after the contract update.
+
+## 2026-08-12 — E2.3 Trivy locked integration and provenance
+
+The retained cache passed its signed E0.3 physical inventory with protected manifest
+root `cb53a2f9ac0e2648418e72e37fffa1aa972315f14545c814542809410c115e74`
+and Trivy subtree root
+`df87dc55b37a550d45d5591b6c974bbc681bb6798eacabf9bcb45a52632f405e`.
+Both exact locked Trivy integrations passed. Canonical evidence now records protected
+runtime/image/invocation identities, signed cache and attestation identities, full and
+subtree pre/post roots, derived external/nonfallback evidence, raw stdout/stderr/results
+hashes, canonical semantic output, and the physical output-directory manifest.

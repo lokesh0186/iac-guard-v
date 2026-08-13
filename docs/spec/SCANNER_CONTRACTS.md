@@ -483,5 +483,18 @@ and `issue_type` is closed to `MissingAttribute`, `RedundantAttribute`, and
 KICS execution evidence records the raw results-file SHA-256, canonical semantic JSON
 SHA-256, and physical output-directory manifest root separately. Formatting changes
 alter the first and physical identities but not the semantic identity.
+
+### E2.3 Trivy complete execution provenance
+
+`trivy-config-adapter-contract-v3` retains the protected runtime identity, exact image
+index and platform child, external manifest/layer/cache identities, invocation identity,
+network/update controls, signed cache manifest and public-key/signature evidence, full
+and Trivy-subtree pre/post roots, raw stdout/stderr/results-file hashes, canonical
+semantic output hash, and physical output-directory manifest root.
+
+`source=external` and `fallback_used=false` are derived from the current signed cache,
+exact cache mount and image invocation, disabled update/network controls, matching
+pre/post roots, and current external-cache diagnostics. A stored Boolean alone is not
+execution evidence.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

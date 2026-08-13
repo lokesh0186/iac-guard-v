@@ -379,9 +379,11 @@ class ProtectedChecksCacheIdentity:
     external_layer_digest: str
     cache_metadata_sha256: str
     cache_attestation_identity: str
+    cache_attestation_public_key_sha256: str
     cache_attestation_record_sha256: str
     cache_attestation_signature_sha256: str
     _cache_root: Path = field(repr=False, compare=False)
+    _expected_full_entries: tuple = field(repr=False, compare=False)
     _expected_subtree_entries: tuple = field(repr=False, compare=False)
     _trusted_context: InitVar[object] = None
     _trusted_cache_evidence: bool = field(init=False, default=False, repr=False, compare=False)
@@ -390,13 +392,18 @@ class ProtectedChecksCacheIdentity:
         for name in (
             "protected_manifest_root", "trivy_subtree_root", "cache_metadata_sha256",
             "cache_attestation_record_sha256", "cache_attestation_signature_sha256",
+            "cache_attestation_public_key_sha256",
         ):
             _sha(getattr(self, name), name)
         _sha(self.external_manifest_digest, "external_manifest_digest", prefixed=True)
         _sha(self.external_layer_digest, "external_layer_digest", prefixed=True)
         if type(self.cache_attestation_identity) is not str or not self.cache_attestation_identity:
             raise DomainError("cache attestation identity is required")
-        if not isinstance(self._cache_root, Path) or type(self._expected_subtree_entries) is not tuple:
+        if (
+            not isinstance(self._cache_root, Path)
+            or type(self._expected_full_entries) is not tuple
+            or type(self._expected_subtree_entries) is not tuple
+        ):
             raise DomainError("protected checks cache private evidence is invalid")
         if _trusted_context is _CACHE_CONTEXT:
             object.__setattr__(self, "_trusted_cache_evidence", True)
@@ -413,6 +420,7 @@ class ProtectedChecksCacheIdentity:
             "external_layer_digest": self.external_layer_digest,
             "cache_metadata_sha256": self.cache_metadata_sha256,
             "cache_attestation_identity": self.cache_attestation_identity,
+            "cache_attestation_public_key_sha256": self.cache_attestation_public_key_sha256,
             "cache_attestation_record_sha256": self.cache_attestation_record_sha256,
             "cache_attestation_signature_sha256": self.cache_attestation_signature_sha256,
         }
@@ -426,6 +434,18 @@ class ProtectedChecksCacheIdentity:
             raise DomainError("CACHE_CHANGED_DURING_EXECUTION")
         root = _canonical_sha256(list(current))
         if root != self.trivy_subtree_root:
+            raise DomainError("CACHE_CHANGED_DURING_EXECUTION")
+        return root
+
+    def revalidate_full(self) -> str:
+        try:
+            current = _physical_inventory(self._cache_root)
+        except DomainError as exc:
+            raise DomainError("CACHE_CHANGED_DURING_EXECUTION") from exc
+        if current != self._expected_full_entries:
+            raise DomainError("CACHE_CHANGED_DURING_EXECUTION")
+        root = _canonical_sha256(list(current))
+        if root != self.protected_manifest_root:
             raise DomainError("CACHE_CHANGED_DURING_EXECUTION")
         return root
 
@@ -520,9 +540,11 @@ def load_protected_checks_cache_identity(
         external_layer_digest=locked.checks_layer_digest,
         cache_metadata_sha256=metadata_sha,
         cache_attestation_identity=record["signer_identity"],
+        cache_attestation_public_key_sha256=bundle.public_key_sha256,
         cache_attestation_record_sha256=record["attestation_sha256"],
         cache_attestation_signature_sha256=record["signature_sha256"],
-        _cache_root=cache_root, _expected_subtree_entries=subtree,
+        _cache_root=cache_root, _expected_full_entries=actual,
+        _expected_subtree_entries=subtree,
         _trusted_context=_CACHE_CONTEXT,
     )
 

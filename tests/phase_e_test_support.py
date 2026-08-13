@@ -60,19 +60,22 @@ def test_protected_checks_cache_identity(
 ) -> ProtectedChecksCacheIdentity:
     """Construct unit-fixture cache evidence only inside the non-shipped tests tree."""
     container = cache_root.parent.parent
+    full = _physical_inventory(container)
     subtree = _physical_inventory(cache_root, prefix=_TRIVY_CACHE_PREFIX)
     metadata = cache_root / "policy/metadata.json"
     value = object.__new__(ProtectedChecksCacheIdentity)
     fields = {
-        "protected_manifest_root": "0" * 64,
+        "protected_manifest_root": _canonical_sha256(list(full)),
         "trivy_subtree_root": _canonical_sha256(list(subtree)),
         "external_manifest_digest": locked.checks_manifest_digest,
         "external_layer_digest": locked.checks_layer_digest,
         "cache_metadata_sha256": hashlib.sha256(metadata.read_bytes()).hexdigest(),
         "cache_attestation_identity": "private-test-cache-attestation",
+        "cache_attestation_public_key_sha256": "5" * 64,
         "cache_attestation_record_sha256": "0" * 64,
         "cache_attestation_signature_sha256": "0" * 64,
         "_cache_root": container,
+        "_expected_full_entries": full,
         "_expected_subtree_entries": subtree,
         "_trusted_cache_evidence": True,
     }

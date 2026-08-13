@@ -165,8 +165,22 @@ def test_finding_result_retains_external_identity(tmp_path: Path) -> None:
     assert evidence.binary_image_identity != evidence.checks_manifest_digest
     assert run.stderr_sha256 == hashlib.sha256(b"loading from existing cache").hexdigest()
     assert evidence.canonical_output_sha256 == run.raw_output_sha256
-    assert evidence.protected_cache_manifest_root == "0" * 64
+    assert (
+        evidence.protected_cache_manifest_root
+        == evidence.pre_run_protected_cache_root
+        == evidence.post_run_protected_cache_root
+    )
     assert evidence.trivy_cache_subtree_root == evidence.checks_cache_content_sha256
+    assert evidence.container_runtime_identity == _request(
+        tmp_path / "runtime-identity"
+    ).container_runtime.identity
+    assert evidence.raw_stdout_sha256 == hashlib.sha256(b"").hexdigest()
+    assert evidence.raw_stderr_sha256 == hashlib.sha256(
+        b"loading from existing cache"
+    ).hexdigest()
+    assert evidence.raw_results_file_sha256 == evidence.native_output_bytes_sha256
+    assert len(evidence.output_directory_physical_manifest_sha256) == 64
+    assert len(evidence.fallback_determination_sha256) == 64
 
 
 def test_valid_empty_result_passes_without_inventing_evaluations(tmp_path: Path) -> None:
@@ -336,6 +350,11 @@ def test_volatile_report_metadata_does_not_change_semantic_hash(tmp_path: Path) 
     assert a.canonical_output_sha256 == b.canonical_output_sha256
     assert a.scanner_run.raw_output_sha256 == b.scanner_run.raw_output_sha256
     assert a.native_output_bytes_sha256 != b.native_output_bytes_sha256
+    assert a.raw_results_file_sha256 != b.raw_results_file_sha256
+    assert (
+        a.output_directory_physical_manifest_sha256
+        != b.output_directory_physical_manifest_sha256
+    )
 
 
 def test_pass_and_fail_for_one_evaluation_identity_fail_closed(tmp_path: Path) -> None:
@@ -383,13 +402,20 @@ def test_execution_evidence_is_immutable_and_trusted(tmp_path: Path) -> None:
             trivy_cache_subtree_root="0" * 64,
             cache_metadata_digest="0" * 64,
             cache_attestation_identity="test",
+            cache_attestation_public_key_sha256="0" * 64,
             cache_attestation_record_sha256="0" * 64,
             cache_attestation_signature_sha256="0" * 64,
             pre_run_cache_root="0" * 64, post_run_cache_root="0" * 64,
+            pre_run_protected_cache_root="0" * 64,
+            post_run_protected_cache_root="0" * 64,
             invocation_identity="0" * 64, source="external", fallback_used=False,
-            network_disabled=True, updates_disabled=True, canonical_output_sha256="0" * 64,
+            network_disabled=True, updates_disabled=True,
+            raw_stdout_sha256="0" * 64, raw_stderr_sha256="0" * 64,
+            raw_results_file_sha256="0" * 64,
+            canonical_output_sha256="0" * 64,
             native_output_bytes_sha256="0" * 64,
-            output_directory_manifest_sha256="0" * 64,
+            output_directory_physical_manifest_sha256="0" * 64,
+            fallback_determination_sha256="0" * 64,
         )
 
 
@@ -713,3 +739,24 @@ def test_execution_evidence_contract_mutations_are_rejected(tmp_path: Path) -> N
     no_attestation["cache_attestation_identity"] = ""
     with pytest.raises(DomainError, match="attestation_identity"):
         trivy_module.TrivyExecutionEvidence(**no_attestation)
+    protected_changed = dict(values)
+    protected_changed["post_run_protected_cache_root"] = "1" * 64
+    with pytest.raises(DomainError, match="protected cache changed"):
+        trivy_module.TrivyExecutionEvidence(**protected_changed)
+    protected_unsigned = dict(values)
+    protected_unsigned["pre_run_protected_cache_root"] = "1" * 64
+    protected_unsigned["post_run_protected_cache_root"] = "1" * 64
+    with pytest.raises(DomainError, match="not signed"):
+        trivy_module.TrivyExecutionEvidence(**protected_unsigned)
+    raw_result_changed = dict(values)
+    raw_result_changed["raw_results_file_sha256"] = "1" * 64
+    with pytest.raises(DomainError, match="results-file"):
+        trivy_module.TrivyExecutionEvidence(**raw_result_changed)
+    raw_stdout_changed = dict(values)
+    raw_stdout_changed["raw_stdout_sha256"] = "1" * 64
+    with pytest.raises(DomainError, match="stdout identity"):
+        trivy_module.TrivyExecutionEvidence(**raw_stdout_changed)
+    raw_stderr_changed = dict(values)
+    raw_stderr_changed["raw_stderr_sha256"] = "1" * 64
+    with pytest.raises(DomainError, match="stderr identity"):
+        trivy_module.TrivyExecutionEvidence(**raw_stderr_changed)

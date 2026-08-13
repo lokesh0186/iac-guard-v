@@ -34,7 +34,7 @@ from ..normalisation import assign_occurrence_indices
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
 from .base import (
     AdapterReason, ScannerContract, read_locked_output_directory,
-    remove_private_tree, require_hardened_docker_argv, semantic_output_manifest,
+    remove_private_tree, require_hardened_docker_argv,
 )
 from .kics import _read_bound, _strict_json
 from .phase_e_lock import (
@@ -55,7 +55,7 @@ TRIVY_CONTRACT = ScannerContract(
     frameworks=("kubernetes", "terraform"),
     expected_exit_codes=(0,),
 )
-TRIVY_ADAPTER_CONTRACT = "trivy-config-adapter-contract-v2"
+TRIVY_ADAPTER_CONTRACT = "trivy-config-adapter-contract-v3"
 _REQUEST_CONTEXT = object()
 _RESULT_CONTEXT = object()
 _SHA = re.compile(r"[0-9a-f]{64}")
@@ -226,6 +226,7 @@ class TrivyScanRequest:
         checks = checks_identity.cache_root
         _external_metadata(checks, identity)
         cache_digest = checks_identity.revalidate()
+        checks_identity.revalidate_full()
         object.__setattr__(self, "workspace_root", workspace)
         object.__setattr__(self, "scan_root", scan_root)
         object.__setattr__(self, "container_runtime", runtime)
@@ -255,18 +256,25 @@ class TrivyExecutionEvidence:
     trivy_cache_subtree_root: str
     cache_metadata_digest: str
     cache_attestation_identity: str
+    cache_attestation_public_key_sha256: str
     cache_attestation_record_sha256: str
     cache_attestation_signature_sha256: str
     pre_run_cache_root: str
     post_run_cache_root: str
+    pre_run_protected_cache_root: str
+    post_run_protected_cache_root: str
     invocation_identity: str
     source: str
     fallback_used: bool
     network_disabled: bool
     updates_disabled: bool
+    raw_stdout_sha256: str
+    raw_stderr_sha256: str
+    raw_results_file_sha256: str
     canonical_output_sha256: str
     native_output_bytes_sha256: str
-    output_directory_manifest_sha256: str
+    output_directory_physical_manifest_sha256: str
+    fallback_determination_sha256: str
     _trusted_context: InitVar[object] = None
     _trusted_evidence: bool = field(init=False, default=False, repr=False, compare=False)
 
@@ -286,9 +294,13 @@ class TrivyExecutionEvidence:
             "container_runtime_identity", "checks_cache_content_sha256", "protected_cache_manifest_root",
             "trivy_cache_subtree_root", "cache_metadata_digest",
             "cache_attestation_record_sha256", "cache_attestation_signature_sha256",
+            "cache_attestation_public_key_sha256",
             "pre_run_cache_root", "post_run_cache_root", "invocation_identity",
+            "pre_run_protected_cache_root", "post_run_protected_cache_root",
+            "raw_stdout_sha256", "raw_stderr_sha256", "raw_results_file_sha256",
             "canonical_output_sha256", "native_output_bytes_sha256",
-            "output_directory_manifest_sha256",
+            "output_directory_physical_manifest_sha256",
+            "fallback_determination_sha256",
         ):
             value = getattr(self, name)
             if type(value) is not str or _SHA.fullmatch(value) is None:
@@ -300,6 +312,10 @@ class TrivyExecutionEvidence:
             raise DomainError("cache_attestation_identity is required")
         if self.pre_run_cache_root != self.post_run_cache_root:
             raise DomainError("Trivy cache changed during execution")
+        if self.pre_run_protected_cache_root != self.post_run_protected_cache_root:
+            raise DomainError("Trivy protected cache changed during execution")
+        if self.pre_run_protected_cache_root != self.protected_cache_manifest_root:
+            raise DomainError("Trivy protected cache root is not signed")
         if not (
             self.checks_cache_content_sha256
             == self.trivy_cache_subtree_root
@@ -315,6 +331,17 @@ class TrivyExecutionEvidence:
             raise DomainError("Trivy checks source is invalid")
         if self.fallback_used != (self.source == "embedded_fallback"):
             raise DomainError("Trivy checks source and fallback evidence disagree")
+        if self.raw_results_file_sha256 != self.native_output_bytes_sha256:
+            raise DomainError("Trivy results-file byte identities disagree")
+        empty = hashlib.sha256(b"").hexdigest()
+        if self.scanner_run.stdout_sha256 not in {"", self.raw_stdout_sha256}:
+            raise DomainError("Trivy stdout identity disagrees with scanner evidence")
+        if self.scanner_run.stderr_sha256 not in {"", self.raw_stderr_sha256}:
+            raise DomainError("Trivy stderr identity disagrees with scanner evidence")
+        if not self.scanner_run.stdout_sha256 and self.raw_stdout_sha256 != empty:
+            raise DomainError("Trivy absent stdout must use the empty-byte identity")
+        if not self.scanner_run.stderr_sha256 and self.raw_stderr_sha256 != empty:
+            raise DomainError("Trivy absent stderr must use the empty-byte identity")
         if _trusted_context is _RESULT_CONTEXT:
             object.__setattr__(self, "_trusted_evidence", True)
 
@@ -332,18 +359,27 @@ class TrivyExecutionEvidence:
             "trivy_cache_subtree_root": self.trivy_cache_subtree_root,
             "cache_metadata_digest": self.cache_metadata_digest,
             "cache_attestation_identity": self.cache_attestation_identity,
+            "cache_attestation_public_key_sha256": self.cache_attestation_public_key_sha256,
             "cache_attestation_record_sha256": self.cache_attestation_record_sha256,
             "cache_attestation_signature_sha256": self.cache_attestation_signature_sha256,
             "pre_run_cache_root": self.pre_run_cache_root,
             "post_run_cache_root": self.post_run_cache_root,
+            "pre_run_protected_cache_root": self.pre_run_protected_cache_root,
+            "post_run_protected_cache_root": self.post_run_protected_cache_root,
             "invocation_identity": self.invocation_identity,
             "source": self.source,
             "fallback_used": self.fallback_used,
             "network_disabled": self.network_disabled,
             "updates_disabled": self.updates_disabled,
+            "raw_stdout_sha256": self.raw_stdout_sha256,
+            "raw_stderr_sha256": self.raw_stderr_sha256,
+            "raw_results_file_sha256": self.raw_results_file_sha256,
             "canonical_output_sha256": self.canonical_output_sha256,
             "native_output_bytes_sha256": self.native_output_bytes_sha256,
-            "output_directory_manifest_sha256": self.output_directory_manifest_sha256,
+            "output_directory_physical_manifest_sha256": (
+                self.output_directory_physical_manifest_sha256
+            ),
+            "fallback_determination_sha256": self.fallback_determination_sha256,
         }
 
 
@@ -720,8 +756,11 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
 def _evidence(
     request: TrivyScanRequest, run: ScannerRun, raw: bytes | None,
     *, cache_digest: str, fallback_used: bool,
+    fallback_determination_sha256: str,
     pre_run_cache_root: str | None = None,
     post_run_cache_root: str | None = None,
+    pre_run_protected_cache_root: str | None = None,
+    post_run_protected_cache_root: str | None = None,
     output_directory_manifest_sha256: str | None = None,
 ) -> TrivyExecutionEvidence:
     canonical_output = _canonical_native_hash(raw) if raw else hashlib.sha256(b"").hexdigest()
@@ -742,6 +781,9 @@ def _evidence(
         cache_attestation_identity=(
             request.protected_checks_cache.cache_attestation_identity
         ),
+        cache_attestation_public_key_sha256=(
+            request.protected_checks_cache.cache_attestation_public_key_sha256
+        ),
         cache_attestation_record_sha256=(
             request.protected_checks_cache.cache_attestation_record_sha256
         ),
@@ -750,15 +792,84 @@ def _evidence(
         ),
         pre_run_cache_root=pre_run_cache_root or cache_digest,
         post_run_cache_root=post_run_cache_root or cache_digest,
+        pre_run_protected_cache_root=(
+            pre_run_protected_cache_root
+            or request.protected_checks_cache.protected_manifest_root
+        ),
+        post_run_protected_cache_root=(
+            post_run_protected_cache_root
+            or request.protected_checks_cache.protected_manifest_root
+        ),
         invocation_identity=_invocation_digest(request),
         source="embedded_fallback" if fallback_used else "external",
         fallback_used=fallback_used, network_disabled=True, updates_disabled=True,
+        raw_stdout_sha256=(run.stdout_sha256 or hashlib.sha256(b"").hexdigest()),
+        raw_stderr_sha256=(run.stderr_sha256 or hashlib.sha256(b"").hexdigest()),
+        raw_results_file_sha256=hashlib.sha256(raw or b"").hexdigest(),
         canonical_output_sha256=canonical_output, _trusted_context=_RESULT_CONTEXT,
         native_output_bytes_sha256=hashlib.sha256(raw or b"").hexdigest(),
-        output_directory_manifest_sha256=(
+        output_directory_physical_manifest_sha256=(
             output_directory_manifest_sha256 or hashlib.sha256(b"").hexdigest()
         ),
+        fallback_determination_sha256=fallback_determination_sha256,
     )
+
+
+def _derive_fallback_state(
+    request: TrivyScanRequest,
+    process: CommandResult | None,
+    *,
+    pre_run_cache_root: str,
+    post_run_cache_root: str,
+) -> tuple[bool, str]:
+    executed = process is not None
+    argv = process.argv if process is not None else ()
+    stderr = process.stderr.decode("utf-8", errors="replace").casefold() if process else ""
+    cache_mount = f"{request.protected_checks_cache.cache_root}:/cache:ro"
+    observations = {
+        "executed": executed,
+        "protected_cache_manifest_root": (
+            request.protected_checks_cache.protected_manifest_root
+        ),
+        "trivy_cache_subtree_root": request.protected_checks_cache.trivy_subtree_root,
+        "pre_run_cache_root": pre_run_cache_root,
+        "post_run_cache_root": post_run_cache_root,
+        "external_manifest_digest": request.locked_identity.checks_manifest_digest,
+        "external_layer_digest": request.locked_identity.checks_layer_digest,
+        "locked_source_external": request.locked_identity.source == "external",
+        "locked_fallback_false": request.locked_identity.fallback_used is False,
+        "cache_mount_exact": cache_mount in argv,
+        "execution_reference_exact": request.locked_identity.execution_reference in argv,
+        "skip_check_update": "--skip-check-update" in argv,
+        "network_none": (
+            "--network" in argv
+            and argv.index("--network") + 1 < len(argv)
+            and argv[argv.index("--network") + 1] == "none"
+        ),
+        "cache_environment_bound": (
+            "TRIVY_CACHE_DIR=/cache" in argv
+        ),
+        "current_external_cache_diagnostic": "loading from existing cache" in stderr,
+        "no_download_diagnostic": "downloading the checks bundle" not in stderr,
+    }
+    required = tuple(
+        value for key, value in observations.items()
+        if key not in {
+            "executed", "protected_cache_manifest_root", "trivy_cache_subtree_root",
+            "pre_run_cache_root", "post_run_cache_root", "external_manifest_digest",
+            "external_layer_digest",
+        }
+    )
+    roots_match = (
+        pre_run_cache_root
+        == post_run_cache_root
+        == request.protected_checks_cache.trivy_subtree_root
+    )
+    fallback = False if not executed else not (all(required) and roots_match)
+    payload = {**observations, "roots_match": roots_match, "fallback_used": fallback}
+    return fallback, hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
 
 
 class TrivyAdapter:
@@ -826,9 +937,15 @@ class TrivyAdapter:
             run = trusted(_reason_run(
                 request, AdapterReason.EMPTY_ELIGIBLE_SCOPE, status=Status.SKIPPED
             ))
+            fallback, determination = _derive_fallback_state(
+                request, None,
+                pre_run_cache_root=request._cache_content_sha256,
+                post_run_cache_root=request._cache_content_sha256,
+            )
             return _evidence(
                 request, run, None, cache_digest=request._cache_content_sha256,
-                fallback_used=False,
+                fallback_used=fallback,
+                fallback_determination_sha256=determination,
             )
         work = Path(tempfile.mkdtemp(prefix="iacgv-trivy-"))
         process: CommandResult | None = None
@@ -894,9 +1011,6 @@ class TrivyAdapter:
                 )
                 if repeated_root != output_manifest_sha256 or repeated["results.json"] != raw:
                     raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
-                output_manifest_sha256 = semantic_output_manifest(
-                    "results.json", _canonical_native_hash(raw)
-                )
         except (DomainError, OSError) as exc:
             value = str(exc)
             reason = next((item for item in AdapterReason if item.value == value), AdapterReason.SCAN_VIEW_PREPARATION_FAILED)
@@ -909,9 +1023,15 @@ class TrivyAdapter:
         if cleanup_failed:
             terminal = _reason_run(request, AdapterReason.OUTPUT_CLEANUP_FAILED, process=process, raw=raw)
         if terminal is not None:
+            fallback, determination = _derive_fallback_state(
+                request, process, pre_run_cache_root=pre_run_cache_root,
+                post_run_cache_root=cache_digest,
+            )
             return _evidence(
                 request, trusted(terminal), raw, cache_digest=cache_digest,
-                fallback_used=False, pre_run_cache_root=pre_run_cache_root,
+                fallback_used=fallback,
+                fallback_determination_sha256=determination,
+                pre_run_cache_root=pre_run_cache_root,
                 post_run_cache_root=cache_digest,
                 output_directory_manifest_sha256=output_manifest_sha256 or None,
             )
@@ -919,15 +1039,19 @@ class TrivyAdapter:
             run = trusted(_reason_run(
                 request, AdapterReason.RAW_OUTPUT_MISSING, process=process
             ))
+            fallback, determination = _derive_fallback_state(
+                request, process, pre_run_cache_root=pre_run_cache_root,
+                post_run_cache_root=cache_digest,
+            )
             return _evidence(
-                request, run, None, cache_digest=cache_digest, fallback_used=False,
+                request, run, None, cache_digest=cache_digest, fallback_used=fallback,
+                fallback_determination_sha256=determination,
                 pre_run_cache_root=pre_run_cache_root,
                 post_run_cache_root=cache_digest,
             )
-        stderr = process.stderr.decode("utf-8", errors="replace").casefold()
-        fallback = not (
-            "loading from existing cache" in stderr
-            and "downloading the checks bundle" not in stderr
+        fallback, determination = _derive_fallback_state(
+            request, process, pre_run_cache_root=pre_run_cache_root,
+            post_run_cache_root=cache_digest,
         )
         if fallback:
             parsed = _reason_run(
@@ -946,7 +1070,9 @@ class TrivyAdapter:
                 parsed = _reason_run(request, reason, process=process, raw=raw)
         return _evidence(
             request, trusted(parsed), raw, cache_digest=cache_digest,
-            fallback_used=fallback, pre_run_cache_root=pre_run_cache_root,
+            fallback_used=fallback,
+            fallback_determination_sha256=determination,
+            pre_run_cache_root=pre_run_cache_root,
             post_run_cache_root=cache_digest,
             output_directory_manifest_sha256=output_manifest_sha256,
         )

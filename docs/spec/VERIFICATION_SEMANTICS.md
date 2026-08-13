@@ -1409,3 +1409,8 @@ E1.3 adds `SEVERITY_EVIDENCE_MISMATCH` and `SCAN_PATH_MISMATCH`. Both are integr
 errors: the former means retained KICS query/file severities disagree with native
 counters or result exit, while the latter means native path evidence does not describe
 the locked scan target.
+
+E2.3 Trivy evidence separates raw stdout, raw stderr, raw results bytes, canonical
+semantic results, and physical output-directory identity. The complete signed protected
+cache and Trivy subtree are revalidated around execution; fallback state is a derived
+predicate over current cache, invocation, isolation, and diagnostic evidence.

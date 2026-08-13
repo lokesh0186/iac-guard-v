@@ -159,3 +159,10 @@ the installed package or source checkout location.
 KICS native query/file evidence, counters, paths, result exit, BOM evidence, and issue
 types are one closed v2.1.20 graph. The adapter preserves separate exact-byte,
 canonical-semantic, and physical-output identities and remains advisory.
+
+## Amendment, 2026-08-12: E2.3 complete Trivy execution provenance
+
+Trivy v0.73.0 execution now binds the protected runtime and the full E0.3 signed cache,
+revalidates both full and scanner-specific inventories around execution, derives
+external/nonfallback state from current evidence, and records independent process,
+results, semantic, and physical-output identities.
