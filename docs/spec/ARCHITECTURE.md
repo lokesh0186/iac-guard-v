@@ -906,7 +906,7 @@ read-only mounts but receives no write bit; only the output mount is writable.
 ## E3.8 complete trusted validation scope
 
 Each validator request now carries a factory-attested `TrustedValidationScopePlan`.
-Terraform/OpenTofu and TFLint plans enumerate every top-level `.tf` and `.tf.json`
+Terraform/OpenTofu and TFLint plans enumerate every top-level `.tf`
 entry in the selected module directory and reject omitted siblings, special entries,
 and candidate transient or governed configuration. Kubeconform plans independently
 classify the complete YAML/JSON tree and bind every Kubernetes artifact and resource.
@@ -917,6 +917,23 @@ spawn, after execution, and before evidence construction. Added, removed, replac
 or changed relevant entries therefore produce typed uncertainty rather than PASS.
 TFLint records complete module execution but makes no fabricated per-file affirmative
 claim and remains permanently advisory.
+
+## E5.2 repository validation universe
+
+`TrustedValidationUniversePlan` is derived only from a role-bound
+`SealedVerificationSnapshot`. It groups every regular `.tf` entry by its containing
+module directory, retains every Kubernetes-classified file and resource, and records
+unsupported Terraform JSON and unresolved supported/governed entries. The portable
+universe digest binds repository/snapshot identities, module manifests, Kubernetes
+resources, and the complete relevant physical inventory.
+
+The closed orchestrator revalidates that inventory before, between, and after validator
+executions. OpenTofu or protected Terraform runs once per module. Any definite invalid
+module produces aggregate FAIL; initialization need, unsupported input, operational
+failure, or missing evidence produces aggregate INCONCLUSIVE; aggregate PASS requires
+one exact trusted PASS for every module. TFLint uses the same modules and remains
+advisory. Kubeconform consumes the plan's complete Kubernetes universe. No consensus or
+final-policy integration is introduced here.
 
 ## E3.9 kubeconform coherence and authoritative registry runtime
 

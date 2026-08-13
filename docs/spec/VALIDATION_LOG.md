@@ -2968,3 +2968,24 @@ snapshot. Tests cover positive and negative predicates, missing or unknown prote
 policy, unbound targets, caller-authored result rejection, deterministic identities,
 and wheel inclusion of the policy bytes. No scanner-agreement input or verdict
 aggregation was added.
+
+## 2026-08-13 — E5.2 complete repository validation universe
+
+The selected-module validators are now orchestrated by a private-factory universe
+derived from the complete role-bound snapshot. Permanent probes cover multiple module
+directories, missing module evidence, conservative FAIL/INCONCLUSIVE aggregation, late
+Terraform modules, late Kubernetes JSON, unforgeable plan provenance, and explicit
+Terraform JSON uncertainty. The orchestrator revalidates the complete relevant
+physical inventory around each execution; TFLint remains advisory and no V7 or final
+policy behavior was added.
+
+The final declared-dependency matrix recorded `1871 passed` independently on Python
+3.10, 3.11, 3.12, and 3.13 with bytecode disabled before interpreter startup. Focused
+branch coverage was 99% for both the validation-universe and protected-oracle modules.
+The exact arm64 locked integration set recorded 14 passes and one macOS skip for the
+native-Linux UID/bind-mount portability probe; the six Checkov 3.3.0 cases ran from a
+fresh bytecode-free wheel installation. Specification lint reported 26 documents and
+164 enum values with zero warnings. The frozen manifest remained 4,842/4,842 at root
+`a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`; replay remained
+630/630 and 10,080/10,080 with zero verdict mismatches; all seven derived tables were
+`SEMANTIC_MATCH`; and the frozen-scope diff was empty.

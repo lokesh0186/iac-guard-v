@@ -283,6 +283,18 @@ def test_only_terraform_extensions_enter_sealed_request(tmp_path: Path, path: st
         )
 
 
+def test_tf_json_is_explicitly_unsupported(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    (request.scan_root / "main.tf.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(DomainError, match="TF_JSON_UNSUPPORTED"):
+        create_terraform_validation_request(
+            workspace_root=request.workspace_root, scan_root=request.scan_root,
+            files_eligible=("main.tf.json",),
+            container_runtime=request.container_runtime,
+            locked_identity=request.locked_identity,
+        )
+
+
 def test_symlink_missing_oversize_and_duplicate_inputs_are_rejected(tmp_path: Path) -> None:
     request = _request(tmp_path)
     source = request.scan_root / "main.tf"

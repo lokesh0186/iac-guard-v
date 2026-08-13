@@ -34,7 +34,7 @@ _IMPLEMENTATIONS = {
 _SHARED_IMPLEMENTATION_FILES = (
     "adapters/base.py", "adapters/phase_e_lock.py", "adapters/phase_e_runtime.py",
     "engine.py", "enums.py", "models.py", "process.py", "validators/base.py",
-    "validators/materialization.py", "validators/registry.py",
+    "validators/materialization.py", "validators/registry.py", "validators/universe.py",
 )
 _SHA = re.compile(r"[0-9a-f]{64}")
 _INTEGRITY_REASON_PASS = "BYTECODE_FREE_PRODUCT_BUILD"

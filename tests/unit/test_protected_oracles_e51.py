@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
+from unittest.mock import patch
 
 import pytest
 
@@ -8,11 +10,15 @@ from iac_guard_v.engine import attest_checkov_scan_plan
 from iac_guard_v.enums import ArtifactKind, ScanRole, Status
 from iac_guard_v.models import DomainError
 from iac_guard_v.oracles import (
+    OracleObservation,
     OracleResult,
     ProtectedOracleRegistry,
     create_protected_oracle_request,
     require_trusted_oracle_evidence,
 )
+from iac_guard_v.oracles.base import create_oracle_result
+import iac_guard_v.oracles.base as oracle_base
+import iac_guard_v.oracles.structural as structural
 
 from test_checkov_adapter import request as adapter_request
 
@@ -109,3 +115,174 @@ def test_oracle_evidence_is_deterministic(tmp_path: Path) -> None:
     second = _execute(tmp_path / "b", "kubernetes_no_privileged_containers_v1", "{privileged: false}")
     assert first.canonical_dict() == second.canonical_dict()
     assert first.identity == second.identity
+
+
+def test_json_and_workload_controller_shapes_are_supported(tmp_path: Path) -> None:
+    for name, document in (
+        ("pod.json", '{"apiVersion":"v1","kind":"Pod","metadata":{"name":"demo"},"spec":{"containers":[{"name":"app","securityContext":{"privileged":false}}]}}'),
+        ("deploy.yaml", "apiVersion: apps/v1\nkind: Deployment\nmetadata: {name: demo}\nspec:\n  template:\n    spec:\n      containers:\n        - name: app\n          securityContext: {privileged: false}\n"),
+        ("cron.yaml", "apiVersion: batch/v1\nkind: CronJob\nmetadata: {name: demo}\nspec:\n  jobTemplate:\n    spec:\n      template:\n        spec:\n          containers:\n            - name: app\n              securityContext: {privileged: false}\n"),
+    ):
+        case = tmp_path / name.replace(".", "-")
+        case.mkdir()
+        raw = adapter_request(case, frameworks=("kubernetes",))
+        (raw.scan_root / "pod.yaml").unlink()
+        (raw.scan_root / name).write_text(document)
+        snapshot = _role_snapshot_for_test(attest_checkov_scan_plan(raw))
+        resource = snapshot.resources[0]
+        result = ProtectedOracleRegistry().execute(create_protected_oracle_request(
+            oracle_id="kubernetes_no_privileged_containers_v1", snapshot=snapshot,
+            file_path=name, artifact_kind=resource.artifact_kind,
+            resource_identity=resource.resource_address,
+        ))
+        assert result.status is Status.PASS
+
+
+def _role_snapshot_for_test(discovery):
+    import iac_guard_v.engine as engine
+    return engine.SealedVerificationSnapshot(
+        ScanRole.CANDIDATE, "repository_v1", ".", discovery.snapshot_sha256 or "a" * 64,
+        discovery.artifact_manifest_sha256 or "b" * 64, discovery.inventory_sha256,
+        "c" * 64, discovery.files, discovery.classifications, discovery.resources,
+        discovery.governed_paths, discovery.filesystem_entries,
+        _trusted_context=engine._TRUSTED_SCAN_PLAN_CONTEXT,
+    )
+
+
+def test_unsupported_kind_and_unresolved_container_scope_are_typed(tmp_path: Path) -> None:
+    for name, source, expected in (
+        ("service", "apiVersion: v1\nkind: Service\nmetadata: {name: demo}\n", Status.UNSUPPORTED),
+        ("empty", "apiVersion: v1\nkind: Pod\nmetadata: {name: demo}\nspec: {}\n", Status.INCONCLUSIVE),
+    ):
+        case = tmp_path / name
+        case.mkdir()
+        raw = adapter_request(case, frameworks=("kubernetes",))
+        (raw.scan_root / "pod.yaml").write_text(source)
+        snapshot = _role_snapshot_for_test(attest_checkov_scan_plan(raw))
+        resource = snapshot.resources[0]
+        result = ProtectedOracleRegistry().execute(create_protected_oracle_request(
+            oracle_id="kubernetes_no_privileged_containers_v1", snapshot=snapshot,
+            file_path="pod.yaml", artifact_kind=resource.artifact_kind,
+            resource_identity=resource.resource_address,
+        ))
+        assert result.status is expected
+
+
+def test_kubernetes_list_expands_to_exact_target(tmp_path: Path) -> None:
+    case = tmp_path / "list"
+    case.mkdir()
+    raw = adapter_request(case, frameworks=("kubernetes",))
+    (raw.scan_root / "pod.yaml").write_text(
+        "apiVersion: v1\nkind: List\nitems:\n"
+        "  - apiVersion: v1\n    kind: Pod\n    metadata: {name: demo}\n"
+        "    spec:\n      containers: [{name: app, securityContext: {privileged: false}}]\n"
+    )
+    snapshot = _role_snapshot_for_test(attest_checkov_scan_plan(raw))
+    result = ProtectedOracleRegistry().execute(create_protected_oracle_request(
+        oracle_id="kubernetes_no_privileged_containers_v1", snapshot=snapshot,
+        file_path="pod.yaml", artifact_kind=ArtifactKind.KUBERNETES_YAML,
+        resource_identity="v1/Pod/default/demo",
+    ))
+    assert result.status is Status.PASS
+
+
+def test_protected_policy_loader_rejects_malformed_or_duplicate_policy() -> None:
+    for raw, message in (
+        (b"not-json", "malformed"),
+        (b'{"contract":"x","policies":[]}', "contract"),
+        (b'{"contract":"iac-guard-v-bundled-oracle-policy-v1","policies":{}}', "records"),
+        (b'{"contract":"iac-guard-v-bundled-oracle-policy-v1","contract":"x","policies":[]}', "duplicate"),
+    ):
+        with patch.object(structural, "_policy_bytes", return_value=raw):
+            with pytest.raises(DomainError, match=message):
+                structural._policies()
+    malformed_record = (
+        b'{"contract":"iac-guard-v-bundled-oracle-policy-v1","policies":[{}]}'
+    )
+    duplicate_ids = (
+        b'{"contract":"iac-guard-v-bundled-oracle-policy-v1","policies":['
+        b'{"oracle_id":"x","predicate":"p","authoritative_reference":"https://x","supported_kinds":[]},'
+        b'{"oracle_id":"x","predicate":"p","authoritative_reference":"https://x","supported_kinds":[]}]}'
+    )
+    for raw, message in ((malformed_record, "record"), (duplicate_ids, "duplicated")):
+        with patch.object(structural, "_policy_bytes", return_value=raw):
+            with pytest.raises(DomainError, match=message):
+                structural._policies()
+
+
+def test_oracle_result_model_rejects_contradictions(tmp_path: Path) -> None:
+    valid = _execute(
+        tmp_path, "kubernetes_no_privileged_containers_v1", "{privileged: false}",
+    )
+    mutations = (
+        ({"implementation_build_identity": "bad"}, "canonical SHA"),
+        ({"role": ScanRole.DISCOVERY}, "role-bound"),
+        ({"execution_controls": ("x", "x")}, "controls"),
+        ({"authoritative_reference": "http://unsafe"}, "HTTPS"),
+        ({"status": Status.FAIL}, "requires a violation"),
+        ({"observations": (OracleObservation("x", "VIOLATED", "bad"),)}, "passing oracle"),
+    )
+    for values, message in mutations:
+        with pytest.raises(DomainError, match=message):
+            replace(valid, _trusted_context=oracle_base._EVIDENCE_CONTEXT, **values)
+    with pytest.raises(DomainError, match="unsupported"):
+        OracleObservation("x", "BOGUS", "bad")
+    with pytest.raises(DomainError, match="detail"):
+        OracleObservation("x", "SATISFIED", object())
+    with pytest.raises(DomainError, match="observations"):
+        replace(
+            valid, _trusted_context=oracle_base._EVIDENCE_CONTEXT,
+            observations=("not-typed",),
+        )
+    with pytest.raises(DomainError, match="duplicate paths"):
+        replace(
+            valid, _trusted_context=oracle_base._EVIDENCE_CONTEXT,
+            observations=(valid.observations[0], valid.observations[0]),
+        )
+
+
+def test_internal_evaluator_fails_closed_on_unknown_policy_or_container_shape() -> None:
+    policy = {"predicate": "unknown", "supported_kinds": ["Pod"]}
+    document = {"kind": "Pod", "spec": {"containers": [{"name": "app"}]}}
+    assert structural._evaluate(policy, document)[0] is Status.ERROR
+    broken = {"kind": "Pod", "spec": {"containers": "not-list"}}
+    known = {"predicate": "no_container_is_privileged", "supported_kinds": ["Pod"]}
+    assert structural._evaluate(known, broken)[0] is Status.INCONCLUSIVE
+    assert structural._identity({"metadata": None}) == ""
+    assert structural._identity({"metadata": {"name": 1}}) == ""
+    assert structural._containers({"kind": "Deployment", "spec": {}}) is None
+    assert structural._containers({"kind": "Pod", "spec": "bad"}) is None
+    assert structural._containers({"kind": "Pod", "spec": {"containers": ["bad"]}}) is None
+
+
+def test_request_and_registry_private_boundaries_fail_closed(tmp_path: Path) -> None:
+    snapshot = _snapshot(tmp_path, "{privileged: false}")
+    resource = snapshot.resources[0]
+    with pytest.raises(DomainError, match="protected factory"):
+        structural.ProtectedOracleRequest(
+            "kubernetes_no_privileged_containers_v1", snapshot, "pod.yaml",
+            resource.artifact_kind, resource.resource_address,
+        )
+    with pytest.raises(DomainError, match="trusted sealed snapshot"):
+        structural.ProtectedOracleRequest(
+            "kubernetes_no_privileged_containers_v1", object(), "pod.yaml",
+            resource.artifact_kind, resource.resource_address,
+            _trusted_context=structural._REQUEST_CONTEXT,
+        )
+    request = create_protected_oracle_request(
+        oracle_id="kubernetes_no_privileged_containers_v1", snapshot=snapshot,
+        file_path="pod.yaml", artifact_kind=resource.artifact_kind,
+        resource_identity=resource.resource_address,
+    )
+    with pytest.raises(DomainError, match="caller-authored"):
+        ProtectedOracleRegistry().execute(object())
+    assert ProtectedOracleRegistry().oracle_ids
+    with patch.object(structural, "_documents", return_value=()):
+        assert ProtectedOracleRegistry().execute(request).status is Status.INCONCLUSIVE
+    with patch.object(structural, "_documents", side_effect=DomainError("bad")):
+        assert ProtectedOracleRegistry().execute(request).status is Status.ERROR
+    object.__setattr__(request, "artifact_kind", ArtifactKind.TERRAFORM_HCL)
+    with pytest.raises(DomainError, match="does not support"):
+        structural._documents(request)
+    with pytest.raises(DomainError, match="not protected"):
+        require_trusted_oracle_evidence(object())

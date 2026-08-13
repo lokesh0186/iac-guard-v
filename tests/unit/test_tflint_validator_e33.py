@@ -505,6 +505,19 @@ def test_invalid_extensions_duplicates_and_limits_are_rejected(tmp_path: Path) -
                 locked_identity=request.locked_identity, protected_config=request.protected_config,
                 max_file_bytes=1 if files == "main.tf" else 1024,
             )
+
+
+def test_tflint_tf_json_is_explicitly_unsupported(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    (request.scan_root / "main.tf.json").write_text("{}", encoding="utf-8")
+    with pytest.raises(DomainError, match="TF_JSON_UNSUPPORTED"):
+        create_tflint_validation_request(
+            workspace_root=request.workspace_root, scan_root=request.scan_root,
+            files_eligible=("main.tf.json",),
+            container_runtime=request.container_runtime,
+            locked_identity=request.locked_identity,
+            protected_config=request.protected_config,
+        )
     with pytest.raises(DomainError, match="duplicates"):
         create_tflint_validation_request(
             workspace_root=request.workspace_root, scan_root=request.scan_root,

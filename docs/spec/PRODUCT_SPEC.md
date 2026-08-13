@@ -364,6 +364,11 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    ambiguous Kubernetes evidence, duplicate JSON keys, invalid HCL, and unsupported
    `.tf.json` stop preflight rather than permitting `VERIFIED`.
 
+   Phase-E validator orchestration preserves that boundary: `.tf.json` is explicit
+   `UNSUPPORTED`/`INCONCLUSIVE`, not advertised as validator support. A protected
+   repository-universe factory enumerates every `.tf` module and every Kubernetes
+   artifact/resource before any whole-repository validation claim.
+
 10. Protected verification configuration is one immutable factory-attested bundle, not
    ordinary request fields. It binds scanner/framework locks, limits, severity/location
    policy, validator/oracle ids, the gate registry, governed paths, and provenance.

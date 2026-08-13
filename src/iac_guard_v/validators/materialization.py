@@ -151,7 +151,9 @@ def _terraform_scope(
             raise DomainError("candidate .terraform state is forbidden")
         if child.name == ".tflint.hcl":
             raise DomainError("candidate module .tflint.hcl is forbidden")
-        if not child.name.endswith((".tf", ".tf.json")):
+        if child.name.endswith(".tf.json"):
+            raise DomainError("TF_JSON_UNSUPPORTED")
+        if not child.name.endswith(".tf"):
             continue
         if not stat.S_ISREG(metadata.st_mode):
             raise DomainError("supported Terraform module entry is not a regular file")
@@ -160,7 +162,7 @@ def _terraform_scope(
     if observed != selected:
         raise DomainError("INCOMPLETE_MODULE_SCOPE")
     bindings = tuple(
-        bind_source_file(root, item, max_file_bytes, (".tf", ".tf.json"), "validation scope")[0]
+        bind_source_file(root, item, max_file_bytes, (".tf",), "validation scope")[0]
         for item in observed
     )
     files = tuple(item.evidence for item in bindings)

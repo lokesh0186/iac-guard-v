@@ -29,6 +29,15 @@ from .registry import (
     ValidatorImplementationRecord,
     production_validator_registry,
 )
+from .universe import (
+    TrustedValidationUniversePlan,
+    ValidationUniverseFile,
+    ValidationUniverseModule,
+    ValidationUniverseOrchestrator,
+    ValidationUniverseResult,
+    create_trusted_validation_universe_plan,
+    revalidate_validation_universe_plan,
+)
 
 __all__ = [
     "TerraformValidationRequest",
@@ -50,4 +59,11 @@ __all__ = [
     "ValidatorImplementationRecord",
     "production_validator_registry",
     "require_trusted_validator_evidence",
+    "TrustedValidationUniversePlan",
+    "ValidationUniverseFile",
+    "ValidationUniverseModule",
+    "ValidationUniverseOrchestrator",
+    "ValidationUniverseResult",
+    "create_trusted_validation_universe_plan",
+    "revalidate_validation_universe_plan",
 ]

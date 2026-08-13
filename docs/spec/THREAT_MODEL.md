@@ -365,6 +365,13 @@ external bundles, and network activity are not accepted. Residual risk is a defe
 the trusted structural implementation or its authoritative specification; scanner
 agreement does not mitigate or override that risk.
 
+E5.2 closes the selected-module integration boundary. Candidate input cannot submit a
+module list or trusted validator evidence. The universe factory derives all module and
+Kubernetes scope from the sealed snapshot, and execution revalidates the complete
+supported/governed inventory around every tool run. Thus one clean root-module result
+cannot bless an omitted nested module, and a late module or Kubernetes artifact is
+typed snapshot uncertainty rather than PASS. TFLint evidence remains advisory.
+
 D6.4 prevents a commit label from blessing unrelated working-tree bytes. Protected
 contexts require the authorized candidate at `HEAD`, a clean checkout, and no untracked
 or ignored supported/governed input; loaders recheck that state and read candidate policy

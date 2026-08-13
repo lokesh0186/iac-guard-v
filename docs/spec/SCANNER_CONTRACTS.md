@@ -505,7 +505,9 @@ supplied through protected operator plumbing and is never downloaded or bundled.
 Both run only `validate -json`, never init, plan, apply, provider installation, or
 module download.
 
-Only sealed `.tf`/`.tf.json` bytes enter a private read-only view. Candidate
+Only sealed `.tf` bytes enter a private read-only view. `.tf.json` is explicitly
+`UNSUPPORTED`/`INCONCLUSIVE` until independent resource discovery and target binding
+support it end to end. Candidate
 `.terraform` state is rejected; candidate CLI configuration, credentials, caches, and
 environment overrides are excluded. Network, capabilities, privilege escalation,
 mutable root, root UID, and unbounded CPU/memory/PIDs are prohibited.
@@ -514,6 +516,11 @@ The pinned `format_version=1.0` JSON rejects duplicate keys, excess depth,
 unknown/missing fields, diagnostic/count contradictions, malformed ranges, and
 exit/result contradictions. Valid is `PASS`; definite invalidity is
 `FAIL/INVALID_CONFIGURATION`; initialization need is `INCONCLUSIVE/NEEDS_INIT`.
+
+E5.2 invokes this selected-module contract only through a factory-proven repository
+universe. Every directory containing top-level `.tf` files becomes one exact module
+execution. A missing, duplicate, late, unsupported, or non-PASS module prevents an
+aggregate PASS. TFLint consumes the identical module universe but remains advisory.
 
 ## E3.2 kubeconform validation contract
 

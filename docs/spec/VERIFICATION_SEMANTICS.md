@@ -1164,6 +1164,15 @@ and currently unsupported `.tf.json` are explicit preflight failures. Every insp
 supported-extension file retains a path, byte digest, syntax kind, classification, and
 detected resources; non-Kubernetes YAML/JSON is visible rather than silently vanishing.
 
+E5.2 carries the same `.tf.json` state into validator orchestration as
+`UNSUPPORTED`/`INCONCLUSIVE`. Repository-wide Terraform/OpenTofu PASS requires exact
+trusted PASS evidence for every module directory derived from the role-bound snapshot.
+Any definite invalid candidate module is FAIL; any initialization need, unsupported
+condition, missing module result, or operational uncertainty is INCONCLUSIVE. TFLint
+uses the identical module universe but is advisory and cannot establish `VERIFIED`.
+The closed validator reason is `TF_JSON_UNSUPPORTED`; it never aliases malformed
+invocation or definitive candidate invalidity.
+
 ## 14. D5.2 protected configuration and exact target binding
 
 `VerificationRequest` contains independently discovered plans, target selectors, and a

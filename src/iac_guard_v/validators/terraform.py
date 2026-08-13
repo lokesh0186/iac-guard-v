@@ -113,7 +113,7 @@ def _inside(path: Path, root: Path) -> bool:
 
 def _bound_file(root: Path, relative: str, max_bytes: int) -> BoundInputFile:
     return bind_source_file(
-        root, relative, max_bytes, (".tf", ".tf.json"), "Terraform validator input",
+        root, relative, max_bytes, (".tf",), "Terraform validator input",
     )[0].evidence
 
 
@@ -218,12 +218,14 @@ def create_terraform_validation_request(
     role: ScanRole = ScanRole.CANDIDATE,
 ) -> TerraformValidationRequest:
     paths = tuple(sorted(canonical_repo_path(item) for item in files_eligible))
-    if any(not item.endswith((".tf", ".tf.json")) for item in paths):
-        raise DomainError("Terraform validator accepts only .tf and .tf.json inputs")
+    if any(item.endswith(".tf.json") for item in paths):
+        raise DomainError("TF_JSON_UNSUPPORTED")
+    if any(not item.endswith(".tf") for item in paths):
+        raise DomainError("Terraform validator accepts only .tf inputs")
     if len(paths) != len(set(paths)):
         raise DomainError("Terraform validator paths contain duplicates")
     bindings = tuple(bind_source_file(
-        scan_root, item, max_file_bytes, (".tf", ".tf.json"), "Terraform validator input",
+        scan_root, item, max_file_bytes, (".tf",), "Terraform validator input",
     )[0] for item in paths)
     scope_plan = create_trusted_validation_scope_plan(
         scan_root=scan_root, files_eligible=paths, role=role,
