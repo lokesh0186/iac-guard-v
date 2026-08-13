@@ -13,6 +13,7 @@ import shutil
 import stat
 import tempfile
 from dataclasses import InitVar, dataclass, field
+from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -46,7 +47,7 @@ KICS_CONTRACT = ScannerContract(
     expected_exit_codes=(0, 20, 30, 40, 50, 60),
 )
 KICS_MAX_JSON_NESTING_DEPTH = 128
-KICS_ADAPTER_CONTRACT = "kics-adapter-contract-v1"
+KICS_ADAPTER_CONTRACT = "kics-adapter-contract-v2"
 _REQUEST_CONTEXT = object()
 _EXECUTION_CONTEXT = object()
 _PRIVATE_TEST_CONTEXT = object()
@@ -56,24 +57,42 @@ _TOP_LEVEL_FIELDS = frozenset({
     "lines_parsed", "lines_ignored", "files_failed_to_scan", "queries_total",
     "queries_failed_to_execute", "queries_failed_to_compute_similarity_id",
     "scan_id", "severity_counters", "total_counter", "total_bom_resources",
-    "start", "end", "paths", "queries",
+    "start", "end", "paths", "queries", "bill_of_materials",
 })
+_TOP_LEVEL_REQUIRED_FIELDS = _TOP_LEVEL_FIELDS - {"bill_of_materials"}
 _QUERY_REQUIRED_FIELDS = frozenset({
-    "query_name", "query_id", "severity", "platform", "files",
+    "query_name", "query_id", "query_url", "severity", "platform", "category",
+    "experimental", "description", "description_id", "files",
 })
 _QUERY_FIELDS = frozenset({
     "query_name", "query_id", "query_url", "severity", "platform", "cwe",
     "risk_score", "cloud_provider", "category", "experimental", "description",
     "description_id", "files", "cis_description_id", "cis_description_title",
-    "cis_description_text", "cis_description_url",
+    "cis_description_text", "cis_description_id_raw", "cis_description_text_raw",
+    "cis_description_rationale", "cis_benchmark_name", "cis_benchmark_version",
 })
-_FILE_REQUIRED_FIELDS = frozenset({"file_name", "similarity_id", "line"})
+_FILE_REQUIRED_FIELDS = frozenset({
+    "file_name", "similarity_id", "line", "issue_type", "search_key",
+    "search_line", "search_value", "expected_value", "actual_value",
+})
 _FILE_FIELDS = frozenset({
     "file_name", "similarity_id", "line", "resource_type", "resource_name",
     "issue_type", "search_key", "search_line", "search_value", "expected_value",
     "actual_value", "vuln_lines", "old_similarity_id", "value", "remediation",
     "remediation_type",
 })
+_SEVERITY_KEYS = frozenset({"CRITICAL", "HIGH", "INFO", "LOW", "MEDIUM", "TRACE"})
+_RESULT_EXIT = {"INFO": 20, "LOW": 30, "MEDIUM": 40, "HIGH": 50, "CRITICAL": 60}
+_SEVERITY_RANK = {name: index for index, name in enumerate(("INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"))}
+
+
+def _native_time(value: Any) -> datetime:
+    if type(value) is not str or not value.endswith("Z"):
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    try:
+        return datetime.fromisoformat(value[:-1] + "+00:00")
+    except ValueError as exc:
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value) from exc
 
 
 def _inside(path: Path, root: Path) -> bool:
@@ -303,8 +322,10 @@ def _resource(file_record: dict, query_id: str) -> str:
 def _canonical_native_hash(payload: dict) -> str:
     """Bind semantic native JSON while excluding KICS-generated wall-clock fields."""
     canonical = {key: value for key, value in payload.items() if key not in {"start", "end", "scan_id"}}
-    queries = canonical.get("queries")
-    if type(queries) is list:
+    for bucket in ("queries", "bill_of_materials"):
+        queries = canonical.get(bucket)
+        if type(queries) is not list:
+            continue
         rebuilt = []
         for query in queries:
             if type(query) is dict:
@@ -317,7 +338,7 @@ def _canonical_native_hash(payload: dict) -> str:
                 rebuilt.append(item)
             else:
                 rebuilt.append(query)
-        canonical["queries"] = sorted(
+        canonical[bucket] = sorted(
             rebuilt,
             key=lambda value: json.dumps(value, sort_keys=True, separators=(",", ":")),
         )
@@ -399,7 +420,7 @@ def _process_failure(request: KicsScanRequest, process: CommandResult) -> Scanne
 
 def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> ScannerRun:
     payload = _strict_json(raw)
-    if not _TOP_LEVEL_FIELDS <= set(payload):
+    if not _TOP_LEVEL_REQUIRED_FIELDS <= set(payload):
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     diagnostics: list[str] = []
     unknown_top = sorted(set(payload) - _TOP_LEVEL_FIELDS)
@@ -435,34 +456,43 @@ def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> 
     paths = payload.get("paths")
     if type(paths) is not list or any(type(item) is not str or not item.strip() for item in paths):
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
-    if type(payload.get("start")) is not str or type(payload.get("end")) is not str:
+    start = _native_time(payload.get("start"))
+    end = _native_time(payload.get("end"))
+    if end < start:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     severity_counters = payload.get("severity_counters")
-    if type(severity_counters) is not dict:
+    if type(severity_counters) is not dict or set(severity_counters) != _SEVERITY_KEYS:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
-    known_severities = {item.value for item in Severity if item is not Severity.UNKNOWN} | {"TRACE"}
     for key, value in severity_counters.items():
         if type(key) is not str or type(value) is not int or value < 0:
             raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
-        if key.upper() not in known_severities:
-            diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
-            diagnostics.append(f"unknown KICS severity counter: {key}")
     queries = payload.get("queries")
     if type(queries) is not list or len(queries) > queries_total:
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    bill_of_materials = payload.get("bill_of_materials", [])
+    if type(bill_of_materials) is not list:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     findings: list[Finding] = []
     evaluations: list[CheckEvaluation] = []
     observed_resources: set[tuple[str, str]] = set()
-    for query in queries:
+    def parse_query(query: Any, *, bom: bool) -> None:
         if type(query) is not dict or not _QUERY_REQUIRED_FIELDS <= set(query):
             raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
         if set(query) - _QUERY_FIELDS:
             diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
         query_id = canonical_identifier(query.get("query_id"), "KICS query id")
         query_name = safe_report_text(query.get("query_name"), "KICS query name")
-        severity = _severity(query.get("severity"))
+        native_severity = query.get("severity")
+        severity = Severity.UNKNOWN if bom else _severity(native_severity)
+        if bom != (native_severity == "TRACE"):
+            raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
         platform = query.get("platform")
-        if type(platform) is not str:
+        if type(platform) is not str or not platform.strip():
+            raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+        for name in ("query_url", "category", "description", "description_id"):
+            if type(query.get(name)) is not str or not query[name].strip():
+                raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+        if type(query.get("experimental")) is not bool:
             raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
         files = query.get("files")
         if type(files) is not list or not files:
@@ -476,29 +506,33 @@ def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> 
             similarity = native.get("similarity_id")
             if type(similarity) is not str or _SHA.fullmatch(similarity) is None:
                 raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+            for name in (
+                "issue_type", "search_key", "search_value", "expected_value",
+                "actual_value",
+            ):
+                if type(native.get(name)) is not str:
+                    raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
             line = native.get("line")
-            if type(line) is not int or line < 1:
+            search_line = native.get("search_line")
+            if (
+                type(line) is not int or line < 1
+                or type(search_line) is not int or search_line < -1
+                or lines_scanned == 0 or line > lines_scanned
+            ):
                 raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
-            if query.get("severity").upper() == "TRACE":
-                continue
             resource = _resource(native, query_id)
             artifact = _artifact(platform, file_path)
-            if artifact is ArtifactKind.UNKNOWN or severity is Severity.UNKNOWN:
+            if artifact is ArtifactKind.UNKNOWN or (not bom and severity is Severity.UNKNOWN):
                 diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
-            finding = Finding(
-                scanner="kics",
-                scanner_version=request.locked_identity.version,
-                rule_id=query_id,
-                resource_address=resource,
-                location=FindingLocation(file_path, line, line),
-                severity=severity,
-                rule_name=query_name,
-                message=query_name,
-                native_fingerprint=similarity,
-                artifact_kind=artifact,
-            )
-            findings.append(finding)
-            if not resource.startswith("kics-global-"):
+            if not bom:
+                findings.append(Finding(
+                    scanner="kics", scanner_version=request.locked_identity.version,
+                    rule_id=query_id, resource_address=resource,
+                    location=FindingLocation(file_path, line, line), severity=severity,
+                    rule_name=query_name, message=query_name,
+                    native_fingerprint=similarity, artifact_kind=artifact,
+                ))
+            if not bom and not resource.startswith("kics-global-"):
                 observed_resources.add((file_path, resource))
             evaluations.append(CheckEvaluation(
                 scanner="kics",
@@ -506,16 +540,23 @@ def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> 
                 rule_id=query_id,
                 resource_address=resource,
                 file_path=file_path,
-                native_result=CheckEvaluationResult.FAILED,
+                native_result=(
+                    CheckEvaluationResult.UNKNOWN if bom
+                    else CheckEvaluationResult.FAILED
+                ),
                 evaluated_keys=(
                     safe_report_text(
                         native.get("search_key", f"similarity:{similarity}"),
                         "KICS search key",
                     ),
                 ),
-                source_bucket="queries",
+                source_bucket="bill_of_materials" if bom else "queries",
                 occurrence_token=f"kics-similarity-v1:{similarity}",
             ))
+    for query in queries:
+        parse_query(query, bom=False)
+    for query in bill_of_materials:
+        parse_query(query, bom=True)
     trace_count = sum(
         value for key, value in severity_counters.items() if key.upper() == "TRACE"
     )
@@ -526,8 +567,13 @@ def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> 
         len(findings) != total_counter
         or result_count != total_counter
         or trace_count != total_resources
+        or sum(len(item["files"]) for item in bill_of_materials) != total_resources
     ):
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    present = [name for name in _RESULT_EXIT if severity_counters[name] > 0]
+    expected_exit = 0 if not present else _RESULT_EXIT[max(present, key=_SEVERITY_RANK.get)]
+    if process.exit_code != expected_exit:
+        raise DomainError(AdapterReason.EXIT_RESULT_MISMATCH.value)
     eligible_count = len(request.files_eligible)
     coverage = CoverageCounters(
         files_eligible=eligible_count,
@@ -561,7 +607,8 @@ def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> 
         diagnostics.append(AdapterReason.COVERAGE_MISMATCH.value)
     if expected and (missing or unexpected):
         diagnostics.append(AdapterReason.COVERAGE_MISMATCH.value)
-    status = Status.PARTIAL if diagnostics else Status.PASS
+    adverse = [item for item in diagnostics if not item.startswith("KICS_BILL_OF_MATERIALS_REPORTED:")]
+    status = Status.PARTIAL if adverse else Status.PASS
     return ScannerRun._from_adapter(
         scanner="kics",
         scanner_version=request.locked_identity.version,
@@ -578,7 +625,9 @@ def _normalize(raw: bytes, request: KicsScanRequest, process: CommandResult) -> 
         scanner_environment_digest=request.locked_identity.environment_digest,
         policy_inventory_digest=request.locked_identity.policy_inventory_digest,
         invocation_config_digest=_invocation_digest(request),
-        ruleset_integrity=(Status.INCONCLUSIVE if queries_failed else Status.PASS),
+        ruleset_integrity=(
+            Status.INCONCLUSIVE if queries_failed or similarity_failed else Status.PASS
+        ),
         evaluations=tuple(evaluations),
         input_files=request.eligible_file_evidence,
         duration_ms=process.duration_ms,

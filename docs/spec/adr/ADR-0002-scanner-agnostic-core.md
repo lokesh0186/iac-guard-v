@@ -129,3 +129,9 @@ from exact native-byte identity.
 Production evidence is constructed only after adapter-owned locked execution. Public
 normalization rejects caller process/JSON combinations; private unit helpers are
 unexported and cannot enter the public adapter or future consensus surface.
+
+## Amendment, 2026-08-12: E1.2 KICS native coherence
+
+KICS result exits must agree with the highest ordinary native severity. The complete
+required v2.1.20 query/file shape and standard counters are validated; BOM/TRACE stays
+separate; similarity-ID failure is typed identity uncertainty. KICS remains advisory.

@@ -447,6 +447,10 @@ E1.1 also requires official `0/20/30/40/50/60` result exits, `--pull never`, exa
 summary types/arithmetic, separate TRACE/BOM accounting, optional native metadata
 compatibility, and reason-specific integrity. KICS remains advisory.
 
+E1.2 requires exit/report severity agreement, every required KICS v2.1.20 query/file
+field, the complete standard severity-counter set, ordered native timestamps, and
+separate BOM/TRACE preservation. Contradiction is typed and non-PASS.
+
 ## E2 Trivy adapter acceptance
 
 Trivy v0.73.0 is supported as typed evidence only through the exact E0.3 image and

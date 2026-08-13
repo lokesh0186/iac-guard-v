@@ -1,5 +1,13 @@
 # Validation Log
 
+## 2026-08-12 — E1.2 KICS native contract closure
+
+Failing-before, a CRITICAL report with exit 20 and an empty report with exit 60 both
+normalized successfully. Required v2.1.20 query/file fields, complete severity
+counters, and native BOM records were incomplete. Passing-after adds exact exit/report
+reconciliation, full required-field probes, RFC 3339 ordering, separate BOM/TRACE
+preservation, and conservative similarity-identity integrity. Focused tests: 95 passed.
+
 ## 2026-08-12 — E1/E2.1 private execution boundary
 
 Failing-before, public KICS and Trivy normalization accepted a sealed request plus a

@@ -857,7 +857,8 @@ proven for that request.
 
 The closed adapter-reason family is: `COMPLETED`, `PROCESS_ERROR`, `EMPTY_OUTPUT`,
 `MALFORMED_JSON`, `TRUNCATED_OUTPUT`, `UNEXPECTED_TOP_LEVEL`,
-`EXIT_CODE_OUTSIDE_CONTRACT`, `DEADLINE_EXCEEDED`, `KILLED_PROCESS`, `PARTIAL_SCAN`,
+`EXIT_CODE_OUTSIDE_CONTRACT`, `EXIT_RESULT_MISMATCH`, `DEADLINE_EXCEEDED`,
+`KILLED_PROCESS`, `PARTIAL_SCAN`,
 `ZERO_FILES_DISCOVERED`, `UNSUPPORTED_VERSION`, `VERSION_MISMATCH`,
 `VERSION_PROBE_FAILED`, `NO_RESULTS_STRUCTURE`, `INVALID_RESULTS_STRUCTURE`,
 `COVERAGE_MISMATCH`, `FRAMEWORK_MISMATCH`,
@@ -1325,9 +1326,9 @@ the SHA-256 of a canonical component manifest binding the non-policy package,
 installed distribution, dependency closure, custom checks, policy inventory, and
 runtime interpreter.
 
-## E1 KICS scanner evidence
+## E1.2 KICS scanner evidence
 
-KICS evidence is accepted only under `kics-adapter-contract-v1` and the exact E0.3
+KICS evidence is accepted only under `kics-adapter-contract-v2` and the exact E0.3
 v2.1.20 lock-derived container identity. `similarity_id` is native occurrence evidence.
 `files_failed_to_scan`, `queries_failed_to_execute`, and
 `queries_failed_to_compute_similarity_id` are each decisive incompleteness indicators:
@@ -1342,6 +1343,12 @@ arithmetic relation, and separates TRACE/BOM from findings and generic resources
 Query execution failure makes ruleset integrity `INCONCLUSIVE`; file failure is
 coverage `PARTIAL`; similarity failure makes occurrence evidence incomplete without
 claiming ruleset drift. KICS has no affirmative target-PASS contract.
+
+E1.2 derives the expected exit from the highest ordinary severity and emits
+`EXIT_RESULT_MISMATCH` for disagreement. It validates the complete non-optional
+v2.1.20 query/file shape, ordered timestamps, and standard counter set. Official
+`bill_of_materials` TRACE records remain visible without becoming findings or generic
+resource-coverage claims.
 
 ## E2 Trivy scanner evidence
 

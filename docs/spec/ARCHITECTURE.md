@@ -748,6 +748,10 @@ prevents registry access, summary types/arithmetic are closed, TRACE/BOM is sepa
 and official optional fields remain optional. Clean KICS output remains negative
 scanner evidence, not affirmative per-resource target-pass evidence.
 
+E1.2 additionally requires result-exit/highest-severity agreement, validates every
+required v2.1.20 query/file field, preserves official BOM records, and makes failed
+similarity-ID computation explicit matching-identity uncertainty.
+
 ## E2 externally locked Trivy evidence adapter
 
 Trivy executes only the E0.3 digest-qualified v0.73.0 platform child with the external

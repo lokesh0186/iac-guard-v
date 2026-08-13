@@ -136,8 +136,14 @@ def _request(tmp_path: Path, *, expected: bool = True, **overrides):
 
 
 def _normalize(tmp_path: Path, document: dict, **request_overrides):
+    counters = document.get("severity_counters", {})
+    exits = {"INFO": 20, "LOW": 30, "MEDIUM": 40, "HIGH": 50, "CRITICAL": 60}
+    ranks = {name: index for index, name in enumerate(exits)}
+    present = [name for name in exits if type(counters) is dict and counters.get(name, 0)]
+    exit_code = 0 if not present else exits[max(present, key=ranks.get)]
     return kics_module._normalize_for_test(
-        json.dumps(document).encode(), _request(tmp_path, **request_overrides), _process()
+        json.dumps(document).encode(), _request(tmp_path, **request_overrides),
+        _process(exit_code=exit_code),
     )
 
 
@@ -160,6 +166,69 @@ def test_official_result_bearing_exit_codes_are_parsed(
         _process(exit_code=exit_code),
     )
     assert run.status is Status.PASS
+
+
+@pytest.mark.parametrize(
+    ("document", "exit_code"),
+    [(_document(queries=[_query(severity="CRITICAL")]), 20), (_document(), 60)],
+)
+def test_result_exit_must_match_native_highest_severity(
+    tmp_path: Path, document: dict, exit_code: int,
+) -> None:
+    run = kics_module._normalize_for_test(
+        json.dumps(document).encode(), _request(tmp_path), _process(exit_code=exit_code)
+    )
+    assert run.status is Status.ERROR
+    assert AdapterReason.EXIT_RESULT_MISMATCH.value in run.diagnostics
+
+
+@pytest.mark.parametrize(
+    "field", ("query_url", "category", "experimental", "description", "description_id")
+)
+def test_required_native_query_fields_cannot_disappear(tmp_path: Path, field: str) -> None:
+    document = _document(queries=[_query()])
+    document["queries"][0].pop(field)
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("issue_type", "search_key", "search_line", "search_value", "expected_value", "actual_value"),
+)
+def test_required_native_file_fields_cannot_disappear(tmp_path: Path, field: str) -> None:
+    document = _document(queries=[_query()])
+    document["queries"][0]["files"][0].pop(field)
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
+
+
+def test_official_bom_is_preserved_without_downgrading_run(tmp_path: Path) -> None:
+    bom = _query(severity="TRACE")
+    document = _document(queries=[])
+    document.update(
+        bill_of_materials=[bom], total_bom_resources=1,
+        severity_counters={
+            "CRITICAL": 0, "HIGH": 0, "INFO": 0, "LOW": 0,
+            "MEDIUM": 0, "TRACE": 1,
+        },
+    )
+    run = _normalize(tmp_path, document, expected=False)
+    assert run.status is Status.PASS
+    assert run.findings == ()
+    assert run.evaluations[0].source_bucket == "bill_of_materials"
+    assert run.evaluations[0].native_result.value == "UNKNOWN"
+    assert "KICS_BILL_OF_MATERIALS_REPORTED:1" in run.diagnostics
+
+
+def test_complete_standard_severity_counter_set_is_required(tmp_path: Path) -> None:
+    document = _document(queries=[_query()])
+    document["severity_counters"] = {"HIGH": 1}
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
 
 
 @pytest.mark.parametrize("exit_code", [1, 2, 10, 70, 126, 127])
@@ -203,6 +272,8 @@ def test_native_failure_counters_are_partial(
     assert reason in run.diagnostics
     if field == "queries_failed_to_execute":
         assert run.ruleset_integrity is Status.INCONCLUSIVE
+    elif field == "queries_failed_to_compute_similarity_id":
+        assert run.ruleset_integrity is Status.INCONCLUSIVE
     else:
         assert run.ruleset_integrity is Status.PASS
 
@@ -234,10 +305,10 @@ def test_timeout_is_typed(tmp_path: Path) -> None:
     assert AdapterReason.DEADLINE_EXCEEDED.value in run.diagnostics
 
 
-def test_unknown_native_category_is_partial(tmp_path: Path) -> None:
+def test_unknown_native_severity_is_invalid_native_contract(tmp_path: Path) -> None:
     run = _normalize(tmp_path, _document(queries=[_query(severity="NOVEL")]))
-    assert run.status is Status.PARTIAL
-    assert AdapterReason.UNKNOWN_NATIVE_CATEGORY.value in run.diagnostics
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
 
 
 def test_partial_file_coverage_cannot_pass(tmp_path: Path) -> None:
@@ -317,9 +388,16 @@ def test_top_level_type_and_arithmetic_contradictions_are_errors(
 
 
 def test_trace_is_bom_not_finding_or_resource_count(tmp_path: Path) -> None:
-    document = _document(queries=[_query(severity="TRACE")])
+    document = _document(queries=[])
+    document.update(
+        bill_of_materials=[_query(severity="TRACE")], total_bom_resources=1,
+        severity_counters={
+            "CRITICAL": 0, "HIGH": 0, "INFO": 0, "LOW": 0,
+            "MEDIUM": 0, "TRACE": 1,
+        },
+    )
     run = _normalize(tmp_path, document, expected=False)
-    assert run.status is Status.PARTIAL
+    assert run.status is Status.PASS
     assert run.findings == ()
     assert run.resource_coverage.summary_resources_reported == 0
     assert "KICS_BILL_OF_MATERIALS_REPORTED:1" in run.diagnostics
@@ -327,12 +405,10 @@ def test_trace_is_bom_not_finding_or_resource_count(tmp_path: Path) -> None:
 
 def test_official_optional_query_and_file_fields_are_understood(tmp_path: Path) -> None:
     query = _query()
-    for key in ("cwe", "risk_score", "cloud_provider", "query_url", "category",
-                "experimental", "description", "description_id"):
+    for key in ("cwe", "risk_score", "cloud_provider"):
         query.pop(key, None)
     file_record = query["files"][0]
-    for key in ("resource_type", "resource_name", "issue_type", "search_key",
-                "search_line", "search_value", "expected_value", "actual_value"):
+    for key in ("resource_type", "resource_name"):
         file_record.pop(key, None)
     run = _normalize(tmp_path, _document(queries=[query]), expected=False)
     assert run.status is Status.PASS
@@ -341,7 +417,9 @@ def test_official_optional_query_and_file_fields_are_understood(tmp_path: Path) 
     query = _query()
     query.update({
         "cis_description_id": "1.2", "cis_description_title": "title",
-        "cis_description_text": "text", "cis_description_url": "https://example.invalid/cis",
+        "cis_description_text": "text", "cis_description_id_raw": "1.2",
+        "cis_description_text_raw": "text", "cis_description_rationale": "why",
+        "cis_benchmark_name": "benchmark", "cis_benchmark_version": "1.0",
     })
     query["files"][0].update({
         "old_similarity_id": "b" * 64, "value": "x", "remediation": "fix",
@@ -496,13 +574,11 @@ def test_result_structure_mutations_are_errors(tmp_path: Path, mutator, reason: 
 
 
 def test_unknown_fields_and_unknown_severity_are_partial(tmp_path: Path) -> None:
-    document = _document(queries=[_query(severity="NOVEL")], extension=True)
-    document["severity_counters"] = {"NOVEL": 1}
+    document = _document(queries=[_query()], extension=True)
     document["queries"][0]["extension"] = "x"
     document["queries"][0]["files"][0]["extension"] = "x"
     run = _normalize(tmp_path, document)
     assert run.status is Status.PARTIAL
-    assert run.findings[0].severity.value == "UNKNOWN"
     assert AdapterReason.UNKNOWN_NATIVE_CATEGORY.value in run.diagnostics
 
 
