@@ -308,6 +308,17 @@ or unbound global failures are typed uncertainty. Eligible file and independentl
 expected resource inventories are reconciled; incomplete coverage is never `PASS`.
 The adapter produces scanner evidence only and has no consensus or policy effect.
 
+### 3.5 E2.2 native status and cache provenance
+
+Native `PASS`, `FAIL`, and `EXCEPTION` map to `PASSED`, `FAILED`, and visible
+`SKIPPED` evidence. Omitted title uses the native ID; omitted severity is `UNKNOWN`;
+omitted cause is global evidence with incomplete exact coverage. Experimental modified
+findings are preserved by count and semantic digest as `PARTIAL` evidence.
+
+Portable execution evidence retains the signed protected-cache manifest root, Trivy
+subtree root, external OCI manifest/layer, metadata digest, attestation signer and
+record/signature digests, and equal pre/post subtree roots. It contains no cache path.
+
 ---
 
 ## 4. Independent validators

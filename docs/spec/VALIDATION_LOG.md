@@ -1,5 +1,13 @@
 # Validation Log
 
+## 2026-08-12 — E2.2 Trivy status and cache provenance closure
+
+Failing-before, `EXCEPTION` disappeared as an unknown category, documented omitted
+fields were rejected, and portable execution evidence exposed only selected checks
+digests. Passing-after preserves skipped evidence, handles omissions conservatively,
+retains experimental detail, and binds the signed manifest, subtree, metadata,
+attestation and pre/post roots. Focused unit tests: 65 passed; branch coverage: 90%.
+
 ## 2026-08-12 — E1.2 KICS native contract closure
 
 Failing-before, a CRITICAL report with exit 20 and an empty report with exit 60 both

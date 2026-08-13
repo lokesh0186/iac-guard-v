@@ -135,3 +135,9 @@ unexported and cannot enter the public adapter or future consensus surface.
 KICS result exits must agree with the highest ordinary native severity. The complete
 required v2.1.20 query/file shape and standard counters are validated; BOM/TRACE stays
 separate; similarity-ID failure is typed identity uncertainty. KICS remains advisory.
+
+## Amendment, 2026-08-12: E2.2 Trivy status and provenance
+
+Official `EXCEPTION` records are visible skipped evidence. Documented omitted native
+fields are retained conservatively. The portable execution record carries the full
+E0.3 cache attestation and equal pre/post subtree roots.

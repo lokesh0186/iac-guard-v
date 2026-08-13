@@ -1369,7 +1369,8 @@ participate in authoritative consensus.
 
 The E2 reason extension is closed over `EXTERNAL_CHECKS_MISSING`,
 `EXTERNAL_CHECKS_CHANGED`, `EMBEDDED_CHECKS_FALLBACK`,
-`CACHE_CHANGED_DURING_EXECUTION`, and `MISSING_MISCONFIGURATIONS` in addition to the
+`CACHE_CHANGED_DURING_EXECUTION`, `MISSING_MISCONFIGURATIONS`, and
+`EXPERIMENTAL_MODIFIED_FINDINGS` in addition to the
 shared adapter reasons.
 
 E2.1 evaluation identity excludes the result and contains scanner, version, artifact,
@@ -1377,6 +1378,12 @@ rule, file, resource, and occurrence token. Incompatible results are
 `CONTRADICTORY_EVALUATION_EVIDENCE`. Cache/bundle contradiction fails ruleset integrity;
 unavailable signed cache evidence is inconclusive. Volatile report metadata is not a
 semantic finding difference.
+
+E2.2 maps `EXCEPTION` to `SKIPPED` with exact occurrence evidence. Missing title falls
+back to ID; missing severity is `UNKNOWN`; missing cause remains global and makes
+coverage incomplete. Portable evidence binds the signed manifest, cache subtree,
+external OCI manifest/layer, metadata, attestation record/signature, and equal pre/post
+roots.
 
 E1/E2 production evidence is derived only from adapter-owned execution whose
 `CommandResult.argv` exactly equals the locked invocation. Public normalization is

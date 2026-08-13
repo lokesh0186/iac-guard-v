@@ -148,6 +148,8 @@ def test_finding_result_retains_external_identity(tmp_path: Path) -> None:
     assert evidence.binary_image_identity != evidence.checks_manifest_digest
     assert run.stderr_sha256 == hashlib.sha256(b"loading from existing cache").hexdigest()
     assert evidence.canonical_output_sha256 == run.raw_output_sha256
+    assert evidence.protected_cache_manifest_root == "0" * 64
+    assert evidence.trivy_cache_subtree_root == evidence.checks_cache_content_sha256
 
 
 def test_valid_empty_result_passes_without_inventing_evaluations(tmp_path: Path) -> None:
@@ -157,6 +159,60 @@ def test_valid_empty_result_passes_without_inventing_evaluations(tmp_path: Path)
     assert evidence.scanner_run.findings == ()
     assert evidence.scanner_run.evaluations[0].native_result.value == "PASSED"
     assert evidence.scanner_run.coverage.evaluations_reported == 1
+
+
+def test_exception_is_visible_suppressed_evidence(tmp_path: Path) -> None:
+    evidence = _normalize(
+        tmp_path, _document(items=[_misconfiguration(Status="EXCEPTION")])
+    )
+    run = evidence.scanner_run
+    assert run.status is Status.PASS
+    assert run.findings == ()
+    assert run.evaluations[0].native_result.value == "SKIPPED"
+    assert run.evaluations[0].source_bucket == "Misconfigurations/EXCEPTION"
+
+
+@pytest.mark.parametrize("field", ("Title", "Severity", "CauseMetadata"))
+def test_documented_omitted_fields_are_conservative(tmp_path: Path, field: str) -> None:
+    item = _misconfiguration()
+    item.pop(field)
+    evidence = _normalize(tmp_path, _document(items=[item]))
+    run = evidence.scanner_run
+    assert run.status is (Status.PASS if field == "Title" else Status.PARTIAL)
+    assert len(run.evaluations) == 1
+    if field == "Severity":
+        assert run.findings[0].severity.value == "UNKNOWN"
+    if field == "CauseMetadata":
+        assert AdapterReason.MISSING_RESOURCE_IDENTITY.value in run.diagnostics
+
+
+def test_experimental_modified_findings_are_preserved_as_typed_detail(
+    tmp_path: Path,
+) -> None:
+    document = _document(items=[_misconfiguration()])
+    document["Results"][0]["ExperimentalModifiedFindings"] = [
+        {"Type": "misconfiguration", "Status": "EXCEPTION", "ID": "AWS-0089"}
+    ]
+    evidence = _normalize(tmp_path, document)
+    assert evidence.scanner_run.status is Status.PARTIAL
+    assert any(
+        item.startswith("experimental_modified_findings:1:")
+        for item in evidence.scanner_run.diagnostics
+    )
+    assert AdapterReason.EXPERIMENTAL_MODIFIED_FINDINGS.value in (
+        evidence.scanner_run.diagnostics
+    )
+
+
+@pytest.mark.parametrize("value", ({"not": "a list"}, ["not an object"]))
+def test_experimental_modified_findings_shape_is_closed(
+    tmp_path: Path, value: object,
+) -> None:
+    document = _document(items=[_misconfiguration()])
+    document["Results"][0]["ExperimentalModifiedFindings"] = value
+    evidence = _normalize(tmp_path, document)
+    assert evidence.scanner_run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in evidence.scanner_run.diagnostics
 
 
 def test_external_bundle_absence_and_change_are_rejected(tmp_path: Path) -> None:
@@ -305,6 +361,13 @@ def test_execution_evidence_is_immutable_and_trusted(tmp_path: Path) -> None:
             checks_manifest_digest="sha256:" + "0" * 64,
             checks_layer_digest="sha256:" + "0" * 64,
             checks_cache_identity="cache", checks_cache_content_sha256="0" * 64,
+            protected_cache_manifest_root="0" * 64,
+            trivy_cache_subtree_root="0" * 64,
+            cache_metadata_digest="0" * 64,
+            cache_attestation_identity="test",
+            cache_attestation_record_sha256="0" * 64,
+            cache_attestation_signature_sha256="0" * 64,
+            pre_run_cache_root="0" * 64, post_run_cache_root="0" * 64,
             invocation_identity="0" * 64, source="external", fallback_used=False,
             network_disabled=True, updates_disabled=True, canonical_output_sha256="0" * 64,
             native_output_bytes_sha256="0" * 64,
@@ -458,8 +521,7 @@ def test_native_path_severity_artifact_and_cause_helpers_are_closed() -> None:
         trivy_module._native_path(None, ("main.tf",))
     with pytest.raises(DomainError, match=AdapterReason.COVERAGE_MISMATCH.value):
         trivy_module._native_path("other.tf", ("main.tf",))
-    with pytest.raises(DomainError, match=AdapterReason.INVALID_RESULTS_STRUCTURE.value):
-        trivy_module._severity(None)
+    assert trivy_module._severity(None).value == "UNKNOWN"
     assert trivy_module._artifact(None, "x") is ArtifactKind.UNKNOWN
     assert trivy_module._artifact("kubernetes", "pod.json") is ArtifactKind.KUBERNETES_JSON
     assert trivy_module._artifact("yaml", "pod.yaml") is ArtifactKind.KUBERNETES_YAML
@@ -602,3 +664,16 @@ def test_execution_evidence_contract_mutations_are_rejected(tmp_path: Path) -> N
     fallback["fallback_used"] = True
     with pytest.raises(DomainError, match="disagree"):
         trivy_module.TrivyExecutionEvidence(**fallback)
+    changed_root = dict(values)
+    changed_root["pre_run_cache_root"] = "1" * 64
+    changed_root["post_run_cache_root"] = "1" * 64
+    with pytest.raises(DomainError, match="one attested subtree"):
+        trivy_module.TrivyExecutionEvidence(**changed_root)
+    unequal_roots = dict(values)
+    unequal_roots["post_run_cache_root"] = "1" * 64
+    with pytest.raises(DomainError, match="changed during execution"):
+        trivy_module.TrivyExecutionEvidence(**unequal_roots)
+    no_attestation = dict(values)
+    no_attestation["cache_attestation_identity"] = ""
+    with pytest.raises(DomainError, match="attestation_identity"):
+        trivy_module.TrivyExecutionEvidence(**no_attestation)

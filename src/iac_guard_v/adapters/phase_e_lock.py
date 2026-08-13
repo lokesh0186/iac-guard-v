@@ -209,6 +209,8 @@ class ProtectedChecksCacheIdentity:
     external_layer_digest: str
     cache_metadata_sha256: str
     cache_attestation_identity: str
+    cache_attestation_record_sha256: str
+    cache_attestation_signature_sha256: str
     _cache_root: Path = field(repr=False, compare=False)
     _expected_subtree_entries: tuple = field(repr=False, compare=False)
     _trusted_context: InitVar[object] = None
@@ -217,6 +219,7 @@ class ProtectedChecksCacheIdentity:
     def __post_init__(self, _trusted_context: object) -> None:
         for name in (
             "protected_manifest_root", "trivy_subtree_root", "cache_metadata_sha256",
+            "cache_attestation_record_sha256", "cache_attestation_signature_sha256",
         ):
             _sha(getattr(self, name), name)
         _sha(self.external_manifest_digest, "external_manifest_digest", prefixed=True)
@@ -240,6 +243,8 @@ class ProtectedChecksCacheIdentity:
             "external_layer_digest": self.external_layer_digest,
             "cache_metadata_sha256": self.cache_metadata_sha256,
             "cache_attestation_identity": self.cache_attestation_identity,
+            "cache_attestation_record_sha256": self.cache_attestation_record_sha256,
+            "cache_attestation_signature_sha256": self.cache_attestation_signature_sha256,
         }
 
     def revalidate(self) -> str:
@@ -334,6 +339,8 @@ def load_protected_checks_cache_identity(
         external_layer_digest=locked.checks_layer_digest,
         cache_metadata_sha256=metadata_sha,
         cache_attestation_identity=record["signer_identity"],
+        cache_attestation_record_sha256=record["attestation_sha256"],
+        cache_attestation_signature_sha256=record["signature_sha256"],
         _cache_root=cache_root, _expected_subtree_entries=subtree,
         _trusted_context=_CACHE_CONTEXT,
     )
@@ -353,6 +360,8 @@ def _create_test_protected_checks_cache_identity(
         external_layer_digest=locked.checks_layer_digest,
         cache_metadata_sha256=hashlib.sha256(metadata.read_bytes()).hexdigest(),
         cache_attestation_identity="private-test-cache-attestation",
+        cache_attestation_record_sha256="0" * 64,
+        cache_attestation_signature_sha256="0" * 64,
         _cache_root=container, _expected_subtree_entries=subtree,
         _trusted_context=_TEST_CACHE_CONTEXT,
     )

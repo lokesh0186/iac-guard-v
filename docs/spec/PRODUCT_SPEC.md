@@ -466,6 +466,10 @@ policy bytes is insufficient. Missing external evidence is inconclusive; manifes
 layer, subtree, or evaluation contradiction fails integrity. Native semantic and exact
 byte hashes remain distinct.
 
+E2.2 requires visible `EXCEPTION` evidence, conservative omitted-field behavior,
+explicit experimental-modification evidence, and the complete signed cache attestation
+with equal pre/post subtree roots.
+
 E1/E2.1 production evidence requires actual locked execution. Public callers cannot
 combine a sealed request, caller-authored process result, and arbitrary JSON to obtain
 adapter evidence. Trivy obtains `IACGV_PHASE_E_CACHE` and verifies its E0.3 signature

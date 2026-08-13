@@ -772,6 +772,10 @@ execution. Contradictory pass/fail records for one evaluation identity fail clos
 Validated volatile report metadata is omitted from the semantic digest while exact
 native bytes retain a separate hash.
 
+E2.2 preserves official `EXCEPTION` as skipped/suppressed evidence, handles documented
+omitted fields conservatively, and carries the complete signed E0.3 cache capability
+into portable execution evidence without exposing its filesystem path.
+
 ## E1/E2 trusted execution boundary
 
 Production adapters expose sealed request construction and `scan`; native normalization

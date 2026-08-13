@@ -62,6 +62,7 @@ _TOP_FIELDS = frozenset({
 _RESULT_FIELDS = frozenset({
     "Target", "Class", "Type", "MisconfSummary", "Misconfigurations",
     "Licenses", "Packages", "Vulnerabilities", "Secrets",
+    "ExperimentalModifiedFindings",
 })
 _MISCONFIG_FIELDS = frozenset({
     "Type", "ID", "AVDID", "Title", "Description", "Message", "Namespace",
@@ -239,6 +240,14 @@ class TrivyExecutionEvidence:
     checks_layer_digest: str
     checks_cache_identity: str
     checks_cache_content_sha256: str
+    protected_cache_manifest_root: str
+    trivy_cache_subtree_root: str
+    cache_metadata_digest: str
+    cache_attestation_identity: str
+    cache_attestation_record_sha256: str
+    cache_attestation_signature_sha256: str
+    pre_run_cache_root: str
+    post_run_cache_root: str
     invocation_identity: str
     source: str
     fallback_used: bool
@@ -262,7 +271,10 @@ class TrivyExecutionEvidence:
             if type(value) is not str or re.fullmatch(r"sha256:[0-9a-f]{64}", value) is None:
                 raise DomainError(f"{name} must be a prefixed SHA-256")
         for name in (
-            "checks_cache_content_sha256", "invocation_identity",
+            "checks_cache_content_sha256", "protected_cache_manifest_root",
+            "trivy_cache_subtree_root", "cache_metadata_digest",
+            "cache_attestation_record_sha256", "cache_attestation_signature_sha256",
+            "pre_run_cache_root", "post_run_cache_root", "invocation_identity",
             "canonical_output_sha256", "native_output_bytes_sha256",
         ):
             value = getattr(self, name)
@@ -271,6 +283,16 @@ class TrivyExecutionEvidence:
         for name in ("fallback_used", "network_disabled", "updates_disabled"):
             if type(getattr(self, name)) is not bool:
                 raise DomainError(f"{name} must be a bool")
+        if type(self.cache_attestation_identity) is not str or not self.cache_attestation_identity:
+            raise DomainError("cache_attestation_identity is required")
+        if self.pre_run_cache_root != self.post_run_cache_root:
+            raise DomainError("Trivy cache changed during execution")
+        if not (
+            self.checks_cache_content_sha256
+            == self.trivy_cache_subtree_root
+            == self.pre_run_cache_root
+        ):
+            raise DomainError("Trivy cache roots do not bind one attested subtree")
         if (
             type(self.checks_cache_identity) is not str
             or _CACHE_IDENTITY.fullmatch(self.checks_cache_identity) is None
@@ -292,6 +314,14 @@ class TrivyExecutionEvidence:
             "checks_layer_digest": self.checks_layer_digest,
             "checks_cache_identity": self.checks_cache_identity,
             "checks_cache_content_sha256": self.checks_cache_content_sha256,
+            "protected_cache_manifest_root": self.protected_cache_manifest_root,
+            "trivy_cache_subtree_root": self.trivy_cache_subtree_root,
+            "cache_metadata_digest": self.cache_metadata_digest,
+            "cache_attestation_identity": self.cache_attestation_identity,
+            "cache_attestation_record_sha256": self.cache_attestation_record_sha256,
+            "cache_attestation_signature_sha256": self.cache_attestation_signature_sha256,
+            "pre_run_cache_root": self.pre_run_cache_root,
+            "post_run_cache_root": self.post_run_cache_root,
             "invocation_identity": self.invocation_identity,
             "source": self.source,
             "fallback_used": self.fallback_used,
@@ -340,6 +370,15 @@ def _canonical_native_hash(raw: bytes) -> str:
                             value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
                         ),
                     )
+                modified = item.get("ExperimentalModifiedFindings")
+                if type(modified) is list:
+                    item["ExperimentalModifiedFindings"] = sorted(
+                        modified,
+                        key=lambda value: json.dumps(
+                            value, sort_keys=True, separators=(",", ":"),
+                            ensure_ascii=False,
+                        ),
+                    )
                 rebuilt.append(item)
             else:
                 rebuilt.append(result)
@@ -370,6 +409,8 @@ def _native_path(raw: Any, eligible: tuple[str, ...]) -> str | None:
 
 
 def _severity(raw: Any) -> Severity:
+    if raw is None:
+        return Severity.UNKNOWN
     if type(raw) is not str:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     try:
@@ -388,8 +429,12 @@ def _artifact(raw: Any, path: str) -> ArtifactKind:
     return ArtifactKind.UNKNOWN
 
 
-def _cause(item: dict, file_path: str) -> tuple[str, int, int]:
+def _cause(item: dict, file_path: str) -> tuple[str, int, int, bool]:
     cause = item.get("CauseMetadata")
+    if cause is None:
+        return canonical_resource_scope(
+            f"trivy-global-{item.get('ID', 'unknown')}", "Trivy global resource"
+        ), 1, 1, False
     if type(cause) is not dict:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     resource = cause.get("Resource")
@@ -399,7 +444,7 @@ def _cause(item: dict, file_path: str) -> tuple[str, int, int]:
         resource = f"trivy-file-{file_path.replace('/', '-')}"
     if type(start) is not int or start < 1 or type(end) is not int or end < start:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
-    return canonical_resource_scope(resource, "Trivy resource"), start, end
+    return canonical_resource_scope(resource, "Trivy resource"), start, end, True
 
 
 def _reason_run(
@@ -493,6 +538,21 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
             raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
         if set(result) - _RESULT_FIELDS:
             diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
+        modified = result.get("ExperimentalModifiedFindings", [])
+        if type(modified) is not list or any(type(item) is not dict for item in modified):
+            raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+        if modified:
+            modified_digest = hashlib.sha256(
+                json.dumps(
+                    modified, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+                ).encode()
+            ).hexdigest()
+            diagnostics.append(
+                AdapterReason.EXPERIMENTAL_MODIFIED_FINDINGS.value
+            )
+            diagnostics.append(
+                f"experimental_modified_findings:{len(modified)}:{modified_digest}"
+            )
         if result.get("Class") != "config":
             diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
             continue
@@ -534,17 +594,20 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
         if file_path is not None:
             observed_files.add(file_path)
         for item in items:
-            if type(item) is not dict or not {"ID", "Title", "Severity", "Status", "CauseMetadata"} <= set(item):
+            if type(item) is not dict or not {"ID", "Status"} <= set(item):
                 raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
             if set(item) - _MISCONFIG_FIELDS:
                 diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
             status = item.get("Status")
-            if status not in {"FAIL", "PASS"}:
+            if status not in {"FAIL", "PASS", "EXCEPTION"}:
                 diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
                 continue
             rule_id = canonical_identifier(item.get("ID"), "Trivy check ID")
-            title = safe_report_text(item.get("Title"), "Trivy title")
-            resource, start, end = _cause(item, file_path)
+            title_value = item.get("Title") or rule_id
+            title = safe_report_text(title_value, "Trivy title")
+            resource, start, end, bound_cause = _cause(item, file_path)
+            if not bound_cause:
+                diagnostics.append(AdapterReason.MISSING_RESOURCE_IDENTITY.value)
             severity = _severity(item.get("Severity"))
             artifact = _artifact(result.get("Type"), file_path)
             if severity is Severity.UNKNOWN or artifact is ArtifactKind.UNKNOWN:
@@ -557,10 +620,11 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
             native = "trivy-misconf-v1:" + hashlib.sha256(
                 json.dumps(native_payload, sort_keys=True, separators=(",", ":")).encode()
             ).hexdigest()
-            native_result = (
-                CheckEvaluationResult.FAILED
-                if status == "FAIL" else CheckEvaluationResult.PASSED
-            )
+            native_result = {
+                "FAIL": CheckEvaluationResult.FAILED,
+                "PASS": CheckEvaluationResult.PASSED,
+                "EXCEPTION": CheckEvaluationResult.SKIPPED,
+            }[status]
             evaluation_identity = (
                 request.locked_identity.version, artifact.value, rule_id,
                 file_path, resource, native,
@@ -587,7 +651,8 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
                 scanner="trivy", scanner_version=request.locked_identity.version,
                 rule_id=rule_id, resource_address=resource, file_path=file_path,
                 native_result=native_result,
-                evaluated_keys=(native,), source_bucket="Misconfigurations",
+                evaluated_keys=(native,),
+                source_bucket=f"Misconfigurations/{status}",
                 occurrence_token=native,
             ))
     eligible = set(request.files_eligible)
@@ -600,7 +665,7 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
     coverage = CoverageCounters(
         files_eligible=len(eligible), files_discovered=len(observed_files),
         files_parsed=len(observed_files), files_failed=0,
-        evaluations_reported=summary_success + summary_failure,
+        evaluations_reported=len(evaluations),
     )
     resource_coverage = ResourceCoverage(
         resources_expected=len(expected), resources_observed=len(observed_resources),
@@ -631,6 +696,8 @@ def _normalize(raw: bytes, request: TrivyScanRequest, process: CommandResult) ->
 def _evidence(
     request: TrivyScanRequest, run: ScannerRun, raw: bytes | None,
     *, cache_digest: str, fallback_used: bool,
+    pre_run_cache_root: str | None = None,
+    post_run_cache_root: str | None = None,
 ) -> TrivyExecutionEvidence:
     canonical_output = _canonical_native_hash(raw) if raw else hashlib.sha256(b"").hexdigest()
     return TrivyExecutionEvidence(
@@ -641,6 +708,22 @@ def _evidence(
         checks_layer_digest=request.locked_identity.checks_layer_digest,
         checks_cache_identity=request.locked_identity.checks_cache_identity,
         checks_cache_content_sha256=cache_digest,
+        protected_cache_manifest_root=(
+            request.protected_checks_cache.protected_manifest_root
+        ),
+        trivy_cache_subtree_root=request.protected_checks_cache.trivy_subtree_root,
+        cache_metadata_digest=request.protected_checks_cache.cache_metadata_sha256,
+        cache_attestation_identity=(
+            request.protected_checks_cache.cache_attestation_identity
+        ),
+        cache_attestation_record_sha256=(
+            request.protected_checks_cache.cache_attestation_record_sha256
+        ),
+        cache_attestation_signature_sha256=(
+            request.protected_checks_cache.cache_attestation_signature_sha256
+        ),
+        pre_run_cache_root=pre_run_cache_root or cache_digest,
+        post_run_cache_root=post_run_cache_root or cache_digest,
         invocation_identity=_invocation_digest(request),
         source="embedded_fallback" if fallback_used else "external",
         fallback_used=fallback_used, network_disabled=True, updates_disabled=True,
@@ -678,6 +761,7 @@ class TrivyAdapter:
     def _normalize_execution(
         cls, raw_output: bytes, request: TrivyScanRequest, process: CommandResult,
         expected_argv: tuple[str, ...], context: object,
+        pre_run_cache_root: str | None = None,
     ) -> TrivyExecutionEvidence:
         if context not in {_EXECUTION_CONTEXT, _PRIVATE_TEST_CONTEXT}:
             raise DomainError("Trivy execution capability is invalid")
@@ -688,10 +772,12 @@ class TrivyAdapter:
         if process.argv != expected_argv:
             raise DomainError("Trivy process argv differs from the locked invocation")
         cache_digest = cls._revalidate(request)
+        pre_cache = pre_run_cache_root or cache_digest
         failure = _process_failure(request, process)
         if failure is not None:
             return _evidence(
                 request, failure, None, cache_digest=cache_digest, fallback_used=False,
+                pre_run_cache_root=pre_cache, post_run_cache_root=cache_digest,
             )
         stderr = process.stderr.decode("utf-8", errors="replace").casefold()
         fallback = not (
@@ -703,14 +789,20 @@ class TrivyAdapter:
                 request, AdapterReason.EMBEDDED_CHECKS_FALLBACK,
                 status=Status.INCONCLUSIVE, process=process, raw=raw_output,
             )
-            return _evidence(request, run, raw_output, cache_digest=cache_digest, fallback_used=True)
+            return _evidence(
+                request, run, raw_output, cache_digest=cache_digest, fallback_used=True,
+                pre_run_cache_root=pre_cache, post_run_cache_root=cache_digest,
+            )
         try:
             run = _normalize(raw_output, request, process)
         except DomainError as exc:
             value = str(exc)
             reason = next((item for item in AdapterReason if item.value == value), AdapterReason.INVALID_RESULTS_STRUCTURE)
             run = _reason_run(request, reason, process=process, raw=raw_output)
-        return _evidence(request, run, raw_output, cache_digest=cache_digest, fallback_used=False)
+        return _evidence(
+            request, run, raw_output, cache_digest=cache_digest, fallback_used=False,
+            pre_run_cache_root=pre_cache, post_run_cache_root=cache_digest,
+        )
 
     @staticmethod
     def _build_view(request: TrivyScanRequest, root: Path) -> None:
@@ -744,6 +836,7 @@ class TrivyAdapter:
         cache_digest = request._cache_content_sha256
         try:
             cache_digest = self._revalidate(request)
+            pre_run_cache_root = cache_digest
             view = work / "scan"
             output = work / "output"
             self._build_view(request, view)
@@ -805,6 +898,7 @@ class TrivyAdapter:
             return _evidence(request, run, None, cache_digest=cache_digest, fallback_used=False)
         return self._normalize_execution(
             raw, request, process, argv, _EXECUTION_CONTEXT,
+            pre_run_cache_root=pre_run_cache_root,
         )
 
 
