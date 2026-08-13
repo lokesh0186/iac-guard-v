@@ -445,6 +445,39 @@ def test_native_bytecode_cache_is_typed_registry_uncertainty(tmp_path: Path) -> 
             registry.execute("tflint_advisory", request)
 
 
+def test_registry_integrity_record_guards_and_parser_uncertainty(tmp_path: Path) -> None:
+    registry = production_validator_registry()
+    with pytest.raises(DomainError, match="status"):
+        replace(registry, integrity_status=Status.FAIL)
+    with pytest.raises(DomainError, match="reason"):
+        replace(registry, integrity_reason="")
+    with pytest.raises(DomainError, match="remediation"):
+        replace(registry, remediation=object())
+    with pytest.raises(DomainError, match="cannot require remediation"):
+        replace(registry, remediation="not needed")
+
+    with patch.object(
+        registry_module, "_parser_dependency_identity",
+        side_effect=DomainError("parser cache present"),
+    ):
+        uncertain = production_validator_registry()
+    assert uncertain.integrity_status is Status.INCONCLUSIVE
+    assert uncertain.integrity_reason == "PARSER_DEPENDENCY_INTEGRITY_INCONCLUSIVE"
+
+
+def test_registry_revalidates_product_integrity_before_execution(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    registry = production_validator_registry()
+    paths, unsafe = registry_module._product_source_inventory()
+    assert not unsafe
+    with patch.object(
+        registry_module, "_product_source_inventory",
+        return_value=(paths, ("BYTECODE:validators/evil.pyc",)),
+    ):
+        with pytest.raises(DomainError, match="INTEGRITY_INCONCLUSIVE"):
+            registry.execute("tflint_advisory", request)
+
+
 @pytest.mark.parametrize("mutation", [
     {"issues": {}},
     {"issues": [], "errors": [], "extra": True},

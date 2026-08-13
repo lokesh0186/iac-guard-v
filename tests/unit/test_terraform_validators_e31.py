@@ -249,6 +249,28 @@ def test_complete_module_scope_rejects_omitted_and_late_siblings(tmp_path: Path)
     )
 
 
+def test_scope_plan_and_request_guard_mutations_are_rejected(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    with pytest.raises(DomainError, match="trusted validation scope"):
+        replace(
+            request,
+            scope_plan=None,
+            _trusted_context=terraform_module._REQUEST_CONTEXT,
+        )
+    with pytest.raises(DomainError, match="positive"):
+        replace(
+            request,
+            max_total_input_bytes=0,
+            _trusted_context=terraform_module._REQUEST_CONTEXT,
+        )
+    with pytest.raises(DomainError, match="exact tuples"):
+        replace(
+            request,
+            source_bindings=list(request.source_bindings),
+            _trusted_context=terraform_module._REQUEST_CONTEXT,
+        )
+
+
 @pytest.mark.parametrize("path", ["main.yaml", "main.txt", "main"])
 def test_only_terraform_extensions_enter_sealed_request(tmp_path: Path, path: str) -> None:
     request = _request(tmp_path)

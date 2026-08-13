@@ -406,6 +406,53 @@ def test_native_path_requires_exact_locked_prefix(tmp_path: Path) -> None:
         Status.INCONCLUSIVE, ValidationReason.INCOMPLETE_COVERAGE,
     )
 
+
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        (None, ValidationReason.MALFORMED_OUTPUT),
+        ("bad\\manifest.yaml", ValidationReason.INCOMPLETE_COVERAGE),
+        ("/another/manifest.yaml", ValidationReason.INCOMPLETE_COVERAGE),
+        ("../manifest.yaml", ValidationReason.INCOMPLETE_COVERAGE),
+        ("missing.yaml", ValidationReason.INCOMPLETE_COVERAGE),
+    ],
+)
+def test_native_path_contract_rejects_every_unlocked_form(value, reason) -> None:
+    with pytest.raises(DomainError, match=reason.value):
+        module._native_path(value, ("manifest.yaml",))
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "not-a-list",
+        [{}],
+        [{"path": 1, "msg": "bad"}],
+        [{"path": "/spec", "msg": ""}],
+    ],
+)
+def test_validation_error_structure_is_bounded_and_typed(value) -> None:
+    with pytest.raises(DomainError):
+        module._validation_errors(value)
+
+
+@pytest.mark.parametrize("status", ["statusInvalid", "statusError", "statusSkipped"])
+def test_adverse_native_status_requires_adverse_detail(tmp_path: Path, status: str) -> None:
+    request = _request(tmp_path, POD)
+    record = _affirmative(request)[0]
+    record["status"] = status
+    summary = {
+        "valid": 0,
+        "invalid": int(status == "statusInvalid"),
+        "errors": int(status == "statusError"),
+        "skipped": int(status == "statusSkipped"),
+    }
+    run = execute_kubeconform_fixture(
+        request,
+        _process(json.dumps({"resources": [record], "summary": summary}).encode(), 1),
+    )
+    assert run.reason is ValidationReason.DIAGNOSTIC_CONTRADICTION
+
 def test_input_extension_symlink_size_and_duplicate_paths_are_rejected(tmp_path: Path) -> None:
     request = _request(tmp_path / "base", POD)
     root = request.scan_root
