@@ -94,6 +94,38 @@ def test_candidate_config_and_transient_state_are_rejected(tmp_path: Path) -> No
         path.rmdir() if path.is_dir() else path.unlink()
 
 
+def test_nested_modules_are_not_overclaimed_by_one_root_invocation(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    nested = request.scan_root / "sub"
+    nested.mkdir()
+    (nested / "bad.tf").write_text("not valid hcl {", encoding="utf-8")
+    with pytest.raises(DomainError, match="MODULE_SCOPE_UNRESOLVED"):
+        create_tflint_validation_request(
+            workspace_root=request.workspace_root, scan_root=request.scan_root,
+            files_eligible=("main.tf", "sub/bad.tf"),
+            container_runtime=request.container_runtime,
+            locked_identity=request.locked_identity,
+            protected_config=request.protected_config,
+        )
+
+
+def test_nested_module_candidate_configuration_is_rejected(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    (request.scan_root / "main.tf").unlink()
+    nested = request.scan_root / "sub"
+    nested.mkdir()
+    (nested / "main.tf").write_text("locals { x = 1 }\n", encoding="utf-8")
+    (nested / ".tflint.hcl").write_text("config {}\n", encoding="utf-8")
+    with pytest.raises(DomainError, match="candidate module"):
+        create_tflint_validation_request(
+            workspace_root=request.workspace_root, scan_root=request.scan_root,
+            files_eligible=("sub/main.tf",),
+            container_runtime=request.container_runtime,
+            locked_identity=request.locked_identity,
+            protected_config=request.protected_config,
+        )
+
+
 @pytest.mark.parametrize("raw", [b"not-json", b'{"issues":[],"issues":[]}'])
 def test_malformed_output_is_inconclusive(tmp_path: Path, raw: bytes) -> None:
     run = execute_tflint_fixture(_request(tmp_path), _process(raw))

@@ -40,6 +40,8 @@ class ValidationReason(str, Enum):
     PLUGIN_INITIALIZATION_REQUIRED = "PLUGIN_INITIALIZATION_REQUIRED"
     BASELINE_EVIDENCE_INVALID = "BASELINE_EVIDENCE_INVALID"
     MATERIALIZED_VIEW_INTEGRITY_FAILED = "MATERIALIZED_VIEW_INTEGRITY_FAILED"
+    MODULE_SCOPE_UNRESOLVED = "MODULE_SCOPE_UNRESOLVED"
+    AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE = "AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE"
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +97,7 @@ class ValidatorExecutionEvidence:
     output_directory_manifest_sha256: str
     exit_code: int | None
     duration_ms: int
+    validation_scope: tuple
     execution_controls: tuple
     _trusted_context: InitVar[object] = None
     _trusted_validator_evidence: bool = field(
@@ -150,6 +153,17 @@ class ValidatorExecutionEvidence:
         if len(controls) != len(set(controls)) or any(type(item) is not str for item in controls):
             raise DomainError("validator execution controls must be unique strings")
         object.__setattr__(self, "execution_controls", controls)
+        if (
+            type(self.validation_scope) is not tuple
+            or any(
+                type(item) is not tuple or len(item) != 2
+                or type(item[0]) is not str or type(item[1]) is not str
+                for item in self.validation_scope
+            )
+            or tuple(sorted(self.validation_scope)) != self.validation_scope
+            or len({item[0] for item in self.validation_scope}) != len(self.validation_scope)
+        ):
+            raise DomainError("validator validation scope must be sorted unique string pairs")
         object.__setattr__(self, "diagnostics", tuple(sorted(
             self.diagnostics,
             key=lambda item: (item.severity, item.file_path, item.line or 0, item.summary),
@@ -193,6 +207,7 @@ class ValidatorExecutionEvidence:
             "canonical_native_output_sha256": self.canonical_native_output_sha256,
             "output_directory_manifest_sha256": self.output_directory_manifest_sha256,
             "exit_code": self.exit_code, "duration_ms": self.duration_ms,
+            "validation_scope": dict(self.validation_scope),
             "execution_controls": list(self.execution_controls),
         }
 

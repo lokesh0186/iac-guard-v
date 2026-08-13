@@ -151,6 +151,45 @@ def test_direct_request_and_caller_evidence_are_rejected(tmp_path: Path) -> None
         require_trusted_validator_evidence(object())
 
 
+def test_nested_modules_require_separate_sealed_requests(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    nested = request.scan_root / "sub"
+    nested.mkdir()
+    (nested / "bad.tf").write_text("not valid hcl {", encoding="utf-8")
+    with pytest.raises(DomainError, match="MODULE_SCOPE_UNRESOLVED"):
+        create_terraform_validation_request(
+            workspace_root=request.workspace_root, scan_root=request.scan_root,
+            files_eligible=("main.tf", "sub/bad.tf"),
+            container_runtime=request.container_runtime,
+            locked_identity=request.locked_identity,
+        )
+
+
+def test_single_nested_module_runs_in_its_exact_directory(tmp_path: Path) -> None:
+    request = _request(tmp_path)
+    (request.scan_root / "main.tf").unlink()
+    nested = request.scan_root / "sub"
+    nested.mkdir()
+    (nested / "main.tf").write_text("locals { x = 1 }\n", encoding="utf-8")
+    nested_request = create_terraform_validation_request(
+        workspace_root=request.workspace_root, scan_root=request.scan_root,
+        files_eligible=("sub/main.tf",), container_runtime=request.container_runtime,
+        locked_identity=request.locked_identity,
+    )
+    observed = {}
+    process = _process(_native())
+    def execute(command):
+        observed["argv"] = command.argv
+        return replace(process, argv=command.argv)
+    with patch("iac_guard_v.validators.terraform.run_command", execute), patch(
+        "iac_guard_v.validators.terraform.revalidate_trusted_container_runtime",
+        return_value=nested_request.container_runtime.identity,
+    ):
+        run = TerraformValidator().validate(nested_request)
+    assert run.status is Status.PASS and run.files_validated == 1
+    assert observed["argv"][observed["argv"].index("-w") + 1] == "/iacgv-input/sub"
+
+
 def test_diagnostic_counts_and_exit_must_be_consistent(tmp_path: Path) -> None:
     contradictory = json.dumps({
         "format_version": "1.0", "valid": True, "error_count": 1,

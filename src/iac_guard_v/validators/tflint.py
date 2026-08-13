@@ -17,13 +17,13 @@ from ..adapters.phase_e_runtime import (
     TrustedContainerRuntime, require_trusted_container_runtime,
     revalidate_trusted_container_runtime,
 )
-from ..enums import Status
+from ..enums import ScanRole, Status
 from ..models import BoundInputFile, DomainError, canonical_repo_path
 from ..process import CommandRequest, CommandResult, run_command
 from .base import (
     ValidationDiagnostic, ValidationReason, ValidatorExecutionEvidence, canonical_sha256,
 )
-from .terraform import _strict_json
+from .terraform import ValidationModule, _module_plan, _strict_json
 from .materialization import (
     SealedSourceFile, bind_source_file, materialize_view,
     materialized_view_manifest, read_sealed_source, verified_write,
@@ -111,6 +111,7 @@ class TflintValidationRequest:
     container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
     protected_config: ProtectedTflintConfig
+    module_plan: ValidationModule | None = None
     source_bindings: tuple = ()
     timeout_seconds: int = 120
     max_output_bytes: int = 4 * 1024 * 1024
@@ -148,6 +149,22 @@ class TflintValidationRequest:
             or tuple(item.evidence for item in self.source_bindings) != self.input_evidence
         ):
             raise DomainError("TFLint sealed source bindings are incomplete")
+        if (
+            type(self.module_plan) is not ValidationModule
+            or self.module_plan.tool != "tflint"
+            or self.module_plan.files != paths
+            or self.module_plan.module_snapshot_sha256
+            != canonical_sha256([item.canonical_dict() for item in self.input_evidence])
+        ):
+            raise DomainError("TFLint validation module plan is invalid")
+        module_directory = (
+            scan if self.module_plan.module_root == "."
+            else scan / self.module_plan.module_root
+        )
+        for forbidden in (".tflint.hcl", ".terraform"):
+            candidate_entry = module_directory / forbidden
+            if candidate_entry.exists() or candidate_entry.is_symlink():
+                raise DomainError(f"candidate module {forbidden} is forbidden")
         if type(self.timeout_seconds) is not int or self.timeout_seconds <= 0:
             raise DomainError("TFLint timeout must be positive")
         if type(self.max_output_bytes) is not int or self.max_output_bytes <= 0:
@@ -160,7 +177,10 @@ class TflintValidationRequest:
 
     @property
     def sealed_snapshot_identity(self) -> str:
-        return canonical_sha256([item.canonical_dict() for item in self.input_evidence])
+        return canonical_sha256({
+            "module": self.module_plan.canonical_dict(),
+            "files": [item.canonical_dict() for item in self.input_evidence],
+        })
 
 
 def create_tflint_validation_request(
@@ -168,6 +188,7 @@ def create_tflint_validation_request(
     container_runtime: TrustedContainerRuntime, locked_identity: LockedContainerIdentity,
     protected_config: ProtectedTflintConfig, timeout_seconds: int = 120,
     max_output_bytes: int = 4 * 1024 * 1024, max_file_bytes: int = 8 * 1024 * 1024,
+    role: ScanRole = ScanRole.CANDIDATE,
 ) -> TflintValidationRequest:
     scan = scan_root.resolve(strict=True)
     paths = tuple(sorted(canonical_repo_path(item) for item in files_eligible))
@@ -179,9 +200,14 @@ def create_tflint_validation_request(
         scan_root, item, max_file_bytes, (".tf", ".tf.json"), "TFLint input",
     )[0] for item in paths)
     evidence = tuple(item.evidence for item in bindings)
+    module_plan = _module_plan(evidence, role, "tflint")
     return TflintValidationRequest(
-        workspace_root, scan_root, paths, evidence, container_runtime, locked_identity,
-        protected_config, bindings, timeout_seconds, max_output_bytes, max_file_bytes,
+        workspace_root=workspace_root, scan_root=scan_root, files_eligible=paths,
+        input_evidence=evidence, container_runtime=container_runtime,
+        locked_identity=locked_identity, protected_config=protected_config,
+        module_plan=module_plan, source_bindings=bindings,
+        timeout_seconds=timeout_seconds, max_output_bytes=max_output_bytes,
+        max_file_bytes=max_file_bytes,
         _trusted_context=_REQUEST_CONTEXT,
     )
 
@@ -195,13 +221,17 @@ def _position(value: object) -> tuple[int, int]:
     return line, column
 
 
-def _range(value: object, allowed: tuple[str, ...]) -> tuple[str, int]:
+def _range(
+    value: object, allowed: tuple[str, ...], module_root: str,
+) -> tuple[str, int]:
     if type(value) is not dict or set(value) != {"filename", "start", "end"}:
         raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
     filename = value["filename"]
     if type(filename) is not str:
         raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
     path = PurePosixPath(filename).as_posix().removeprefix("./")
+    if module_root != ".":
+        path = f"{module_root}/{path}"
     if path not in allowed:
         raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
     start = _position(value["start"])
@@ -234,7 +264,9 @@ def _parse_native(
             raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
         if type(issue["fixable"]) is not bool or type(issue["fixed"]) is not bool:
             raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
-        path, line = _range(issue["range"], request.files_eligible)
+        path, line = _range(
+            issue["range"], request.files_eligible, request.module_plan.module_root,
+        )
         diagnostics.append(ValidationDiagnostic(
             "info" if rule["severity"] == "notice" else rule["severity"],
             rule["name"], issue["message"], path, line,
@@ -252,7 +284,9 @@ def _parse_native(
         path = ""
         line = None
         if "range" in item:
-            path, line = _range(item["range"], request.files_eligible)
+            path, line = _range(
+                item["range"], request.files_eligible, request.module_plan.module_root,
+            )
         diagnostics.append(ValidationDiagnostic(item["severity"], summary, item["message"], path, line))
         native_errors.append(item)
     semantic = {
@@ -284,14 +318,14 @@ def _evidence(
     request: TflintValidationRequest, *, status: Status, reason: ValidationReason,
     process: CommandResult | None = None, raw: bytes = b"", diagnostics: tuple = (),
     canonical: str | None = None, output_manifest: str = "", argv: tuple = (),
-    materialized_view: str = "",
+    materialized_view: str = "", files_validated: int = 0,
 ) -> ValidatorExecutionEvidence:
     empty = hashlib.sha256(b"").hexdigest()
     return ValidatorExecutionEvidence._from_execution(
         validator_id="tflint_advisory", tool="tflint", version=request.locked_identity.version,
         status=status, reason=reason, advisory_only=True, diagnostics=diagnostics,
         resource_identities=(), input_files=request.input_evidence,
-        files_eligible=len(request.input_evidence), files_validated=len(request.input_evidence) if raw else 0,
+        files_eligible=len(request.input_evidence), files_validated=files_validated,
         resources_expected=0, resources_validated=0,
         runtime_identity=request.container_runtime.identity,
         tool_environment_identity=canonical_sha256({
@@ -313,7 +347,14 @@ def _evidence(
         canonical_native_output_sha256=canonical or hashlib.sha256(raw).hexdigest(),
         output_directory_manifest_sha256=output_manifest or empty,
         exit_code=process.exit_code if process else None,
-        duration_ms=process.duration_ms if process else 0, execution_controls=_CONTROLS,
+        duration_ms=process.duration_ms if process else 0,
+        validation_scope=tuple(sorted({
+            "kind": "terraform-module", "role": request.module_plan.role.value,
+            "module_root": request.module_plan.module_root,
+            "module_snapshot_sha256": request.module_plan.module_snapshot_sha256,
+            "tool": request.module_plan.tool,
+        }.items())),
+        execution_controls=_CONTROLS,
     )
 
 
@@ -336,6 +377,10 @@ class TflintValidator:
             protected.mkdir(mode=0o700)
             config = protected / "tflint.hcl"
             verified_write(config, _PROTECTED_CONFIG.encode())
+            module_dir = (
+                "/iacgv-input" if request.module_plan.module_root == "."
+                else f"/iacgv-input/{request.module_plan.module_root}"
+            )
             argv = (
                 str(request.container_runtime.executable_path), "run", "--rm", "--pull", "never",
                 "--network", "none", "--read-only", "--cap-drop", "ALL",
@@ -343,9 +388,9 @@ class TflintValidator:
                 "--memory", _DOCKER_MEMORY, "--cpus", _DOCKER_CPUS, "--user", _DOCKER_USER,
                 "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m", "-e", "HOME=/tmp/iacgv-home",
                 "-v", f"{view}:/iacgv-input:ro", "-v", f"{output}:/iacgv-output:rw",
-                "-v", f"{protected}:/iacgv-protected:ro", "-w", "/iacgv-input",
+                "-v", f"{protected}:/iacgv-protected:ro", "-w", module_dir,
                 request.locked_identity.execution_reference,
-                "--format", "json", "--no-color", "--chdir", "/iacgv-input",
+                "--format", "json", "--no-color", "--chdir", module_dir,
                 "--config", "/iacgv-protected/tflint.hcl",
             )
             require_hardened_docker_argv(
@@ -379,7 +424,8 @@ class TflintValidator:
                 result = _evidence(request, status=status, reason=reason, process=process,
                                    raw=raw, diagnostics=diagnostics, canonical=canonical,
                                    output_manifest=output_manifest, argv=argv,
-                                   materialized_view=materialized_view)
+                                   materialized_view=materialized_view,
+                                   files_validated=len(request.input_evidence))
         except (DomainError, OSError) as exc:
             try:
                 reason = ValidationReason(str(exc))

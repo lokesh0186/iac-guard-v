@@ -73,6 +73,18 @@ def _request(tmp_path: Path, content: str, *, suffix: str = ".yaml",
     )
 
 
+def _affirmative(request, status: str = "statusValid") -> list[dict]:
+    records = []
+    for identity in request.resource_identities:
+        path, address = identity.split(":", 1)
+        version, kind, _namespace, name = address.rsplit("/", 3)
+        records.append({
+            "filename": f"/iacgv-input/{path}", "kind": kind, "name": name,
+            "version": version, "status": status, "msg": "",
+        })
+    return records
+
+
 POD = """apiVersion: v1
 kind: Pod
 metadata: {name: demo}
@@ -86,7 +98,9 @@ spec: {containers: [{name: c, image: nginx}]}
 ])
 def test_valid_yaml_and_json_pass(tmp_path: Path, suffix: str, content: str) -> None:
     request = _request(tmp_path, content, suffix=suffix)
-    run = execute_kubeconform_fixture(request, _process(_native()))
+    run = execute_kubeconform_fixture(
+        request, _process(_native(resources=_affirmative(request)))
+    )
     assert (run.status, run.reason) == (Status.PASS, ValidationReason.COMPLETED)
     assert run.resources_validated == 1
     assert run.tool_environment_identity
@@ -111,7 +125,9 @@ def test_multidoc_and_list_resource_counts_are_bound(tmp_path: Path) -> None:
     multidoc = POD + "---\n" + POD.replace("demo", "other")
     request = _request(tmp_path / "multi", multidoc)
     assert len(request.resource_identities) == 2
-    run = execute_kubeconform_fixture(request, _process(_native(valid=2)))
+    run = execute_kubeconform_fixture(
+        request, _process(_native(valid=2, resources=_affirmative(request)))
+    )
     assert run.status is Status.PASS
     list_doc = """apiVersion: v1
 kind: List
@@ -139,7 +155,9 @@ def test_missing_schema_and_protected_crd_schema(tmp_path: Path) -> None:
     run = execute_kubeconform_fixture(request, _process(_native(valid=0, errors=1, resources=error), 1))
     assert run.reason is ValidationReason.CRD_SCHEMA_UNAVAILABLE
     protected = _request(tmp_path / "protected", custom, crd=True)
-    run = execute_kubeconform_fixture(protected, _process(_native()))
+    run = execute_kubeconform_fixture(
+        protected, _process(_native(resources=_affirmative(protected)))
+    )
     assert run.status is Status.PASS
     assert run.tool_environment_identity != request.schema_identity.identity
     protected_missing = execute_kubeconform_fixture(
@@ -169,6 +187,14 @@ def test_missing_and_incomplete_coverage_never_pass(tmp_path: Path) -> None:
     assert run.reason is ValidationReason.INCOMPLETE_COVERAGE
 
 
+def test_aggregate_only_success_cannot_invent_affirmative_resources(tmp_path: Path) -> None:
+    request = _request(tmp_path, POD + "---\n" + POD.replace("demo", "other"))
+    run = execute_kubeconform_fixture(request, _process(_native(valid=2)))
+    assert run.status is Status.INCONCLUSIVE
+    assert run.reason is ValidationReason.AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE
+    assert run.resources_validated == 0
+
+
 @pytest.mark.parametrize("raw", [b"not json", b'{"resources":[],"resources":[]}'])
 def test_malformed_native_json_is_inconclusive(tmp_path: Path, raw: bytes) -> None:
     run = execute_kubeconform_fixture(_request(tmp_path, POD), _process(raw))
@@ -194,7 +220,7 @@ def test_native_order_is_canonically_deterministic(tmp_path: Path) -> None:
 def test_command_has_no_network_or_ignore_missing_schema(tmp_path: Path) -> None:
     request = _request(tmp_path, POD)
     observed = {}
-    process = _process(_native())
+    process = _process(_native(resources=_affirmative(request)))
     def execute(command):
         observed["argv"] = command.argv
         return replace(process, argv=command.argv)
@@ -206,6 +232,7 @@ def test_command_has_no_network_or_ignore_missing_schema(tmp_path: Path) -> None
     assert run.status is Status.PASS
     assert observed["argv"][observed["argv"].index("--network") + 1] == "none"
     assert "-ignore-missing-schemas" not in observed["argv"]
+    assert "-verbose" in observed["argv"]
 
 
 def test_schema_change_timeout_and_extra_output_are_typed(tmp_path: Path) -> None:

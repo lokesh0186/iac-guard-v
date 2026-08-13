@@ -863,3 +863,15 @@ and reopen/hash every destination before execution. The portable materialized-vi
 manifest is bound separately from the source snapshot and included in invocation
 and validator evidence. Any mismatch is
 `MATERIALIZED_VIEW_INTEGRITY_FAILED`, never validator success.
+
+## E3.5 exact validation scope
+
+Terraform-family validation is represented by an immutable directory-scoped module
+plan. Mixed module roots are rejected before execution, while a sole nested module is
+executed with that exact container working directory. TFLint follows the same contract
+and remains advisory. The scope record is retained in canonical validator evidence.
+
+Kubeconform runs in verbose mode. Its positive and adverse native resource records are
+normalized and reconciled exactly against sealed discovery evidence; request-side
+identities are never copied into the result as a substitute for native affirmative
+evidence. Aggregate-only success is typed uncertainty.

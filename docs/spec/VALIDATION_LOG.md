@@ -2907,3 +2907,13 @@ external, internal, broken, and cyclic parent links, detects parent replacement,
 retries partial/EINTR writes, rejects zero progress, and verifies destination bytes.
 The materialized-view identity is present in canonical validator and invocation
 evidence. The focused E3.4 and preserved E3 test set recorded 105 passing tests.
+
+## 2026-08-13 — E3.5 exact module and kubeconform coverage
+
+Failing-before probes reported root and nested Terraform/TFLint files validated by one
+nonrecursive root invocation and converted kubeconform `resources=[]` plus `valid=2`
+into exact two-resource PASS. The new module plan rejects mixed directories and runs a
+sole nested module at its exact path. Kubeconform now uses verbose output and requires
+one-to-one native identity and status reconciliation; aggregate-only output is
+`AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE`. The preserved E3/E3.4 set plus permanent
+E3.5 probes recorded 110 passing tests.

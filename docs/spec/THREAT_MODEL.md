@@ -520,3 +520,11 @@ Writes may be partial or interrupted. The materializer loops to completion,
 rejects zero progress, flushes and closes, then reopens the destination no-follow
 and proves exact size and SHA-256. Protected Terraform and TFLint configuration
 uses the same primitive. No process is spawned over an unverified view.
+
+### E3.5 validation-scope controls
+
+A recursive source inventory is not proof that a directory-scoped tool inspected each
+module. Terraform/OpenTofu and TFLint therefore bind one module directory per sealed
+request and reject mixed roots. Kubeconform aggregate counts are likewise not exact
+identity proof: verbose native records must reconcile one-to-one with independently
+discovered resources, or coverage remains inconclusive.

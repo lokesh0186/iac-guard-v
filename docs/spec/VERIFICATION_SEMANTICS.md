@@ -1443,6 +1443,8 @@ ADVISORY_FINDINGS
 PLUGIN_INITIALIZATION_REQUIRED
 BASELINE_EVIDENCE_INVALID
 MATERIALIZED_VIEW_INTEGRITY_FAILED
+MODULE_SCOPE_UNRESOLVED
+AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE
 ```
 
 `COMPLETED` alone is compatible with `PASS`. `INVALID_CONFIGURATION` is definite
@@ -1458,8 +1460,27 @@ The remaining closed reason members are `UNSUPPORTED_CONDITION`, `MALFORMED_OUTP
 material and is always `INCONCLUSIVE`. Shared parser protections also retain
 `MATERIALIZED_VIEW_INTEGRITY_FAILED`, which means the verified private view could
 not be proven byte-identical to sealed source evidence and is always non-PASS.
+`MODULE_SCOPE_UNRESOLVED` prevents a directory-scoped Terraform-family tool from
+claiming recursively discovered modules it did not execute. Each accepted request
+contains exactly one immutable module plan. `AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE`
+means aggregate kubeconform counts could not be reconciled to exact native positive
+resource identities; it is always `INCONCLUSIVE`.
 `DUPLICATE_JSON_KEY`, `JSON_DEPTH_EXCEEDED`,
 `OUTPUT_DIRECTORY_INTEGRITY_FAILED`, `PROCESS_ERROR`, and `TIMEOUT`.
+
+## E3.5 exact validator scope
+
+Terraform/OpenTofu and TFLint invocations are directory scoped. A sealed request
+contains one module root and only that directory's top-level Terraform files. A set
+spanning multiple module directories is rejected for partitioning into separate
+requests; it is never counted as one recursive validation. Validator evidence retains
+the module role, root, tool, and module snapshot identity.
+
+Kubeconform executes with verbose JSON and must emit one native record for every
+independently expected resource. Native file, API version, kind, and name must map to
+exactly one sealed identity, all summary status counts must agree, and the native and
+expected sets must be equal. Because kubeconform omits namespace from this output,
+ambiguous same-file identities are uncertainty rather than fabricated coverage.
 
 The native result is the exact five-field `format_version=1.0` object. `valid=true`
 requires exit 0, zero errors, and matching counts. `valid=false` requires exit 1 and

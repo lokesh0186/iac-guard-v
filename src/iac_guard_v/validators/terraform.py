@@ -18,7 +18,7 @@ from ..adapters.phase_e_runtime import (
     TrustedContainerRuntime, require_trusted_container_runtime,
     revalidate_trusted_container_runtime,
 )
-from ..enums import Status
+from ..enums import ScanRole, Status
 from ..models import BoundInputFile, DomainError, canonical_repo_path
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
 from .base import (
@@ -51,6 +51,54 @@ _NEEDS_INIT = re.compile(
 )
 
 
+@dataclass(frozen=True, slots=True)
+class ValidationModule:
+    role: ScanRole
+    module_root: str
+    files: tuple
+    module_snapshot_sha256: str
+    tool: str
+
+    def __post_init__(self) -> None:
+        if self.role not in {ScanRole.BASELINE, ScanRole.CANDIDATE}:
+            raise DomainError("validation module role is invalid")
+        if self.module_root != ".":
+            object.__setattr__(self, "module_root", canonical_repo_path(self.module_root))
+        if (
+            type(self.files) is not tuple or not self.files
+            or self.files != tuple(sorted(set(self.files)))
+        ):
+            raise DomainError("validation module files must be nonempty, sorted, and unique")
+        if any(
+            (PurePosixPath(item).parent.as_posix() or ".") != self.module_root
+            for item in self.files
+        ):
+            raise DomainError("validation module contains a file from another directory")
+        if re.fullmatch(r"[0-9a-f]{64}", self.module_snapshot_sha256) is None:
+            raise DomainError("validation module snapshot must be a SHA-256")
+        if self.tool not in {"opentofu", "terraform", "tflint"}:
+            raise DomainError("validation module tool is unsupported")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "role": self.role.value, "module_root": self.module_root,
+            "files": list(self.files), "module_snapshot_sha256": self.module_snapshot_sha256,
+            "tool": self.tool,
+        }
+
+
+def _module_plan(
+    files: tuple[BoundInputFile, ...], role: ScanRole, tool: str,
+) -> ValidationModule:
+    roots = {PurePosixPath(item.file_path).parent.as_posix() or "." for item in files}
+    if len(roots) != 1:
+        raise DomainError(ValidationReason.MODULE_SCOPE_UNRESOLVED.value)
+    return ValidationModule(
+        role, next(iter(roots)), tuple(item.file_path for item in files),
+        canonical_sha256([item.canonical_dict() for item in files]), tool,
+    )
+
+
 def _inside(path: Path, root: Path) -> bool:
     try:
         path.relative_to(root)
@@ -77,6 +125,7 @@ class TerraformValidationRequest:
     input_evidence: tuple
     container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
+    module_plan: ValidationModule | None = None
     source_bindings: tuple = ()
     timeout_seconds: int = 120
     max_output_bytes: int = 4 * 1024 * 1024
@@ -122,6 +171,14 @@ class TerraformValidationRequest:
             or tuple(item.evidence for item in self.source_bindings) != evidence
         ):
             raise DomainError("Terraform sealed source bindings are incomplete")
+        if (
+            type(self.module_plan) is not ValidationModule
+            or self.module_plan.tool != identity.tool
+            or self.module_plan.files != paths
+            or self.module_plan.module_snapshot_sha256
+            != canonical_sha256([item.canonical_dict() for item in evidence])
+        ):
+            raise DomainError("Terraform validation module plan is invalid")
         for name in ("timeout_seconds", "max_output_bytes", "max_file_bytes", "max_total_input_bytes"):
             if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
                 raise DomainError(f"{name} must be a positive integer")
@@ -136,7 +193,10 @@ class TerraformValidationRequest:
 
     @property
     def sealed_snapshot_identity(self) -> str:
-        return _snapshot_identity(self.input_evidence)
+        return canonical_sha256({
+            "module": self.module_plan.canonical_dict(),
+            "files": [item.canonical_dict() for item in self.input_evidence],
+        })
 
 
 def create_terraform_validation_request(
@@ -145,6 +205,7 @@ def create_terraform_validation_request(
     timeout_seconds: int = 120, max_output_bytes: int = 4 * 1024 * 1024,
     max_file_bytes: int = 8 * 1024 * 1024,
     max_total_input_bytes: int = 64 * 1024 * 1024,
+    role: ScanRole = ScanRole.CANDIDATE,
 ) -> TerraformValidationRequest:
     paths = tuple(sorted(canonical_repo_path(item) for item in files_eligible))
     if any(not item.endswith((".tf", ".tf.json")) for item in paths):
@@ -155,9 +216,11 @@ def create_terraform_validation_request(
         scan_root, item, max_file_bytes, (".tf", ".tf.json"), "Terraform validator input",
     )[0] for item in paths)
     evidence = tuple(item.evidence for item in bindings)
+    module_plan = _module_plan(evidence, role, locked_identity.tool)
     return TerraformValidationRequest(
         workspace_root=workspace_root, scan_root=scan_root, files_eligible=paths,
-        input_evidence=evidence, source_bindings=bindings, container_runtime=container_runtime,
+        input_evidence=evidence, source_bindings=bindings, module_plan=module_plan,
+        container_runtime=container_runtime,
         locked_identity=locked_identity, timeout_seconds=timeout_seconds,
         max_output_bytes=max_output_bytes, max_file_bytes=max_file_bytes,
         max_total_input_bytes=max_total_input_bytes, _trusted_context=_REQUEST_CONTEXT,
@@ -207,7 +270,7 @@ def _strict_json(raw: bytes) -> dict:
     return payload
 
 
-def _diagnostic(item: Any) -> ValidationDiagnostic:
+def _diagnostic(item: Any, request: TerraformValidationRequest) -> ValidationDiagnostic:
     if type(item) is not dict or set(item) - {"severity", "summary", "detail", "range", "snippet"}:
         raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
     severity = item.get("severity")
@@ -223,14 +286,20 @@ def _diagnostic(item: Any) -> ValidationDiagnostic:
     if range_ is not None:
         if type(range_) is not dict or type(range_.get("filename")) is not str:
             raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
-        file_path = range_["filename"]
+        native_path = canonical_repo_path(range_["filename"])
+        module_root = request.module_plan.module_root
+        file_path = native_path if module_root == "." else f"{module_root}/{native_path}"
+        if file_path not in request.files_eligible:
+            raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
         start = range_.get("start")
         if type(start) is dict and type(start.get("line")) is int and start["line"] >= 1:
             line = start["line"]
     return ValidationDiagnostic(severity, summary, detail, file_path, line)
 
 
-def _parse_native(raw: bytes, exit_code: int | None) -> tuple[Status, ValidationReason, tuple, str]:
+def _parse_native(
+    raw: bytes, exit_code: int | None, request: TerraformValidationRequest,
+) -> tuple[Status, ValidationReason, tuple, str]:
     payload = _strict_json(raw)
     if set(payload) != {"format_version", "valid", "error_count", "warning_count", "diagnostics"}:
         raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
@@ -240,7 +309,7 @@ def _parse_native(raw: bytes, exit_code: int | None) -> tuple[Status, Validation
         raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
     if type(payload["diagnostics"]) is not list:
         raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
-    diagnostics = tuple(_diagnostic(item) for item in payload["diagnostics"])
+    diagnostics = tuple(_diagnostic(item, request) for item in payload["diagnostics"])
     errors = sum(item.severity == "error" for item in diagnostics)
     warnings = sum(item.severity == "warning" for item in diagnostics)
     if errors != payload["error_count"] or warnings != payload["warning_count"]:
@@ -284,7 +353,7 @@ def _evidence(
     request: TerraformValidationRequest, *, status: Status, reason: ValidationReason,
     diagnostics: tuple = (), process: CommandResult | None = None, raw: bytes = b"",
     canonical: str | None = None, output_manifest: str | None = None,
-    materialized_view: str | None = None,
+    materialized_view: str | None = None, files_validated: int = 0,
 ) -> ValidatorExecutionEvidence:
     empty = hashlib.sha256(b"").hexdigest()
     return ValidatorExecutionEvidence._from_execution(
@@ -293,13 +362,14 @@ def _evidence(
         status=status, reason=reason, advisory_only=False, diagnostics=diagnostics,
         resource_identities=(),
         input_files=request.input_evidence, files_eligible=len(request.input_evidence),
-        files_validated=(len(request.input_evidence) if raw else 0),
+        files_validated=files_validated,
         resources_expected=0, resources_validated=0,
         runtime_identity=request.container_runtime.identity,
         tool_environment_identity=request.locked_identity.environment_digest,
         invocation_identity=(
             _invocation_identity(request, process.argv, materialized_view or materialized_view_manifest(request.input_evidence)) if process else canonical_sha256({
                 "tool": request.locked_identity.tool, "snapshot": request.sealed_snapshot_identity,
+                "module": request.module_plan.canonical_dict(),
                 "not_executed": True,
             })
         ),
@@ -314,6 +384,12 @@ def _evidence(
         output_directory_manifest_sha256=output_manifest or empty,
         exit_code=process.exit_code if process else None,
         duration_ms=process.duration_ms if process else 0,
+        validation_scope=tuple(sorted({
+            "kind": "terraform-module", "role": request.module_plan.role.value,
+            "module_root": request.module_plan.module_root,
+            "module_snapshot_sha256": request.module_plan.module_snapshot_sha256,
+            "tool": request.module_plan.tool,
+        }.items())),
         execution_controls=_CONTROLS,
     )
 
@@ -346,6 +422,10 @@ class TerraformValidator:
                 b'provider_installation { filesystem_mirror { path = "/no-providers" } }\n',
             )
             tool = request.locked_identity.tool
+            module_dir = (
+                "/iacgv-input" if request.module_plan.module_root == "."
+                else f"/iacgv-input/{request.module_plan.module_root}"
+            )
             argv = (
                 str(request.container_runtime.executable_path), "run", "--rm", "--pull", "never",
                 "--network", "none", "--read-only", "--cap-drop", "ALL",
@@ -356,7 +436,7 @@ class TerraformValidator:
                 "-e", "TF_CLI_CONFIG_FILE=/iacgv-protected/terraform.rc",
                 "-e", "CHECKPOINT_DISABLE=1", "-e", "TF_IN_AUTOMATION=1",
                 "-v", f"{view}:/iacgv-input:ro", "-v", f"{output}:/iacgv-output:rw",
-                "-v", f"{protected}:/iacgv-protected:ro", "-w", "/iacgv-input",
+                "-v", f"{protected}:/iacgv-protected:ro", "-w", module_dir,
                 "--entrypoint", _ENTRYPOINTS[tool], request.locked_identity.execution_reference,
                 "validate", "-json",
             )
@@ -399,12 +479,15 @@ class TerraformValidator:
                                    materialized_view=materialized_view)
             else:
                 raw = process.stdout
-                status, reason, diagnostics, canonical = _parse_native(raw, process.exit_code)
+                status, reason, diagnostics, canonical = _parse_native(
+                    raw, process.exit_code, request,
+                )
                 result = _evidence(
                     request, status=status, reason=reason, diagnostics=diagnostics,
                     process=process, raw=raw, canonical=canonical,
                     output_manifest=output_manifest,
                     materialized_view=materialized_view,
+                    files_validated=len(request.input_evidence),
                 )
         except (DomainError, OSError) as exc:
             try:
@@ -430,6 +513,6 @@ class TerraformValidator:
 
 
 __all__ = [
-    "TerraformValidationRequest", "TerraformValidator",
+    "TerraformValidationRequest", "TerraformValidator", "ValidationModule",
     "create_terraform_validation_request",
 ]

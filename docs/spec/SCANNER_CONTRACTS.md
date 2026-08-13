@@ -563,5 +563,18 @@ no-follow destination re-read matches the sealed path, size, and SHA-256.
 The invocation identity and `ValidatorExecutionEvidence` retain
 `materialized_view_sha256`. Source, private-view, or parent identity disagreement
 is typed uncertainty before execution and cannot be inferred from stdout presence.
+
+## E3.5 exact module and resource coverage
+
+Terraform/OpenTofu and TFLint accept exactly one directory-scoped immutable module
+plan per request. Root and nested modules are not combined under one command; callers
+must create separate sealed requests and aggregate their typed outcomes. The command
+working directory is the sealed module root, and file coverage is recorded only after
+that exact execution completes.
+
+Kubeconform uses `-verbose` and reconciles every native `statusValid`, invalid, error,
+or skipped record to one independently discovered resource. Aggregate summary counts
+alone cannot prove coverage. Exact file/version/kind/name reconciliation, duplicate
+rejection, summary agreement, and full expected-set equality are required for PASS.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

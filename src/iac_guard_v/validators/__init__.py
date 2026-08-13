@@ -9,6 +9,7 @@ from .base import (
 from .terraform import (
     TerraformValidator,
     TerraformValidationRequest,
+    ValidationModule,
     create_terraform_validation_request,
 )
 from .kubeconform import (
@@ -32,6 +33,7 @@ from .registry import (
 __all__ = [
     "TerraformValidationRequest",
     "TerraformValidator",
+    "ValidationModule",
     "ValidationDiagnostic",
     "ValidationReason",
     "ValidatorExecutionEvidence",

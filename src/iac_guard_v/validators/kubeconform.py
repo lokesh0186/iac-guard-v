@@ -216,7 +216,7 @@ def _native_path(value: Any, eligible: tuple[str, ...]) -> str:
 
 def _parse_native(
     raw: bytes, request: KubeconformValidationRequest, exit_code: int | None,
-) -> tuple[Status, ValidationReason, tuple, str, int]:
+) -> tuple[Status, ValidationReason, tuple, str, tuple[str, ...], tuple[str, ...]]:
     payload = _strict_json(raw)
     if set(payload) != {"resources", "summary"}:
         raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
@@ -232,8 +232,23 @@ def _parse_native(
     total = sum(summary.values())
     if total != len(request.resource_identities):
         raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    if not resources and total:
+        raise DomainError(
+            ValidationReason.AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE.value
+        )
     diagnostics = []
-    observed_nonvalid = 0
+    status_counts = {
+        "statusValid": 0, "statusInvalid": 0,
+        "statusError": 0, "statusSkipped": 0,
+    }
+    expected = {}
+    for identity in request.resource_identities:
+        path, address = identity.split(":", 1)
+        api_version, kind, _namespace, name = address.rsplit("/", 3)
+        key = (path, api_version, kind, name)
+        expected.setdefault(key, []).append(identity)
+    observed = []
+    observed_files = []
     for item in resources:
         if type(item) is not dict or not {"filename", "kind", "name", "version", "status", "msg"} <= set(item):
             raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
@@ -243,12 +258,33 @@ def _parse_native(
         if any(type(item.get(name)) is not str for name in ("kind", "name", "version", "status", "msg")):
             raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
         status = item["status"]
-        if status not in {"statusInvalid", "statusError", "statusSkipped"}:
+        if status not in status_counts:
             raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
-        severity = "error" if status != "statusSkipped" else "warning"
-        diagnostics.append(ValidationDiagnostic(severity, status, item["msg"] or status, path))
-        observed_nonvalid += 1
-    if observed_nonvalid != summary["invalid"] + summary["errors"] + summary["skipped"]:
+        matches = expected.get((path, item["version"], item["kind"], item["name"]), ())
+        if len(matches) != 1:
+            raise DomainError(
+                ValidationReason.AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE.value
+            )
+        observed.append(matches[0])
+        observed_files.append(path)
+        status_counts[status] += 1
+        if status != "statusValid":
+            severity = "error" if status != "statusSkipped" else "warning"
+            diagnostics.append(
+                ValidationDiagnostic(severity, status, item["msg"] or status, path)
+            )
+    if len(observed) != len(set(observed)):
+        raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+    if set(observed) != set(request.resource_identities):
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    if set(observed_files) != set(request.files_eligible):
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    if status_counts != {
+        "statusValid": summary["valid"],
+        "statusInvalid": summary["invalid"],
+        "statusError": summary["errors"],
+        "statusSkipped": summary["skipped"],
+    }:
         raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
     if exit_code != (0 if summary["invalid"] == summary["errors"] == summary["skipped"] == 0 else 1):
         raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
@@ -272,12 +308,25 @@ def _parse_native(
             else ValidationReason.MISSING_SCHEMA if missing
             else ValidationReason.UNSUPPORTED_CONDITION
         )
-        return Status.INCONCLUSIVE, reason, tuple(diagnostics), canonical, total
+        return (
+            Status.INCONCLUSIVE, reason, tuple(diagnostics), canonical,
+            tuple(sorted(observed)), tuple(sorted(set(observed_files))),
+        )
     if summary["invalid"]:
         if request.role is ScanRole.BASELINE:
-            return Status.INCONCLUSIVE, ValidationReason.BASELINE_EVIDENCE_INVALID, tuple(diagnostics), canonical, total
-        return Status.FAIL, ValidationReason.INVALID_CONFIGURATION, tuple(diagnostics), canonical, total
-    return Status.PASS, ValidationReason.COMPLETED, tuple(diagnostics), canonical, total
+            return (
+                Status.INCONCLUSIVE, ValidationReason.BASELINE_EVIDENCE_INVALID,
+                tuple(diagnostics), canonical, tuple(sorted(observed)),
+                tuple(sorted(set(observed_files))),
+            )
+        return (
+            Status.FAIL, ValidationReason.INVALID_CONFIGURATION, tuple(diagnostics),
+            canonical, tuple(sorted(observed)), tuple(sorted(set(observed_files))),
+        )
+    return (
+        Status.PASS, ValidationReason.COMPLETED, tuple(diagnostics), canonical,
+        tuple(sorted(observed)), tuple(sorted(set(observed_files))),
+    )
 
 
 def _copy_view(request: KubeconformValidationRequest, view: Path) -> str:
@@ -289,7 +338,8 @@ def _copy_view(request: KubeconformValidationRequest, view: Path) -> str:
 def _evidence(
     request: KubeconformValidationRequest, *, status: Status, reason: ValidationReason,
     process: CommandResult | None = None, raw: bytes = b"", diagnostics: tuple = (),
-    canonical: str | None = None, validated: int = 0, output_manifest: str = "",
+    canonical: str | None = None, observed_resources: tuple = (),
+    observed_files: tuple = (), output_manifest: str = "",
     argv: tuple = (), materialized_view: str = "",
 ) -> ValidatorExecutionEvidence:
     empty = hashlib.sha256(b"").hexdigest()
@@ -297,10 +347,11 @@ def _evidence(
         validator_id="kubeconform_schema", tool="kubeconform",
         version=request.locked_identity.version, status=status, reason=reason,
         advisory_only=False, diagnostics=diagnostics,
-        resource_identities=request.resource_identities, input_files=request.input_evidence,
+        resource_identities=observed_resources, input_files=request.input_evidence,
         files_eligible=len(request.input_evidence),
-        files_validated=(len(request.input_evidence) if validated else 0),
-        resources_expected=len(request.resource_identities), resources_validated=validated,
+        files_validated=len(observed_files),
+        resources_expected=len(request.resource_identities),
+        resources_validated=len(observed_resources),
         runtime_identity=request.container_runtime.identity,
         tool_environment_identity=canonical_sha256({
             "tool": request.locked_identity.environment_digest,
@@ -324,6 +375,13 @@ def _evidence(
         output_directory_manifest_sha256=output_manifest or empty,
         exit_code=process.exit_code if process else None,
         duration_ms=process.duration_ms if process else 0,
+        validation_scope=tuple(sorted({
+            "kind": "kubernetes-resource-set", "role": request.role.value,
+            "expected_resources_sha256": canonical_sha256(
+                list(request.resource_identities)
+            ),
+            "observed_resources_sha256": canonical_sha256(list(observed_resources)),
+        }.items())),
         execution_controls=_CONTROLS,
     )
 
@@ -367,7 +425,8 @@ class KubeconformValidator:
                 "-v", f"{view}:/iacgv-input:ro", "-v", f"{output}:/iacgv-output:rw",
                 "-v", f"{request.schema_identity.schema_root}:/schemas:ro",
                 "--entrypoint", "/kubeconform", request.locked_identity.execution_reference,
-                "-output", "json", "-strict", "-summary", "-schema-location", schema_location,
+                "-output", "json", "-strict", "-summary", "-verbose",
+                "-schema-location", schema_location,
                 "/iacgv-input",
             )
             if request.protected_crd_schema:
@@ -400,10 +459,15 @@ class KubeconformValidator:
                                    materialized_view=materialized_view)
             else:
                 raw = process.stdout
-                status, reason, diagnostics, canonical, validated = _parse_native(raw, request, process.exit_code)
+                (
+                    status, reason, diagnostics, canonical,
+                    observed_resources, observed_files,
+                ) = _parse_native(raw, request, process.exit_code)
                 result = _evidence(request, status=status, reason=reason, process=process,
                                    raw=raw, diagnostics=diagnostics, canonical=canonical,
-                                   validated=validated, output_manifest=output_manifest, argv=argv,
+                                   observed_resources=observed_resources,
+                                   observed_files=observed_files,
+                                   output_manifest=output_manifest, argv=argv,
                                    materialized_view=materialized_view)
         except (DomainError, OSError) as exc:
             try:
