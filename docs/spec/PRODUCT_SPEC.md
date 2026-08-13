@@ -552,6 +552,16 @@ Validator mounts must work under a native Linux Docker engine without root fallb
 The locked UID/GID reads every sealed input and protected configuration, cannot modify
 either mount, and writes only to the bounded output mount. Permission and content drift
 before or after execution makes the result non-PASS.
+
+## E3.8 complete scope acceptance
+
+An authoritative validator request must be built from the complete factory-attested
+role scope. A caller-selected subset is rejected when another top-level Terraform file
+exists in the module or another Kubernetes-classified YAML/JSON artifact exists in the
+snapshot. The same scope is revalidated at every process boundary. Late additions,
+removals, byte changes, type changes, and governed/transient module state are non-PASS.
+TFLint's clean output proves only that the complete module invocation ran; it does not
+invent file-level affirmative evidence.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

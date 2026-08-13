@@ -30,7 +30,8 @@ from .materialization import (
     SealedSourceFile, bind_source_file, materialize_view,
     materialized_view_manifest, prepare_writable_output_directory,
     read_sealed_source, revalidate_materialized_view,
-    revalidate_writable_output_directory,
+    revalidate_writable_output_directory, TrustedValidationScopePlan,
+    create_trusted_validation_scope_plan, revalidate_validation_scope_plan,
 )
 
 
@@ -81,6 +82,7 @@ class KubeconformValidationRequest:
     container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
     schema_identity: ProtectedKubernetesSchemaIdentity
+    scope_plan: TrustedValidationScopePlan | None = None
     source_bindings: tuple = ()
     protected_crd_schema: ProtectedKubernetesSchemaIdentity | None = None
     timeout_seconds: int = 120
@@ -130,6 +132,14 @@ class KubeconformValidationRequest:
         ):
             raise DomainError("kubeconform sealed source bindings are incomplete")
         resources = tuple(self.resource_identities)
+        if (
+            type(self.scope_plan) is not TrustedValidationScopePlan
+            or self.scope_plan.scope_kind != "kubernetes-artifact-universe"
+            or self.scope_plan.role is not self.role
+            or self.scope_plan.files != self.input_evidence
+            or self.scope_plan.resource_identities != resources
+        ):
+            raise DomainError("kubeconform trusted validation scope is invalid")
         if resources != tuple(sorted(set(resources))) or any(type(item) is not str for item in resources):
             raise DomainError("kubeconform resource identities must be sorted and unique")
         if type(self.syntax_error) is not str:
@@ -148,11 +158,7 @@ class KubeconformValidationRequest:
 
     @property
     def sealed_snapshot_identity(self) -> str:
-        return canonical_sha256({
-            "role": self.role.value,
-            "files": [item.canonical_dict() for item in self.input_evidence],
-            "resources": list(self.resource_identities), "syntax_error": self.syntax_error,
-        })
+        return self.scope_plan.manifest_sha256
 
 
 def create_kubeconform_validation_request(
@@ -186,10 +192,15 @@ def create_kubeconform_validation_request(
             identities.extend(f"{item.file_path}:{item.canonical_address}" for item in detected)
         except DomainError as exc:
             syntax_error = safe_report_text(str(exc), "kubernetes syntax error", 4096)
+    scope_plan = create_trusted_validation_scope_plan(
+        scan_root=scan_root, files_eligible=paths, role=role,
+        scope_kind="kubernetes-artifact-universe", max_file_bytes=max_file_bytes,
+    )
     return KubeconformValidationRequest(
         workspace_root=workspace_root, scan_root=scan_root, role=role,
         files_eligible=paths, input_evidence=tuple(evidence), source_bindings=tuple(bindings),
         resource_identities=tuple(sorted(set(identities))), syntax_error=syntax_error,
+        scope_plan=scope_plan,
         container_runtime=container_runtime, locked_identity=locked_identity,
         schema_identity=schema_identity, protected_crd_schema=protected_crd_schema,
         timeout_seconds=timeout_seconds, max_output_bytes=max_output_bytes,
@@ -409,6 +420,9 @@ class KubeconformValidator:
         materialized_view = ""
         result = None
         try:
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
             request.schema_identity.revalidate()
             if request.protected_crd_schema:
@@ -437,6 +451,9 @@ class KubeconformValidator:
             require_hardened_docker_argv(argv, pids_limit=_DOCKER_PIDS_LIMIT,
                                          memory=_DOCKER_MEMORY, cpus=_DOCKER_CPUS, user=_DOCKER_USER)
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             process = run_command(CommandRequest(
                 argv=argv, expected_exit_codes=(0, 1), workspace_root=request.workspace_root,
                 timeout_seconds=request.timeout_seconds, max_output_bytes=request.max_output_bytes,
@@ -445,12 +462,18 @@ class KubeconformValidator:
             ))
             if process.argv != argv:
                 raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             for sealed in request.source_bindings:
                 read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
             revalidate_materialized_view(
                 view, request.input_evidence, request.max_file_bytes,
             )
             revalidate_writable_output_directory(output)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             request.schema_identity.revalidate()
             if request.protected_crd_schema:
                 request.protected_crd_schema.revalidate()

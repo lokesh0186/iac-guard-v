@@ -9,6 +9,7 @@ import stat
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
+from ..enums import ScanRole
 from ..models import BoundInputFile, DomainError, canonical_repo_path
 
 
@@ -18,6 +19,9 @@ UNSAFE_PARENT = "UNSAFE_SYMLINK_PATH_COMPONENT"
 READ_ONLY_DIRECTORY_MODE = 0o555
 READ_ONLY_FILE_MODE = 0o444
 WRITABLE_OUTPUT_DIRECTORY_MODE = 0o733
+VALIDATION_SCOPE_CONTRACT = "trusted-validation-scope-v1"
+SNAPSHOT_CHANGED = "SNAPSHOT_CHANGED_DURING_VALIDATION"
+_SCOPE_CONTEXT = object()
 
 
 def _sha(value: object) -> str:
@@ -50,6 +54,214 @@ class SealedSourceFile:
             "evidence": self.evidence.canonical_dict(),
             "parent_directories": [item.canonical_dict() for item in self.parent_directories],
         }
+
+
+@dataclass(frozen=True, slots=True)
+class TrustedValidationScopePlan:
+    """Factory-attested complete module or Kubernetes artifact universe."""
+
+    role: ScanRole
+    scope_kind: str
+    module_root: str
+    files: tuple[BoundInputFile, ...]
+    resource_identities: tuple[str, ...]
+    manifest_sha256: str
+    contract: str = VALIDATION_SCOPE_CONTRACT
+    _trusted_context: object = None
+
+    def __post_init__(self) -> None:
+        if self._trusted_context is not _SCOPE_CONTEXT:
+            raise DomainError("validation scope plan requires the trusted factory")
+        if self.role not in {ScanRole.BASELINE, ScanRole.CANDIDATE}:
+            raise DomainError("validation scope role is invalid")
+        if self.scope_kind not in {"terraform-module", "kubernetes-artifact-universe"}:
+            raise DomainError("validation scope kind is unsupported")
+        if self.module_root != ".":
+            object.__setattr__(self, "module_root", canonical_repo_path(self.module_root))
+        if type(self.files) is not tuple or any(type(item) is not BoundInputFile for item in self.files):
+            raise DomainError("validation scope files must be exact bound inputs")
+        paths = tuple(item.file_path for item in self.files)
+        if paths != tuple(sorted(set(paths))):
+            raise DomainError("validation scope paths must be sorted and unique")
+        if (
+            type(self.resource_identities) is not tuple
+            or self.resource_identities != tuple(sorted(set(self.resource_identities)))
+        ):
+            raise DomainError("validation scope resources must be sorted and unique")
+        if self.manifest_sha256 != _scope_manifest(
+            self.role, self.scope_kind, self.module_root, self.files,
+            self.resource_identities,
+        ):
+            raise DomainError("validation scope manifest is not canonical")
+
+    def canonical_dict(self) -> dict:
+        return {
+            "contract": self.contract,
+            "role": self.role.value,
+            "scope_kind": self.scope_kind,
+            "module_root": self.module_root,
+            "files": [item.canonical_dict() for item in self.files],
+            "resource_identities": list(self.resource_identities),
+            "manifest_sha256": self.manifest_sha256,
+        }
+
+
+def _scope_manifest(
+    role: ScanRole, scope_kind: str, module_root: str,
+    files: tuple[BoundInputFile, ...], resources: tuple[str, ...],
+) -> str:
+    return _sha({
+        "contract": VALIDATION_SCOPE_CONTRACT,
+        "role": role.value,
+        "scope_kind": scope_kind,
+        "module_root": module_root,
+        "files": [item.canonical_dict() for item in files],
+        "resource_identities": list(resources),
+    })
+
+
+def _terraform_scope(
+    root: Path, selected: tuple[str, ...], role: ScanRole, max_file_bytes: int,
+) -> TrustedValidationScopePlan:
+    roots = {PurePath(item).parent.as_posix() or "." for item in selected}
+    if len(roots) != 1:
+        raise DomainError("MODULE_SCOPE_UNRESOLVED")
+    module_root = next(iter(roots))
+    module_path = root if module_root == "." else root / module_root
+    # Prove the directory chain itself contains no symlink before enumerating it.
+    marker = f"{module_root}/.__iacgv_scope_marker__" if module_root != "." else ".__iacgv_scope_marker__"
+    try:
+        parent = marker.rsplit("/", 1)[0] if "/" in marker else "."
+        if parent != ".":
+            descriptor, _parents = _open_source_safe(root, f"{parent}/.__missing__")
+            os.close(descriptor)
+    except DomainError as exc:
+        # A missing final marker is expected; unsafe parents are not.
+        if UNSAFE_PARENT in str(exc):
+            raise
+    try:
+        children = sorted(os.scandir(module_path), key=lambda item: item.name)
+    except OSError as exc:
+        raise DomainError(SNAPSHOT_CHANGED) from exc
+    paths: list[str] = []
+    for child in children:
+        relative = child.name if module_root == "." else f"{module_root}/{child.name}"
+        metadata = child.stat(follow_symlinks=False)
+        if child.name == ".terraform":
+            raise DomainError("candidate .terraform state is forbidden")
+        if child.name == ".tflint.hcl":
+            raise DomainError("candidate module .tflint.hcl is forbidden")
+        if not child.name.endswith((".tf", ".tf.json")):
+            continue
+        if not stat.S_ISREG(metadata.st_mode):
+            raise DomainError("supported Terraform module entry is not a regular file")
+        paths.append(relative)
+    observed = tuple(sorted(paths))
+    if observed != selected:
+        raise DomainError("INCOMPLETE_MODULE_SCOPE")
+    bindings = tuple(
+        bind_source_file(root, item, max_file_bytes, (".tf", ".tf.json"), "validation scope")[0]
+        for item in observed
+    )
+    files = tuple(item.evidence for item in bindings)
+    manifest = _scope_manifest(role, "terraform-module", module_root, files, ())
+    return TrustedValidationScopePlan(
+        role, "terraform-module", module_root, files, (), manifest,
+        _trusted_context=_SCOPE_CONTEXT,
+    )
+
+
+def _kubernetes_scope(
+    root: Path, selected: tuple[str, ...], role: ScanRole, max_file_bytes: int,
+) -> TrustedValidationScopePlan:
+    # Reuse the engine's single no-follow physical inventory and independent
+    # bounded Kubernetes classifiers. Imports are lazy to avoid a module cycle.
+    from ..engine import (
+        _filesystem_inventory, _kubernetes_json_resources, _kubernetes_resources,
+    )
+    entries = _filesystem_inventory(
+        root, max_files=10_000, max_file_bytes=max_file_bytes,
+        max_total_bytes=64 * 1024 * 1024,
+    )
+    paths: list[str] = list(selected)
+    resources: list[str] = []
+    for entry in entries:
+        if not entry.file_path.endswith((".yaml", ".yml", ".json")):
+            continue
+        if entry.kind != "REGULAR_FILE":
+            if entry.supported:
+                raise DomainError("supported Kubernetes artifact is not a regular file")
+            continue
+        assert entry.content is not None
+        try:
+            if entry.file_path.endswith(".json"):
+                _documents, detected = _kubernetes_json_resources(entry.file_path, entry.content)
+            else:
+                _documents, detected = _kubernetes_resources(entry.file_path, entry.content)
+        except DomainError:
+            # Kubernetes-like malformed input is still in the required universe.
+            if entry.file_path not in paths:
+                paths.append(entry.file_path)
+            continue
+        if detected:
+            if entry.file_path not in paths:
+                paths.append(entry.file_path)
+            resources.extend(
+                f"{item.file_path}:{item.canonical_address}" for item in detected
+            )
+    observed = tuple(sorted(set(paths)))
+    if observed != selected:
+        raise DomainError("INCOMPLETE_KUBERNETES_SCOPE")
+    bindings = tuple(
+        bind_source_file(root, item, max_file_bytes, (".yaml", ".yml", ".json"), "validation scope")[0]
+        for item in observed
+    )
+    files = tuple(item.evidence for item in bindings)
+    identities = tuple(sorted(set(resources)))
+    manifest = _scope_manifest(
+        role, "kubernetes-artifact-universe", ".", files, identities,
+    )
+    return TrustedValidationScopePlan(
+        role, "kubernetes-artifact-universe", ".", files, identities, manifest,
+        _trusted_context=_SCOPE_CONTEXT,
+    )
+
+
+def create_trusted_validation_scope_plan(
+    *, scan_root: Path, files_eligible: tuple, role: ScanRole,
+    scope_kind: str, max_file_bytes: int,
+) -> TrustedValidationScopePlan:
+    root = scan_root.resolve(strict=True)
+    selected = tuple(sorted(canonical_repo_path(item) for item in files_eligible))
+    if not selected or len(selected) != len(set(selected)):
+        raise DomainError("validation scope paths must be nonempty and unique")
+    if scope_kind == "terraform-module":
+        return _terraform_scope(root, selected, role, max_file_bytes)
+    if scope_kind == "kubernetes-artifact-universe":
+        return _kubernetes_scope(root, selected, role, max_file_bytes)
+    raise DomainError("validation scope kind is unsupported")
+
+
+def revalidate_validation_scope_plan(
+    root: Path, plan: TrustedValidationScopePlan, max_file_bytes: int,
+) -> None:
+    if type(plan) is not TrustedValidationScopePlan or plan._trusted_context is not _SCOPE_CONTEXT:
+        raise DomainError("validation scope plan is not trusted")
+    try:
+        observed = create_trusted_validation_scope_plan(
+            scan_root=root, files_eligible=tuple(item.file_path for item in plan.files),
+            role=plan.role, scope_kind=plan.scope_kind, max_file_bytes=max_file_bytes,
+        )
+    except DomainError as exc:
+        if str(exc) in {"INCOMPLETE_MODULE_SCOPE", "INCOMPLETE_KUBERNETES_SCOPE"}:
+            raise DomainError(SNAPSHOT_CHANGED) from exc
+        raise
+    if observed.canonical_dict() != plan.canonical_dict():
+        if tuple(item.file_path for item in observed.files) == tuple(
+            item.file_path for item in plan.files
+        ):
+            raise DomainError("INPUT_CHANGED_DURING_VALIDATION")
+        raise DomainError(SNAPSHOT_CHANGED)
 
 
 def _root_fd(root: Path) -> tuple[int, os.stat_result]:
@@ -345,9 +557,11 @@ def materialize_view(
 __all__ = [
     "MATERIALIZATION_CONTRACT", "MATERIALIZATION_FAILURE", "DirectoryIdentity",
     "READ_ONLY_DIRECTORY_MODE", "READ_ONLY_FILE_MODE", "WRITABLE_OUTPUT_DIRECTORY_MODE",
-    "SealedSourceFile", "bind_source_file", "materialize_view",
+    "SealedSourceFile", "TrustedValidationScopePlan", "bind_source_file",
+    "create_trusted_validation_scope_plan", "materialize_view",
     "prepare_writable_output_directory",
     "materialized_view_manifest", "read_sealed_source", "revalidate_materialized_view",
-    "revalidate_readonly_file", "revalidate_writable_output_directory",
+    "revalidate_readonly_file", "revalidate_validation_scope_plan",
+    "revalidate_writable_output_directory",
     "seal_readonly_tree", "verified_write", "write_all",
 ]

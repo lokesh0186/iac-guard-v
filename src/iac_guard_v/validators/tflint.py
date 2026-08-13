@@ -29,7 +29,8 @@ from .materialization import (
     materialized_view_manifest, prepare_writable_output_directory,
     read_sealed_source, revalidate_materialized_view,
     revalidate_readonly_file, seal_readonly_tree, verified_write,
-    revalidate_writable_output_directory,
+    revalidate_writable_output_directory, TrustedValidationScopePlan,
+    create_trusted_validation_scope_plan, revalidate_validation_scope_plan,
 )
 
 
@@ -114,6 +115,7 @@ class TflintValidationRequest:
     container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
     protected_config: ProtectedTflintConfig
+    scope_plan: TrustedValidationScopePlan | None = None
     module_plan: ValidationModule | None = None
     source_bindings: tuple = ()
     timeout_seconds: int = 120
@@ -160,6 +162,14 @@ class TflintValidationRequest:
             != canonical_sha256([item.canonical_dict() for item in self.input_evidence])
         ):
             raise DomainError("TFLint validation module plan is invalid")
+        if (
+            type(self.scope_plan) is not TrustedValidationScopePlan
+            or self.scope_plan.scope_kind != "terraform-module"
+            or self.scope_plan.role is not self.module_plan.role
+            or self.scope_plan.files != self.input_evidence
+            or self.scope_plan.module_root != self.module_plan.module_root
+        ):
+            raise DomainError("TFLint trusted validation scope is invalid")
         module_directory = (
             scan if self.module_plan.module_root == "."
             else scan / self.module_plan.module_root
@@ -180,10 +190,7 @@ class TflintValidationRequest:
 
     @property
     def sealed_snapshot_identity(self) -> str:
-        return canonical_sha256({
-            "module": self.module_plan.canonical_dict(),
-            "files": [item.canonical_dict() for item in self.input_evidence],
-        })
+        return self.scope_plan.manifest_sha256
 
 
 def create_tflint_validation_request(
@@ -202,13 +209,17 @@ def create_tflint_validation_request(
     bindings = tuple(bind_source_file(
         scan_root, item, max_file_bytes, (".tf", ".tf.json"), "TFLint input",
     )[0] for item in paths)
+    scope_plan = create_trusted_validation_scope_plan(
+        scan_root=scan_root, files_eligible=paths, role=role,
+        scope_kind="terraform-module", max_file_bytes=max_file_bytes,
+    )
     evidence = tuple(item.evidence for item in bindings)
     module_plan = _module_plan(evidence, role, "tflint")
     return TflintValidationRequest(
         workspace_root=workspace_root, scan_root=scan_root, files_eligible=paths,
         input_evidence=evidence, container_runtime=container_runtime,
         locked_identity=locked_identity, protected_config=protected_config,
-        module_plan=module_plan, source_bindings=bindings,
+        module_plan=module_plan, source_bindings=bindings, scope_plan=scope_plan,
         timeout_seconds=timeout_seconds, max_output_bytes=max_output_bytes,
         max_file_bytes=max_file_bytes,
         _trusted_context=_REQUEST_CONTEXT,
@@ -355,6 +366,7 @@ def _evidence(
             "kind": "terraform-module", "role": request.module_plan.role.value,
             "module_root": request.module_plan.module_root,
             "module_snapshot_sha256": request.module_plan.module_snapshot_sha256,
+            "module_execution_complete": "true",
             "tool": request.module_plan.tool,
         }.items())),
         execution_controls=_CONTROLS,
@@ -373,6 +385,9 @@ class TflintValidator:
         argv: tuple[str, ...] = ()
         result = None
         try:
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
             view, output, protected = work / "input", work / "output", work / "protected"
             materialized_view = _copy_view(request, view)
@@ -402,6 +417,9 @@ class TflintValidator:
                 cpus=_DOCKER_CPUS, user=_DOCKER_USER,
             )
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             process = run_command(CommandRequest(
                 argv=argv, expected_exit_codes=(0, 1, 2), workspace_root=request.workspace_root,
                 timeout_seconds=request.timeout_seconds, max_output_bytes=request.max_output_bytes,
@@ -410,6 +428,9 @@ class TflintValidator:
             ))
             if process.argv != argv:
                 raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             for sealed in request.source_bindings:
                 read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
             revalidate_materialized_view(
@@ -417,6 +438,9 @@ class TflintValidator:
             )
             revalidate_readonly_file(config, _PROTECTED_CONFIG.encode())
             revalidate_writable_output_directory(output)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
             _, output_manifest = read_locked_output_directory(
                 output, allowed_files=(), max_file_bytes=request.max_output_bytes,
@@ -435,7 +459,7 @@ class TflintValidator:
                                    raw=raw, diagnostics=diagnostics, canonical=canonical,
                                    output_manifest=output_manifest, argv=argv,
                                    materialized_view=materialized_view,
-                                   files_validated=len(request.input_evidence))
+                                   files_validated=0)
         except (DomainError, OSError) as exc:
             try:
                 reason = ValidationReason(str(exc))

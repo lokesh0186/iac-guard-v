@@ -29,7 +29,8 @@ from .materialization import (
     materialized_view_manifest, prepare_writable_output_directory,
     read_sealed_source, revalidate_materialized_view,
     revalidate_readonly_file, seal_readonly_tree, verified_write,
-    revalidate_writable_output_directory,
+    revalidate_writable_output_directory, TrustedValidationScopePlan,
+    create_trusted_validation_scope_plan, revalidate_validation_scope_plan,
 )
 
 
@@ -128,6 +129,7 @@ class TerraformValidationRequest:
     input_evidence: tuple
     container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
+    scope_plan: TrustedValidationScopePlan | None = None
     module_plan: ValidationModule | None = None
     source_bindings: tuple = ()
     timeout_seconds: int = 120
@@ -182,6 +184,14 @@ class TerraformValidationRequest:
             != canonical_sha256([item.canonical_dict() for item in evidence])
         ):
             raise DomainError("Terraform validation module plan is invalid")
+        if (
+            type(self.scope_plan) is not TrustedValidationScopePlan
+            or self.scope_plan.scope_kind != "terraform-module"
+            or self.scope_plan.role is not self.module_plan.role
+            or self.scope_plan.files != evidence
+            or self.scope_plan.module_root != self.module_plan.module_root
+        ):
+            raise DomainError("Terraform trusted validation scope is invalid")
         for name in ("timeout_seconds", "max_output_bytes", "max_file_bytes", "max_total_input_bytes"):
             if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
                 raise DomainError(f"{name} must be a positive integer")
@@ -196,10 +206,7 @@ class TerraformValidationRequest:
 
     @property
     def sealed_snapshot_identity(self) -> str:
-        return canonical_sha256({
-            "module": self.module_plan.canonical_dict(),
-            "files": [item.canonical_dict() for item in self.input_evidence],
-        })
+        return self.scope_plan.manifest_sha256
 
 
 def create_terraform_validation_request(
@@ -218,11 +225,16 @@ def create_terraform_validation_request(
     bindings = tuple(bind_source_file(
         scan_root, item, max_file_bytes, (".tf", ".tf.json"), "Terraform validator input",
     )[0] for item in paths)
+    scope_plan = create_trusted_validation_scope_plan(
+        scan_root=scan_root, files_eligible=paths, role=role,
+        scope_kind="terraform-module", max_file_bytes=max_file_bytes,
+    )
     evidence = tuple(item.evidence for item in bindings)
     module_plan = _module_plan(evidence, role, locked_identity.tool)
     return TerraformValidationRequest(
         workspace_root=workspace_root, scan_root=scan_root, files_eligible=paths,
         input_evidence=evidence, source_bindings=bindings, module_plan=module_plan,
+        scope_plan=scope_plan,
         container_runtime=container_runtime,
         locked_identity=locked_identity, timeout_seconds=timeout_seconds,
         max_output_bytes=max_output_bytes, max_file_bytes=max_file_bytes,
@@ -410,6 +422,9 @@ class TerraformValidator:
         materialized_view = ""
         result: ValidatorExecutionEvidence | None = None
         try:
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             revalidate_trusted_container_runtime(
                 request.container_runtime, workspace_root=request.workspace_root
             )
@@ -451,6 +466,9 @@ class TerraformValidator:
             revalidate_trusted_container_runtime(
                 request.container_runtime, workspace_root=request.workspace_root
             )
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             process = run_command(CommandRequest(
                 argv=argv, expected_exit_codes=(0, 1), workspace_root=request.workspace_root,
                 timeout_seconds=request.timeout_seconds,
@@ -461,6 +479,9 @@ class TerraformValidator:
             ))
             if process.argv != argv:
                 raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             materialize_check = materialized_view_manifest(request.input_evidence)
             for sealed in request.source_bindings:
                 read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
@@ -482,6 +503,9 @@ class TerraformValidator:
                 max_total_bytes=request.max_output_bytes,
             )
             revalidate_writable_output_directory(output)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
             if process.status is not Status.PASS:
                 reason = (
                     ValidationReason.TIMEOUT if process.timed_out

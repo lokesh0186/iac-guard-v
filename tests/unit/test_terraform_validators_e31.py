@@ -227,6 +227,28 @@ def test_input_byte_change_after_sealing_is_detected(tmp_path: Path) -> None:
     assert run.reason is ValidationReason.INPUT_CHANGED_DURING_VALIDATION
 
 
+def test_complete_module_scope_rejects_omitted_and_late_siblings(tmp_path: Path) -> None:
+    omitted = tmp_path / "omitted"
+    omitted.mkdir()
+    request = _request(omitted)
+    (request.scan_root / "bad.tf").write_text("not valid terraform", encoding="utf-8")
+    with pytest.raises(DomainError, match="INCOMPLETE_MODULE_SCOPE"):
+        create_terraform_validation_request(
+            workspace_root=request.workspace_root, scan_root=request.scan_root,
+            files_eligible=("main.tf",), container_runtime=request.container_runtime,
+            locked_identity=request.locked_identity,
+        )
+
+    late = tmp_path / "late"
+    late.mkdir()
+    request = _request(late)
+    (request.scan_root / "late.tf").write_text("not valid terraform", encoding="utf-8")
+    run = execute_terraform_validator_fixture(request, _process(_native()))
+    assert (run.status, run.reason) == (
+        Status.INCONCLUSIVE, ValidationReason.SNAPSHOT_CHANGED_DURING_VALIDATION,
+    )
+
+
 @pytest.mark.parametrize("path", ["main.yaml", "main.txt", "main"])
 def test_only_terraform_extensions_enter_sealed_request(tmp_path: Path, path: str) -> None:
     request = _request(tmp_path)

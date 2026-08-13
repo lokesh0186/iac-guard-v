@@ -198,7 +198,28 @@ def test_input_mutation_and_extra_output_fail_closed(tmp_path: Path) -> None:
         return_value=request.container_runtime.identity,
     ):
         run = production_validator_registry().execute("tflint_advisory", request)
-    assert run.reason is ValidationReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED
+        assert run.reason is ValidationReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED
+
+
+def test_tflint_complete_module_scope_rejects_omitted_and_late_siblings(
+    tmp_path: Path,
+) -> None:
+    request = _request(tmp_path / "omitted")
+    (request.scan_root / "bad.tf").write_text("not valid terraform", encoding="utf-8")
+    with pytest.raises(DomainError, match="INCOMPLETE_MODULE_SCOPE"):
+        create_tflint_validation_request(
+            workspace_root=request.workspace_root, scan_root=request.scan_root,
+            files_eligible=("main.tf",), container_runtime=request.container_runtime,
+            locked_identity=request.locked_identity,
+            protected_config=request.protected_config,
+        )
+
+    request = _request(tmp_path / "late")
+    (request.scan_root / "late.tf").write_text("not valid terraform", encoding="utf-8")
+    run = execute_tflint_fixture(request, _process({"issues": [], "errors": []}))
+    assert (run.status, run.reason) == (
+        Status.INCONCLUSIVE, ValidationReason.SNAPSHOT_CHANGED_DURING_VALIDATION,
+    )
 
 
 def test_canonical_semantics_are_native_order_independent(tmp_path: Path) -> None:

@@ -2939,3 +2939,12 @@ retaining a private outer workspace. Permanent tests prove the POSIX other-read/
 bits, absence of every write bit on trusted files, exact mode revalidation, and
 post-execution checks across all three validators. The focused preserved set records
 131 passes.
+
+## 2026-08-13 — E3.8 complete validation scopes
+
+Failing-before probes allowed an ordinary request to omit `bad.tf`, add `late.tf`, or
+add a late Kubernetes YAML file while the selected subset still returned PASS. The
+trusted scope factory now proves exact module membership or the complete independently
+classified Kubernetes universe. Each validator re-derives that universe before and
+after execution. Permanent probes reject omitted Terraform/TFLint siblings and type
+late Terraform or Kubernetes additions as `SNAPSHOT_CHANGED_DURING_VALIDATION`.

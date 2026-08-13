@@ -370,6 +370,18 @@ def test_input_change_and_wrong_process_argv_are_rejected(tmp_path: Path) -> Non
     assert run.reason is ValidationReason.RUNTIME_INTEGRITY_FAILED
 
 
+def test_complete_kubernetes_scope_detects_late_file(tmp_path: Path) -> None:
+    request = _request(tmp_path, POD)
+    (request.scan_root / "late.yaml").write_text(
+        POD.replace("demo", "late"), encoding="utf-8",
+    )
+    run = execute_kubeconform_fixture(
+        request, _process(_native(resources=_affirmative(request))),
+    )
+    assert (run.status, run.reason) == (
+        Status.INCONCLUSIVE, ValidationReason.SNAPSHOT_CHANGED_DURING_VALIDATION,
+    )
+
 def test_input_extension_symlink_size_and_duplicate_paths_are_rejected(tmp_path: Path) -> None:
     request = _request(tmp_path / "base", POD)
     root = request.scan_root

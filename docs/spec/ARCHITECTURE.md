@@ -893,3 +893,18 @@ remains private. Writable output directories use the locked `0733` contract. Cre
 uses explicit post-umask mode setting, and mode, type, bytes, and inventory are checked
 before and after tool execution. UID/GID `65532:65532` can traverse and read the
 read-only mounts but receives no write bit; only the output mount is writable.
+
+## E3.8 complete trusted validation scope
+
+Each validator request now carries a factory-attested `TrustedValidationScopePlan`.
+Terraform/OpenTofu and TFLint plans enumerate every top-level `.tf` and `.tf.json`
+entry in the selected module directory and reject omitted siblings, special entries,
+and candidate transient or governed configuration. Kubeconform plans independently
+classify the complete YAML/JSON tree and bind every Kubernetes artifact and resource.
+
+The portable scope manifest is role-bound and retained as the validator snapshot
+identity. Its complete live universe is re-derived before materialization, before
+spawn, after execution, and before evidence construction. Added, removed, replaced,
+or changed relevant entries therefore produce typed uncertainty rather than PASS.
+TFLint records complete module execution but makes no fabricated per-file affirmative
+claim and remains permanently advisory.
