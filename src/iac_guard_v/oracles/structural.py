@@ -201,6 +201,46 @@ def _containers(document: dict) -> tuple[tuple[str, dict], ...] | None:
     return values
 
 
+def _windows_host_process(
+    document: dict, containers: tuple[tuple[str, dict], ...],
+) -> tuple[Status, str, tuple[OracleObservation, ...]]:
+    """Evaluate the protected Windows HostProcess baseline predicate exactly."""
+    spec = _pod_spec(document)
+    if spec is None:
+        return Status.INCONCLUSIVE, "CONTAINER_SCOPE_UNRESOLVED", ()
+    subjects = (("pod", spec.get("securityContext")),) + tuple(
+        (f"{container_class}/{container['name'].strip()}", container.get("securityContext"))
+        for container_class, container in containers
+    )
+    observations = []
+    for path, context in subjects:
+        if context is not None and type(context) is not dict:
+            return Status.ERROR, "SECURITY_CONTEXT_TYPE_INVALID", ()
+        context = {} if context is None else context
+        options = context.get("windowsOptions")
+        if options is not None and type(options) is not dict:
+            return Status.ERROR, "WINDOWS_OPTIONS_TYPE_INVALID", ()
+        options = {} if options is None else options
+        value = options.get("hostProcess")
+        if value is not None and type(value) is not bool:
+            return Status.ERROR, "HOST_PROCESS_FIELD_TYPE_INVALID", ()
+        observations.append(OracleObservation(
+            f"{path}/securityContext/windowsOptions/hostProcess",
+            "VIOLATED" if value is True else "SATISFIED",
+            "securityContext.windowsOptions.hostProcess is not true",
+        ))
+    status = (
+        Status.FAIL
+        if any(item.result == "VIOLATED" for item in observations)
+        else Status.PASS
+    )
+    return (
+        status,
+        "ASSERTION_VIOLATED" if status is Status.FAIL else "ASSERTION_SATISFIED",
+        tuple(observations),
+    )
+
+
 def _evaluate(policy: dict, document: dict) -> tuple[Status, str, tuple[OracleObservation, ...]]:
     if document.get("kind") not in policy["supported_kinds"]:
         return Status.UNSUPPORTED, "RESOURCE_KIND_UNSUPPORTED", ()
@@ -230,6 +270,11 @@ def _evaluate(policy: dict, document: dict) -> tuple[Status, str, tuple[OracleOb
             and policy["predicate"] == "all_containers_explicitly_disable_privilege_escalation"
         ):
             return Status.UNSUPPORTED, "WINDOWS_POLICY_NOT_APPLICABLE", ()
+        if (
+            normalized_os == "windows"
+            and policy["predicate"] == "no_container_is_privileged"
+        ):
+            return _windows_host_process(document, containers)
     observations = []
     for container_class, container in containers:
         name = container["name"].strip()
@@ -317,6 +362,7 @@ def _oracle_implementation_identity(policy_sha256: str) -> str:
         for name, value in (
             ("documents", _documents), ("identity", _identity),
             ("pod_spec", _pod_spec), ("containers", _containers),
+            ("windows_host_process", _windows_host_process),
             ("evaluate", _evaluate), ("policies", _policies),
         )
     }

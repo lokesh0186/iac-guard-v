@@ -387,6 +387,9 @@ E5.5 prevents applicability confusion: arbitrary OS strings are not treated as L
 and oracle evidence cannot be promoted without exact passing Kubernetes validation for
 the same sealed resource. E5.6 treats the universe aggregate itself as attacker-relevant
 evidence and recomputes it from factory-produced child records and actual plan blockers.
+E5.7 prevents a non-decisive oracle status from being promoted merely because its
+validation universe passed. Windows HostProcess is evaluated explicitly instead of
+being mistaken for a safe omission of the Linux `privileged` field.
 
 D6.4 prevents a commit label from blessing unrelated working-tree bytes. Protected
 contexts require the authorized candidate at `HEAD`, a clean checkout, and no untracked

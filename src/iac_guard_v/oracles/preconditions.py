@@ -17,6 +17,8 @@ def require_authoritative_oracle_precondition(
     passing Kubernetes validation universe.
     """
     require_trusted_oracle_evidence(oracle)
+    if oracle.status not in {Status.PASS, Status.FAIL} or not oracle.observations:
+        raise DomainError("oracle evidence is non-decisive for authoritative use")
     if type(universe) is not ValidationUniverseResult:
         raise DomainError("oracle precondition requires a validation-universe result")
     if (

@@ -366,6 +366,50 @@ def test_windows_privilege_escalation_is_not_applicable(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    ("container_class", "prefix"),
+    (
+        ("containers", "containers/app"),
+        ("initContainers", "initContainers/app"),
+        ("ephemeralContainers", "ephemeralContainers/app"),
+    ),
+)
+def test_windows_host_process_never_receives_privileged_oracle_pass(
+    tmp_path: Path, container_class: str, prefix: str,
+) -> None:
+    result = _execute_document(
+        tmp_path, "kubernetes_no_privileged_containers_v1",
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: hostprocess}\nspec:\n"
+        "  os: {name: windows}\n"
+        f"  {container_class}:\n    - name: app\n"
+        "      securityContext:\n        windowsOptions: {hostProcess: true}\n",
+    )
+    assert result.status is Status.FAIL
+    assert result.reason == "ASSERTION_VIOLATED"
+    assert any(item.path.startswith(prefix) for item in result.observations)
+
+
+def test_windows_pod_host_process_and_malformed_values_fail_closed(
+    tmp_path: Path,
+) -> None:
+    failed = _execute_document(
+        tmp_path / "pod", "kubernetes_no_privileged_containers_v1",
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: hostprocess}\nspec:\n"
+        "  os: {name: windows}\n"
+        "  securityContext:\n    windowsOptions: {hostProcess: true}\n"
+        "  containers: [{name: app}]\n",
+    )
+    assert failed.status is Status.FAIL
+    malformed = _execute_document(
+        tmp_path / "malformed", "kubernetes_no_privileged_containers_v1",
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: hostprocess}\nspec:\n"
+        "  os: {name: windows}\n  containers:\n    - name: app\n"
+        "      securityContext:\n        windowsOptions: {hostProcess: 'true'}\n",
+    )
+    assert malformed.status is Status.ERROR
+    assert malformed.reason == "HOST_PROCESS_FIELD_TYPE_INVALID"
+
+
+@pytest.mark.parametrize(
     "oracle_id",
     (
         "kubernetes_no_privileged_containers_v1",

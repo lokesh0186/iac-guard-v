@@ -3073,3 +3073,13 @@ protected oracle modules, and 93% for validation-universe orchestration. Specifi
 lint remained 26 documents/164 enums with zero warnings; the manifest was 4,842/4,842,
 replay was 630/630 and 10,080/10,080 with zero verdict mismatches, all seven derived
 tables were semantic matches, and the frozen-scope diff was empty.
+
+## 2026-08-13 — E5.7 decisive oracle applicability
+
+Failing-before, a Windows HostProcess container received `PASS` from the no-privileged
+oracle, and an `UNSUPPORTED/WINDOWS_POLICY_NOT_APPLICABLE` result crossed the
+authoritative-use precondition. Passing-after evaluates Pod and ordinary/init/ephemeral
+Windows HostProcess state under the protected Baseline contract and admits only decisive
+`PASS`/`FAIL` results with nonempty observations. The privilege-escalation oracle is
+documented as the narrow exact-field assertion; it does not claim effective privilege
+semantics beyond that field.

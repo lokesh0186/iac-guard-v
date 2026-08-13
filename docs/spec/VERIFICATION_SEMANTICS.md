@@ -906,6 +906,14 @@ support an authoritative discrepancy, a passing kubeconform universe must bind t
 role, sealed snapshot, file, artifact kind, and resource. This precondition does not turn
 the narrow structural assertion into whole-resource validity.
 
+E5.7 permits only `PASS` or `FAIL` with nonempty observations at that authoritative-use
+boundary. `ERROR`, `TIMEOUT`, `UNSUPPORTED`, `SKIPPED`, `PARTIAL`, and `INCONCLUSIVE`
+are non-decisive. For the Baseline no-privileged assertion, explicit Windows workloads
+are evaluated through `windowsOptions.hostProcess` at Pod and every container class.
+The privilege-escalation oracle remains a narrow syntactic/structural assertion that
+the field is exactly Boolean false. It does not prove effective non-escalation when a
+container is privileged, has `CAP_SYS_ADMIN`, or is outside its supported OS semantics.
+
 ### V7 — Cross-scanner agreement
 
 States: `AGREEMENT_PASS`, `AGREEMENT_FAIL`, `DISAGREEMENT`, `NOT_COMPARABLE`.

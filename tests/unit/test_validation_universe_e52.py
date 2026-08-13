@@ -17,6 +17,7 @@ from iac_guard_v.oracles import (
     create_protected_oracle_request,
     require_authoritative_oracle_precondition,
 )
+import iac_guard_v.oracles.base as oracle_base
 from iac_guard_v.enums import ArtifactKind
 from iac_guard_v.validators.base import (
     ValidationReason,
@@ -73,6 +74,16 @@ def _kubernetes_snapshot(tmp_path: Path, name: str = "demo"):
     (raw.scan_root / "pod.yaml").write_text(
         f"apiVersion: v1\nkind: Pod\nmetadata: {{name: {name}}}\n"
         "spec:\n  containers: [{name: app, image: example.invalid/app}]\n",
+        encoding="utf-8",
+    )
+    return raw.scan_root, _role_snapshot(attest_checkov_scan_plan(raw))
+
+
+def _windows_kubernetes_snapshot(tmp_path: Path):
+    raw = adapter_request(tmp_path, frameworks=("kubernetes",))
+    (raw.scan_root / "pod.yaml").write_text(
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: demo}\n"
+        "spec:\n  os: {name: windows}\n  containers: [{name: app}]\n",
         encoding="utf-8",
     )
     return raw.scan_root, _role_snapshot(attest_checkov_scan_plan(raw))
@@ -300,6 +311,41 @@ def test_authoritative_oracle_use_requires_same_passing_kubernetes_universe(
     )
     with pytest.raises(DomainError, match="validated resource universe"):
         require_authoritative_oracle_precondition(oracle, other_universe)
+
+    for mutation in (
+        {"role": ScanRole.BASELINE},
+        {"resource_identity": "v1/Pod/default/other"},
+        {"artifact_kind": ArtifactKind.KUBERNETES_JSON},
+    ):
+        forged = replace(
+            oracle, _trusted_context=oracle_base._EVIDENCE_CONTEXT, **mutation,
+        )
+        with pytest.raises(DomainError, match="validated resource universe|artifact identity"):
+            require_authoritative_oracle_precondition(forged, universe)
+
+
+def test_nondecisive_oracle_is_not_authoritative_even_with_passing_universe(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "windows"
+    root.mkdir()
+    _scan_root, snapshot = _windows_kubernetes_snapshot(root)
+    plan = create_trusted_validation_universe_plan(snapshot)
+    evidence = _kube_result(plan)
+    universe = ValidationUniverseResult(
+        "kubeconform_validate", plan.role, plan.universe_sha256, Status.PASS,
+        "COMPLETE_KUBERNETES_UNIVERSE_PASSED", False, (), evidence,
+        _plan=plan, _trusted_context=_RESULT_CONTEXT,
+    )
+    oracle = ProtectedOracleRegistry().execute(create_protected_oracle_request(
+        oracle_id="kubernetes_allow_privilege_escalation_false_v1",
+        snapshot=snapshot, file_path="pod.yaml",
+        artifact_kind=ArtifactKind.KUBERNETES_YAML,
+        resource_identity="v1/Pod/default/demo",
+    ))
+    assert oracle.status is Status.UNSUPPORTED
+    with pytest.raises(DomainError, match="non-decisive"):
+        require_authoritative_oracle_precondition(oracle, universe)
 
 
 def test_tf_json_is_explicitly_unsupported(tmp_path: Path) -> None:

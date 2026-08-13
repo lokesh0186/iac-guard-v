@@ -480,6 +480,15 @@ requires a passing, role-bound Kubernetes validation universe for the same seale
 snapshot, file, artifact kind, and resource. Oracle PASS remains proof only of its named
 predicate.
 
+E5.7 makes that boundary decisive. Only oracle `PASS` or `FAIL` with nonempty
+observations may cross the authoritative-use precondition; operational, skipped,
+unsupported, partial, or inconclusive output remains non-decisive. The privileged
+container oracle uses the protected Kubernetes Baseline cross-platform contract:
+Linux evaluates `privileged`, while Windows evaluates Pod and ordinary/init/ephemeral
+container `windowsOptions.hostProcess`. The privilege-escalation oracle is deliberately
+the narrow field assertion “`allowPrivilegeEscalation` is explicitly false”; it does
+not claim that effective escalation is impossible through privilege or capabilities.
+
 Target classification uses typed statuses for integrity, ruleset stability, structural
 eligibility, file/resource presence, suppression absence, occurrence sufficiency, and
 affirmative target-pass evidence. It follows verification semantics section 4. A zero
