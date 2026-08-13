@@ -31,6 +31,11 @@ def _catalog(tmp_path: Path, mutate) -> Path:
 def _runtime_catalog(tmp_path: Path, mutate, monkeypatch) -> Path:
     copied_root = tmp_path / "runtime-root"
     (copied_root / "controls").mkdir(parents=True)
+    (copied_root / "tools").mkdir()
+    shutil.copyfile(
+        ROOT / "tools/generate_catalog_runtime_evidence.py",
+        copied_root / "tools/generate_catalog_runtime_evidence.py",
+    )
     shutil.copytree(ROOT / "controls/fixtures", copied_root / "controls/fixtures")
     evidence = json.loads(
         (ROOT / "controls/runtime-evidence-v1.json").read_text(encoding="utf-8")
@@ -291,6 +296,59 @@ def test_runtime_evidence_rejects_every_unbound_child(
         CHECKER.validate_catalog(path)
 
 
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("architecture", "windows/386", "architecture"),
+        ("protected_evidence_identity", "0" * 64, "protected-evidence"),
+    ),
+)
+def test_runtime_top_level_identity_is_reviewed(
+    tmp_path: Path, monkeypatch, field: str, value: str, message: str,
+) -> None:
+    path = _runtime_catalog(
+        tmp_path, lambda runtime: runtime.update({field: value}), monkeypatch,
+    )
+    with pytest.raises(ValueError, match=message):
+        CHECKER.validate_catalog(path)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("execution_status", "FABRICATED", "execution status"),
+        ("native_result", "FABRICATED", "native result"),
+    ),
+)
+def test_runtime_record_state_vocabularies_are_closed(
+    tmp_path: Path, monkeypatch, field: str, value: str, message: str,
+) -> None:
+    path = _runtime_catalog(
+        tmp_path,
+        lambda runtime: runtime["records"][0].update({field: value}),
+        monkeypatch,
+    )
+    with pytest.raises(ValueError, match=message):
+        CHECKER.validate_catalog(path)
+
+
+def test_fake_exact_with_runtime_errors_and_fake_signoff_is_rejected(
+    tmp_path: Path,
+) -> None:
+    def mutate(data):
+        relationship = data["relationships"][0]
+        relationship["classification"] = "EXACT"
+        relationship["exact_blockers"] = []
+        relationship["independent_reviewer_signoff"] = {
+            "verification_status": "VERIFIED",
+            "verification_record_sha256": "1" * 64,
+        }
+        data["exact_mapping_count"] = 1
+
+    with pytest.raises(ValueError, match="mechanically verified sign-off"):
+        CHECKER.validate_catalog(_catalog(tmp_path, mutate))
+
+
 def test_runtime_evidence_rejects_malformed_json_and_root(
     tmp_path: Path, monkeypatch,
 ) -> None:
@@ -307,10 +365,11 @@ def test_runtime_evidence_rejects_malformed_json_and_root(
     with pytest.raises(ValueError, match="malformed"):
         CHECKER.validate_catalog(path)
 
-    runtime.write_text(json.dumps({
-        "contract": "phase-e-control-fixture-runtime-evidence-v1",
-        "records": [], "evidence_root_sha256": "0" * 64,
-    }), encoding="utf-8")
+    invalid_root = json.loads(
+        (ROOT / "controls/runtime-evidence-v1.json").read_text(encoding="utf-8")
+    )
+    invalid_root["evidence_root_sha256"] = "0" * 64
+    runtime.write_text(json.dumps(invalid_root), encoding="utf-8")
     catalog["runtime_evidence"]["sha256"] = hashlib.sha256(runtime.read_bytes()).hexdigest()
     path.write_text(yaml.safe_dump(catalog, sort_keys=False))
     with pytest.raises(ValueError, match="root"):

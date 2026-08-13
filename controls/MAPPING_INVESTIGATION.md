@@ -33,13 +33,20 @@ official tag refs and verifies the six source files.
 ## Locked execution evidence
 
 `runtime-evidence-v1.json` records all 18 scanner/fixture cells from the protected
-arm64 execution environment. Checkov and KICS produced the expected ordinary
-finding/no-finding observations, and Checkov detected the privileged init container.
-The strict KICS adapter rejected that init-container output as
-`INVALID_RESULTS_STRUCTURE`; the strict Trivy adapter rejected each Kubernetes fixture
-under its current pinned native contract. Those cells remain explicit `ERROR` evidence.
-They are not rewritten as agreement and are an additional reason the relationships
-cannot yet support validated discrepancy claims.
+arm64 execution environment. The preserved E4.1 matrix contained 11 `PASS` and seven
+`ERROR` records; all six Trivy cells and one KICS boundary cell were errors. E4.2 reran
+the matrix with complete expected resource bindings. Its current distribution is six
+`PASS`, five KICS `PARTIAL/COVERAGE_MISMATCH`, and seven typed `ERROR` records. All six
+Trivy cells remain `ERROR/INVALID_RESULTS_STRUCTURE`, while Checkov completes all six.
+These are bound execution records, not 18 successful behavioral demonstrations.
+
+The v2 runtime evidence closes its top-level architecture and protected-evidence
+identity, retains exit code, diagnostics, portable locked argv, duration and raw/canonical
+output hashes, and binds every record to one reviewed protected execution attestation.
+The checker will not accept a locally re-sealed substitute. A future `EXACT` mapping
+also requires definitive non-error results for all nine cells plus a referenced,
+byte-verified and signature-verified independent sign-off. Typed errors and partial
+coverage remain explicit blockers rather than being rewritten as agreement.
 
 ## Findings
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import hashlib
 import json
 import re
@@ -58,9 +59,39 @@ REQUIRED_RELATIONSHIP = {
 RUNTIME_FIELDS = {
     "relationship_id", "fixture_kind", "fixture_sha256", "scanner",
     "scanner_version", "policy_identity", "invocation_identity",
-    "environment_identity", "execution_status", "native_result",
+    "environment_identity", "execution_status", "exit_code", "diagnostics",
+    "command_argv", "command_argv_sha256", "stdout_sha256", "stderr_sha256",
+    "duration_ms", "native_result",
     "normalized_result", "raw_output_sha256", "canonical_output_sha256",
     "expected_relationship_observation",
+}
+RUNTIME_TOP_FIELDS = {
+    "contract", "architecture", "protected_evidence_identity", "records",
+    "execution_attestation", "evidence_root_sha256",
+}
+ATTESTATION_FIELDS = {
+    "contract", "status", "creation_timestamp", "architecture",
+    "protected_evidence_identity", "protected_cache_manifest_root",
+    "cache_attestation_identity", "cache_attestation_record_sha256",
+    "cache_attestation_signature_sha256", "cache_attestation_public_key_sha256",
+    "runtime_identity", "runtime_executable_sha256", "runtime_client_version",
+    "runtime_server_version", "runtime_context_identity", "runtime_daemon_identity",
+    "runner_implementation_sha256", "record_root_sha256", "attestation_identity",
+}
+APPROVED_ARCHITECTURE = "linux/arm64"
+APPROVED_PROTECTED_EVIDENCE_IDENTITY = (
+    "fb99f10ef065becb441436f44c4ebb5dbb7631a602438ffaaeeb0ea9e1a97784"
+)
+# Updated only by a reviewed locked execution. Re-sealing JSON is insufficient.
+APPROVED_EXECUTION_ATTESTATION_IDENTITY = (
+    "07c4dabccdf26b0f057195dea683b05f4e7cb3bdac9b1c5aeeeace8cdee70277"
+)
+EXECUTION_STATUSES = {"PASS", "PARTIAL", "ERROR", "INCONCLUSIVE", "TIMEOUT"}
+NORMALIZED_RESULTS = {"FINDING", "NO_FINDING", "SUPPRESSED", "ERROR", "INCONCLUSIVE"}
+NATIVE_RESULTS = {
+    "FAILED", "PASSED", "SKIPPED", "ABSENT", "INVALID_RESULTS_STRUCTURE",
+    "COVERAGE_MISMATCH", "PROCESS_ERROR", "TIMEOUT", "EXIT_CODE_OUTSIDE_CONTRACT",
+    "EXIT_RESULT_MISMATCH", "SCANNER_ERROR", "PARTIAL_SCAN",
 }
 
 
@@ -154,7 +185,7 @@ def _validate_source(scanner: str, source: object, lock: dict) -> None:
         raise ValueError(f"{scanner} source attestation identity is not canonical")
 
 
-def _validate_runtime(data: dict, relationships: list, locks: dict, reference: dict) -> None:
+def _validate_runtime(data: dict, relationships: list, locks: dict, reference: dict) -> dict:
     path = _safe_file(reference["path"])
     raw = path.read_bytes()
     if hashlib.sha256(raw).hexdigest() != reference["sha256"]:
@@ -163,8 +194,14 @@ def _validate_runtime(data: dict, relationships: list, locks: dict, reference: d
         runtime = json.loads(raw)
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise ValueError("catalog runtime evidence is malformed") from exc
-    if runtime.get("contract") != "phase-e-control-fixture-runtime-evidence-v1":
+    if type(runtime) is not dict or set(runtime) != RUNTIME_TOP_FIELDS:
+        raise ValueError("catalog runtime top-level fields are invalid")
+    if runtime.get("contract") != "phase-e-control-fixture-runtime-evidence-v2":
         raise ValueError("catalog runtime evidence contract is unsupported")
+    if runtime["architecture"] != APPROVED_ARCHITECTURE:
+        raise ValueError("catalog runtime architecture is not reviewed")
+    if runtime["protected_evidence_identity"] != APPROVED_PROTECTED_EVIDENCE_IDENTITY:
+        raise ValueError("catalog runtime protected-evidence identity is not reviewed")
     root = runtime.pop("evidence_root_sha256", None)
     if root != _canonical_sha(runtime):
         raise ValueError("catalog runtime evidence root is not canonical")
@@ -202,9 +239,45 @@ def _validate_runtime(data: dict, relationships: list, locks: dict, reference: d
             raise ValueError("catalog runtime expectation does not match catalog")
         if record["normalized_result"] != expected_result:
             raise ValueError("locked scanner output contradicts catalog observation")
+        if record["execution_status"] not in EXECUTION_STATUSES:
+            raise ValueError("catalog runtime execution status is invalid")
+        if record["native_result"] not in NATIVE_RESULTS:
+            raise ValueError("catalog runtime native result is invalid")
+        if record["normalized_result"] not in NORMALIZED_RESULTS:
+            raise ValueError("catalog runtime normalized result is invalid")
+        expected_normalized = (
+            {"FINDING", "NO_FINDING", "SUPPRESSED"}
+            if record["execution_status"] == "PASS" else
+            {"ERROR"} if record["execution_status"] == "ERROR" else {"INCONCLUSIVE"}
+        )
+        if record["normalized_result"] not in expected_normalized:
+            raise ValueError("catalog runtime execution status contradicts normalized result")
+        if type(record["exit_code"]) is not int or not -1 <= record["exit_code"] <= 255:
+            raise ValueError("catalog runtime exit code is invalid")
+        diagnostics = record["diagnostics"]
+        if (type(diagnostics) is not list or not diagnostics
+                or any(type(item) is not str or not item or len(item) > 160 for item in diagnostics)
+                or len(set(diagnostics)) != len(diagnostics)):
+            raise ValueError("catalog runtime diagnostics are invalid")
+        if record["execution_status"] == "PASS" and diagnostics != ["COMPLETED"]:
+            raise ValueError("catalog runtime PASS diagnostics are contradictory")
+        if record["execution_status"] != "PASS" and record["native_result"] not in diagnostics:
+            raise ValueError("catalog runtime native result is not retained in diagnostics")
+        commands = record["command_argv"]
+        if (type(commands) is not list or not commands
+                or any(type(command) is not list or not command
+                       or any(type(arg) is not str for arg in command)
+                       for command in commands)):
+            raise ValueError("catalog runtime command argv is invalid")
+        _validate_locked_argv(record["scanner"], commands)
+        if record["command_argv_sha256"] != _canonical_sha(commands):
+            raise ValueError("catalog runtime command argv digest is inconsistent")
+        if type(record["duration_ms"]) is not int or record["duration_ms"] < 0:
+            raise ValueError("catalog runtime duration is invalid")
         for digest in (
             "invocation_identity", "environment_identity", "raw_output_sha256",
-            "canonical_output_sha256",
+            "canonical_output_sha256", "command_argv_sha256", "stdout_sha256",
+            "stderr_sha256",
         ):
             if not SHA256.fullmatch(str(record[digest])):
                 raise ValueError(f"catalog runtime {digest} is invalid")
@@ -212,6 +285,110 @@ def _validate_runtime(data: dict, relationships: list, locks: dict, reference: d
             raise ValueError("catalog runtime policy identity is missing")
     if set(observed) != set(expected):
         raise ValueError("catalog runtime evidence does not cover every scanner/fixture pair")
+    _validate_execution_attestation(runtime)
+    return observed
+
+
+def _validate_exact_signoff(signoff: object) -> None:
+    required = {
+        "verification_status", "verification_record_path",
+        "verification_record_sha256", "signature_path", "signature_sha256",
+        "public_key_path", "public_key_sha256", "signer_identity",
+    }
+    if type(signoff) is not dict or set(signoff) != required:
+        raise ValueError(
+            "EXACT mapping requires mechanically verified sign-off: complete signed record"
+        )
+    if signoff["verification_status"] != "VERIFIED":
+        raise ValueError("EXACT mapping sign-off is not verified")
+    record = _safe_file(signoff["verification_record_path"])
+    signature = _safe_file(signoff["signature_path"])
+    public_key = _safe_file(signoff["public_key_path"])
+    for path, field in (
+        (record, "verification_record_sha256"),
+        (signature, "signature_sha256"), (public_key, "public_key_sha256"),
+    ):
+        if hashlib.sha256(path.read_bytes()).hexdigest() != signoff[field]:
+            raise ValueError("EXACT mapping sign-off bytes do not match")
+    expected_signer = f"ed25519:{signoff['public_key_sha256']}"
+    if signoff["signer_identity"] != expected_signer:
+        raise ValueError("EXACT mapping signer identity is invalid")
+    result = subprocess.run(
+        ["openssl", "pkeyutl", "-verify", "-pubin", "-inkey", str(public_key),
+         "-sigfile", str(signature), "-rawin", "-in", str(record)],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        raise ValueError("EXACT mapping sign-off signature is invalid")
+
+
+def _validate_locked_argv(scanner: str, commands: list[list[str]]) -> None:
+    if scanner == "checkov":
+        if (len(commands) != 2
+                or any(command[0] != "<checkov-executable>" for command in commands)
+                or "--version" not in commands[0] or "--output" not in commands[1]):
+            raise ValueError("Checkov invocation is not the locked adapter command")
+        return
+    if len(commands) != 1:
+        raise ValueError(f"{scanner} invocation is not the locked adapter command")
+    argv = commands[0]
+    required = {
+        "--pull", "never", "--network", "none", "--read-only", "--cap-drop", "ALL",
+        "--security-opt", "no-new-privileges", "--pids-limit", "--memory", "--cpus",
+    }
+    if argv[0] != "<trusted-container-runtime>" or not required.issubset(set(argv)):
+        raise ValueError(f"{scanner} invocation is not the locked adapter command")
+    if not any("@sha256:" in value for value in argv):
+        raise ValueError(f"{scanner} invocation does not use an immutable image")
+    required_mounts = (
+        {"<materialized-input>:/iacgv-input:ro", "<bounded-output>:/iacgv-output:rw"}
+        if scanner == "kics" else
+        {"<materialized-input>:/work:ro", "<bounded-output>:/out:rw",
+         "<protected-cache>:/cache:rw"}
+    )
+    if not required_mounts.issubset(set(argv)):
+        raise ValueError(f"{scanner} invocation mount contract is incomplete")
+
+
+def _validate_execution_attestation(runtime: dict) -> None:
+    item = runtime["execution_attestation"]
+    if type(item) is not dict or set(item) != ATTESTATION_FIELDS:
+        raise ValueError("catalog execution attestation fields are invalid")
+    if item["contract"] != "phase-e-control-fixture-execution-attestation-v1":
+        raise ValueError("catalog execution attestation contract is unsupported")
+    if item["status"] != "PROTECTED_LOCAL_EXECUTION":
+        raise ValueError("catalog execution attestation status is invalid")
+    try:
+        datetime.fromisoformat(item["creation_timestamp"].replace("Z", "+00:00"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("catalog execution timestamp is invalid") from exc
+    if item["architecture"] != runtime["architecture"]:
+        raise ValueError("catalog execution architecture is inconsistent")
+    if item["protected_evidence_identity"] != runtime["protected_evidence_identity"]:
+        raise ValueError("catalog execution protected evidence is inconsistent")
+    expected_record_root = _canonical_sha(runtime["records"])
+    if item["record_root_sha256"] != expected_record_root:
+        raise ValueError("catalog execution record root is inconsistent")
+    children = dict(item)
+    identity = children.pop("attestation_identity")
+    if identity != _canonical_sha(children):
+        raise ValueError("catalog execution attestation identity is not canonical")
+    if identity != APPROVED_EXECUTION_ATTESTATION_IDENTITY:
+        raise ValueError("catalog execution attestation is not the reviewed execution")
+    for field in ATTESTATION_FIELDS - {
+        "contract", "status", "creation_timestamp", "architecture",
+        "runtime_client_version", "runtime_server_version", "cache_attestation_identity",
+    }:
+        if not SHA256.fullmatch(str(item[field])):
+            raise ValueError(f"catalog execution {field} is invalid")
+    if item["cache_attestation_identity"] != (
+        f"e02-local-acquisition-ed25519:{item['cache_attestation_public_key_sha256']}"
+    ):
+        raise ValueError("catalog cache attestation signer identity is invalid")
+    if item["runner_implementation_sha256"] != hashlib.sha256(
+        (ROOT / "tools/generate_catalog_runtime_evidence.py").read_bytes()
+    ).hexdigest():
+        raise ValueError("catalog execution runner implementation is not current")
 
 
 def validate_catalog(path: Path) -> dict:
@@ -263,9 +440,7 @@ def validate_catalog(path: Path) -> dict:
             exact_count += 1
             if item["exact_blockers"]:
                 raise ValueError("EXACT mapping cannot retain semantic blockers")
-            signoff = item["independent_reviewer_signoff"]
-            if type(signoff) is not dict or signoff.get("verification_status") != "VERIFIED" or not SHA256.fullmatch(str(signoff.get("verification_record_sha256", ""))):
-                raise ValueError("EXACT mapping requires mechanically verified sign-off")
+            _validate_exact_signoff(item["independent_reviewer_signoff"])
         elif not item["exact_blockers"]:
             raise ValueError("non-EXACT relationship must explain exact blockers")
     if exact_count > 5 or data.get("exact_mapping_count") != exact_count:
@@ -273,7 +448,22 @@ def validate_catalog(path: Path) -> dict:
     reference = data.get("runtime_evidence")
     if type(reference) is not dict or set(reference) != {"path", "sha256"} or not SHA256.fullmatch(str(reference["sha256"])):
         raise ValueError("catalog runtime evidence reference is invalid")
-    _validate_runtime(data, relationships, data["scanner_locks"], reference)
+    runtime_records = _validate_runtime(
+        data, relationships, data["scanner_locks"], reference,
+    )
+    for item in relationships:
+        if item["classification"] != "EXACT":
+            continue
+        records = tuple(
+            value for key, value in runtime_records.items()
+            if key[0] == item["relationship_id"]
+        )
+        if len(records) != 9 or any(
+            value["execution_status"] != "PASS"
+            or value["normalized_result"] not in {"FINDING", "NO_FINDING", "SUPPRESSED"}
+            for value in records
+        ):
+            raise ValueError("EXACT mapping requires definitive locked scanner results")
     return data
 
 

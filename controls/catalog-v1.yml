@@ -3,7 +3,7 @@ catalog_status: ADVISORY_ONLY
 exact_mapping_count: 0
 runtime_evidence:
   path: controls/runtime-evidence-v1.json
-  sha256: b6c0d2173db4c3a63a118ea3f327e54aec31672698ca3153f336a7f65d07f61f
+  sha256: bcaa79c5826b2e9afe4f3445d3cbc074e2d8b58aad5aa89ea0aa646b4bd5189f
 scanner_locks:
   checkov:
     version: 3.3.0
@@ -69,8 +69,8 @@ relationships:
       negative: controls/fixtures/k8s-privileged/negative.yaml
       boundary: controls/fixtures/k8s-privileged/boundary.yaml
     expected_locked_observations:
-      positive: {checkov: FINDING, kics: FINDING, trivy: ERROR}
-      negative: {checkov: NO_FINDING, kics: NO_FINDING, trivy: ERROR}
+      positive: {checkov: FINDING, kics: INCONCLUSIVE, trivy: ERROR}
+      negative: {checkov: NO_FINDING, kics: INCONCLUSIVE, trivy: ERROR}
       boundary: {checkov: FINDING, kics: ERROR, trivy: ERROR}
     variable_default_behavior: The field is a Kubernetes literal; omission differs from true and does not create a finding in these pinned implementations.
     resource_type_scope:
@@ -122,9 +122,9 @@ relationships:
       negative: controls/fixtures/k8s-allow-privilege-escalation/negative.yaml
       boundary: controls/fixtures/k8s-allow-privilege-escalation/boundary.yaml
     expected_locked_observations:
-      positive: {checkov: FINDING, kics: FINDING, trivy: ERROR}
-      negative: {checkov: NO_FINDING, kics: NO_FINDING, trivy: ERROR}
-      boundary: {checkov: FINDING, kics: FINDING, trivy: ERROR}
+      positive: {checkov: FINDING, kics: INCONCLUSIVE, trivy: ERROR}
+      negative: {checkov: NO_FINDING, kics: INCONCLUSIVE, trivy: ERROR}
+      boundary: {checkov: FINDING, kics: INCONCLUSIVE, trivy: ERROR}
     variable_default_behavior: Explicit false passes; true and omission are adverse under the pinned rule implementations.
     resource_type_scope:
       - Pod

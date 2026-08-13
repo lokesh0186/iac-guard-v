@@ -3034,3 +3034,13 @@ and 164 enum values with zero warnings. The frozen manifest remained 4,842/4,842
 root `a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`;
 replay remained 630/630 and 10,080/10,080 with zero verdict mismatches; all seven
 derived tables were `SEMANTIC_MATCH`; and the frozen-scope diff was empty.
+## 2026-08-13 — E4.2 execution-attested advisory catalog
+
+The protected arm64 fixture matrix was re-executed with complete expected resource
+bindings. All 18 cells are retained: six Checkov `PASS`, five KICS
+`PARTIAL/COVERAGE_MISMATCH`, one KICS `ERROR/INVALID_RESULTS_STRUCTURE`, and six Trivy
+`ERROR/INVALID_RESULTS_STRUCTURE`. The v2 evidence records closed process states, exit
+codes, diagnostics, portable locked argv, duration and raw/canonical output identities.
+One reviewed protected-execution attestation binds the E0.3 evidence/cache identity,
+runtime identity and the complete record root. Catalog validation and online official
+source verification passed; 55 catalog tests passed. `exact_mapping_count` remains zero.
