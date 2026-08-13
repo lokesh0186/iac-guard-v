@@ -508,3 +508,15 @@ The closed registry prevents public callers from substituting a validator callba
 or laundering a caller-created process result. It verifies the exact request type,
 tool-specific gate identity, adapter-owned trusted evidence marker, and returned
 gate identifier. TFLint always retains its optional non-security advisory label.
+
+### E3.4 source-path and materialized-byte controls
+
+The no-follow flag on only a final file is insufficient. The shared resolver opens the
+trusted scan root and each directory component relative to an already verified
+directory descriptor, rejecting every link or type change. Directory identities
+are rechecked after sealing so replacement of a parent cannot redirect execution.
+
+Writes may be partial or interrupted. The materializer loops to completion,
+rejects zero progress, flushes and closes, then reopens the destination no-follow
+and proves exact size and SHA-256. Protected Terraform and TFLint configuration
+uses the same primitive. No process is spawned over an unverified view.

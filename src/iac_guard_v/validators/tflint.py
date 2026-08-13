@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import re
-import stat
 import tempfile
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path, PurePosixPath
@@ -25,6 +24,10 @@ from .base import (
     ValidationDiagnostic, ValidationReason, ValidatorExecutionEvidence, canonical_sha256,
 )
 from .terraform import _strict_json
+from .materialization import (
+    SealedSourceFile, bind_source_file, materialize_view,
+    materialized_view_manifest, read_sealed_source, verified_write,
+)
 
 
 _REQUEST_CONTEXT = object()
@@ -93,30 +96,10 @@ def _inside(path: Path, root: Path) -> bool:
 
 
 def _bound_file(root: Path, relative: str, max_bytes: int) -> tuple[BoundInputFile, bytes]:
-    canonical = canonical_repo_path(relative, "TFLint input")
-    if not canonical.endswith((".tf", ".tf.json")):
-        raise DomainError("TFLint accepts only Terraform inputs")
-    path = root / canonical
-    try:
-        metadata = path.lstat()
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-            raise DomainError("TFLint input must be a nonsymlink regular file")
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        try:
-            opened = os.fstat(descriptor)
-            if opened.st_dev != metadata.st_dev or opened.st_ino != metadata.st_ino:
-                raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
-            raw = os.read(descriptor, max_bytes + 1)
-            if len(raw) > max_bytes or os.read(descriptor, 1):
-                raise DomainError("TFLint input exceeds its byte limit")
-        finally:
-            os.close(descriptor)
-    except OSError as exc:
-        raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value) from exc
-    return BoundInputFile(
-        canonical, "regular_file", len(raw), hashlib.sha256(raw).hexdigest(),
-        metadata.st_dev, metadata.st_ino,
-    ), raw
+    sealed, raw = bind_source_file(
+        root, relative, max_bytes, (".tf", ".tf.json"), "TFLint input",
+    )
+    return sealed.evidence, raw
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +111,7 @@ class TflintValidationRequest:
     container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
     protected_config: ProtectedTflintConfig
+    source_bindings: tuple = ()
     timeout_seconds: int = 120
     max_output_bytes: int = 4 * 1024 * 1024
     max_file_bytes: int = 8 * 1024 * 1024
@@ -158,6 +142,12 @@ class TflintValidationRequest:
             raise DomainError("TFLint input evidence is invalid")
         if tuple(item.file_path for item in self.input_evidence) != paths:
             raise DomainError("TFLint evidence must exactly cover eligible files")
+        if (
+            type(self.source_bindings) is not tuple
+            or any(type(item) is not SealedSourceFile for item in self.source_bindings)
+            or tuple(item.evidence for item in self.source_bindings) != self.input_evidence
+        ):
+            raise DomainError("TFLint sealed source bindings are incomplete")
         if type(self.timeout_seconds) is not int or self.timeout_seconds <= 0:
             raise DomainError("TFLint timeout must be positive")
         if type(self.max_output_bytes) is not int or self.max_output_bytes <= 0:
@@ -181,12 +171,17 @@ def create_tflint_validation_request(
 ) -> TflintValidationRequest:
     scan = scan_root.resolve(strict=True)
     paths = tuple(sorted(canonical_repo_path(item) for item in files_eligible))
+    if any(not item.endswith((".tf", ".tf.json")) for item in paths):
+        raise DomainError("TFLint accepts only Terraform inputs")
     if len(paths) != len(set(paths)):
         raise DomainError("TFLint input paths contain duplicates")
-    evidence = tuple(_bound_file(scan, item, max_file_bytes)[0] for item in paths)
+    bindings = tuple(bind_source_file(
+        scan_root, item, max_file_bytes, (".tf", ".tf.json"), "TFLint input",
+    )[0] for item in paths)
+    evidence = tuple(item.evidence for item in bindings)
     return TflintValidationRequest(
         workspace_root, scan_root, paths, evidence, container_runtime, locked_identity,
-        protected_config, timeout_seconds, max_output_bytes, max_file_bytes,
+        protected_config, bindings, timeout_seconds, max_output_bytes, max_file_bytes,
         _trusted_context=_REQUEST_CONTEXT,
     )
 
@@ -279,25 +274,17 @@ def _parse_native(
     return Status.PASS, ValidationReason.COMPLETED, tuple(diagnostics), canonical
 
 
-def _copy_view(request: TflintValidationRequest, view: Path) -> None:
-    view.mkdir(mode=0o700)
-    for expected in request.input_evidence:
-        current, raw = _bound_file(request.scan_root, expected.file_path, request.max_file_bytes)
-        if current != expected:
-            raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
-        destination = view / expected.file_path
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o400)
-        try:
-            os.write(descriptor, raw)
-        finally:
-            os.close(descriptor)
+def _copy_view(request: TflintValidationRequest, view: Path) -> str:
+    return materialize_view(
+        request.scan_root, request.source_bindings, view, request.max_file_bytes,
+    )
 
 
 def _evidence(
     request: TflintValidationRequest, *, status: Status, reason: ValidationReason,
     process: CommandResult | None = None, raw: bytes = b"", diagnostics: tuple = (),
     canonical: str | None = None, output_manifest: str = "", argv: tuple = (),
+    materialized_view: str = "",
 ) -> ValidatorExecutionEvidence:
     empty = hashlib.sha256(b"").hexdigest()
     return ValidatorExecutionEvidence._from_execution(
@@ -314,8 +301,12 @@ def _evidence(
         invocation_identity=canonical_sha256({
             "argv": ["protected-container-runtime", *argv[1:]] if argv else [],
             "snapshot": request.sealed_snapshot_identity,
+            "materialized_view": materialized_view or materialized_view_manifest(request.input_evidence),
             "config": request.protected_config.identity,
         }), sealed_snapshot_identity=request.sealed_snapshot_identity,
+        materialized_view_sha256=(
+            materialized_view or materialized_view_manifest(request.input_evidence)
+        ),
         stdout_sha256=process.stdout_sha256 if process else empty,
         stderr_sha256=process.stderr_sha256 if process else empty,
         native_output_bytes_sha256=hashlib.sha256(raw).hexdigest(),
@@ -334,20 +325,17 @@ class TflintValidator:
         process = None
         raw = b""
         output_manifest = ""
+        materialized_view = ""
         argv: tuple[str, ...] = ()
         result = None
         try:
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
             view, output, protected = work / "input", work / "output", work / "protected"
-            _copy_view(request, view)
+            materialized_view = _copy_view(request, view)
             output.mkdir(mode=0o733)
             protected.mkdir(mode=0o700)
             config = protected / "tflint.hcl"
-            descriptor = os.open(config, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o400)
-            try:
-                os.write(descriptor, _PROTECTED_CONFIG.encode())
-            finally:
-                os.close(descriptor)
+            verified_write(config, _PROTECTED_CONFIG.encode())
             argv = (
                 str(request.container_runtime.executable_path), "run", "--rm", "--pull", "never",
                 "--network", "none", "--read-only", "--cap-drop", "ALL",
@@ -373,9 +361,8 @@ class TflintValidator:
             ))
             if process.argv != argv:
                 raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
-            for expected in request.input_evidence:
-                if _bound_file(request.scan_root, expected.file_path, request.max_file_bytes)[0] != expected:
-                    raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
+            for sealed in request.source_bindings:
+                read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
             _, output_manifest = read_locked_output_directory(
                 output, allowed_files=(), max_file_bytes=request.max_output_bytes,
@@ -384,26 +371,30 @@ class TflintValidator:
             if process.status is not Status.PASS:
                 reason = ValidationReason.TIMEOUT if process.timed_out else ValidationReason.PROCESS_ERROR
                 result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,
-                                   process=process, output_manifest=output_manifest, argv=argv)
+                                   process=process, output_manifest=output_manifest, argv=argv,
+                                   materialized_view=materialized_view)
             else:
                 raw = process.stdout
                 status, reason, diagnostics, canonical = _parse_native(raw, request, process.exit_code)
                 result = _evidence(request, status=status, reason=reason, process=process,
                                    raw=raw, diagnostics=diagnostics, canonical=canonical,
-                                   output_manifest=output_manifest, argv=argv)
+                                   output_manifest=output_manifest, argv=argv,
+                                   materialized_view=materialized_view)
         except (DomainError, OSError) as exc:
             try:
                 reason = ValidationReason(str(exc))
             except ValueError:
                 reason = ValidationReason.PROCESS_ERROR
             result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,
-                               process=process, raw=raw, output_manifest=output_manifest, argv=argv)
+                               process=process, raw=raw, output_manifest=output_manifest, argv=argv,
+                               materialized_view=materialized_view)
         try:
             remove_private_tree(work)
         except OSError:
             return _evidence(request, status=Status.INCONCLUSIVE,
                              reason=ValidationReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED,
-                             process=process, raw=raw, output_manifest=output_manifest, argv=argv)
+                             process=process, raw=raw, output_manifest=output_manifest, argv=argv,
+                             materialized_view=materialized_view)
         assert result is not None
         return result
 

@@ -850,3 +850,16 @@ It accepts a gate identifier and the exact sealed request type, never a callback
 or process result. Registry records bind gate contract, module bytes, supported
 artifact kinds, and advisory role. Test execution capabilities remain exclusively
 under `tests/` and are absent from wheel and sdist.
+
+## E3.4 sealed validator materialization
+
+All validators use one component-by-component, directory-descriptor-based source
+resolver. Every parent and final component is opened without following symlinks;
+the sealed record retains directory device/inode identities plus regular-file
+bytes. External, internal, broken, and cyclic directory links are rejected.
+
+Private views use retrying complete writes, verify protected configuration files,
+and reopen/hash every destination before execution. The portable materialized-view
+manifest is bound separately from the source snapshot and included in invocation
+and validator evidence. Any mismatch is
+`MATERIALIZED_VIEW_INTEGRITY_FAILED`, never validator success.

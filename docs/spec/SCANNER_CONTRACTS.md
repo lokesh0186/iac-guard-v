@@ -551,5 +551,17 @@ All E3 validators are available only through
 `phase-e-closed-validator-registry-v1`. Each registry record binds its packaged
 module digest, artifact kinds, and advisory role. The registry accepts no callable,
 raw process result, or external evidence object.
+
+## E3.4 sealed input contract
+
+`sealed-validator-materialization-v1` binds source file evidence, every parent
+directory identity, and a portable private-view manifest. Source reads use a
+no-follow descriptor walk rooted at the trusted scan directory. View and protected
+configuration writes retry partial/EINTR results and are accepted only after a
+no-follow destination re-read matches the sealed path, size, and SHA-256.
+
+The invocation identity and `ValidatorExecutionEvidence` retain
+`materialized_view_sha256`. Source, private-view, or parent identity disagreement
+is typed uncertainty before execution and cannot be inferred from stdout presence.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

@@ -2897,3 +2897,13 @@ JSON, timeout, exit contradictions, input/runtime mutation, extra output entries
 native-order determinism, and advisory-only semantics. The shared registry rejects
 callbacks, wrong request types, tool/gate substitution, and mismatched returned evidence.
 Focused branch-aware coverage recorded 96% for `tflint.py` and 91% for `registry.py`.
+
+## 2026-08-13 — E3.4 sealed validator materialization
+
+Failing-before probes accepted external parent-directory links in all three E3
+validators and allowed a one-shot partial write to place fewer bytes in the private
+view than the evidence described. The shared no-follow subsystem now rejects
+external, internal, broken, and cyclic parent links, detects parent replacement,
+retries partial/EINTR writes, rejects zero progress, and verifies destination bytes.
+The materialized-view identity is present in canonical validator and invocation
+evidence. The focused E3.4 and preserved E3 test set recorded 105 passing tests.

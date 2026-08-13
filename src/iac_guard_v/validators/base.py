@@ -39,6 +39,7 @@ class ValidationReason(str, Enum):
     ADVISORY_FINDINGS = "ADVISORY_FINDINGS"
     PLUGIN_INITIALIZATION_REQUIRED = "PLUGIN_INITIALIZATION_REQUIRED"
     BASELINE_EVIDENCE_INVALID = "BASELINE_EVIDENCE_INVALID"
+    MATERIALIZED_VIEW_INTEGRITY_FAILED = "MATERIALIZED_VIEW_INTEGRITY_FAILED"
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +87,7 @@ class ValidatorExecutionEvidence:
     tool_environment_identity: str
     invocation_identity: str
     sealed_snapshot_identity: str
+    materialized_view_sha256: str
     stdout_sha256: str
     stderr_sha256: str
     native_output_bytes_sha256: str
@@ -136,6 +138,7 @@ class ValidatorExecutionEvidence:
         for name in (
             "runtime_identity", "tool_environment_identity", "invocation_identity",
             "sealed_snapshot_identity", "stdout_sha256", "stderr_sha256",
+            "materialized_view_sha256",
             "native_output_bytes_sha256", "canonical_native_output_sha256",
             "output_directory_manifest_sha256",
         ):
@@ -184,6 +187,7 @@ class ValidatorExecutionEvidence:
             "tool_environment_identity": self.tool_environment_identity,
             "invocation_identity": self.invocation_identity,
             "sealed_snapshot_identity": self.sealed_snapshot_identity,
+            "materialized_view_sha256": self.materialized_view_sha256,
             "stdout_sha256": self.stdout_sha256, "stderr_sha256": self.stderr_sha256,
             "native_output_bytes_sha256": self.native_output_bytes_sha256,
             "canonical_native_output_sha256": self.canonical_native_output_sha256,

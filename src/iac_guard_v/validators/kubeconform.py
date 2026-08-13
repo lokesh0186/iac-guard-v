@@ -4,7 +4,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import stat
 import tempfile
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path, PurePosixPath
@@ -27,6 +26,10 @@ from .base import (
     ValidationDiagnostic, ValidationReason, ValidatorExecutionEvidence, canonical_sha256,
 )
 from .terraform import _strict_json
+from .materialization import (
+    SealedSourceFile, bind_source_file, materialize_view,
+    materialized_view_manifest, read_sealed_source,
+)
 
 
 _REQUEST_CONTEXT = object()
@@ -51,40 +54,10 @@ _BUILTIN_GROUPS = (
 
 
 def _bound_file(root: Path, relative: str, max_bytes: int) -> tuple[BoundInputFile, bytes]:
-    path_text = canonical_repo_path(relative, "kubeconform input")
-    if not path_text.endswith((".yaml", ".yml", ".json")):
-        raise DomainError("kubeconform accepts only YAML and JSON inputs")
-    path = root / path_text
-    try:
-        metadata = path.lstat()
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-            raise DomainError("kubeconform input must be a nonsymlink regular file")
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        try:
-            opened = os.fstat(descriptor)
-            if opened.st_dev != metadata.st_dev or opened.st_ino != metadata.st_ino:
-                raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
-            chunks = []
-            size = 0
-            digest = hashlib.sha256()
-            while True:
-                chunk = os.read(descriptor, 64 * 1024)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > max_bytes:
-                    raise DomainError("kubeconform input exceeds its byte limit")
-                chunks.append(chunk)
-                digest.update(chunk)
-        finally:
-            os.close(descriptor)
-    except OSError as exc:
-        raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value) from exc
-    return (
-        BoundInputFile(path_text, "regular_file", size, digest.hexdigest(),
-                       metadata.st_dev, metadata.st_ino),
-        b"".join(chunks),
+    sealed, raw = bind_source_file(
+        root, relative, max_bytes, (".yaml", ".yml", ".json"), "kubeconform input",
     )
+    return sealed.evidence, raw
 
 
 def _discover(relative: str, raw: bytes):
@@ -106,6 +79,7 @@ class KubeconformValidationRequest:
     container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
     schema_identity: ProtectedKubernetesSchemaIdentity
+    source_bindings: tuple = ()
     protected_crd_schema: ProtectedKubernetesSchemaIdentity | None = None
     timeout_seconds: int = 120
     max_output_bytes: int = 8 * 1024 * 1024
@@ -147,6 +121,12 @@ class KubeconformValidationRequest:
             item.file_path for item in self.input_evidence if type(item) is BoundInputFile
         ) != paths:
             raise DomainError("kubeconform input evidence is incomplete")
+        if (
+            type(self.source_bindings) is not tuple
+            or any(type(item) is not SealedSourceFile for item in self.source_bindings)
+            or tuple(item.evidence for item in self.source_bindings) != self.input_evidence
+        ):
+            raise DomainError("kubeconform sealed source bindings are incomplete")
         resources = tuple(self.resource_identities)
         if resources != tuple(sorted(set(resources))) or any(type(item) is not str for item in resources):
             raise DomainError("kubeconform resource identities must be sorted and unique")
@@ -184,14 +164,21 @@ def create_kubeconform_validation_request(
 ) -> KubeconformValidationRequest:
     scan = scan_root.resolve(strict=True)
     paths = tuple(sorted(canonical_repo_path(item) for item in files_eligible))
+    if any(not item.endswith((".yaml", ".yml", ".json")) for item in paths):
+        raise DomainError("kubeconform accepts only YAML and JSON inputs")
     if len(paths) != len(set(paths)):
         raise DomainError("kubeconform paths contain duplicates")
     evidence = []
+    bindings = []
     identities = []
     syntax_error = ""
     for relative in paths:
-        bound, raw = _bound_file(scan, relative, max_file_bytes)
-        evidence.append(bound)
+        sealed, raw = bind_source_file(
+            scan_root, relative, max_file_bytes, (".yaml", ".yml", ".json"),
+            "kubeconform input",
+        )
+        bindings.append(sealed)
+        evidence.append(sealed.evidence)
         try:
             _resources, detected = _discover(relative, raw)
             identities.extend(f"{item.file_path}:{item.canonical_address}" for item in detected)
@@ -199,7 +186,7 @@ def create_kubeconform_validation_request(
             syntax_error = safe_report_text(str(exc), "kubernetes syntax error", 4096)
     return KubeconformValidationRequest(
         workspace_root=workspace_root, scan_root=scan_root, role=role,
-        files_eligible=paths, input_evidence=tuple(evidence),
+        files_eligible=paths, input_evidence=tuple(evidence), source_bindings=tuple(bindings),
         resource_identities=tuple(sorted(set(identities))), syntax_error=syntax_error,
         container_runtime=container_runtime, locked_identity=locked_identity,
         schema_identity=schema_identity, protected_crd_schema=protected_crd_schema,
@@ -293,26 +280,17 @@ def _parse_native(
     return Status.PASS, ValidationReason.COMPLETED, tuple(diagnostics), canonical, total
 
 
-def _copy_view(request: KubeconformValidationRequest, view: Path) -> None:
-    view.mkdir(mode=0o700)
-    for expected in request.input_evidence:
-        current, raw = _bound_file(request.scan_root, expected.file_path, request.max_file_bytes)
-        if current != expected:
-            raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
-        destination = view / expected.file_path
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o400)
-        try:
-            os.write(descriptor, raw)
-        finally:
-            os.close(descriptor)
+def _copy_view(request: KubeconformValidationRequest, view: Path) -> str:
+    return materialize_view(
+        request.scan_root, request.source_bindings, view, request.max_file_bytes,
+    )
 
 
 def _evidence(
     request: KubeconformValidationRequest, *, status: Status, reason: ValidationReason,
     process: CommandResult | None = None, raw: bytes = b"", diagnostics: tuple = (),
     canonical: str | None = None, validated: int = 0, output_manifest: str = "",
-    argv: tuple = (),
+    argv: tuple = (), materialized_view: str = "",
 ) -> ValidatorExecutionEvidence:
     empty = hashlib.sha256(b"").hexdigest()
     return ValidatorExecutionEvidence._from_execution(
@@ -332,9 +310,13 @@ def _evidence(
         invocation_identity=canonical_sha256({
             "argv": ["protected-container-runtime", *argv[1:]] if argv else [],
             "snapshot": request.sealed_snapshot_identity,
+            "materialized_view": materialized_view or materialized_view_manifest(request.input_evidence),
             "schema": request.schema_identity.identity,
         }),
         sealed_snapshot_identity=request.sealed_snapshot_identity,
+        materialized_view_sha256=(
+            materialized_view or materialized_view_manifest(request.input_evidence)
+        ),
         stdout_sha256=process.stdout_sha256 if process else empty,
         stderr_sha256=process.stderr_sha256 if process else empty,
         native_output_bytes_sha256=hashlib.sha256(raw).hexdigest(),
@@ -364,6 +346,7 @@ class KubeconformValidator:
         process = None
         raw = b""
         output_manifest = ""
+        materialized_view = ""
         result = None
         try:
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
@@ -372,7 +355,7 @@ class KubeconformValidator:
                 request.protected_crd_schema.revalidate()
             view = work / "input"
             output = work / "output"
-            _copy_view(request, view)
+            materialized_view = _copy_view(request, view)
             output.mkdir(mode=0o733)
             schema_location = "file:///schemas/{{.ResourceKind}}{{.KindSuffix}}.json"
             argv = (
@@ -401,9 +384,8 @@ class KubeconformValidator:
             ))
             if process.argv != argv:
                 raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
-            for expected in request.input_evidence:
-                if _bound_file(request.scan_root, expected.file_path, request.max_file_bytes)[0] != expected:
-                    raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
+            for sealed in request.source_bindings:
+                read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
             request.schema_identity.revalidate()
             if request.protected_crd_schema:
                 request.protected_crd_schema.revalidate()
@@ -414,26 +396,30 @@ class KubeconformValidator:
             if process.status is not Status.PASS:
                 reason = ValidationReason.TIMEOUT if process.timed_out else ValidationReason.PROCESS_ERROR
                 result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,
-                                   process=process, output_manifest=output_manifest, argv=argv)
+                                   process=process, output_manifest=output_manifest, argv=argv,
+                                   materialized_view=materialized_view)
             else:
                 raw = process.stdout
                 status, reason, diagnostics, canonical, validated = _parse_native(raw, request, process.exit_code)
                 result = _evidence(request, status=status, reason=reason, process=process,
                                    raw=raw, diagnostics=diagnostics, canonical=canonical,
-                                   validated=validated, output_manifest=output_manifest, argv=argv)
+                                   validated=validated, output_manifest=output_manifest, argv=argv,
+                                   materialized_view=materialized_view)
         except (DomainError, OSError) as exc:
             try:
                 reason = ValidationReason(str(exc))
             except ValueError:
                 reason = ValidationReason.PROCESS_ERROR
             result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,
-                               process=process, raw=raw, output_manifest=output_manifest)
+                               process=process, raw=raw, output_manifest=output_manifest,
+                               materialized_view=materialized_view)
         try:
             remove_private_tree(work)
         except OSError:
             return _evidence(request, status=Status.INCONCLUSIVE,
                              reason=ValidationReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED,
-                             process=process, raw=raw, output_manifest=output_manifest)
+                             process=process, raw=raw, output_manifest=output_manifest,
+                             materialized_view=materialized_view)
         assert result is not None
         return result
 

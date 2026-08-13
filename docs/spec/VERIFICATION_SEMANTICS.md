@@ -1442,6 +1442,7 @@ INCOMPLETE_COVERAGE
 ADVISORY_FINDINGS
 PLUGIN_INITIALIZATION_REQUIRED
 BASELINE_EVIDENCE_INVALID
+MATERIALIZED_VIEW_INTEGRITY_FAILED
 ```
 
 `COMPLETED` alone is compatible with `PASS`. `INVALID_CONFIGURATION` is definite
@@ -1455,6 +1456,8 @@ The remaining closed reason members are `UNSUPPORTED_CONDITION`, `MALFORMED_OUTP
 `ADVISORY_FINDINGS`, and `PLUGIN_INITIALIZATION_REQUIRED`.
 `BASELINE_EVIDENCE_INVALID` identifies malformed or unavailable trusted baseline
 material and is always `INCONCLUSIVE`. Shared parser protections also retain
+`MATERIALIZED_VIEW_INTEGRITY_FAILED`, which means the verified private view could
+not be proven byte-identical to sealed source evidence and is always non-PASS.
 `DUPLICATE_JSON_KEY`, `JSON_DEPTH_EXCEEDED`,
 `OUTPUT_DIRECTORY_INTEGRITY_FAILED`, `PROCESS_ERROR`, and `TIMEOUT`.
 

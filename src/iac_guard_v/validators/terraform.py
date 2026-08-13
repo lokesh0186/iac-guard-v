@@ -5,7 +5,6 @@ import hashlib
 import json
 import os
 import re
-import stat
 import tempfile
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path, PurePosixPath
@@ -24,6 +23,10 @@ from ..models import BoundInputFile, DomainError, canonical_repo_path
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
 from .base import (
     ValidationDiagnostic, ValidationReason, ValidatorExecutionEvidence, canonical_sha256,
+)
+from .materialization import (
+    SealedSourceFile, bind_source_file, materialize_view,
+    materialized_view_manifest, read_sealed_source, verified_write,
 )
 
 
@@ -57,36 +60,9 @@ def _inside(path: Path, root: Path) -> bool:
 
 
 def _bound_file(root: Path, relative: str, max_bytes: int) -> BoundInputFile:
-    canonical = canonical_repo_path(relative, "Terraform validator input")
-    if not canonical.endswith((".tf", ".tf.json")):
-        raise DomainError("Terraform validator accepts only .tf and .tf.json inputs")
-    path = root / canonical
-    try:
-        metadata = path.lstat()
-        if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
-            raise DomainError("Terraform validator input must be a nonsymlink regular file")
-        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        try:
-            opened = os.fstat(descriptor)
-            if opened.st_dev != metadata.st_dev or opened.st_ino != metadata.st_ino:
-                raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
-            digest = hashlib.sha256()
-            size = 0
-            while True:
-                chunk = os.read(descriptor, 64 * 1024)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > max_bytes:
-                    raise DomainError("Terraform validator input exceeds its byte limit")
-                digest.update(chunk)
-        finally:
-            os.close(descriptor)
-    except OSError as exc:
-        raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value) from exc
-    return BoundInputFile(
-        canonical, "regular_file", size, digest.hexdigest(), metadata.st_dev, metadata.st_ino
-    )
+    return bind_source_file(
+        root, relative, max_bytes, (".tf", ".tf.json"), "Terraform validator input",
+    )[0].evidence
 
 
 def _snapshot_identity(files: tuple[BoundInputFile, ...]) -> str:
@@ -101,6 +77,7 @@ class TerraformValidationRequest:
     input_evidence: tuple
     container_runtime: TrustedContainerRuntime
     locked_identity: LockedContainerIdentity
+    source_bindings: tuple = ()
     timeout_seconds: int = 120
     max_output_bytes: int = 4 * 1024 * 1024
     max_file_bytes: int = 8 * 1024 * 1024
@@ -127,7 +104,10 @@ class TerraformValidationRequest:
             self.container_runtime, workspace_root=workspace,
             protected_evidence_identity=identity.protected_evidence_identity,
         )
-        if type(self.files_eligible) is not tuple or type(self.input_evidence) is not tuple:
+        if (
+            type(self.files_eligible) is not tuple or type(self.input_evidence) is not tuple
+            or type(self.source_bindings) is not tuple
+        ):
             raise DomainError("Terraform validator inputs must be exact tuples")
         paths = tuple(canonical_repo_path(item) for item in self.files_eligible)
         if paths != tuple(sorted(set(paths))) or not paths:
@@ -137,6 +117,11 @@ class TerraformValidationRequest:
             raise DomainError("Terraform input evidence must contain BoundInputFile")
         if tuple(item.file_path for item in evidence) != paths:
             raise DomainError("Terraform evidence must exactly cover eligible files")
+        if (
+            any(type(item) is not SealedSourceFile for item in self.source_bindings)
+            or tuple(item.evidence for item in self.source_bindings) != evidence
+        ):
+            raise DomainError("Terraform sealed source bindings are incomplete")
         for name in ("timeout_seconds", "max_output_bytes", "max_file_bytes", "max_total_input_bytes"):
             if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
                 raise DomainError(f"{name} must be a positive integer")
@@ -161,17 +146,18 @@ def create_terraform_validation_request(
     max_file_bytes: int = 8 * 1024 * 1024,
     max_total_input_bytes: int = 64 * 1024 * 1024,
 ) -> TerraformValidationRequest:
-    try:
-        canonical_scan = scan_root.resolve(strict=True)
-    except OSError as exc:
-        raise DomainError("Terraform scan root is unavailable") from exc
     paths = tuple(sorted(canonical_repo_path(item) for item in files_eligible))
+    if any(not item.endswith((".tf", ".tf.json")) for item in paths):
+        raise DomainError("Terraform validator accepts only .tf and .tf.json inputs")
     if len(paths) != len(set(paths)):
         raise DomainError("Terraform validator paths contain duplicates")
-    evidence = tuple(_bound_file(canonical_scan, item, max_file_bytes) for item in paths)
+    bindings = tuple(bind_source_file(
+        scan_root, item, max_file_bytes, (".tf", ".tf.json"), "Terraform validator input",
+    )[0] for item in paths)
+    evidence = tuple(item.evidence for item in bindings)
     return TerraformValidationRequest(
         workspace_root=workspace_root, scan_root=scan_root, files_eligible=paths,
-        input_evidence=evidence, container_runtime=container_runtime,
+        input_evidence=evidence, source_bindings=bindings, container_runtime=container_runtime,
         locked_identity=locked_identity, timeout_seconds=timeout_seconds,
         max_output_bytes=max_output_bytes, max_file_bytes=max_file_bytes,
         max_total_input_bytes=max_total_input_bytes, _trusted_context=_REQUEST_CONTEXT,
@@ -272,32 +258,15 @@ def _parse_native(raw: bytes, exit_code: int | None) -> tuple[Status, Validation
     return Status.FAIL, ValidationReason.INVALID_CONFIGURATION, diagnostics, canonical
 
 
-def _copy_and_revalidate(request: TerraformValidationRequest, view: Path) -> None:
-    view.mkdir(mode=0o700)
-    for expected in request.input_evidence:
-        source = request.scan_root / expected.file_path
-        destination = view / expected.file_path
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        current = _bound_file(request.scan_root, expected.file_path, request.max_file_bytes)
-        if current != expected:
-            raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
-        descriptor = os.open(source, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
-        out = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o400)
-        try:
-            while True:
-                chunk = os.read(descriptor, 64 * 1024)
-                if not chunk:
-                    break
-                os.write(out, chunk)
-        finally:
-            os.close(descriptor)
-            os.close(out)
-    for expected in request.input_evidence:
-        if _bound_file(request.scan_root, expected.file_path, request.max_file_bytes) != expected:
-            raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
+def _copy_and_revalidate(request: TerraformValidationRequest, view: Path) -> str:
+    return materialize_view(
+        request.scan_root, request.source_bindings, view, request.max_file_bytes,
+    )
 
 
-def _invocation_identity(request: TerraformValidationRequest, argv: tuple[str, ...]) -> str:
+def _invocation_identity(
+    request: TerraformValidationRequest, argv: tuple[str, ...], materialized_view: str,
+) -> str:
     redacted = list(argv)
     redacted[0] = "protected-container-runtime"
     return canonical_sha256({
@@ -306,6 +275,7 @@ def _invocation_identity(request: TerraformValidationRequest, argv: tuple[str, .
         "contract": request.locked_identity.invocation_contract,
         "argv": redacted,
         "snapshot": request.sealed_snapshot_identity,
+        "materialized_view": materialized_view,
         "controls": list(_CONTROLS),
     })
 
@@ -314,6 +284,7 @@ def _evidence(
     request: TerraformValidationRequest, *, status: Status, reason: ValidationReason,
     diagnostics: tuple = (), process: CommandResult | None = None, raw: bytes = b"",
     canonical: str | None = None, output_manifest: str | None = None,
+    materialized_view: str | None = None,
 ) -> ValidatorExecutionEvidence:
     empty = hashlib.sha256(b"").hexdigest()
     return ValidatorExecutionEvidence._from_execution(
@@ -327,12 +298,15 @@ def _evidence(
         runtime_identity=request.container_runtime.identity,
         tool_environment_identity=request.locked_identity.environment_digest,
         invocation_identity=(
-            _invocation_identity(request, process.argv) if process else canonical_sha256({
+            _invocation_identity(request, process.argv, materialized_view or materialized_view_manifest(request.input_evidence)) if process else canonical_sha256({
                 "tool": request.locked_identity.tool, "snapshot": request.sealed_snapshot_identity,
                 "not_executed": True,
             })
         ),
         sealed_snapshot_identity=request.sealed_snapshot_identity,
+        materialized_view_sha256=(
+            materialized_view or materialized_view_manifest(request.input_evidence)
+        ),
         stdout_sha256=process.stdout_sha256 if process else empty,
         stderr_sha256=process.stderr_sha256 if process else empty,
         native_output_bytes_sha256=hashlib.sha256(raw).hexdigest(),
@@ -354,6 +328,7 @@ class TerraformValidator:
         process: CommandResult | None = None
         raw = b""
         output_manifest = ""
+        materialized_view = ""
         result: ValidatorExecutionEvidence | None = None
         try:
             revalidate_trusted_container_runtime(
@@ -362,12 +337,14 @@ class TerraformValidator:
             view = work / "input"
             output = work / "output"
             protected = work / "protected"
-            _copy_and_revalidate(request, view)
+            materialized_view = _copy_and_revalidate(request, view)
             output.mkdir(mode=0o733)
             protected.mkdir(mode=0o700)
             cli = protected / "terraform.rc"
-            cli.write_text('provider_installation { filesystem_mirror { path = "/no-providers" } }\n', encoding="utf-8")
-            cli.chmod(0o444)
+            verified_write(
+                cli,
+                b'provider_installation { filesystem_mirror { path = "/no-providers" } }\n',
+            )
             tool = request.locked_identity.tool
             argv = (
                 str(request.container_runtime.executable_path), "run", "--rm", "--pull", "never",
@@ -400,9 +377,11 @@ class TerraformValidator:
             ))
             if process.argv != argv:
                 raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
-            for expected in request.input_evidence:
-                if _bound_file(request.scan_root, expected.file_path, request.max_file_bytes) != expected:
-                    raise DomainError(ValidationReason.INPUT_CHANGED_DURING_VALIDATION.value)
+            materialize_check = materialized_view_manifest(request.input_evidence)
+            for sealed in request.source_bindings:
+                read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
+            if materialized_view != materialize_check:
+                raise DomainError(ValidationReason.MATERIALIZED_VIEW_INTEGRITY_FAILED.value)
             revalidate_trusted_container_runtime(
                 request.container_runtime, workspace_root=request.workspace_root
             )
@@ -416,7 +395,8 @@ class TerraformValidator:
                     else ValidationReason.PROCESS_ERROR
                 )
                 result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,
-                                   process=process, output_manifest=output_manifest)
+                                   process=process, output_manifest=output_manifest,
+                                   materialized_view=materialized_view)
             else:
                 raw = process.stdout
                 status, reason, diagnostics, canonical = _parse_native(raw, process.exit_code)
@@ -424,6 +404,7 @@ class TerraformValidator:
                     request, status=status, reason=reason, diagnostics=diagnostics,
                     process=process, raw=raw, canonical=canonical,
                     output_manifest=output_manifest,
+                    materialized_view=materialized_view,
                 )
         except (DomainError, OSError) as exc:
             try:
@@ -433,6 +414,7 @@ class TerraformValidator:
             result = _evidence(
                 request, status=Status.INCONCLUSIVE, reason=reason,
                 process=process, raw=raw, output_manifest=output_manifest,
+                materialized_view=materialized_view,
             )
         try:
             remove_private_tree(work)
@@ -441,6 +423,7 @@ class TerraformValidator:
                 request, status=Status.INCONCLUSIVE,
                 reason=ValidationReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED,
                 process=process, raw=raw, output_manifest=output_manifest,
+                materialized_view=materialized_view,
             )
         assert result is not None
         return result
