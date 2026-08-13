@@ -222,8 +222,11 @@ def _evaluate(policy: dict, document: dict) -> tuple[Status, str, tuple[OracleOb
         os_name = operating_system.get("name")
         if type(os_name) is not str or not os_name.strip():
             return Status.ERROR, "OPERATING_SYSTEM_IDENTITY_INVALID", ()
+        normalized_os = os_name.strip().lower()
+        if normalized_os not in {"linux", "windows"}:
+            return Status.ERROR, "OPERATING_SYSTEM_IDENTITY_INVALID", ()
         if (
-            os_name.strip().lower() == "windows"
+            normalized_os == "windows"
             and policy["predicate"] == "all_containers_explicitly_disable_privilege_escalation"
         ):
             return Status.UNSUPPORTED, "WINDOWS_POLICY_NOT_APPLICABLE", ()
@@ -299,7 +302,7 @@ def _parser_dependency_identity() -> str:
 def _oracle_implementation_identity(policy_sha256: str) -> str:
     implementation_files = (
         "engine.py", "enums.py", "models.py", "oracles/base.py",
-        "oracles/structural.py",
+        "oracles/structural.py", "oracles/preconditions.py",
     )
     file_manifest = [
         {

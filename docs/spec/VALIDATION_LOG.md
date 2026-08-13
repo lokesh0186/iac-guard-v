@@ -3044,3 +3044,12 @@ codes, diagnostics, portable locked argv, duration and raw/canonical output iden
 One reviewed protected-execution attestation binds the E0.3 evidence/cache identity,
 runtime identity and the complete record root. Catalog validation and online official
 source verification passed; 55 catalog tests passed. `exact_mapping_count` remains zero.
+
+## 2026-08-13 — E5.5 oracle applicability closure
+
+The protected Kubernetes structural registry now rejects any explicit OS identity other
+than `linux` or `windows`; the reproduced `solaris` inputs return
+`ERROR/OPERATING_SYSTEM_IDENTITY_INVALID` for both bundled policies. A separate
+authoritative-use precondition requires a passing role-bound kubeconform universe for
+the same sealed snapshot, file, artifact kind and resource. Oracle PASS continues to
+prove only its named predicate and is not connected to V7 or the final verdict.

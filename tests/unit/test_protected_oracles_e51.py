@@ -365,6 +365,27 @@ def test_windows_privilege_escalation_is_not_applicable(tmp_path: Path) -> None:
     assert result.reason == "WINDOWS_POLICY_NOT_APPLICABLE"
 
 
+@pytest.mark.parametrize(
+    "oracle_id",
+    (
+        "kubernetes_no_privileged_containers_v1",
+        "kubernetes_allow_privilege_escalation_false_v1",
+    ),
+)
+def test_unknown_operating_system_never_passes(
+    tmp_path: Path, oracle_id: str,
+) -> None:
+    result = _execute_document(
+        tmp_path, oracle_id,
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: demo}\nspec:\n"
+        "  os: {name: solaris}\n  containers:\n    - name: app\n"
+        "      securityContext:\n        privileged: false\n"
+        "        allowPrivilegeEscalation: false\n",
+    )
+    assert result.status is Status.ERROR
+    assert result.reason == "OPERATING_SYSTEM_IDENTITY_INVALID"
+
+
 def test_duplicate_container_names_are_typed_error(tmp_path: Path) -> None:
     result = _execute_document(
         tmp_path, "kubernetes_no_privileged_containers_v1",
