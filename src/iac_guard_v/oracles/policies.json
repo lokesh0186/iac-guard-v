@@ -1,0 +1,17 @@
+{
+  "contract": "iac-guard-v-bundled-oracle-policy-v1",
+  "policies": [
+    {
+      "oracle_id": "kubernetes_allow_privilege_escalation_false_v1",
+      "predicate": "all_containers_explicitly_disable_privilege_escalation",
+      "authoritative_reference": "https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted",
+      "supported_kinds": ["CronJob", "DaemonSet", "Deployment", "Job", "Pod", "ReplicaSet", "ReplicationController", "StatefulSet"]
+    },
+    {
+      "oracle_id": "kubernetes_no_privileged_containers_v1",
+      "predicate": "no_container_is_privileged",
+      "authoritative_reference": "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+      "supported_kinds": ["CronJob", "DaemonSet", "Deployment", "Job", "Pod", "ReplicaSet", "ReplicationController", "StatefulSet"]
+    }
+  ]
+}

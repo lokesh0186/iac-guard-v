@@ -128,6 +128,11 @@ artifacts.
 | F-24 | Pre-commit hook with a fast profile | P2 |
 | F-25 | MCP server, additional artifact kinds, additional scanners | P2 |
 
+E5.1 implements the declarative portion of F-21 as a closed, package-bound structural
+oracle registry. Candidate-authored policy, callbacks, arbitrary Python or shell,
+network access, and caller-supplied result evidence are outside the contract. Oracle
+uncertainty remains a typed non-PASS state and scanner consensus remains advisory.
+
 ## 5. Non-functional requirements
 
 | ID | Requirement |

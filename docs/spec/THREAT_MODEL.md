@@ -358,6 +358,13 @@ supported/governed inventory comparison detects late files, removals, byte chang
 type changes, and symlink substitutions before a result can be trusted. Local absolute
 paths remain runtime-only and do not affect canonical snapshot or configuration hashes.
 
+E5.1 treats bundled oracle policy and implementation bytes as protected assets. The
+attacker can select only an oracle id already present in the closed registry and an
+exact target already present in the sealed snapshot. Candidate policy, callbacks,
+external bundles, and network activity are not accepted. Residual risk is a defect in
+the trusted structural implementation or its authoritative specification; scanner
+agreement does not mitigate or override that risk.
+
 D6.4 prevents a commit label from blessing unrelated working-tree bytes. Protected
 contexts require the authorized candidate at `HEAD`, a clean checkout, and no untracked
 or ignored supported/governed input; loaders recheck that state and read candidate policy

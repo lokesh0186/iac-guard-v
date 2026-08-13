@@ -459,6 +459,15 @@ selected by the execution layer; their identity must equal the requested gate id
 are dependencies, not JSON/config fields. Without an executor, the named gate is
 explicitly `UNSUPPORTED`, never defaulted to `PASS`.
 
+E5.1 supplies the first closed oracle registry. Its two bundled Kubernetes structural
+assertions are immutable package resources whose bytes are part of the policy identity.
+The request factory accepts only an exact resource already present in a role-bound
+`SealedVerificationSnapshot`; execution reparses those sealed bytes and emits an
+immutable result carrying implementation, policy, snapshot, resource, raw-output,
+canonical-output, and execution-control identities. The registry has no callback,
+candidate-policy, network, or arbitrary-code entry point. Cross-scanner agreement is
+not an oracle input and cannot override its result.
+
 Target classification uses typed statuses for integrity, ruleset stability, structural
 eligibility, file/resource presence, suppression absence, occurrence sufficiency, and
 affirmative target-pass evidence. It follows verification semantics section 4. A zero

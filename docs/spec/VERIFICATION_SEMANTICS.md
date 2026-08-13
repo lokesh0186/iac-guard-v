@@ -887,6 +887,13 @@ explicitly trusted Conftest/Rego policies. Arbitrary Python or shell from a case
 bundle is never executed. Records oracle id, version, policy hash, result,
 diagnostics, and an authoritative reference.
 
+E5.1 evidence additionally binds the product implementation identity, the exact role
+snapshot and target resource, raw and canonical output digests, and execution controls.
+The protected factory resolves the target against the sealed resource inventory before
+execution. Current bundled structural assertions execute in process without callbacks,
+candidate policy, network access, or external bundles. Operational or parsing
+uncertainty stays typed and therefore cannot establish `PASS`.
+
 ### V7 — Cross-scanner agreement
 
 States: `AGREEMENT_PASS`, `AGREEMENT_FAIL`, `DISAGREEMENT`, `NOT_COMPARABLE`.

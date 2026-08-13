@@ -54,6 +54,7 @@ iac-guard = "iac_guard_v.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/iac_guard_v"]
+artifacts = ["src/iac_guard_v/oracles/policies.json"]
 
 # Research data, the paper, and experiment outputs must never enter a distribution.
 [tool.hatch.build.targets.sdist]

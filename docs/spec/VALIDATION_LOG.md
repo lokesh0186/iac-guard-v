@@ -2959,3 +2959,12 @@ state instead of an unexpected construction exception. It refuses authoritative
 execution while inconclusive, checks for caches before and after calls, and exposes
 pre-start `PYTHONDONTWRITEBYTECODE=1` remediation through doctor. A clean installed
 wheel is invoked twice under that package contract without generating cache entries.
+
+## 2026-08-13 — E5.1 protected deterministic oracles
+
+The first oracle implementation is deliberately closed and narrow. Two bundled
+Kubernetes structural assertions consume exact resource bytes from a role-bound sealed
+snapshot. Tests cover positive and negative predicates, missing or unknown protected
+policy, unbound targets, caller-authored result rejection, deterministic identities,
+and wheel inclusion of the policy bytes. No scanner-agreement input or verdict
+aggregation was added.
