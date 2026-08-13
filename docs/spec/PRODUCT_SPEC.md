@@ -493,6 +493,17 @@ Authoritative Trivy adapter evidence requires the exact E0.3 signed cache, exter
 checks identity, protected runtime, locked image/invocation, current nonfallback proof,
 pre/post full and subtree roots, and independent raw/semantic/physical output hashes.
 Missing cache remains an explicit blocked integration prerequisite, never a PASS.
+
+## E3.1 Terraform-family validator acceptance
+
+OpenTofu 1.12.5 and Terraform 1.15.8 are separate protected validator identities.
+Terraform remains `USER_SUPPLIED_ONLY_NEVER_BUNDLED`. Only `validate -json` is
+permitted. Init, plan, apply, provider/module acquisition, network use, candidate CLI
+config, credentials, and candidate `.terraform` state are forbidden.
+
+Definite invalidity is `FAIL`. Missing dependencies, unsupported states, timeouts,
+malformed evidence, and operational failures are `INCONCLUSIVE`. `PASS` binds the
+sealed snapshot, exact tool/runtime/argv, controls, output inventory, and coherent JSON.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

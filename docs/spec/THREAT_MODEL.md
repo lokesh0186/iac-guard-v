@@ -471,3 +471,14 @@ An attacker cannot replace selected Rego content, cache metadata, the signed cac
 runtime, image child, bundle layer, process streams, results bytes, or extra output
 content while retaining the same complete execution evidence. Embedded fallback is
 derived as a different non-PASS identity rather than trusted from serialized state.
+
+### E3.1 Terraform-family validator controls
+
+Candidate input cannot select the image, runtime, command, CLI configuration,
+provider/module cache, credentials, or environment. Only sealed Terraform bytes enter
+the isolated view; candidate `.terraform` is rejected. Init, plan, apply, installation,
+and network access are absent from the locked contract.
+
+Missing providers/modules become `NEEDS_INIT/INCONCLUSIVE`, while definite native
+invalidity is `FAIL`. Caller-created process and validator objects cannot cross the
+trusted evidence boundary.

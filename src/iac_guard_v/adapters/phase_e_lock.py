@@ -585,7 +585,7 @@ def load_locked_container_identity(
         or seal != _lock_seal(payload)
     ):
         raise DomainError("Phase-E lock graph differs from the reviewed E0.3 seal")
-    if tool not in {"kics", "trivy"} or architecture not in {
+    if tool not in {"kics", "trivy", "opentofu", "terraform"} or architecture not in {
         "linux/amd64", "linux/arm64",
     }:
         raise DomainError("tool or architecture is outside the E0.3 adapter lock")
@@ -595,6 +595,8 @@ def load_locked_container_identity(
     expected = {
         "kics": ("2.1.20", "kics-adapter-contract-research-v1"),
         "trivy": ("0.73.0", "trivy-config-adapter-contract-research-v1"),
+        "opentofu": ("1.12.5", "tofu-validate-contract-research-v1"),
+        "terraform": ("1.15.8", "terraform-validate-contract-research-v1"),
     }[tool]
     if (
         record.get("version") != expected[0]
@@ -625,7 +627,7 @@ def load_locked_container_identity(
             "release": release.get("commit"),
             "fixture": fixture.get("sha256"),
         }
-        if tool == "kics"
+        if tool != "trivy"
         else {
             "manifest": checks.get("external_manifest_digest"),
             "layer": checks.get("external_layer_digest"),

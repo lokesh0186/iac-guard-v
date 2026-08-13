@@ -118,3 +118,17 @@ def normalize_trivy_fixture(
         return_value=request.container_runtime.identity,
     ):
         return TrivyAdapter().scan(request)
+
+
+def execute_terraform_validator_fixture(request, process: CommandResult):
+    """Drive the product validator through its private execution path in unit tests."""
+    from iac_guard_v.validators.terraform import TerraformValidator
+
+    def execute(command):
+        return replace(process, argv=command.argv)
+
+    with patch("iac_guard_v.validators.terraform.run_command", execute), patch(
+        "iac_guard_v.validators.terraform.revalidate_trusted_container_runtime",
+        return_value=request.container_runtime.identity,
+    ):
+        return TerraformValidator().validate(request)

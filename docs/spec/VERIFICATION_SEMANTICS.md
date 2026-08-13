@@ -1414,3 +1414,47 @@ E2.3 Trivy evidence separates raw stdout, raw stderr, raw results bytes, canonic
 semantic results, and physical output-directory identity. The complete signed protected
 cache and Trivy subtree are revalidated around execution; fallback state is a derived
 predicate over current cache, invocation, isolation, and diagnostic evidence.
+
+## E3.1 Terraform-family validator evidence
+
+The closed validation reasons are:
+
+```text
+COMPLETED
+INVALID_CONFIGURATION
+NEEDS_INIT
+UNSUPPORTED_CONDITION
+PROCESS_ERROR
+TIMEOUT
+MALFORMED_OUTPUT
+DUPLICATE_JSON_KEY
+JSON_DEPTH_EXCEEDED
+OUTPUT_DIRECTORY_INTEGRITY_FAILED
+INPUT_CHANGED_DURING_VALIDATION
+RUNTIME_INTEGRITY_FAILED
+VERSION_OR_LOCK_DRIFT
+DIAGNOSTIC_CONTRADICTION
+EMPTY_SCOPE
+MISSING_SCHEMA
+CRD_SCHEMA_UNAVAILABLE
+SCHEMA_BUNDLE_CHANGED
+INCOMPLETE_COVERAGE
+ADVISORY_FINDINGS
+PLUGIN_INITIALIZATION_REQUIRED
+```
+
+`COMPLETED` alone is compatible with `PASS`. `INVALID_CONFIGURATION` is definite
+candidate failure. `NEEDS_INIT` is forbidden dependency initialization and therefore
+`INCONCLUSIVE`; all operational/integrity reasons remain uncertainty.
+
+The remaining closed reason members are `UNSUPPORTED_CONDITION`, `MALFORMED_OUTPUT`,
+`INPUT_CHANGED_DURING_VALIDATION`, `RUNTIME_INTEGRITY_FAILED`,
+`VERSION_OR_LOCK_DRIFT`, `DIAGNOSTIC_CONTRADICTION`, `EMPTY_SCOPE`, `MISSING_SCHEMA`,
+`CRD_SCHEMA_UNAVAILABLE`, `SCHEMA_BUNDLE_CHANGED`, `INCOMPLETE_COVERAGE`,
+`ADVISORY_FINDINGS`, and `PLUGIN_INITIALIZATION_REQUIRED`. Shared parser protections
+also retain `DUPLICATE_JSON_KEY`, `JSON_DEPTH_EXCEEDED`,
+`OUTPUT_DIRECTORY_INTEGRITY_FAILED`, `PROCESS_ERROR`, and `TIMEOUT`.
+
+The native result is the exact five-field `format_version=1.0` object. `valid=true`
+requires exit 0, zero errors, and matching counts. `valid=false` requires exit 1 and
+retained error evidence.

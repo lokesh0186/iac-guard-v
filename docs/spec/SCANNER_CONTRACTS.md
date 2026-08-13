@@ -496,5 +496,23 @@ semantic output hash, and physical output-directory manifest root.
 exact cache mount and image invocation, disabled update/network controls, matching
 pre/post roots, and current external-cache diagnostics. A stored Boolean alone is not
 execution evidence.
+
+## E3.1 OpenTofu and Terraform validation contract
+
+`opentofu_validate` executes only OpenTofu 1.12.5 from the reviewed E0.3 platform
+image. `terraform_validate` is distinct Terraform 1.15.8 evidence; its runtime is
+supplied through protected operator plumbing and is never downloaded or bundled.
+Both run only `validate -json`, never init, plan, apply, provider installation, or
+module download.
+
+Only sealed `.tf`/`.tf.json` bytes enter a private read-only view. Candidate
+`.terraform` state is rejected; candidate CLI configuration, credentials, caches, and
+environment overrides are excluded. Network, capabilities, privilege escalation,
+mutable root, root UID, and unbounded CPU/memory/PIDs are prohibited.
+
+The pinned `format_version=1.0` JSON rejects duplicate keys, excess depth,
+unknown/missing fields, diagnostic/count contradictions, malformed ranges, and
+exit/result contradictions. Valid is `PASS`; definite invalidity is
+`FAIL/INVALID_CONFIGURATION`; initialization need is `INCONCLUSIVE/NEEDS_INIT`.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

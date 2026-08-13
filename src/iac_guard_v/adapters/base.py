@@ -123,8 +123,8 @@ def read_locked_output_directory(
     max_total_bytes: int,
 ) -> tuple[dict[str, bytes], str]:
     """Read one flat scanner output directory through an exact no-follow contract."""
-    if type(allowed_files) is not tuple or not allowed_files:
-        raise DomainError("scanner output allowlist must be a nonempty tuple")
+    if type(allowed_files) is not tuple:
+        raise DomainError("scanner output allowlist must be an exact tuple")
     if len(set(allowed_files)) != len(allowed_files) or tuple(sorted(allowed_files)) != allowed_files:
         raise DomainError("scanner output allowlist must be unique and sorted")
     if max_file_bytes <= 0 or max_total_bytes <= 0:

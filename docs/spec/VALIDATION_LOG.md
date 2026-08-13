@@ -2863,3 +2863,16 @@ Both exact locked Trivy integrations passed. Canonical evidence now records prot
 runtime/image/invocation identities, signed cache and attestation identities, full and
 subtree pre/post roots, derived external/nonfallback evidence, raw stdout/stderr/results
 hashes, canonical semantic output, and the physical output-directory manifest.
+
+## 2026-08-12 — E3 authorization checkpoint and E3.1 validators
+
+The checkpoint used a pristine detached clone at `14d0978b903259a99fd37155d7a4c3cbeb1505e2`.
+The 175 focused probes and three exact locked KICS/Trivy integrations passed. Wheel and
+sdist contained no test capability; an installed wheel loaded external protected
+evidence. Python 3.10–3.13 each recorded `1682 passed`. Spec lint, 4,842-file manifest,
+630/630 replay, 10,080/10,080 fields, and 7/7 tables passed.
+
+E3.1 adds distinct locked OpenTofu 1.12.5 and protected user-supplied Terraform 1.15.8
+validation. Focused probes cover valid, invalid, `NEEDS_INIT`, malformed/duplicate JSON,
+timeout, diagnostic contradiction, transient-state rejection, mutation, and trust. Both
+exact arm64 integrations returned `PASS/COMPLETED` for a self-contained module.

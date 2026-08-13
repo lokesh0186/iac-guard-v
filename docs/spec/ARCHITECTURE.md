@@ -811,3 +811,15 @@ The Trivy execution object binds one protected runtime, platform image, external
 bundle, complete signed cache, invocation, process streams, results file, semantic JSON,
 and physical output directory. Full-cache and scanner-subtree inventories are checked
 before and after the process. Fallback/source state is recomputed from current evidence.
+
+## E3.1 offline Terraform-family validation
+
+The closed validator package produces immutable `ValidatorExecutionEvidence`; only its
+internal execution constructor marks evidence trusted. OpenTofu and Terraform have
+separate gate and E0.3 environment identities. OpenTofu uses locked 1.12.5. Terraform
+is a protected preloaded 1.15.8 operator runtime and is never acquired or shipped.
+
+Each invocation consumes a private materialization of sealed input evidence and
+revalidates source bytes and the live runtime around execution. Candidate transient
+state and configuration cannot enter the view. Provider/module initialization need is
+`INCONCLUSIVE`, not a fabricated validation result.
