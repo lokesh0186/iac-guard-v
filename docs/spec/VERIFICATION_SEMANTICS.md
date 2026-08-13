@@ -894,6 +894,14 @@ execution. Current bundled structural assertions execute in process without call
 candidate policy, network access, or external bundles. Operational or parsing
 uncertainty stays typed and therefore cannot establish `PASS`.
 
+E5.3's `protected-deterministic-oracle-v2` contract requires at least one affirmative
+observation for `PASS`. It evaluates `containers`, `initContainers`, and
+`ephemeralContainers`; preserves exact Kubernetes Boolean types; returns typed error for
+malformed security contexts or ambiguous container identity; and returns
+`UNSUPPORTED/WINDOWS_POLICY_NOT_APPLICABLE` for the Linux-only privilege-escalation
+assertion on Windows Pods. The implementation identity binds every structural helper,
+loader/model/registry module, physical parser dependency identity, and protected policy.
+
 ### V7 — Cross-scanner agreement
 
 States: `AGREEMENT_PASS`, `AGREEMENT_FAIL`, `DISAGREEMENT`, `NOT_COMPARABLE`.

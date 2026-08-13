@@ -16,7 +16,6 @@ from iac_guard_v.oracles import (
     create_protected_oracle_request,
     require_trusted_oracle_evidence,
 )
-from iac_guard_v.oracles.base import create_oracle_result
 import iac_guard_v.oracles.base as oracle_base
 import iac_guard_v.oracles.structural as structural
 
@@ -53,6 +52,20 @@ def _execute(tmp_path: Path, oracle_id: str, context: str):
         file_path="pod.yaml",
         artifact_kind=ArtifactKind.KUBERNETES_YAML,
         resource_identity="v1/Pod/default/demo",
+    )
+    return ProtectedOracleRegistry().execute(request)
+
+
+def _execute_document(tmp_path: Path, oracle_id: str, document: str):
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    raw = adapter_request(tmp_path, frameworks=("kubernetes",))
+    (raw.scan_root / "pod.yaml").write_text(document, encoding="utf-8")
+    snapshot = _role_snapshot_for_test(attest_checkov_scan_plan(raw))
+    resource = snapshot.resources[0]
+    request = create_protected_oracle_request(
+        oracle_id=oracle_id, snapshot=snapshot, file_path="pod.yaml",
+        artifact_kind=resource.artifact_kind,
+        resource_identity=resource.resource_address,
     )
     return ProtectedOracleRegistry().execute(request)
 
@@ -108,6 +121,7 @@ def test_caller_cannot_construct_trusted_oracle_evidence() -> None:
             canonical_output_sha256="d" * 64, execution_controls=(),
             authoritative_reference="https://example.invalid",
         )
+    assert not hasattr(oracle_base, "create_oracle_result")
 
 
 def test_oracle_evidence_is_deterministic(tmp_path: Path) -> None:
@@ -286,3 +300,107 @@ def test_request_and_registry_private_boundaries_fail_closed(tmp_path: Path) -> 
         structural._documents(request)
     with pytest.raises(DomainError, match="not protected"):
         require_trusted_oracle_evidence(object())
+
+
+@pytest.mark.parametrize(
+    ("oracle_id", "field"),
+    (
+        ("kubernetes_no_privileged_containers_v1", "privileged: true"),
+        (
+            "kubernetes_allow_privilege_escalation_false_v1",
+            "allowPrivilegeEscalation: true",
+        ),
+    ),
+)
+def test_ephemeral_containers_are_policy_covered(
+    tmp_path: Path, oracle_id: str, field: str,
+) -> None:
+    result = _execute_document(
+        tmp_path, oracle_id,
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: demo}\nspec:\n"
+        "  containers:\n    - name: app\n      securityContext:\n"
+        "        privileged: false\n        allowPrivilegeEscalation: false\n"
+        "  ephemeralContainers:\n    - name: debug\n      securityContext:\n"
+        f"        {field}\n",
+    )
+    assert result.status is Status.FAIL
+    assert any(item.path.startswith("ephemeralContainers/debug/") for item in result.observations)
+
+
+@pytest.mark.parametrize(
+    ("oracle_id", "context", "reason"),
+    (
+        (
+            "kubernetes_no_privileged_containers_v1",
+            '{privileged: "yes"}',
+            "PRIVILEGED_FIELD_TYPE_INVALID",
+        ),
+        (
+            "kubernetes_allow_privilege_escalation_false_v1",
+            '{allowPrivilegeEscalation: "false"}',
+            "PRIVILEGE_ESCALATION_FIELD_TYPE_INVALID",
+        ),
+        (
+            "kubernetes_no_privileged_containers_v1",
+            '"not-a-map"',
+            "SECURITY_CONTEXT_TYPE_INVALID",
+        ),
+    ),
+)
+def test_malformed_security_context_never_passes(
+    tmp_path: Path, oracle_id: str, context: str, reason: str,
+) -> None:
+    result = _execute(tmp_path, oracle_id, context)
+    assert result.status is Status.ERROR
+    assert result.reason == reason
+
+
+def test_windows_privilege_escalation_is_not_applicable(tmp_path: Path) -> None:
+    result = _execute_document(
+        tmp_path, "kubernetes_allow_privilege_escalation_false_v1",
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: demo}\nspec:\n"
+        "  os: {name: windows}\n  containers:\n    - name: app\n",
+    )
+    assert result.status is Status.UNSUPPORTED
+    assert result.reason == "WINDOWS_POLICY_NOT_APPLICABLE"
+
+
+def test_duplicate_container_names_are_typed_error(tmp_path: Path) -> None:
+    result = _execute_document(
+        tmp_path, "kubernetes_no_privileged_containers_v1",
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: demo}\nspec:\n"
+        "  containers:\n"
+        "    - name: duplicate\n      securityContext: {privileged: false}\n"
+        "  initContainers:\n"
+        "    - name: duplicate\n      securityContext: {privileged: false}\n",
+    )
+    assert result.status is Status.ERROR
+    assert result.reason == "DUPLICATE_CONTAINER_IDENTITY"
+
+
+def test_empty_observation_pass_is_rejected_even_with_internal_token() -> None:
+    with pytest.raises(DomainError, match="affirmative satisfied observations"):
+        OracleResult(
+            oracle_id="forged", contract_version="v1",
+            implementation_build_identity="a" * 64,
+            protected_policy_sha256="b" * 64,
+            sealed_snapshot_identity="c" * 64, role=ScanRole.CANDIDATE,
+            file_path="pod.yaml", artifact_kind=ArtifactKind.KUBERNETES_YAML,
+            resource_identity="v1/Pod/default/demo", status=Status.PASS,
+            reason="ASSERTION_SATISFIED", observations=(),
+            raw_output_sha256="d" * 64, canonical_output_sha256="d" * 64,
+            execution_controls=(), authoritative_reference="https://example.invalid",
+            _trusted_context=oracle_base._EVIDENCE_CONTEXT,
+        )
+
+
+def test_behavioral_helper_change_alters_implementation_identity() -> None:
+    registry = ProtectedOracleRegistry()
+    before = registry.implementation_build_identity
+
+    def changed_containers(document):
+        return ()
+
+    with patch.object(structural, "_containers", changed_containers):
+        after = registry.implementation_build_identity
+    assert after != before

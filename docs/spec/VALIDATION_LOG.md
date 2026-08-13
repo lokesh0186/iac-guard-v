@@ -2998,3 +2998,16 @@ URLs and file digests, and an 18-cell protected scanner/fixture execution matrix
 Online source verification re-resolved all three official tag refs and all six source
 files. Runtime errors from the strict KICS init-container and Trivy Kubernetes contracts
 remain visible as `ERROR`; they are not converted into scanner agreement.
+
+## 2026-08-13 — E5.3 protected oracle semantic closure
+
+Failing-before probes showed that ephemeral containers were omitted, malformed Boolean
+fields could be coerced to safe values, Windows Pods were treated as Linux violations,
+duplicate container paths could escape as an exception, a caller-visible factory could
+mint trusted empty-observation PASS evidence, and helper changes did not alter the
+implementation identity. The v2 closed registry covers all three Kubernetes container
+classes, enforces exact field types, types Windows non-applicability and ambiguous
+identity, requires affirmative PASS observations, and owns the only trusted-result
+construction path. Its implementation identity binds all oracle helpers, models,
+loaders, parser dependency bytes, registry code, and policy bytes. The focused permanent
+probe set records 21 passes.

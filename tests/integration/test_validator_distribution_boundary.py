@@ -35,6 +35,7 @@ def test_wheel_and_sdist_contain_no_validator_test_capability(tmp_path: Path) ->
         assert b"execute_tflint_fixture" not in payload
         assert b"make_test_container_runtime" not in payload
         assert b"_normalize_for_test" not in payload
+        assert b"def create_oracle_result" not in payload
 
     installed = tmp_path / "installed"
     install = subprocess.run(

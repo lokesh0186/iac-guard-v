@@ -468,6 +468,14 @@ canonical-output, and execution-control identities. The registry has no callback
 candidate-policy, network, or arbitrary-code entry point. Cross-scanner agreement is
 not an oracle input and cannot override its result.
 
+E5.3 closes the structural implementation boundary. Container expansion covers ordinary,
+init, and ephemeral containers; Kubernetes Boolean fields are never string-coerced;
+malformed security contexts are typed errors; and the Linux-only privilege-escalation
+assertion is not applied to Windows Pods. Only registry execution can construct trusted
+results, a passing result requires affirmative observations, and the implementation
+identity binds every structural helper, parser dependency, model, registry, and bundled
+policy byte.
+
 Target classification uses typed statuses for integrity, ruleset stability, structural
 eligibility, file/resource presence, suppression absence, occurrence sufficiency, and
 affirmative target-pass evidence. It follows verification semantics section 4. A zero

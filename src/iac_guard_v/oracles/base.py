@@ -16,7 +16,7 @@ from ..models import (
 )
 
 
-ORACLE_CONTRACT = "protected-deterministic-oracle-v1"
+ORACLE_CONTRACT = "protected-deterministic-oracle-v2"
 _SHA = re.compile(r"[0-9a-f]{64}")
 _EVIDENCE_CONTEXT = object()
 
@@ -98,8 +98,12 @@ class OracleResult:
         object.__setattr__(self, "execution_controls", controls)
         if type(self.authoritative_reference) is not str or not self.authoritative_reference.startswith("https://"):
             raise DomainError("oracle authoritative reference must be HTTPS")
-        if self.status is Status.PASS and any(item.result != "SATISFIED" for item in ordered):
-            raise DomainError("passing oracle evidence contains a non-satisfied observation")
+        if self.status is Status.PASS and (
+            not ordered or any(item.result != "SATISFIED" for item in ordered)
+        ):
+            raise DomainError(
+                "passing oracle evidence requires affirmative satisfied observations"
+            )
         if self.status is Status.FAIL and not any(item.result == "VIOLATED" for item in ordered):
             raise DomainError("failing oracle evidence requires a violation")
         if _trusted_context is not _EVIDENCE_CONTEXT:
@@ -131,11 +135,6 @@ class OracleResult:
             "execution_controls": list(self.execution_controls),
             "authoritative_reference": self.authoritative_reference,
         }
-
-
-def create_oracle_result(**values) -> OracleResult:
-    return OracleResult(_trusted_context=_EVIDENCE_CONTEXT, **values)
-
 
 def require_trusted_oracle_evidence(value: object) -> OracleResult:
     if type(value) is not OracleResult or not value._trusted_oracle_evidence:

@@ -365,6 +365,13 @@ external bundles, and network activity are not accepted. Residual risk is a defe
 the trusted structural implementation or its authoritative specification; scanner
 agreement does not mitigate or override that risk.
 
+E5.3 removes the caller-invocable trusted-result factory and binds the complete oracle
+implementation/parser graph. Malformed Kubernetes field types, duplicate container
+identity, and policy non-applicability are typed non-PASS states. IaC-Guard-V does not
+defend against arbitrary hostile code already executing inside its trusted Python
+interpreter; it does prevent CLI, config, report, and supported public API inputs from
+asserting protected oracle evidence.
+
 E5.2 closes the selected-module integration boundary. Candidate input cannot submit a
 module list or trusted validator evidence. The universe factory derives all module and
 Kubernetes scope from the sealed snapshot, and execution revalidates the complete

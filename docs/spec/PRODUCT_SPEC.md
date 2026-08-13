@@ -132,6 +132,9 @@ E5.1 implements the declarative portion of F-21 as a closed, package-bound struc
 oracle registry. Candidate-authored policy, callbacks, arbitrary Python or shell,
 network access, and caller-supplied result evidence are outside the contract. Oracle
 uncertainty remains a typed non-PASS state and scanner consensus remains advisory.
+E5.3 requires exact Kubernetes field types, covers ordinary/init/ephemeral containers,
+types non-applicable Windows assertions separately, and permits trusted result creation
+only inside closed-registry execution. Empty-observation `PASS` evidence is invalid.
 
 ## 5. Non-functional requirements
 
