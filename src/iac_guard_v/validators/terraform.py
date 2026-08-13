@@ -26,7 +26,10 @@ from .base import (
 )
 from .materialization import (
     SealedSourceFile, bind_source_file, materialize_view,
-    materialized_view_manifest, read_sealed_source, verified_write,
+    materialized_view_manifest, prepare_writable_output_directory,
+    read_sealed_source, revalidate_materialized_view,
+    revalidate_readonly_file, seal_readonly_tree, verified_write,
+    revalidate_writable_output_directory,
 )
 
 
@@ -414,13 +417,14 @@ class TerraformValidator:
             output = work / "output"
             protected = work / "protected"
             materialized_view = _copy_and_revalidate(request, view)
-            output.mkdir(mode=0o733)
-            protected.mkdir(mode=0o700)
+            prepare_writable_output_directory(output)
+            protected.mkdir(mode=0o755)
             cli = protected / "terraform.rc"
             verified_write(
                 cli,
                 b'provider_installation { filesystem_mirror { path = "/no-providers" } }\n',
             )
+            seal_readonly_tree(protected)
             tool = request.locked_identity.tool
             module_dir = (
                 "/iacgv-input" if request.module_plan.module_root == "."
@@ -460,6 +464,14 @@ class TerraformValidator:
             materialize_check = materialized_view_manifest(request.input_evidence)
             for sealed in request.source_bindings:
                 read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
+            revalidate_materialized_view(
+                view, request.input_evidence, request.max_file_bytes,
+            )
+            revalidate_readonly_file(
+                cli,
+                b'provider_installation { filesystem_mirror { path = "/no-providers" } }\n',
+            )
+            revalidate_writable_output_directory(output)
             if materialized_view != materialize_check:
                 raise DomainError(ValidationReason.MATERIALIZED_VIEW_INTEGRITY_FAILED.value)
             revalidate_trusted_container_runtime(
@@ -469,6 +481,7 @@ class TerraformValidator:
                 output, allowed_files=(), max_file_bytes=request.max_output_bytes,
                 max_total_bytes=request.max_output_bytes,
             )
+            revalidate_writable_output_directory(output)
             if process.status is not Status.PASS:
                 reason = (
                     ValidationReason.TIMEOUT if process.timed_out

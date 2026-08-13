@@ -536,3 +536,11 @@ without changing the registry identity. The registry now hashes the complete pac
 implementation and a named shared-code manifest, plus physical dependency, schema, and
 runtime contract identities. Mutation of materialization, parsing, resource discovery,
 evidence semantics, process execution, or lock verification changes the registry.
+
+### E3.7 non-root bind-mount readability
+
+Host-owner-only modes on a bind source deny the locked container UID on ordinary Linux
+engines. The materializer now makes only the mounted input/protected trees globally
+readable and traversable, never writable. Output is the sole writable mount. Mode,
+type, and content are verified both before and after the child process; a candidate
+cannot use this portability correction to mutate trusted inputs or configuration.

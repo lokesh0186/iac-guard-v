@@ -1460,6 +1460,9 @@ The remaining closed reason members are `UNSUPPORTED_CONDITION`, `MALFORMED_OUTP
 material and is always `INCONCLUSIVE`. Shared parser protections also retain
 `MATERIALIZED_VIEW_INTEGRITY_FAILED`, which means the verified private view could
 not be proven byte-identical to sealed source evidence and is always non-PASS.
+Materialization contract v2 also proves the Linux non-root mount modes: directories
+`0555`, read-only files `0444`, and the bounded output directory `0733`. Mode or
+ownership-relevant type drift around execution is the same integrity failure.
 `MODULE_SCOPE_UNRESOLVED` prevents a directory-scoped Terraform-family tool from
 claiming recursively discovered modules it did not execute. Each accepted request
 contains exactly one immutable module plan. `AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE`

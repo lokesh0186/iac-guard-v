@@ -545,6 +545,13 @@ module, shared security implementation, parser dependency code, schema contract,
 runtime contract. The aggregate implementation digest is recomputed from these child
 identities. Changes to shared evidence or materialization behavior must change the
 closed registry identity.
+
+## E3.7 Linux non-root acceptance
+
+Validator mounts must work under a native Linux Docker engine without root fallback.
+The locked UID/GID reads every sealed input and protected configuration, cannot modify
+either mount, and writes only to the bounded output mount. Permission and content drift
+before or after execution makes the result non-PASS.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,7 +20,10 @@ from iac_guard_v.validators import (
     load_protected_tflint_config,
 )
 from iac_guard_v.validators.materialization import (
-    MATERIALIZATION_FAILURE, bind_source_file, materialize_view, write_all,
+    MATERIALIZATION_FAILURE, READ_ONLY_DIRECTORY_MODE, READ_ONLY_FILE_MODE,
+    WRITABLE_OUTPUT_DIRECTORY_MODE, bind_source_file, materialize_view,
+    prepare_writable_output_directory, revalidate_materialized_view,
+    revalidate_readonly_file, seal_readonly_tree, verified_write, write_all,
 )
 from tests.phase_e_test_support import (
     execute_terraform_validator_fixture, make_test_container_runtime,
@@ -159,3 +163,47 @@ def test_write_all_retries_eintr(tmp_path: Path) -> None:
     finally:
         os.close(descriptor)
     assert destination.read_bytes() == b"complete"
+
+
+def test_bind_mounted_subtrees_are_nonroot_readable_but_immutable(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    raw = b"locals { answer = 42 }\n"
+    (source / "main.tf").write_bytes(raw)
+    sealed, _ = bind_source_file(source, "main.tf", 1024, (".tf",), "test input")
+    view = tmp_path / "private" / "view"
+    view.parent.mkdir(mode=0o700)
+    materialize_view(source, (sealed,), view, 1024)
+
+    protected = tmp_path / "private" / "protected"
+    protected.mkdir(mode=0o755)
+    config_raw = b"config {}\n"
+    config = protected / "terraform.rc"
+    verified_write(config, config_raw)
+    seal_readonly_tree(protected)
+    output = tmp_path / "private" / "output"
+    prepare_writable_output_directory(output)
+
+    assert stat.S_IMODE(view.stat().st_mode) == READ_ONLY_DIRECTORY_MODE
+    assert stat.S_IMODE((view / "main.tf").stat().st_mode) == READ_ONLY_FILE_MODE
+    assert stat.S_IMODE(protected.stat().st_mode) == READ_ONLY_DIRECTORY_MODE
+    assert stat.S_IMODE(config.stat().st_mode) == READ_ONLY_FILE_MODE
+    assert stat.S_IMODE(output.stat().st_mode) == WRITABLE_OUTPUT_DIRECTORY_MODE
+    assert READ_ONLY_DIRECTORY_MODE & stat.S_IXOTH
+    assert READ_ONLY_FILE_MODE & stat.S_IROTH
+    assert not READ_ONLY_FILE_MODE & (stat.S_IWUSR | stat.S_IWGRP | stat.S_IWOTH)
+    assert WRITABLE_OUTPUT_DIRECTORY_MODE & stat.S_IWOTH
+    revalidate_materialized_view(view, (sealed.evidence,), 1024)
+    revalidate_readonly_file(config, config_raw)
+
+
+def test_materialized_mode_change_is_detected(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "main.tf").write_text("locals {}\n", encoding="utf-8")
+    sealed, _ = bind_source_file(source, "main.tf", 1024, (".tf",), "test input")
+    view = tmp_path / "view"
+    materialize_view(source, (sealed,), view, 1024)
+    os.chmod(view / "main.tf", 0o644)
+    with pytest.raises(DomainError, match=MATERIALIZATION_FAILURE):
+        revalidate_materialized_view(view, (sealed.evidence,), 1024)

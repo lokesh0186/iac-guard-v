@@ -2929,3 +2929,13 @@ distribution identity mutation, change the registry identity. Registry-focused t
 recorded 46 passes. The combined E3.1–E3.6 focused set recorded 129 passes with
 branch-aware coverage of 91% Terraform/OpenTofu, 91% kubeconform, 95% TFLint, and
 90% registry before the final matrix.
+
+## 2026-08-13 — E3.7 Linux-readable immutable views
+
+The old materializer produced host-owner-only `0700` directories and `0400` files for
+containers fixed to UID/GID 65532. The v2 materialization contract uses `0555` mounted
+directories, `0444` inputs/configuration, and a checked `0733` output directory while
+retaining a private outer workspace. Permanent tests prove the POSIX other-read/traverse
+bits, absence of every write bit on trusted files, exact mode revalidation, and
+post-execution checks across all three validators. The focused preserved set records
+131 passes.

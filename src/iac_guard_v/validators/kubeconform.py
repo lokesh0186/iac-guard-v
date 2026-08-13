@@ -28,7 +28,9 @@ from .base import (
 from .terraform import _strict_json
 from .materialization import (
     SealedSourceFile, bind_source_file, materialize_view,
-    materialized_view_manifest, read_sealed_source,
+    materialized_view_manifest, prepare_writable_output_directory,
+    read_sealed_source, revalidate_materialized_view,
+    revalidate_writable_output_directory,
 )
 
 
@@ -414,7 +416,7 @@ class KubeconformValidator:
             view = work / "input"
             output = work / "output"
             materialized_view = _copy_view(request, view)
-            output.mkdir(mode=0o733)
+            prepare_writable_output_directory(output)
             schema_location = "file:///schemas/{{.ResourceKind}}{{.KindSuffix}}.json"
             argv = (
                 str(request.container_runtime.executable_path), "run", "--rm", "--pull", "never",
@@ -445,6 +447,10 @@ class KubeconformValidator:
                 raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
             for sealed in request.source_bindings:
                 read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
+            revalidate_materialized_view(
+                view, request.input_evidence, request.max_file_bytes,
+            )
+            revalidate_writable_output_directory(output)
             request.schema_identity.revalidate()
             if request.protected_crd_schema:
                 request.protected_crd_schema.revalidate()
@@ -452,6 +458,7 @@ class KubeconformValidator:
                 output, allowed_files=(), max_file_bytes=request.max_output_bytes,
                 max_total_bytes=request.max_output_bytes,
             )
+            revalidate_writable_output_directory(output)
             if process.status is not Status.PASS:
                 reason = ValidationReason.TIMEOUT if process.timed_out else ValidationReason.PROCESS_ERROR
                 result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,

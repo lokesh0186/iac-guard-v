@@ -26,7 +26,10 @@ from .base import (
 from .terraform import ValidationModule, _module_plan, _strict_json
 from .materialization import (
     SealedSourceFile, bind_source_file, materialize_view,
-    materialized_view_manifest, read_sealed_source, verified_write,
+    materialized_view_manifest, prepare_writable_output_directory,
+    read_sealed_source, revalidate_materialized_view,
+    revalidate_readonly_file, seal_readonly_tree, verified_write,
+    revalidate_writable_output_directory,
 )
 
 
@@ -373,10 +376,11 @@ class TflintValidator:
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
             view, output, protected = work / "input", work / "output", work / "protected"
             materialized_view = _copy_view(request, view)
-            output.mkdir(mode=0o733)
-            protected.mkdir(mode=0o700)
+            prepare_writable_output_directory(output)
+            protected.mkdir(mode=0o755)
             config = protected / "tflint.hcl"
             verified_write(config, _PROTECTED_CONFIG.encode())
+            seal_readonly_tree(protected)
             module_dir = (
                 "/iacgv-input" if request.module_plan.module_root == "."
                 else f"/iacgv-input/{request.module_plan.module_root}"
@@ -408,11 +412,17 @@ class TflintValidator:
                 raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
             for sealed in request.source_bindings:
                 read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
+            revalidate_materialized_view(
+                view, request.input_evidence, request.max_file_bytes,
+            )
+            revalidate_readonly_file(config, _PROTECTED_CONFIG.encode())
+            revalidate_writable_output_directory(output)
             revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
             _, output_manifest = read_locked_output_directory(
                 output, allowed_files=(), max_file_bytes=request.max_output_bytes,
                 max_total_bytes=request.max_output_bytes,
             )
+            revalidate_writable_output_directory(output)
             if process.status is not Status.PASS:
                 reason = ValidationReason.TIMEOUT if process.timed_out else ValidationReason.PROCESS_ERROR
                 result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,

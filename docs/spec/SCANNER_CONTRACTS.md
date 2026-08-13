@@ -585,5 +585,13 @@ Each closed-registry record exposes `contract_version`, `product_build_digest`,
 `runtime_contract_identity`. `implementation_sha256` is derived from these records and
 the gate id; it is not a selected-function or selected-module alias. Physical parser
 identity uses the complete RECORD-backed installed dependency closure.
+
+## E3.7 validator mount permission contract
+
+The locked non-root UID/GID is `65532:65532`. Input and protected bind mounts expose
+directories as `0555` and files as `0444`; the writable output directory is exactly
+`0733`. The outer host temporary directory is not part of the mount and remains
+private. All modes and bytes are revalidated around execution, and any change is
+`MATERIALIZED_VIEW_INTEGRITY_FAILED`.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.

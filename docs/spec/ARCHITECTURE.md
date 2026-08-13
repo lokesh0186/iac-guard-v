@@ -884,3 +884,12 @@ validator module, shared security-code manifest, physical parser-dependency clos
 schema contract, and protected-runtime contract identities. One aggregate digest is
 recomputed from those children. The shared manifest includes materialization, evidence
 models, process execution, runtime/lock verification, and artifact discovery.
+
+## E3.7 Linux-readable immutable materialized views
+
+Only bind-mounted subtrees are container-readable: input and protected directories are
+mode `0555`, while their regular files are `0444`. The host-private outer workspace
+remains private. Writable output directories use the locked `0733` contract. Creation
+uses explicit post-umask mode setting, and mode, type, bytes, and inventory are checked
+before and after tool execution. UID/GID `65532:65532` can traverse and read the
+read-only mounts but receives no write bit; only the output mount is writable.
