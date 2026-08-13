@@ -901,6 +901,10 @@ malformed security contexts or ambiguous container identity; and returns
 `UNSUPPORTED/WINDOWS_POLICY_NOT_APPLICABLE` for the Linux-only privilege-escalation
 assertion on Windows Pods. The implementation identity binds every structural helper,
 loader/model/registry module, physical parser dependency identity, and protected policy.
+Unknown OS names are `ERROR/OPERATING_SYSTEM_IDENTITY_INVALID`. Before an oracle may
+support an authoritative discrepancy, a passing kubeconform universe must bind the same
+role, sealed snapshot, file, artifact kind, and resource. This precondition does not turn
+the narrow structural assertion into whole-resource validity.
 
 ### V7 — Cross-scanner agreement
 
@@ -1188,6 +1192,10 @@ module scope and snapshot, exact input files, and
 `files_eligible == files_validated == module file count`. Kubeconform `PASS` additionally
 requires exact planned file/resource sets and equal expected/validated counters. The
 universe result revalidates these predicates and its closed status/reason relationship.
+It additionally re-derives PASS/FAIL/INCONCLUSIVE from all required child statuses:
+any required FAIL yields FAIL, otherwise any non-PASS or typed plan blocker yields
+INCONCLUSIVE, and only all-PASS children yield PASS. Child status/reason pairs are
+validator-specific and closed; `FAIL/NEEDS_INIT` is invalid evidence.
 
 ## 14. D5.2 protected configuration and exact target binding
 

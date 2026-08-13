@@ -349,6 +349,166 @@ def test_fake_exact_with_runtime_errors_and_fake_signoff_is_rejected(
         CHECKER.validate_catalog(_catalog(tmp_path, mutate))
 
 
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        (lambda record: record.update(normalized_result="BOGUS"), "contradicts"),
+        (
+            lambda record: record.update(
+                execution_status="PARTIAL", normalized_result="FINDING"
+            ),
+            "contradicts normalized",
+        ),
+        (lambda record: record.update(exit_code="0"), "exit code"),
+        (lambda record: record.update(diagnostics=[]), "diagnostics"),
+        (lambda record: record.update(diagnostics=["NOT_COMPLETED"]), "PASS diagnostics"),
+        (lambda record: record.update(command_argv=[]), "command argv"),
+        (lambda record: record.update(command_argv_sha256="0" * 64), "argv digest"),
+        (lambda record: record.update(duration_ms=-1), "duration"),
+        (lambda record: record.update(policy_identity=""), "policy identity"),
+    ),
+)
+def test_runtime_record_coherence_is_closed(
+    tmp_path: Path, monkeypatch, mutation, message: str,
+) -> None:
+    path = _runtime_catalog(
+        tmp_path, lambda runtime: mutation(runtime["records"][0]), monkeypatch,
+    )
+    with pytest.raises(ValueError, match=message):
+        CHECKER.validate_catalog(path)
+
+
+def test_nonpass_native_reason_must_be_retained(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    def mutate(runtime):
+        record = next(item for item in runtime["records"] if item["execution_status"] == "ERROR")
+        record["diagnostics"] = ["PROCESS_ERROR"]
+
+    with pytest.raises(ValueError, match="retained"):
+        CHECKER.validate_catalog(_runtime_catalog(tmp_path, mutate, monkeypatch))
+
+
+@pytest.mark.parametrize(
+    ("scanner", "mutate", "message"),
+    (
+        ("checkov", lambda commands: commands.pop(), "Checkov invocation"),
+        ("kics", lambda commands: commands.append(list(commands[0])), "locked adapter"),
+        ("kics", lambda commands: commands[0].remove("--read-only"), "locked adapter"),
+        (
+            "kics",
+            lambda commands: commands[0].__setitem__(
+                next(i for i, value in enumerate(commands[0]) if "@sha256:" in value),
+                "floating:latest",
+            ),
+            "immutable image",
+        ),
+        (
+            "trivy",
+            lambda commands: commands[0].remove("<protected-cache>:/cache:rw"),
+            "mount contract",
+        ),
+    ),
+)
+def test_locked_argv_contract_rejects_material_mutations(
+    scanner: str, mutate, message: str,
+) -> None:
+    runtime = json.loads(
+        (ROOT / "controls/runtime-evidence-v1.json").read_text(encoding="utf-8")
+    )
+    commands = copy.deepcopy(next(
+        record["command_argv"] for record in runtime["records"]
+        if record["scanner"] == scanner
+    ))
+    mutate(commands)
+    with pytest.raises(ValueError, match=message):
+        CHECKER._validate_locked_argv(scanner, commands)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("contract", "wrong", "contract"),
+        ("status", "CLAIMED", "status"),
+        ("creation_timestamp", "not-time", "timestamp"),
+        ("architecture", "linux/amd64", "architecture"),
+        ("protected_evidence_identity", "0" * 64, "protected evidence"),
+        ("record_root_sha256", "0" * 64, "record root"),
+    ),
+)
+def test_execution_attestation_reconciles_children(
+    field: str, value: str, message: str,
+) -> None:
+    runtime = json.loads(
+        (ROOT / "controls/runtime-evidence-v1.json").read_text(encoding="utf-8")
+    )
+    runtime.pop("evidence_root_sha256")
+    runtime["execution_attestation"][field] = value
+    with pytest.raises(ValueError, match=message):
+        CHECKER._validate_execution_attestation(runtime)
+
+
+def test_execution_attestation_rejects_resealed_and_malformed_identity(
+    monkeypatch,
+) -> None:
+    runtime = json.loads(
+        (ROOT / "controls/runtime-evidence-v1.json").read_text(encoding="utf-8")
+    )
+    runtime.pop("evidence_root_sha256")
+    runtime["execution_attestation"]["creation_timestamp"] = "2026-08-13T00:00:00+00:00"
+    with pytest.raises(ValueError, match="not canonical"):
+        CHECKER._validate_execution_attestation(runtime)
+    item = runtime["execution_attestation"]
+    children = dict(item)
+    children.pop("attestation_identity")
+    item["attestation_identity"] = CHECKER._canonical_sha(children)
+    with pytest.raises(ValueError, match="not the reviewed execution"):
+        CHECKER._validate_execution_attestation(runtime)
+    monkeypatch.setattr(
+        CHECKER, "APPROVED_EXECUTION_ATTESTATION_IDENTITY",
+        item["attestation_identity"],
+    )
+    item["runtime_identity"] = "bad"
+    children = dict(item)
+    children.pop("attestation_identity")
+    item["attestation_identity"] = CHECKER._canonical_sha(children)
+    monkeypatch.setattr(
+        CHECKER, "APPROVED_EXECUTION_ATTESTATION_IDENTITY",
+        item["attestation_identity"],
+    )
+    with pytest.raises(ValueError, match="runtime_identity"):
+        CHECKER._validate_execution_attestation(runtime)
+
+
+def test_exact_signoff_requires_verified_bytes_signer_and_signature(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    monkeypatch.setattr(CHECKER, "ROOT", tmp_path)
+    for name, raw in (("record.json", b"record"), ("record.sig", b"signature"), ("key.pem", b"key")):
+        (tmp_path / name).write_bytes(raw)
+    signoff = {
+        "verification_status": "VERIFIED",
+        "verification_record_path": "record.json",
+        "verification_record_sha256": hashlib.sha256(b"record").hexdigest(),
+        "signature_path": "record.sig",
+        "signature_sha256": hashlib.sha256(b"signature").hexdigest(),
+        "public_key_path": "key.pem",
+        "public_key_sha256": hashlib.sha256(b"key").hexdigest(),
+        "signer_identity": f"ed25519:{hashlib.sha256(b'key').hexdigest()}",
+    }
+    monkeypatch.setattr(CHECKER.subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(returncode=0))
+    CHECKER._validate_exact_signoff(signoff)
+    with pytest.raises(ValueError, match="not verified"):
+        CHECKER._validate_exact_signoff({**signoff, "verification_status": "CLAIMED"})
+    with pytest.raises(ValueError, match="bytes"):
+        CHECKER._validate_exact_signoff({**signoff, "signature_sha256": "0" * 64})
+    with pytest.raises(ValueError, match="signer"):
+        CHECKER._validate_exact_signoff({**signoff, "signer_identity": "unknown"})
+    monkeypatch.setattr(CHECKER.subprocess, "run", lambda *_args, **_kwargs: SimpleNamespace(returncode=1))
+    with pytest.raises(ValueError, match="signature is invalid"):
+        CHECKER._validate_exact_signoff(signoff)
+
+
 def test_runtime_evidence_rejects_malformed_json_and_root(
     tmp_path: Path, monkeypatch,
 ) -> None:

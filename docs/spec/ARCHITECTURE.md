@@ -474,7 +474,11 @@ malformed security contexts are typed errors; and the Linux-only privilege-escal
 assertion is not applied to Windows Pods. Only registry execution can construct trusted
 results, a passing result requires affirmative observations, and the implementation
 identity binds every structural helper, parser dependency, model, registry, and bundled
-policy byte.
+policy byte. E5.5 accepts only absent/default Linux applicability, explicit `linux`, or
+the documented Windows rule; an unknown OS name is typed error. Authoritative use also
+requires a passing, role-bound Kubernetes validation universe for the same sealed
+snapshot, file, artifact kind, and resource. Oracle PASS remains proof only of its named
+predicate.
 
 Target classification uses typed statuses for integrity, ruleset stability, structural
 eligibility, file/resource presence, suppression absence, occurrence sufficiency, and
@@ -948,6 +952,9 @@ the exact role-specific child scope identities from the sealed universe, require
 validator/tool/module/file/resource identities and complete PASS counters, and rejects
 missing, duplicate, cross-role, or snapshot-mismatched evidence. A universe result keeps
 its protected plan privately and rechecks its own status/reason/evidence relationships.
+E5.6 re-derives the aggregate status and reason from every required child and the sealed
+plan blockers. A caller cannot stamp PASS over a failing child, stamp FAIL over all-PASS
+children, or pair a child status with a reason outside that validator's closed contract.
 
 ## E3.9 kubeconform coherence and authoritative registry runtime
 

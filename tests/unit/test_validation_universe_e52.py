@@ -12,6 +12,12 @@ import iac_guard_v.engine as engine
 from iac_guard_v.engine import attest_checkov_scan_plan
 from iac_guard_v.enums import ScanRole, Status
 from iac_guard_v.models import BoundInputFile, DomainError
+from iac_guard_v.oracles import (
+    ProtectedOracleRegistry,
+    create_protected_oracle_request,
+    require_authoritative_oracle_precondition,
+)
+from iac_guard_v.enums import ArtifactKind
 from iac_guard_v.validators.base import (
     ValidationReason,
     ValidatorExecutionEvidence,
@@ -62,10 +68,10 @@ def _terraform_snapshot(tmp_path: Path):
     return raw.scan_root, _role_snapshot(attest_checkov_scan_plan(raw))
 
 
-def _kubernetes_snapshot(tmp_path: Path):
+def _kubernetes_snapshot(tmp_path: Path, name: str = "demo"):
     raw = adapter_request(tmp_path, frameworks=("kubernetes",))
     (raw.scan_root / "pod.yaml").write_text(
-        "apiVersion: v1\nkind: Pod\nmetadata: {name: demo}\n"
+        f"apiVersion: v1\nkind: Pod\nmetadata: {{name: {name}}}\n"
         "spec:\n  containers: [{name: app, image: example.invalid/app}]\n",
         encoding="utf-8",
     )
@@ -199,6 +205,59 @@ def test_module_aggregation_is_conservative(tmp_path: Path) -> None:
     ).status is Status.INCONCLUSIVE
 
 
+def test_universe_result_rederives_aggregate_from_children(tmp_path: Path) -> None:
+    _root, snapshot = _terraform_snapshot(tmp_path)
+    plan = create_trusted_validation_universe_plan(snapshot)
+    mixed = (
+        _result(plan.terraform_modules[0], Status.PASS, ValidationReason.COMPLETED),
+        _result(
+            plan.terraform_modules[1], Status.FAIL,
+            ValidationReason.INVALID_CONFIGURATION,
+        ),
+    )
+    failed = _aggregate_module_results(
+        plan, "opentofu_validate", mixed, advisory=False,
+    )
+    assert failed.status is Status.FAIL
+    with pytest.raises(DomainError, match="aggregate contradicts child"):
+        replace(
+            failed, _trusted_context=_RESULT_CONTEXT, status=Status.PASS,
+            reason="ALL_REQUIRED_MODULES_PASSED",
+        )
+    passing = tuple(
+        _result(item, Status.PASS, ValidationReason.COMPLETED)
+        for item in plan.terraform_modules
+    )
+    aggregate = _aggregate_module_results(
+        plan, "opentofu_validate", passing, advisory=False,
+    )
+    for status, reason in (
+        (Status.FAIL, "MODULE_VALIDATION_FAILED"),
+        (Status.INCONCLUSIVE, "MODULE_VALIDATION_INCONCLUSIVE"),
+    ):
+        with pytest.raises(DomainError, match="aggregate contradicts child"):
+            replace(
+                aggregate, _trusted_context=_RESULT_CONTEXT,
+                status=status, reason=reason,
+            )
+
+
+def test_validator_child_status_reason_contract_is_closed(tmp_path: Path) -> None:
+    _root, snapshot = _terraform_snapshot(tmp_path)
+    plan = create_trusted_validation_universe_plan(snapshot)
+    valid = _result(
+        plan.terraform_modules[0], Status.FAIL,
+        ValidationReason.INVALID_CONFIGURATION,
+    )
+    context = __import__(
+        "iac_guard_v.validators.base", fromlist=["_EVIDENCE_CONTEXT"]
+    )._EVIDENCE_CONTEXT
+    with pytest.raises(DomainError, match="incompatible"):
+        replace(
+            valid, _trusted_context=context, reason=ValidationReason.NEEDS_INIT,
+        )
+
+
 def test_kubernetes_universe_is_snapshot_complete(tmp_path: Path) -> None:
     root, snapshot = _kubernetes_snapshot(tmp_path)
     plan = create_trusted_validation_universe_plan(snapshot)
@@ -209,6 +268,38 @@ def test_kubernetes_universe_is_snapshot_complete(tmp_path: Path) -> None:
     )
     with pytest.raises(DomainError, match="SNAPSHOT_CHANGED_DURING_VALIDATION"):
         revalidate_validation_universe_plan(plan, root)
+
+
+def test_authoritative_oracle_use_requires_same_passing_kubernetes_universe(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "one").mkdir()
+    _root, snapshot = _kubernetes_snapshot(tmp_path / "one")
+    plan = create_trusted_validation_universe_plan(snapshot)
+    evidence = _kube_result(plan)
+    universe = ValidationUniverseResult(
+        "kubeconform_validate", plan.role, plan.universe_sha256, Status.PASS,
+        "COMPLETE_KUBERNETES_UNIVERSE_PASSED", False, (), evidence,
+        _plan=plan, _trusted_context=_RESULT_CONTEXT,
+    )
+    oracle = ProtectedOracleRegistry().execute(create_protected_oracle_request(
+        oracle_id="kubernetes_no_privileged_containers_v1", snapshot=snapshot,
+        file_path="pod.yaml", artifact_kind=ArtifactKind.KUBERNETES_YAML,
+        resource_identity="v1/Pod/default/demo",
+    ))
+    assert require_authoritative_oracle_precondition(oracle, universe) is oracle
+
+    (tmp_path / "other").mkdir()
+    _other_root, other_snapshot = _kubernetes_snapshot(tmp_path / "other", "other")
+    other_plan = create_trusted_validation_universe_plan(other_snapshot)
+    other_evidence = _kube_result(other_plan)
+    other_universe = ValidationUniverseResult(
+        "kubeconform_validate", other_plan.role, other_plan.universe_sha256,
+        Status.PASS, "COMPLETE_KUBERNETES_UNIVERSE_PASSED", False, (),
+        other_evidence, _plan=other_plan, _trusted_context=_RESULT_CONTEXT,
+    )
+    with pytest.raises(DomainError, match="validated resource universe"):
+        require_authoritative_oracle_precondition(oracle, other_universe)
 
 
 def test_tf_json_is_explicitly_unsupported(tmp_path: Path) -> None:

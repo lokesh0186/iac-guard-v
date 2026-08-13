@@ -383,6 +383,10 @@ E5.4 assumes even an internally marked child record may be malformed or misbound
 universe result therefore re-derives child scope hashes and exact coverage from the
 sealed role snapshot. Wrong-role, zero-coverage, fake-snapshot, missing/duplicate-module,
 and Kubernetes file/resource-set contradictions are rejected before aggregation.
+E5.5 prevents applicability confusion: arbitrary OS strings are not treated as Linux,
+and oracle evidence cannot be promoted without exact passing Kubernetes validation for
+the same sealed resource. E5.6 treats the universe aggregate itself as attacker-relevant
+evidence and recomputes it from factory-produced child records and actual plan blockers.
 
 D6.4 prevents a commit label from blessing unrelated working-tree bytes. Protected
 contexts require the authorized candidate at `HEAD`, a clean checkout, and no untracked

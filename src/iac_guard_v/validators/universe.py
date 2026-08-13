@@ -468,11 +468,13 @@ class ValidationUniverseResult:
             if self.advisory_only or self.module_results:
                 raise DomainError("Kubernetes universe result contains module evidence")
             if self.kubernetes_result is None:
-                if self.status is not Status.INCONCLUSIVE or self.reason != (
-                    "EMPTY_OR_UNRESOLVED_KUBERNETES_UNIVERSE"
-                ):
+                if (self.status is not Status.INCONCLUSIVE
+                        or self.reason != "EMPTY_OR_UNRESOLVED_KUBERNETES_UNIVERSE"
+                        or (self._plan.ready and self._plan.kubernetes_files)):
                     raise DomainError("empty Kubernetes universe result is contradictory")
             else:
+                if self.status not in {Status.PASS, Status.FAIL, Status.INCONCLUSIVE}:
+                    raise DomainError("Kubernetes universe aggregate status is unsupported")
                 expected_reason = (
                     "COMPLETE_KUBERNETES_UNIVERSE_PASSED"
                     if self.status is Status.PASS else "KUBERNETES_UNIVERSE_NON_PASS"
@@ -499,6 +501,24 @@ class ValidationUniverseResult:
                 self._plan, self.validator_id, self.module_results, self.advisory_only,
             ):
                 raise DomainError("module universe result ordering is not canonical")
+            if self.module_results:
+                expected_status, expected_reason = _derived_module_aggregate(
+                    self.module_results,
+                )
+                if self.status is not expected_status or self.reason != expected_reason:
+                    raise DomainError(
+                        "module universe status/reason aggregate contradicts child evidence"
+                    )
+            else:
+                expected_reason = (
+                    TF_JSON_REASON if self._plan.unsupported_tf_json
+                    else "ARTIFACT_UNIVERSE_UNRESOLVED" if self._plan.unresolved_entries
+                    else "EMPTY_OR_UNRESOLVED_MODULE_UNIVERSE"
+                    if self.validator_id == "tflint_advisory"
+                    else "EMPTY_REQUIRED_MODULE_UNIVERSE"
+                )
+                if self.status is not Status.INCONCLUSIVE or self.reason != expected_reason:
+                    raise DomainError("empty module universe reason contradicts plan state")
 
     def canonical_dict(self) -> dict:
         return {
@@ -523,16 +543,21 @@ def _aggregate_module_results(
     if not plan.terraform_modules:
         raise DomainError("validator evidence cannot prove an empty repository module universe")
     ordered = _reconcile_module_evidence(plan, validator_id, results, advisory)
-    if any(item.status is Status.FAIL for item in ordered):
-        status, reason = Status.FAIL, "MODULE_VALIDATION_FAILED"
-    elif any(item.status is not Status.PASS for item in ordered):
-        status, reason = Status.INCONCLUSIVE, "MODULE_VALIDATION_INCONCLUSIVE"
-    else:
-        status, reason = Status.PASS, "ALL_REQUIRED_MODULES_PASSED"
+    status, reason = _derived_module_aggregate(ordered)
     return ValidationUniverseResult(
         validator_id, plan.role, plan.universe_sha256, status, reason, advisory,
         ordered, _plan=plan, _trusted_context=_RESULT_CONTEXT,
     )
+
+
+def _derived_module_aggregate(
+    results: tuple[ValidatorExecutionEvidence, ...],
+) -> tuple[Status, str]:
+    if any(item.status is Status.FAIL for item in results):
+        return Status.FAIL, "MODULE_VALIDATION_FAILED"
+    if any(item.status is not Status.PASS for item in results):
+        return Status.INCONCLUSIVE, "MODULE_VALIDATION_INCONCLUSIVE"
+    return Status.PASS, "ALL_REQUIRED_MODULES_PASSED"
 
 
 def _validate_kubernetes_evidence(

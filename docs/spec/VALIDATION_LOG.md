@@ -3043,7 +3043,8 @@ bindings. All 18 cells are retained: six Checkov `PASS`, five KICS
 codes, diagnostics, portable locked argv, duration and raw/canonical output identities.
 One reviewed protected-execution attestation binds the E0.3 evidence/cache identity,
 runtime identity and the complete record root. Catalog validation and online official
-source verification passed; 55 catalog tests passed. `exact_mapping_count` remains zero.
+source verification passed; 78 catalog tests passed with 94% branch coverage.
+`exact_mapping_count` remains zero.
 
 ## 2026-08-13 — E5.5 oracle applicability closure
 
@@ -3053,3 +3054,22 @@ than `linux` or `windows`; the reproduced `solaris` inputs return
 authoritative-use precondition requires a passing role-bound kubeconform universe for
 the same sealed snapshot, file, artifact kind and resource. Oracle PASS continues to
 prove only its named predicate and is not connected to V7 or the final verdict.
+
+## 2026-08-13 — E5.6 self-validating validation universes
+
+`ValidationUniverseResult` now derives its aggregate from required child evidence and
+the actual sealed-plan blockers. Mixed PASS/FAIL children cannot be stamped PASS, and
+all-PASS children cannot be stamped FAIL or INCONCLUSIVE. The validator evidence model
+also enforces tool-specific closed status/reason tables; `FAIL/NEEDS_INIT` is rejected.
+Focused oracle/universe closure tests passed with the exact protected precondition and
+aggregate mutation probes.
+
+The supported Python 3.10–3.13 matrix passed the 1,937-test non-integration
+suite on every interpreter; the final expanded 78-test catalog suite also passed on
+every interpreter (55 tests overlap that run, for 1,960 current distinct tests).
+Locked integrations recorded 14 passes and the expected macOS skip for the native-Linux
+UID/bind-mount gate. Focused branch coverage was 94% for the catalog checker, 92% across
+protected oracle modules, and 93% for validation-universe orchestration. Specification
+lint remained 26 documents/164 enums with zero warnings; the manifest was 4,842/4,842,
+replay was 630/630 and 10,080/10,080 with zero verdict mismatches, all seven derived
+tables were semantic matches, and the frozen-scope diff was empty.

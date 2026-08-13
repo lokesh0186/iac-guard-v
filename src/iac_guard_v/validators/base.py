@@ -46,6 +46,58 @@ class ValidationReason(str, Enum):
     TF_JSON_UNSUPPORTED = "TF_JSON_UNSUPPORTED"
 
 
+_COMMON_INCONCLUSIVE = {
+    ValidationReason.PROCESS_ERROR, ValidationReason.TIMEOUT,
+    ValidationReason.MALFORMED_OUTPUT, ValidationReason.DUPLICATE_JSON_KEY,
+    ValidationReason.JSON_DEPTH_EXCEEDED,
+    ValidationReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED,
+    ValidationReason.INPUT_CHANGED_DURING_VALIDATION,
+    ValidationReason.RUNTIME_INTEGRITY_FAILED,
+    ValidationReason.VERSION_OR_LOCK_DRIFT,
+    ValidationReason.DIAGNOSTIC_CONTRADICTION,
+    ValidationReason.MATERIALIZED_VIEW_INTEGRITY_FAILED,
+    ValidationReason.MODULE_SCOPE_UNRESOLVED,
+    ValidationReason.INCOMPLETE_COVERAGE,
+    ValidationReason.SNAPSHOT_CHANGED_DURING_VALIDATION,
+    ValidationReason.TF_JSON_UNSUPPORTED,
+}
+
+
+def _status_reason_contract(validator_id: str) -> dict[Status, set[ValidationReason]]:
+    if validator_id in {"opentofu_validate", "terraform_validate"}:
+        return {
+            Status.PASS: {ValidationReason.COMPLETED},
+            Status.FAIL: {ValidationReason.INVALID_CONFIGURATION},
+            Status.INCONCLUSIVE: _COMMON_INCONCLUSIVE | {
+                ValidationReason.NEEDS_INIT, ValidationReason.UNSUPPORTED_CONDITION,
+            },
+        }
+    if validator_id in {"kubeconform_schema", "kubeconform_validate"}:
+        return {
+            Status.PASS: {ValidationReason.COMPLETED},
+            Status.FAIL: {ValidationReason.INVALID_CONFIGURATION},
+            Status.SKIPPED: {ValidationReason.EMPTY_SCOPE},
+            Status.INCONCLUSIVE: _COMMON_INCONCLUSIVE | {
+                ValidationReason.UNSUPPORTED_CONDITION,
+                ValidationReason.MISSING_SCHEMA,
+                ValidationReason.CRD_SCHEMA_UNAVAILABLE,
+                ValidationReason.SCHEMA_BUNDLE_CHANGED,
+                ValidationReason.INCOMPLETE_COVERAGE,
+                ValidationReason.BASELINE_EVIDENCE_INVALID,
+                ValidationReason.AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE,
+            },
+        }
+    if validator_id == "tflint_advisory":
+        return {
+            Status.PASS: {ValidationReason.COMPLETED},
+            Status.INCONCLUSIVE: _COMMON_INCONCLUSIVE | {
+                ValidationReason.UNSUPPORTED_CONDITION,
+                ValidationReason.PLUGIN_INITIALIZATION_REQUIRED,
+            },
+        }
+    return {}
+
+
 @dataclass(frozen=True, slots=True)
 class ValidationDiagnostic:
     severity: str
@@ -111,6 +163,9 @@ class ValidatorExecutionEvidence:
             object.__setattr__(self, name, canonical_identifier(getattr(self, name), name))
         if type(self.status) is not Status or type(self.reason) is not ValidationReason:
             raise DomainError("validator status/reason must use the closed vocabulary")
+        contract = _status_reason_contract(self.validator_id)
+        if not contract or self.reason not in contract.get(self.status, set()):
+            raise DomainError("validator status/reason pair is incompatible with its contract")
         if type(self.advisory_only) is not bool:
             raise DomainError("advisory_only must be a bool")
         if type(self.diagnostics) is not tuple or any(
@@ -173,8 +228,6 @@ class ValidatorExecutionEvidence:
         object.__setattr__(self, "input_files", tuple(sorted(
             self.input_files, key=lambda item: item.canonical_key,
         )))
-        if self.status is Status.PASS and self.reason is not ValidationReason.COMPLETED:
-            raise DomainError("PASS validator evidence requires COMPLETED")
         if _trusted_context is _EVIDENCE_CONTEXT:
             object.__setattr__(self, "_trusted_validator_evidence", True)
 

@@ -138,6 +138,10 @@ only inside closed-registry execution. Empty-observation `PASS` evidence is inva
 E5.4 requires repository-universe aggregation to reconcile exact role, snapshot, scope,
 module, input-file, resource, validator/tool, count, and status/reason evidence before a
 child `PASS` can contribute to a universe `PASS`.
+E5.5 rejects unknown Kubernetes OS identities and requires exact passing Kubernetes
+universe evidence before structural-oracle output can support an authoritative claim.
+E5.6 makes aggregate universe status a derived value and closes each validator's
+status/reason combinations; TFLint remains advisory.
 
 ## 5. Non-functional requirements
 
