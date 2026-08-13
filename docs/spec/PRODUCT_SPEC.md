@@ -479,6 +479,13 @@ adapter evidence. Trivy obtains `IACGV_PHASE_E_CACHE` and verifies its E0.3 sign
 Phase-E locked execution requires a portable protected evidence bundle and a
 `TrustedContainerRuntime`. Missing, fake, workspace-local, symlinked, byte-drifted, or
 daemon/context-drifted runtimes fail closed before scanner evidence is authoritative.
+
+## E1.3 KICS coherence acceptance
+
+KICS evidence is accepted only when retained severities, counters, result exit, locked
+container scan path, ordinary/BOM query totals, unique query IDs, and issue types agree.
+Raw bytes, canonical native semantics, and the physical output directory are bound by
+three independent identities. KICS remains advisory.
 and inventory before use.
 
 E1/E2.2 requires the complete hardened Docker restriction set, an exact no-follow

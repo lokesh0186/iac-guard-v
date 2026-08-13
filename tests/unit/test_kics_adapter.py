@@ -246,6 +246,84 @@ def test_complete_standard_severity_counter_set_is_required(tmp_path: Path) -> N
     assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
 
 
+def test_retained_finding_severity_must_match_native_counters_and_exit(
+    tmp_path: Path,
+) -> None:
+    document = _document(queries=[_query(severity="LOW")])
+    document["severity_counters"]["LOW"] = 0
+    document["severity_counters"]["HIGH"] = 1
+    run = normalize_kics_fixture(
+        json.dumps(document).encode(), _request(tmp_path), _process(exit_code=50)
+    )
+    assert run.status is Status.ERROR
+    assert AdapterReason.SEVERITY_EVIDENCE_MISMATCH.value in run.diagnostics
+
+
+def test_native_scan_paths_must_equal_locked_container_target(tmp_path: Path) -> None:
+    document = _document(queries=[_query()], paths=["/totally-other"])
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.ERROR
+    assert AdapterReason.SCAN_PATH_MISMATCH.value in run.diagnostics
+
+
+def test_bom_queries_contribute_to_queries_total(tmp_path: Path) -> None:
+    bom = _query(severity="TRACE")
+    document = _document(
+        queries=[], bill_of_materials=[bom], queries_total=0,
+        severity_counters={
+            "CRITICAL": 0, "HIGH": 0, "INFO": 0, "LOW": 0,
+            "MEDIUM": 0, "TRACE": 1,
+        },
+        total_bom_resources=1,
+    )
+    run = _normalize(tmp_path, document, expected=False)
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
+
+
+def test_duplicate_query_id_across_ordinary_and_bom_is_rejected(tmp_path: Path) -> None:
+    ordinary = _query(severity="LOW")
+    bom = _query(severity="TRACE")
+    document = _document(
+        queries=[ordinary], bill_of_materials=[bom], total_bom_resources=1,
+        severity_counters={
+            "CRITICAL": 0, "HIGH": 0, "INFO": 0, "LOW": 1,
+            "MEDIUM": 0, "TRACE": 1,
+        },
+    )
+    run = _normalize(tmp_path, document)
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
+
+
+def test_issue_type_is_closed_to_pinned_kics_vocabulary(tmp_path: Path) -> None:
+    query = _query()
+    query["files"][0]["issue_type"] = "BOGUS"
+    run = _normalize(tmp_path, _document(queries=[query]))
+    assert run.status is Status.ERROR
+    assert AdapterReason.INVALID_RESULTS_STRUCTURE.value in run.diagnostics
+
+
+def test_raw_semantic_and_physical_output_identities_are_separate(
+    tmp_path: Path,
+) -> None:
+    document = _document(queries=[_query()])
+    compact = json.dumps(document, sort_keys=True, separators=(",", ":")).encode()
+    pretty = json.dumps(document, sort_keys=True, indent=2).encode()
+    first = normalize_kics_fixture(
+        compact, _request(tmp_path / "compact"), _process(exit_code=50)
+    )
+    second = normalize_kics_fixture(
+        pretty, _request(tmp_path / "pretty"), _process(exit_code=50)
+    )
+    assert first.native_output_bytes_sha256 != second.native_output_bytes_sha256
+    assert first.canonical_native_output_sha256 == second.canonical_native_output_sha256
+    assert (
+        first.output_directory_physical_manifest_sha256
+        != second.output_directory_physical_manifest_sha256
+    )
+
+
 @pytest.mark.parametrize("exit_code", [1, 2, 10, 70, 126, 127])
 def test_engine_error_exits_are_outside_result_contract(exit_code: int) -> None:
     assert exit_code not in KICS_CONTRACT.expected_exit_codes
@@ -375,7 +453,8 @@ def test_native_order_reversal_has_identical_canonical_output(tmp_path: Path) ->
     second = _query(query_id="22222222-2222-4222-8222-222222222222", similarity="2" * 64)
     run_a = _normalize(tmp_path / "a", _document(queries=[first, second]))
     run_b = _normalize(tmp_path / "b", _document(queries=[second, first]))
-    assert run_a.canonical_dict() == run_b.canonical_dict()
+    assert run_a.scanner_run.canonical_dict() == run_b.scanner_run.canonical_dict()
+    assert run_a.canonical_native_output_sha256 == run_b.canonical_native_output_sha256
 
 
 def test_result_shape_count_contradiction_is_error(tmp_path: Path) -> None:

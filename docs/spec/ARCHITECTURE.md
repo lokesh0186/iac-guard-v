@@ -797,3 +797,10 @@ read-only root, all capabilities dropped, no-new-privileges, PID/CPU/memory limi
 and explicit non-root UID/GID. The complete writable output directory is inventoried
 twice with no-follow reads; only the expected regular JSON file is allowed and its
 portable semantic manifest is retained.
+
+## E1.3 KICS coherent native evidence
+
+The KICS boundary now returns `KicsExecutionEvidence`: its trusted scanner run plus
+the runtime/image/invocation identities and separate raw, semantic, and physical output
+identities. Query/file severities, summary counters, exit, scan path, ordinary/BOM
+query totals, and pinned issue-type vocabulary form one validated evidence graph.

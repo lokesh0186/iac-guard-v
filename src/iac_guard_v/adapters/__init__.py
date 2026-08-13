@@ -18,6 +18,7 @@ from .kics import (
     KICS_ADAPTER_CONTRACT,
     KICS_CONTRACT,
     KicsAdapter,
+    KicsExecutionEvidence,
     KicsScanRequest,
     create_kics_scan_request,
 )
@@ -48,6 +49,7 @@ __all__ = [
     "KICS_ADAPTER_CONTRACT",
     "KICS_CONTRACT",
     "KicsAdapter",
+    "KicsExecutionEvidence",
     "KicsScanRequest",
     "LockedContainerIdentity",
     "ProtectedPhaseEEvidenceBundle",

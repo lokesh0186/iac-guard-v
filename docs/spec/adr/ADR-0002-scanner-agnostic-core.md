@@ -153,3 +153,9 @@ Phase-E container adapters receive an opaque runtime capability issued by protec
 operator/workflow plumbing. They do not receive a path selected by candidate or public
 configuration. Portable lock/cache evidence is rooted explicitly and is independent of
 the installed package or source checkout location.
+
+## Amendment, 2026-08-12: E1.3 KICS evidence coherence
+
+KICS native query/file evidence, counters, paths, result exit, BOM evidence, and issue
+types are one closed v2.1.20 graph. The adapter preserves separate exact-byte,
+canonical-semantic, and physical-output identities and remains advisory.

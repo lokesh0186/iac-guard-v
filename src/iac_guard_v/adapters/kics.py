@@ -37,7 +37,7 @@ from ..normalisation import assign_occurrence_indices
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
 from .base import (
     AdapterReason, ScannerContract, read_locked_output_directory,
-    remove_private_tree, require_hardened_docker_argv, semantic_output_manifest,
+    remove_private_tree, require_hardened_docker_argv,
 )
 from .phase_e_lock import LockedContainerIdentity, require_locked_identity
 from .phase_e_runtime import (
@@ -54,8 +54,9 @@ KICS_CONTRACT = ScannerContract(
     expected_exit_codes=(0, 20, 30, 40, 50, 60),
 )
 KICS_MAX_JSON_NESTING_DEPTH = 128
-KICS_ADAPTER_CONTRACT = "kics-adapter-contract-v2"
+KICS_ADAPTER_CONTRACT = "kics-adapter-contract-v3"
 _REQUEST_CONTEXT = object()
+_RESULT_CONTEXT = object()
 _SHA = re.compile(r"[0-9a-f]{64}")
 _TOP_LEVEL_FIELDS = frozenset({
     "kics_version", "files_scanned", "lines_scanned", "files_parsed",
@@ -89,6 +90,7 @@ _FILE_FIELDS = frozenset({
 _SEVERITY_KEYS = frozenset({"CRITICAL", "HIGH", "INFO", "LOW", "MEDIUM", "TRACE"})
 _RESULT_EXIT = {"INFO": 20, "LOW": 30, "MEDIUM": 40, "HIGH": 50, "CRITICAL": 60}
 _SEVERITY_RANK = {name: index for index, name in enumerate(("INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"))}
+_ISSUE_TYPES = frozenset({"MissingAttribute", "RedundantAttribute", "IncorrectValue"})
 _DOCKER_USER = "65532:65532"
 _DOCKER_PIDS_LIMIT = "128"
 _DOCKER_MEMORY = "512m"
@@ -225,6 +227,60 @@ class KicsScanRequest:
 def create_kics_scan_request(**kwargs: Any) -> KicsScanRequest:
     """Factory kept explicit so serialized input cannot assert sealed evidence."""
     return KicsScanRequest(_trusted_context=_REQUEST_CONTEXT, **kwargs)
+
+
+@dataclass(frozen=True, slots=True)
+class KicsExecutionEvidence:
+    """Trusted KICS run plus exact, semantic, and physical output identities."""
+
+    scanner_run: ScannerRun
+    container_runtime_identity: str
+    binary_image_identity: str
+    image_index_digest: str
+    invocation_identity: str
+    native_output_bytes_sha256: str
+    canonical_native_output_sha256: str
+    output_directory_physical_manifest_sha256: str
+    _trusted_context: InitVar[object] = None
+    _trusted_evidence: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        if (
+            type(self.scanner_run) is not ScannerRun
+            or not self.scanner_run._trusted_adapter_evidence
+            or self.scanner_run.scanner != "kics"
+        ):
+            raise DomainError("KICS execution evidence requires an adapter-owned run")
+        if type(self.binary_image_identity) is not str or not self.binary_image_identity.startswith("sha256:"):
+            raise DomainError("KICS binary image identity is invalid")
+        if type(self.image_index_digest) is not str or not self.image_index_digest.startswith("sha256:"):
+            raise DomainError("KICS image index identity is invalid")
+        for name in (
+            "container_runtime_identity", "invocation_identity",
+            "native_output_bytes_sha256", "canonical_native_output_sha256",
+            "output_directory_physical_manifest_sha256",
+        ):
+            if type(getattr(self, name)) is not str or _SHA.fullmatch(getattr(self, name)) is None:
+                raise DomainError(f"{name} must be a canonical SHA-256")
+        if _trusted_context is _RESULT_CONTEXT:
+            object.__setattr__(self, "_trusted_evidence", True)
+
+    def __getattr__(self, name: str):
+        return getattr(self.scanner_run, name)
+
+    def canonical_dict(self) -> dict:
+        return {
+            "scanner_run": self.scanner_run.canonical_dict(),
+            "container_runtime_identity": self.container_runtime_identity,
+            "binary_image_identity": self.binary_image_identity,
+            "image_index_digest": self.image_index_digest,
+            "invocation_identity": self.invocation_identity,
+            "native_output_bytes_sha256": self.native_output_bytes_sha256,
+            "canonical_native_output_sha256": self.canonical_native_output_sha256,
+            "output_directory_physical_manifest_sha256": (
+                self.output_directory_physical_manifest_sha256
+            ),
+        }
 
 
 def _strict_json(raw: bytes) -> dict:
@@ -403,7 +459,7 @@ def _reason_run(
         exit_code=process.exit_code if process and process.exit_code is not None else -1,
         stdout_sha256=process.stdout_sha256 if process else "",
         stderr_sha256=process.stderr_sha256 if process else "",
-        raw_output_sha256=(hashlib.sha256(raw_output).hexdigest() if raw_output else ""),
+        raw_output_sha256=hashlib.sha256(raw_output or b"").hexdigest(),
         resolved_launcher_path="protected-container-runtime",
         launcher_digest=request.container_runtime.executable_sha256,
         scanner_environment_digest=request.locked_identity.environment_digest,
@@ -420,6 +476,32 @@ def _reason_run(
         input_files=request.eligible_file_evidence,
         duration_ms=process.duration_ms if process else 0,
         diagnostics=(reason.value, *diagnostics),
+    )
+
+
+def _execution_evidence(
+    request: KicsScanRequest,
+    run: ScannerRun,
+    raw: bytes | None,
+    output_manifest_sha256: str = "",
+) -> KicsExecutionEvidence:
+    native = raw or b""
+    try:
+        canonical = _canonical_native_hash(_strict_json(native)) if native else hashlib.sha256(b"").hexdigest()
+    except DomainError:
+        canonical = hashlib.sha256(native).hexdigest()
+    return KicsExecutionEvidence(
+        scanner_run=run,
+        container_runtime_identity=request.container_runtime.identity,
+        binary_image_identity=request.locked_identity.image_architecture_digest,
+        image_index_digest=request.locked_identity.image_index_digest,
+        invocation_identity=_invocation_digest(request),
+        native_output_bytes_sha256=hashlib.sha256(native).hexdigest(),
+        canonical_native_output_sha256=canonical,
+        output_directory_physical_manifest_sha256=(
+            output_manifest_sha256 or hashlib.sha256(b"").hexdigest()
+        ),
+        _trusted_context=_RESULT_CONTEXT,
     )
 
 
@@ -450,7 +532,6 @@ def _normalize(
     if output_manifest_sha256:
         if _SHA.fullmatch(output_manifest_sha256) is None:
             raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
-        diagnostics.append(f"output_directory_manifest_sha256:{output_manifest_sha256}")
     unknown_top = sorted(set(payload) - _TOP_LEVEL_FIELDS)
     if unknown_top:
         diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
@@ -484,6 +565,14 @@ def _normalize(
     paths = payload.get("paths")
     if type(paths) is not list or any(type(item) is not str or not item.strip() for item in paths):
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    normalized_paths = []
+    for item in paths:
+        path = PurePosixPath(item)
+        if not path.is_absolute() or ".." in path.parts:
+            raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+        normalized_paths.append("/" + "/".join(path.parts[1:]))
+    if normalized_paths != ["/iacgv-input"]:
+        raise DomainError(AdapterReason.SCAN_PATH_MISMATCH.value)
     start = _native_time(payload.get("start"))
     end = _native_time(payload.get("end"))
     if end < start:
@@ -495,20 +584,27 @@ def _normalize(
         if type(key) is not str or type(value) is not int or value < 0:
             raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     queries = payload.get("queries")
-    if type(queries) is not list or len(queries) > queries_total:
+    if type(queries) is not list:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     bill_of_materials = payload.get("bill_of_materials", [])
     if type(bill_of_materials) is not list:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    if len(queries) + len(bill_of_materials) > queries_total:
+        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     findings: list[Finding] = []
     evaluations: list[CheckEvaluation] = []
     observed_resources: set[tuple[str, str]] = set()
+    observed_severities = {name: 0 for name in _SEVERITY_KEYS}
+    observed_query_ids: set[str] = set()
     def parse_query(query: Any, *, bom: bool) -> None:
         if type(query) is not dict or not _QUERY_REQUIRED_FIELDS <= set(query):
             raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
         if set(query) - _QUERY_FIELDS:
             diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
         query_id = canonical_identifier(query.get("query_id"), "KICS query id")
+        if query_id in observed_query_ids:
+            raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+        observed_query_ids.add(query_id)
         query_name = safe_report_text(query.get("query_name"), "KICS query name")
         native_severity = query.get("severity")
         severity = Severity.UNKNOWN if bom else _severity(native_severity)
@@ -540,6 +636,8 @@ def _normalize(
             ):
                 if type(native.get(name)) is not str:
                     raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+            if native.get("issue_type") not in _ISSUE_TYPES:
+                raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
             line = native.get("line")
             search_line = native.get("search_line")
             if (
@@ -550,6 +648,7 @@ def _normalize(
                 raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
             resource = _resource(native, query_id)
             artifact = _artifact(platform, file_path)
+            observed_severities[native_severity] += 1
             if artifact is ArtifactKind.UNKNOWN or (not bom and severity is Severity.UNKNOWN):
                 diagnostics.append(AdapterReason.UNKNOWN_NATIVE_CATEGORY.value)
             if not bom:
@@ -592,12 +691,18 @@ def _normalize(
         value for key, value in severity_counters.items() if key.upper() != "TRACE"
     )
     if (
+        observed_severities != severity_counters
+        or
         len(findings) != total_counter
         or result_count != total_counter
         or trace_count != total_resources
         or sum(len(item["files"]) for item in bill_of_materials) != total_resources
     ):
-        raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+        raise DomainError(
+            AdapterReason.SEVERITY_EVIDENCE_MISMATCH.value
+            if observed_severities != severity_counters
+            else AdapterReason.INVALID_RESULTS_STRUCTURE.value
+        )
     present = [name for name in _RESULT_EXIT if severity_counters[name] > 0]
     expected_exit = 0 if not present else _RESULT_EXIT[max(present, key=_SEVERITY_RANK.get)]
     if process.exit_code != expected_exit:
@@ -639,7 +744,6 @@ def _normalize(
         item for item in diagnostics
         if not item.startswith((
             "KICS_BILL_OF_MATERIALS_REPORTED:",
-            "output_directory_manifest_sha256:",
         ))
     ]
     status = Status.PARTIAL if adverse else Status.PASS
@@ -719,7 +823,7 @@ class KicsAdapter:
             os.chmod(directory, 0o555)
         os.chmod(root, 0o555)
 
-    def scan(self, request: KicsScanRequest) -> ScannerRun:
+    def scan(self, request: KicsScanRequest) -> KicsExecutionEvidence:
         if type(request) is not KicsScanRequest or not request._trusted_request:
             raise DomainError("KICS scan requires a sealed request")
         def trusted(run: ScannerRun) -> ScannerRun:
@@ -729,9 +833,10 @@ class KicsAdapter:
             }
             return ScannerRun._from_adapter(**values)
         if not request.files_eligible:
-            return trusted(_reason_run(
+            run = trusted(_reason_run(
                 request, AdapterReason.EMPTY_ELIGIBLE_SCOPE, status=Status.SKIPPED
             ))
+            return _execution_evidence(request, run, None)
         work = Path(tempfile.mkdtemp(prefix="iacgv-kics-"))
         process: CommandResult | None = None
         raw: bytes | None = None
@@ -794,9 +899,6 @@ class KicsAdapter:
                 )
                 if repeated_root != output_manifest_sha256 or repeated["results.json"] != raw:
                     raise DomainError(AdapterReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED.value)
-                output_manifest_sha256 = semantic_output_manifest(
-                    "results.json", _canonical_native_hash(_strict_json(raw))
-                )
         except (DomainError, OSError) as exc:
             value = str(exc)
             reason = next((item for item in AdapterReason if item.value == value), AdapterReason.SCAN_VIEW_PREPARATION_FAILED)
@@ -807,16 +909,20 @@ class KicsAdapter:
         except OSError:
             cleanup_failed = True
         if cleanup_failed:
-            return trusted(_reason_run(
+            run = trusted(_reason_run(
                 request, AdapterReason.OUTPUT_CLEANUP_FAILED,
                 process=process, raw_output=raw,
             ))
+            return _execution_evidence(request, run, raw, output_manifest_sha256)
         if terminal is not None:
-            return trusted(terminal)
+            return _execution_evidence(
+                request, trusted(terminal), raw, output_manifest_sha256
+            )
         if process is None or raw is None:
-            return trusted(_reason_run(
+            run = trusted(_reason_run(
                 request, AdapterReason.RAW_OUTPUT_MISSING, process=process
             ))
+            return _execution_evidence(request, run, raw, output_manifest_sha256)
         try:
             parsed = _normalize(raw, request, process, output_manifest_sha256)
         except DomainError as exc:
@@ -828,13 +934,16 @@ class KicsAdapter:
             parsed = _reason_run(
                 request, reason, process=process, raw_output=raw,
             )
-        return trusted(parsed)
+        return _execution_evidence(
+            request, trusted(parsed), raw, output_manifest_sha256
+        )
 
 
 __all__ = [
     "KICS_ADAPTER_CONTRACT",
     "KICS_CONTRACT",
     "KicsAdapter",
+    "KicsExecutionEvidence",
     "KicsScanRequest",
     "create_kics_scan_request",
 ]

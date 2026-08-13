@@ -1404,3 +1404,8 @@ E1/E2.2 requires the same hardened container guards and exact output-directory
 allowlist for both scanners. The output manifest is read twice before cleanup, and any
 unexpected entry, non-regular type, change, or byte-limit violation is typed
 `OUTPUT_DIRECTORY_INTEGRITY_FAILED`.
+
+E1.3 adds `SEVERITY_EVIDENCE_MISMATCH` and `SCAN_PATH_MISMATCH`. Both are integrity
+errors: the former means retained KICS query/file severities disagree with native
+counters or result exit, while the latter means native path evidence does not describe
+the locked scan target.

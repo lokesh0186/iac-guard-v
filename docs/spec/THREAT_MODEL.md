@@ -457,3 +457,10 @@ inputs from asserting trusted scanner evidence. Test-only evidence capabilities 
 outside the distributable package. Scanner containers have the complete locked
 non-root/resource/security guard set, and their whole writable output directory is an
 exact bounded no-follow allowlist.
+
+### E1.3 KICS native contradiction controls
+
+A forged KICS report cannot pair LOW retained evidence with HIGH counters/exit, name a
+different scan path, hide BOM queries outside `queries_total`, reuse query IDs across
+buckets, or invent an issue type. Raw-output and physical-directory identities prevent
+semantic canonicalization from hiding byte-level provenance.

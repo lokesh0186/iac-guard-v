@@ -2844,3 +2844,11 @@ daemon, context, platform, architecture, isolation-control, and protected execut
 identities. The runtime is revalidated immediately before spawn. Permanent probes
 reject fake KICS/Trivy-producing executables, binary and context drift, and local-path
 dependence; 183 focused adapter/runtime/boundary tests passed.
+
+## 2026-08-12 — E1.3 KICS evidence coherence
+
+Permanent probes now reject retained LOW evidence paired with HIGH counters/exit,
+native paths outside `/iacgv-input`, BOM queries outside `queries_total`, duplicate
+ordinary/BOM query IDs, and unknown issue types. Compact/pretty JSON has distinct raw
+and physical identities but one semantic identity. The exact E0.3 KICS integration
+passed after the contract update.

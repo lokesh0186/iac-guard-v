@@ -468,5 +468,20 @@ The reviewed lock, cache manifest, signature, public key, and runtime records ar
 loaded from `ProtectedPhaseEEvidenceBundle` at an explicit protected root. Adapter
 code performs no source-checkout discovery through `__file__`; canonical bundle and
 runtime identities exclude local paths.
+
+### E1.3 KICS evidence coherence
+
+`kics-adapter-contract-v3` derives the ordinary and TRACE severity distribution
+from every retained query/file record and reconciles it with `severity_counters`,
+`total_counter`, and the result exit. Disagreement is
+`SEVERITY_EVIDENCE_MISMATCH`. Native `paths` must resolve exactly to the locked
+`/iacgv-input` target or return `SCAN_PATH_MISMATCH`. Ordinary/BOM query IDs are
+unique across buckets, their combined returned count cannot exceed `queries_total`,
+and `issue_type` is closed to `MissingAttribute`, `RedundantAttribute`, and
+`IncorrectValue`.
+
+KICS execution evidence records the raw results-file SHA-256, canonical semantic JSON
+SHA-256, and physical output-directory manifest root separately. Formatting changes
+alter the first and physical identities but not the semantic identity.
 around that execution. Raw normalize methods reject production use. Private fixture
 helpers are excluded from package exports, CLI/config, and later consensus.
