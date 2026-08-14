@@ -160,12 +160,18 @@ def canonical_json(value: dict) -> bytes:
     ).encode("utf-8")
 
 
-def write_new_regular_file(path: Path, payload: bytes) -> str:
+def write_new_regular_file(
+    path: Path, payload: bytes, *, max_bytes: int = 1024 * 1024,
+) -> str:
     """Create one bounded artifact without following or replacing an existing entry."""
     if not isinstance(path, Path):
         raise DomainError("workflow output path must be pathlib.Path")
-    if type(payload) is not bytes or not payload or len(payload) > 1024 * 1024:
-        raise DomainError("workflow output must be nonempty and no larger than 1 MiB")
+    if type(max_bytes) is not int or max_bytes <= 0 or max_bytes > 25 * 1024 * 1024:
+        raise DomainError("workflow output limit is outside the protected range")
+    if type(payload) is not bytes or not payload or len(payload) > max_bytes:
+        raise DomainError(
+            "workflow output must be nonempty bytes and no larger than its protected limit"
+        )
     try:
         parent = path.parent.resolve(strict=True)
     except OSError as exc:

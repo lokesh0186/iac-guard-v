@@ -13,7 +13,7 @@ from types import MappingProxyType
 
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
-from .api import verify
+from .api import BaselineDiscoveryUnavailable, discover_baseline_targets, verify
 from .config import (
     ExecutionIsolation, PublicTarget, PublicVerificationRequest, load_public_config,
 )
@@ -180,8 +180,21 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subcommands = parser.add_subparsers(dest="command", required=True)
     verify_parser = subcommands.add_parser("verify")
-    verify_parser.add_argument("--config", required=True, type=Path)
+    request_source = verify_parser.add_mutually_exclusive_group(required=True)
+    request_source.add_argument("--config", type=Path)
+    request_source.add_argument("--before", type=Path)
+    verify_parser.add_argument("--after", type=Path)
+    target_mode = verify_parser.add_mutually_exclusive_group()
+    target_mode.add_argument("--target", action="append")
+    target_mode.add_argument("--all-baseline-findings", action="store_true")
+    verify_parser.add_argument(
+        "--framework", choices=("terraform", "kubernetes"), action="append"
+    )
+    verify_parser.add_argument("--local-trusted", action="store_true")
+    verify_parser.add_argument("--checkov-executable", type=Path)
     verify_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
+    verify_parser.add_argument("--output", type=Path)
+    verify_parser.add_argument("--quiet", action="store_true")
     doctor_parser = subcommands.add_parser("doctor")
     doctor_parser.add_argument("--format", choices=("json", "console"), default="console")
     demo_parser = subcommands.add_parser("demo")
@@ -227,7 +240,78 @@ def _parse_target_selector(value: str) -> PublicTarget:
     rule_id, resource_address = value.split("=", 1)
     if not rule_id.strip() or not resource_address.strip():
         raise DomainError("target selector must contain a rule and resource")
-    return PublicTarget(rule_id.strip(), resource_address.strip())
+    file_path = ""
+    if "@" in resource_address:
+        resource_address, file_path = resource_address.rsplit("@", 1)
+        if not resource_address.strip() or not file_path.strip():
+            raise DomainError(
+                "file-qualified target selector must use RULE_ID=RESOURCE_ADDRESS@FILE"
+            )
+    return PublicTarget(rule_id.strip(), resource_address.strip(), file_path.strip())
+
+
+def _direct_request(args) -> PublicVerificationRequest | OperationalReportV1:
+    if args.after is None:
+        raise DomainError("direct verification requires --after")
+    if not args.target and not args.all_baseline_findings:
+        raise DomainError(
+            "direct verification requires --target or --all-baseline-findings"
+        )
+    frameworks = tuple(args.framework or ("kubernetes", "terraform"))
+    if not args.local_trusted:
+        if args.checkov_executable is not None:
+            raise DomainError("--checkov-executable requires --local-trusted")
+        return OperationalReportV1(
+            "HARDENED_CONTAINER_UNAVAILABLE",
+            "The hardened execution image is not released and local execution was not selected.",
+            "Rerun with --local-trusted for operator-controlled local content.",
+        )
+    configured = args.checkov_executable
+    if configured is None:
+        discovered = shutil.which("checkov")
+        if discovered is None:
+            return OperationalReportV1(
+                "CHECKOV_NOT_FOUND",
+                "Local trusted mode could not find the locked Checkov executable.",
+                "Install Checkov 3.3.0, then rerun with --local-trusted.",
+            )
+        configured = Path(discovered)
+    selectors = tuple(
+        (
+            target.rule_id,
+            target.resource_address,
+            target.file_path,
+        )
+        for target in (_parse_target_selector(value) for value in (args.target or ()))
+    )
+    try:
+        targets = discover_baseline_targets(
+            args.before,
+            configured,
+            frameworks,
+            selectors,
+            all_findings=args.all_baseline_findings,
+        )
+    except BaselineDiscoveryUnavailable as exc:
+        return OperationalReportV1(
+            "BASELINE_TARGET_DISCOVERY_UNAVAILABLE",
+            redact_detail(str(exc)),
+            "Run doctor --mode local-trusted and repair the exact Checkov 3.3.0 environment.",
+        )
+    if not targets:
+        return OperationalReportV1(
+            "NO_BASELINE_TARGETS",
+            "The complete locked baseline scan produced no selectable failed findings.",
+            "Provide an explicit failing baseline or review the baseline scanner scope.",
+        )
+    return PublicVerificationRequest(
+        args.before,
+        args.after,
+        targets,
+        ExecutionIsolation.REDUCED_ISOLATION,
+        configured,
+        frameworks,
+    )
 
 
 def _write_receipt(command: str, receipt: dict, output_format: str) -> None:
@@ -241,14 +325,22 @@ def _write_receipt(command: str, receipt: dict, output_format: str) -> None:
     )
 
 
-def _write_report(result, output_format: str) -> int:
+def _write_report(
+    result, output_format: str, output_path: Path | None = None, *, quiet: bool = False,
+) -> int:
     if output_format == "json":
         output = result.canonical_json()
     elif output_format == "console":
         output = render_console(result)
     else:
         output = _project_report(result.canonical_dict(), output_format)
-    sys.stdout.write(output)
+    if output_path is not None:
+        artifact = result.canonical_json() if output_format == "console" else output
+        write_new_regular_file(
+            output_path, artifact.encode("utf-8"), max_bytes=25 * 1024 * 1024
+        )
+    if not quiet:
+        sys.stdout.write(output)
     return result.exit_code
 
 
@@ -456,7 +548,29 @@ def main(argv: list[str] | None = None) -> int:
                 args.format,
             )
             return 0
-        if args.command in {"verify", "scan", "differential", "pr"}:
+        if args.command == "verify":
+            if args.config is not None:
+                if any((
+                    args.after is not None,
+                    bool(args.target),
+                    args.all_baseline_findings,
+                    bool(args.framework),
+                    args.local_trusted,
+                    args.checkov_executable is not None,
+                )):
+                    raise DomainError(
+                        "--config cannot be combined with direct request arguments"
+                    )
+                request = load_public_config(args.config)
+            else:
+                request = _direct_request(args)
+                if type(request) is OperationalReportV1:
+                    return _write_report(
+                        request, args.format, args.output, quiet=args.quiet
+                    )
+            report = verify(request)
+            return _write_report(report, args.format, args.output, quiet=args.quiet)
+        if args.command in {"scan", "differential", "pr"}:
             request = load_public_config(args.config)
             if args.command == "pr":
                 changed_only_targets_are_bound(request)

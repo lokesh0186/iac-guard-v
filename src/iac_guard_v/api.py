@@ -4,16 +4,20 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from .adapters.checkov import CheckovScanRequest, checkov_distribution_identity
-from .config import ExecutionIsolation, PublicVerificationRequest
-from .enums import ArtifactKind
+from .adapters.checkov import (
+    CheckovAdapter,
+    CheckovScanRequest,
+    checkov_distribution_identity,
+)
+from .config import ExecutionIsolation, PublicTarget, PublicVerificationRequest
+from .enums import ArtifactKind, Status
 from .engine import (
     VerificationRequest,
     attest_checkov_scan_plan,
     load_operator_verification_config,
     run_checkov_verification,
 )
-from .models import DomainError, RequiredGates
+from .models import DomainError, RequiredGates, require_trusted_scanner_run
 from .policy import (
     PolicyRequest,
     evaluate_policy,
@@ -132,4 +136,134 @@ def verify(
     )
 
 
-__all__ = ["verify"]
+def discover_baseline_targets(
+    baseline_root: Path,
+    executable: Path,
+    frameworks: tuple,
+    selectors: tuple[tuple[str, str, str], ...] = (),
+    *,
+    all_findings: bool = False,
+    eligible_paths: tuple[str, ...] | None = None,
+) -> tuple[PublicTarget, ...]:
+    """Resolve baseline failures to exact public target selectors.
+
+    This function executes the same locked Checkov adapter used by verification. It
+    accepts only paths and plain selectors and returns only untrusted public request
+    values; scanner evidence and adapter capabilities never cross this boundary.
+    """
+    if not isinstance(baseline_root, Path) or not isinstance(executable, Path):
+        raise DomainError("target discovery requires pathlib baseline and executable paths")
+    if type(frameworks) is not tuple or not frameworks:
+        raise DomainError("target discovery requires a nonempty framework tuple")
+    if type(selectors) is not tuple or any(
+        type(item) is not tuple
+        or len(item) != 3
+        or any(type(value) is not str for value in item)
+        for item in selectors
+    ):
+        raise DomainError("target selectors must be exact rule/resource/file tuples")
+    if type(all_findings) is not bool:
+        raise DomainError("all_findings must be a Boolean")
+    if all_findings == bool(selectors):
+        raise DomainError("select explicit targets or all baseline findings, not both")
+    if eligible_paths is not None and (
+        type(eligible_paths) is not tuple
+        or any(type(item) is not str or not item for item in eligible_paths)
+    ):
+        raise DomainError("eligible target paths must be an exact nonblank string tuple")
+
+    try:
+        raw = _untrusted_scan_request(
+            baseline_root, baseline_root, executable, frameworks
+        )
+        plan = attest_checkov_scan_plan(raw)
+        run = require_trusted_scanner_run(CheckovAdapter().scan(plan.request))
+    except (DomainError, OSError) as exc:
+        raise BaselineDiscoveryUnavailable(str(exc)) from exc
+    if run.status is not Status.PASS or run.ruleset_integrity is not Status.PASS:
+        detail = "; ".join(run.diagnostics) or run.status.value
+        raise BaselineDiscoveryUnavailable(
+            f"baseline target discovery is not complete: {detail}"
+        )
+
+    allowed = None if eligible_paths is None else frozenset(eligible_paths)
+    failures = tuple(
+        item for item in run.findings
+        if not item.suppressed
+        and (allowed is None or item.location.file_path in allowed)
+    )
+    resources = {
+        (item.file_path, item.resource_address, item.artifact_kind): item
+        for item in plan.expected_resources
+    }
+    grouped: dict[tuple[str, str, str, ArtifactKind], list] = {}
+    for finding in failures:
+        key = (
+            finding.rule_id,
+            finding.resource_address,
+            finding.location.file_path,
+            finding.artifact_kind,
+        )
+        grouped.setdefault(key, []).append(finding)
+
+    def public_target(key: tuple[str, str, str, ArtifactKind], count: int) -> PublicTarget:
+        rule_id, resource_address, file_path, artifact_kind = key
+        resource = resources.get((file_path, resource_address, artifact_kind))
+        if resource is None:
+            raise DomainError("baseline finding lacks independent resource binding")
+        return PublicTarget(
+            rule_id,
+            resource_address,
+            file_path,
+            artifact_kind,
+            resource.scanner_native_lookup,
+            count,
+        )
+
+    if all_findings:
+        return tuple(
+            public_target(key, len(values))
+            for key, values in sorted(
+                grouped.items(),
+                key=lambda item: (*item[0][:3], item[0][3].value),
+            )
+        )
+
+    resolved: list[PublicTarget] = []
+    for rule_id, resource_address, file_path in selectors:
+        matches = [
+            (key, values) for key, values in grouped.items()
+            if key[0] == rule_id
+            and key[1] == resource_address
+            and (not file_path or key[2] == file_path)
+        ]
+        if not matches:
+            raise DomainError(
+                f"baseline has no failed finding for {rule_id}={resource_address}"
+            )
+        if len(matches) != 1:
+            candidates = sorted(
+                f"{key[0]}={key[1]}@{key[2]}" for key, _values in matches
+            )
+            raise DomainError(
+                "target selector is ambiguous; choose one exact selector: "
+                + ", ".join(candidates)
+            )
+        key, values = matches[0]
+        resolved.append(public_target(key, len(values)))
+    identities = [
+        (item.rule_id, item.resource_address, item.file_path, item.artifact_kind.value)
+        for item in resolved
+    ]
+    if len(identities) != len(set(identities)):
+        raise DomainError("target selectors resolve to duplicate exact targets")
+    return tuple(sorted(resolved, key=lambda item: (
+        item.rule_id, item.resource_address, item.file_path, item.artifact_kind.value,
+    )))
+
+
+class BaselineDiscoveryUnavailable(DomainError):
+    """The locked baseline scanner could not provide complete discovery evidence."""
+
+
+__all__ = ["BaselineDiscoveryUnavailable", "discover_baseline_targets", "verify"]
