@@ -300,6 +300,32 @@ def test_authoritative_oracle_use_requires_same_passing_kubernetes_universe(
     ))
     assert require_authoritative_oracle_precondition(oracle, universe) is oracle
 
+    (tmp_path / "failed").mkdir()
+    failed_raw = adapter_request(tmp_path / "failed", frameworks=("kubernetes",))
+    (failed_raw.scan_root / "pod.yaml").write_text(
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: failed}\nspec:\n"
+        "  containers: [{name: app, securityContext: {privileged: true}}]\n",
+        encoding="utf-8",
+    )
+    failed_snapshot = _role_snapshot(attest_checkov_scan_plan(failed_raw))
+    failed_plan = create_trusted_validation_universe_plan(failed_snapshot)
+    failed_evidence = _kube_result(failed_plan)
+    failed_universe = ValidationUniverseResult(
+        "kubeconform_validate", failed_plan.role, failed_plan.universe_sha256,
+        Status.PASS, "COMPLETE_KUBERNETES_UNIVERSE_PASSED", False, (),
+        failed_evidence, _plan=failed_plan, _trusted_context=_RESULT_CONTEXT,
+    )
+    failed_oracle = ProtectedOracleRegistry().execute(create_protected_oracle_request(
+        oracle_id="kubernetes_no_privileged_containers_v1",
+        snapshot=failed_snapshot, file_path="pod.yaml",
+        artifact_kind=ArtifactKind.KUBERNETES_YAML,
+        resource_identity="v1/Pod/default/failed",
+    ))
+    assert failed_oracle.status is Status.FAIL
+    assert require_authoritative_oracle_precondition(
+        failed_oracle, failed_universe,
+    ) is failed_oracle
+
     (tmp_path / "other").mkdir()
     _other_root, other_snapshot = _kubernetes_snapshot(tmp_path / "other", "other")
     other_plan = create_trusted_validation_universe_plan(other_snapshot)
@@ -344,8 +370,16 @@ def test_nondecisive_oracle_is_not_authoritative_even_with_passing_universe(
         resource_identity="v1/Pod/default/demo",
     ))
     assert oracle.status is Status.UNSUPPORTED
-    with pytest.raises(DomainError, match="non-decisive"):
-        require_authoritative_oracle_precondition(oracle, universe)
+    for status in (
+        Status.ERROR, Status.TIMEOUT, Status.UNSUPPORTED, Status.SKIPPED,
+        Status.PARTIAL, Status.INCONCLUSIVE,
+    ):
+        nondecisive = replace(
+            oracle, status=status, reason="NON_DECISIVE", observations=(),
+            _trusted_context=oracle_base._EVIDENCE_CONTEXT,
+        )
+        with pytest.raises(DomainError, match="non-decisive"):
+            require_authoritative_oracle_precondition(nondecisive, universe)
 
 
 def test_tf_json_is_explicitly_unsupported(tmp_path: Path) -> None:

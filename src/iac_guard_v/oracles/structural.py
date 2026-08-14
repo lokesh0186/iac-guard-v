@@ -59,7 +59,7 @@ def _policies() -> dict[str, dict]:
         payload = json.loads(raw, object_pairs_hook=unique)
     except (json.JSONDecodeError, UnicodeDecodeError) as exc:
         raise DomainError("bundled oracle policy is malformed") from exc
-    if payload.get("contract") != "iac-guard-v-bundled-oracle-policy-v1":
+    if payload.get("contract") != "iac-guard-v-bundled-oracle-policy-v2":
         raise DomainError("bundled oracle policy contract is unsupported")
     records = payload.get("policies")
     if type(records) is not list:
@@ -201,7 +201,7 @@ def _containers(document: dict) -> tuple[tuple[str, dict], ...] | None:
     return values
 
 
-def _windows_host_process(
+def _no_windows_host_process(
     document: dict, containers: tuple[tuple[str, dict], ...],
 ) -> tuple[Status, str, tuple[OracleObservation, ...]]:
     """Evaluate the protected Windows HostProcess baseline predicate exactly."""
@@ -270,11 +270,8 @@ def _evaluate(policy: dict, document: dict) -> tuple[Status, str, tuple[OracleOb
             and policy["predicate"] == "all_containers_explicitly_disable_privilege_escalation"
         ):
             return Status.UNSUPPORTED, "WINDOWS_POLICY_NOT_APPLICABLE", ()
-        if (
-            normalized_os == "windows"
-            and policy["predicate"] == "no_container_is_privileged"
-        ):
-            return _windows_host_process(document, containers)
+    if policy["predicate"] == "no_windows_host_process":
+        return _no_windows_host_process(document, containers)
     observations = []
     for container_class, container in containers:
         name = container["name"].strip()
@@ -362,7 +359,7 @@ def _oracle_implementation_identity(policy_sha256: str) -> str:
         for name, value in (
             ("documents", _documents), ("identity", _identity),
             ("pod_spec", _pod_spec), ("containers", _containers),
-            ("windows_host_process", _windows_host_process),
+            ("no_windows_host_process", _no_windows_host_process),
             ("evaluate", _evaluate), ("policies", _policies),
         )
     }

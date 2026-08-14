@@ -16,7 +16,7 @@ from ..models import (
 )
 
 
-ORACLE_CONTRACT = "protected-deterministic-oracle-v2"
+ORACLE_CONTRACT = "protected-deterministic-oracle-v3"
 _SHA = re.compile(r"[0-9a-f]{64}")
 _EVIDENCE_CONTEXT = object()
 

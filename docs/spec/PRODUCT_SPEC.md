@@ -142,8 +142,10 @@ E5.5 rejects unknown Kubernetes OS identities and requires exact passing Kuberne
 universe evidence before structural-oracle output can support an authoritative claim.
 E5.6 makes aggregate universe status a derived value and closes each validator's
 status/reason combinations; TFLint remains advisory.
-E5.7 requires decisive `PASS`/`FAIL` oracle evidence for authoritative use and evaluates
-Windows HostProcess under the no-privileged baseline assertion. The separate
+E5.7 requires decisive `PASS`/`FAIL` oracle evidence for authoritative use. E5.9 keeps
+the Baseline privileged-container and HostProcess predicates under separate protected
+oracle IDs: the former evaluates only `privileged` across every container class, while
+the latter evaluates Pod and container `windowsOptions.hostProcess` fields. The
 allow-privilege-escalation oracle proves only explicit Boolean field state, not effective
 runtime privilege semantics involving `privileged` or `CAP_SYS_ADMIN`.
 E5.8 prohibits PASS whenever the sealed validation plan contains unsupported Terraform

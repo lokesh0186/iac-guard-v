@@ -894,7 +894,7 @@ execution. Current bundled structural assertions execute in process without call
 candidate policy, network access, or external bundles. Operational or parsing
 uncertainty stays typed and therefore cannot establish `PASS`.
 
-E5.3's `protected-deterministic-oracle-v2` contract requires at least one affirmative
+E5.9's `protected-deterministic-oracle-v3` contract requires at least one affirmative
 observation for `PASS`. It evaluates `containers`, `initContainers`, and
 `ephemeralContainers`; preserves exact Kubernetes Boolean types; returns typed error for
 malformed security contexts or ambiguous container identity; and returns
@@ -908,11 +908,16 @@ the narrow structural assertion into whole-resource validity.
 
 E5.7 permits only `PASS` or `FAIL` with nonempty observations at that authoritative-use
 boundary. `ERROR`, `TIMEOUT`, `UNSUPPORTED`, `SKIPPED`, `PARTIAL`, and `INCONCLUSIVE`
-are non-decisive. For the Baseline no-privileged assertion, explicit Windows workloads
-are evaluated through `windowsOptions.hostProcess` at Pod and every container class.
-The privilege-escalation oracle remains a narrow syntactic/structural assertion that
-the field is exactly Boolean false. It does not prove effective non-escalation when a
-container is privileged, has `CAP_SYS_ADMIN`, or is outside its supported OS semantics.
+are non-decisive. E5.9 defines two independent Baseline assertions:
+`kubernetes_no_privileged_containers_v1` accepts only absent, null, or Boolean false
+`privileged` fields across ordinary/init/ephemeral containers, regardless of OS; and
+`kubernetes_no_windows_hostprocess_v1` accepts only absent, null, or Boolean false
+`windowsOptions.hostProcess` at Pod and every container scope. A malformed value is
+ERROR, and the HostProcess predicate cannot be skipped because `spec.os.name` is absent
+or Linux. The privilege-escalation oracle remains a narrow syntactic/structural
+assertion that the field is exactly Boolean false. It does not prove effective
+non-escalation when a container is privileged, has `CAP_SYS_ADMIN`, or is outside its
+supported OS semantics.
 
 ### V7 — Cross-scanner agreement
 

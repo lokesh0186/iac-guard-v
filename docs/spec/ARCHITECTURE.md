@@ -482,12 +482,14 @@ predicate.
 
 E5.7 makes that boundary decisive. Only oracle `PASS` or `FAIL` with nonempty
 observations may cross the authoritative-use precondition; operational, skipped,
-unsupported, partial, or inconclusive output remains non-decisive. The privileged
-container oracle uses the protected Kubernetes Baseline cross-platform contract:
-Linux evaluates `privileged`, while Windows evaluates Pod and ordinary/init/ephemeral
-container `windowsOptions.hostProcess`. The privilege-escalation oracle is deliberately
-the narrow field assertion “`allowPrivilegeEscalation` is explicitly false”; it does
-not claim that effective escalation is impossible through privilege or capabilities.
+unsupported, partial, or inconclusive output remains non-decisive. E5.9 separates the
+two Kubernetes Baseline predicates. `kubernetes_no_privileged_containers_v1` evaluates
+only the ordinary/init/ephemeral container `privileged` fields independent of OS.
+`kubernetes_no_windows_hostprocess_v1` separately evaluates Pod and every container
+class's `windowsOptions.hostProcess` field without allowing a missing or Linux OS label
+to hide a violation. The privilege-escalation oracle remains the narrow field assertion
+“`allowPrivilegeEscalation` is explicitly false”; it does not claim that effective
+escalation is impossible through privilege or capabilities.
 
 Target classification uses typed statuses for integrity, ruleset stability, structural
 eligibility, file/resource presence, suppression absence, occurrence sufficiency, and

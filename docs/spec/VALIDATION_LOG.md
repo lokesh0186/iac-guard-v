@@ -3078,11 +3078,11 @@ tables were semantic matches, and the frozen-scope diff was empty.
 
 Failing-before, a Windows HostProcess container received `PASS` from the no-privileged
 oracle, and an `UNSUPPORTED/WINDOWS_POLICY_NOT_APPLICABLE` result crossed the
-authoritative-use precondition. Passing-after evaluates Pod and ordinary/init/ephemeral
-Windows HostProcess state under the protected Baseline contract and admits only decisive
-`PASS`/`FAIL` results with nonempty observations. The privilege-escalation oracle is
-documented as the narrow exact-field assertion; it does not claim effective privilege
-semantics beyond that field.
+authoritative-use precondition. Passing-after added HostProcess coverage to that oracle
+and admitted only decisive `PASS`/`FAIL` results with nonempty observations. E5.9
+supersedes the combined predicate by assigning HostProcess its own protected oracle ID.
+The privilege-escalation oracle remains the narrow exact-field assertion; it does not
+claim effective privilege semantics beyond that field.
 
 ## 2026-08-13 — E5.8 validation-universe blocker invariants
 
@@ -3105,3 +3105,24 @@ non-definitive, and future EXACT promotion still requires complete PASS executio
 mechanically verified sign-off. The focused catalog suite records 81 passes. The
 current non-integration suite contains 1,969 collected tests; this supersedes the stale
 1,927 count while preserving the historical counts above.
+
+## 2026-08-13 — E5.9 separate Kubernetes Baseline oracle controls
+
+Failing-before, an explicit Windows `privileged: true` and a HostProcess Pod without an
+OS label each produced trusted `PASS` evidence from the combined no-privileged oracle.
+The v3 protected oracle contract now keeps `privileged` and
+`windowsOptions.hostProcess` under separate policy records and oracle IDs. Both inspect
+ordinary, init, and ephemeral containers; HostProcess additionally inspects the Pod
+security context. Absent, null, and Boolean false are affirmative observations, Boolean
+true is a violation, and malformed values are typed errors. HostProcess violations are
+not hidden by an absent or Linux OS label. The E4 catalog remains zero-EXACT and both
+relationships remain `NOT_READY_FOR_VALIDATED_SCREENING`; no V7 or final-verdict
+authority was added.
+
+The focused oracle/universe/catalog suite recorded 154 passes and oracle branch coverage
+was 93%. The complete non-integration matrix recorded 1,991 passes on each of Python
+3.10, 3.11, 3.12, and 3.13. Locked integrations recorded 14 passes and the expected
+macOS skip for the native-Linux UID/bind-mount gate. Specification lint remained 26
+documents/166 enums with zero warnings; catalog source verification, the 4,842-file
+frozen manifest, 630/630 replay, 10,080/10,080 field comparisons, seven semantic table
+matches, and the frozen-scope diff all passed.

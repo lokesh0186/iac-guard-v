@@ -204,17 +204,17 @@ def test_protected_policy_loader_rejects_malformed_or_duplicate_policy() -> None
     for raw, message in (
         (b"not-json", "malformed"),
         (b'{"contract":"x","policies":[]}', "contract"),
-        (b'{"contract":"iac-guard-v-bundled-oracle-policy-v1","policies":{}}', "records"),
-        (b'{"contract":"iac-guard-v-bundled-oracle-policy-v1","contract":"x","policies":[]}', "duplicate"),
+        (b'{"contract":"iac-guard-v-bundled-oracle-policy-v2","policies":{}}', "records"),
+        (b'{"contract":"iac-guard-v-bundled-oracle-policy-v2","contract":"x","policies":[]}', "duplicate"),
     ):
         with patch.object(structural, "_policy_bytes", return_value=raw):
             with pytest.raises(DomainError, match=message):
                 structural._policies()
     malformed_record = (
-        b'{"contract":"iac-guard-v-bundled-oracle-policy-v1","policies":[{}]}'
+        b'{"contract":"iac-guard-v-bundled-oracle-policy-v2","policies":[{}]}'
     )
     duplicate_ids = (
-        b'{"contract":"iac-guard-v-bundled-oracle-policy-v1","policies":['
+        b'{"contract":"iac-guard-v-bundled-oracle-policy-v2","policies":['
         b'{"oracle_id":"x","predicate":"p","authoritative_reference":"https://x","supported_kinds":[]},'
         b'{"oracle_id":"x","predicate":"p","authoritative_reference":"https://x","supported_kinds":[]}]}'
     )
@@ -336,6 +336,11 @@ def test_ephemeral_containers_are_policy_covered(
             "PRIVILEGED_FIELD_TYPE_INVALID",
         ),
         (
+            "kubernetes_no_privileged_containers_v1",
+            "{privileged: 1}",
+            "PRIVILEGED_FIELD_TYPE_INVALID",
+        ),
+        (
             "kubernetes_allow_privilege_escalation_false_v1",
             '{allowPrivilegeEscalation: "false"}',
             "PRIVILEGE_ESCALATION_FIELD_TYPE_INVALID",
@@ -366,6 +371,27 @@ def test_windows_privilege_escalation_is_not_applicable(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    "os_field", ("", "  os: {name: linux}\n", "  os: {name: windows}\n"),
+)
+@pytest.mark.parametrize(
+    "container_class", ("containers", "initContainers", "ephemeralContainers"),
+)
+def test_privileged_oracle_is_os_independent_and_covers_every_container_class(
+    tmp_path: Path, os_field: str, container_class: str,
+) -> None:
+    result = _execute_document(
+        tmp_path, "kubernetes_no_privileged_containers_v1",
+        "apiVersion: v1\nkind: Pod\nmetadata: {name: privileged}\nspec:\n"
+        f"{os_field}"
+        f"  {container_class}:\n    - name: app\n"
+        "      securityContext: {privileged: true}\n",
+    )
+    assert result.status is Status.FAIL
+    assert result.reason == "ASSERTION_VIOLATED"
+    assert result.observations[0].path.startswith(f"{container_class}/app/")
+
+
+@pytest.mark.parametrize(
     ("container_class", "prefix"),
     (
         ("containers", "containers/app"),
@@ -373,11 +399,11 @@ def test_windows_privilege_escalation_is_not_applicable(tmp_path: Path) -> None:
         ("ephemeralContainers", "ephemeralContainers/app"),
     ),
 )
-def test_windows_host_process_never_receives_privileged_oracle_pass(
+def test_host_process_oracle_covers_every_container_class(
     tmp_path: Path, container_class: str, prefix: str,
 ) -> None:
     result = _execute_document(
-        tmp_path, "kubernetes_no_privileged_containers_v1",
+        tmp_path, "kubernetes_no_windows_hostprocess_v1",
         "apiVersion: v1\nkind: Pod\nmetadata: {name: hostprocess}\nspec:\n"
         "  os: {name: windows}\n"
         f"  {container_class}:\n    - name: app\n"
@@ -388,25 +414,64 @@ def test_windows_host_process_never_receives_privileged_oracle_pass(
     assert any(item.path.startswith(prefix) for item in result.observations)
 
 
-def test_windows_pod_host_process_and_malformed_values_fail_closed(
-    tmp_path: Path,
+@pytest.mark.parametrize(
+    "os_field", ("", "  os: {name: linux}\n", "  os: {name: windows}\n"),
+)
+def test_pod_host_process_violation_does_not_depend_on_os_branch(
+    tmp_path: Path, os_field: str,
 ) -> None:
-    failed = _execute_document(
-        tmp_path / "pod", "kubernetes_no_privileged_containers_v1",
+    source = (
         "apiVersion: v1\nkind: Pod\nmetadata: {name: hostprocess}\nspec:\n"
-        "  os: {name: windows}\n"
+        f"{os_field}"
         "  securityContext:\n    windowsOptions: {hostProcess: true}\n"
-        "  containers: [{name: app}]\n",
+        "  containers: [{name: app}]\n"
     )
-    assert failed.status is Status.FAIL
+    host_process = _execute_document(
+        tmp_path / "hostprocess", "kubernetes_no_windows_hostprocess_v1", source,
+    )
+    privileged = _execute_document(
+        tmp_path / "privileged", "kubernetes_no_privileged_containers_v1", source,
+    )
+    assert host_process.status is Status.FAIL
+    assert privileged.status is Status.PASS
+    assert all("hostProcess" not in item.path for item in privileged.observations)
+
+
+@pytest.mark.parametrize(
+    ("context", "reason"),
+    (
+        ("windowsOptions: 'not-a-map'", "WINDOWS_OPTIONS_TYPE_INVALID"),
+        ("windowsOptions: {hostProcess: 'true'}", "HOST_PROCESS_FIELD_TYPE_INVALID"),
+    ),
+)
+def test_host_process_malformed_values_fail_closed(
+    tmp_path: Path, context: str, reason: str,
+) -> None:
     malformed = _execute_document(
-        tmp_path / "malformed", "kubernetes_no_privileged_containers_v1",
+        tmp_path, "kubernetes_no_windows_hostprocess_v1",
         "apiVersion: v1\nkind: Pod\nmetadata: {name: hostprocess}\nspec:\n"
-        "  os: {name: windows}\n  containers:\n    - name: app\n"
-        "      securityContext:\n        windowsOptions: {hostProcess: 'true'}\n",
+        "  containers:\n    - name: app\n"
+        f"      securityContext:\n        {context}\n",
     )
     assert malformed.status is Status.ERROR
-    assert malformed.reason == "HOST_PROCESS_FIELD_TYPE_INVALID"
+    assert malformed.reason == reason
+
+
+@pytest.mark.parametrize(
+    ("oracle_id", "context"),
+    (
+        ("kubernetes_no_privileged_containers_v1", "{}"),
+        ("kubernetes_no_privileged_containers_v1", "{privileged: null}"),
+        ("kubernetes_no_privileged_containers_v1", "{privileged: false}"),
+        ("kubernetes_no_windows_hostprocess_v1", "{}"),
+        ("kubernetes_no_windows_hostprocess_v1", "{windowsOptions: {hostProcess: null}}"),
+        ("kubernetes_no_windows_hostprocess_v1", "{windowsOptions: {hostProcess: false}}"),
+    ),
+)
+def test_baseline_field_oracles_accept_only_absent_null_or_false(
+    tmp_path: Path, oracle_id: str, context: str,
+) -> None:
+    assert _execute(tmp_path, oracle_id, context).status is Status.PASS
 
 
 @pytest.mark.parametrize(
@@ -414,6 +479,7 @@ def test_windows_pod_host_process_and_malformed_values_fail_closed(
     (
         "kubernetes_no_privileged_containers_v1",
         "kubernetes_allow_privilege_escalation_false_v1",
+        "kubernetes_no_windows_hostprocess_v1",
     ),
 )
 def test_unknown_operating_system_never_passes(
@@ -469,3 +535,25 @@ def test_behavioral_helper_change_alters_implementation_identity() -> None:
     with patch.object(structural, "_containers", changed_containers):
         after = registry.implementation_build_identity
     assert after != before
+
+    def changed_host_process(_document, _containers):
+        return Status.PASS, "ASSERTION_SATISFIED", ()
+
+    with patch.object(structural, "_no_windows_host_process", changed_host_process):
+        host_process_changed = registry.implementation_build_identity
+    assert host_process_changed != before
+
+
+def test_new_policy_bytes_and_contract_are_bound_to_evidence(tmp_path: Path) -> None:
+    registry = ProtectedOracleRegistry()
+    assert registry.oracle_ids == (
+        "kubernetes_allow_privilege_escalation_false_v1",
+        "kubernetes_no_privileged_containers_v1",
+        "kubernetes_no_windows_hostprocess_v1",
+    )
+    result = _execute(
+        tmp_path, "kubernetes_no_windows_hostprocess_v1",
+        "{windowsOptions: {hostProcess: false}}",
+    )
+    assert result.contract_version == "protected-deterministic-oracle-v3"
+    assert result.protected_policy_sha256 == registry.policy_sha256
