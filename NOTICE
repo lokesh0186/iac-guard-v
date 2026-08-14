@@ -1,0 +1,13 @@
+IaC-Guard-V
+Copyright 2026 Lokesh Chauhan
+
+This product is licensed under the Apache License, Version 2.0. See LICENSE.
+
+The Python distribution does not bundle Checkov, KICS, Trivy, OpenTofu, Terraform,
+kubeconform, TFLint, the kubeconform schema bundle, the QRS benchmark, stored model
+outputs, or paper.pdf. Those tools, data, and names remain subject to their respective
+licences and trademark policies.
+
+The frozen research artifact contains material derived from the Checkov test suite;
+it is repository research content and is excluded from the Python wheel and source
+distribution.

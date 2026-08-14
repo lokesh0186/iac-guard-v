@@ -7,8 +7,9 @@ name = "iac-guard-v"
 version = "0.1.0a1"
 description = "Differential verification for infrastructure-as-code changes: did the fix actually fix it?"
 readme = "README.md"
-requires-python = ">=3.10"
-license = { file = "LICENSE" }
+requires-python = ">=3.10,<3.14"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Lokesh Chauhan" }]
 keywords = ["infrastructure-as-code", "terraform", "kubernetes", "verification", "devsecops"]
 classifiers = [
@@ -48,6 +49,9 @@ compat-test = [
 [project.urls]
 Homepage = "https://github.com/lokesh0186/iac-guard-v"
 Repository = "https://github.com/lokesh0186/iac-guard-v"
+Documentation = "https://github.com/lokesh0186/iac-guard-v#readme"
+Changelog = "https://github.com/lokesh0186/iac-guard-v/blob/main/CHANGELOG.md"
+Security = "https://github.com/lokesh0186/iac-guard-v/security/policy"
 
 [project.scripts]
 iac-guard = "iac_guard_v.cli:main"
@@ -58,9 +62,23 @@ artifacts = ["src/iac_guard_v/oracles/policies.json"]
 
 # Research data, the paper, and experiment outputs must never enter a distribution.
 [tool.hatch.build.targets.sdist]
-include = ["src/iac_guard_v", "README.md", "LICENSE", "pyproject.toml"]
+include = [
+  "src/iac_guard_v",
+  "README.md",
+  "RESEARCH_SNAPSHOT.md",
+  "LICENSE",
+  "SECURITY.md",
+  "CONTRIBUTING.md",
+  "ROADMAP.md",
+  "CHANGELOG.md",
+  "NOTICE",
+  "CITATION.cff",
+  "examples/checkov-before-after",
+  "docs/spec/THREAT_MODEL.md",
+  "pyproject.toml",
+]
 exclude = ["benchmark/", "runs/", "results/", "scanners/", "prompts/", "research/",
-           "paper.pdf", "tests/", "docs/"]
+           "scripts/", "tools/", "controls/", "paper.pdf", "tests/"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

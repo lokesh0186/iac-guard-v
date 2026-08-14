@@ -1,0 +1,46 @@
+# Contributing
+
+Thank you for helping improve IaC-Guard-V. The project values small, reviewable
+changes backed by adversarial tests.
+
+## Development setup
+
+Use CPython 3.10–3.13:
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m pytest
+```
+
+Build the public artifacts with:
+
+```bash
+python -m pip install build
+python -m build
+```
+
+## Required boundaries
+
+- Do not edit `benchmark/`, `runs/`, `results/`, `prompts/`, `scanners/`, `scripts/`,
+  or `requirements.txt`. Those paths belong to the frozen QRS 2026 artifact.
+- Do not run new benchmark inference or invoke a model provider as part of product
+  development.
+- Do not weaken, skip, delete, or xfail a security regression to make a change pass.
+- Treat scanner/oracle agreement as advisory. V7 consensus cannot change the final
+  verdict.
+- Never add raw scanner evidence, caller callbacks, precomputed policy decisions, or
+  trust assertions to a public input surface.
+- Do not commit credentials, protected caches, private scanner candidates, or local
+  absolute paths.
+
+## Changes and tests
+
+Add a failing-before/passing-after test for every security-relevant correction. Run
+the focused tests first, then the supported Python matrix, specification lint, frozen
+manifest verification, replay, and package-content checks. Changed security modules
+must retain at least 90% branch coverage.
+
+Public contributions should describe observed behavior and evidence without making
+unverified adoption, scanner-defect, or production-readiness claims.
