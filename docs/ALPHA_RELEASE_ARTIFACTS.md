@@ -1,13 +1,13 @@
-# ALPHA.2 clean-build artifact record
+# ALPHA.3 clean-build artifact record
 
-This records the fresh local artifacts produced by the bounded ALPHA.2 gate. It is not
+This records the fresh local artifacts produced by the bounded adoption gate. It is not
 a publication authorization. The arXiv/paper-tip gate in ALPHA_RELEASE_CHECKLIST.md is
 still blocked.
 
 | Artifact | Bytes | SHA-256 | Files |
 | --- | ---: | --- | ---: |
-| `iac_guard_v-0.1.0a1-py3-none-any.whl` | 238275 | `928312f7a44d3e790c6da058a99ed4b998e6519ec08d53c2002d81441a43e1ff` | 49 |
-| `iac_guard_v-0.1.0a1.tar.gz` | 229679 | `9175652f381de2fcc60b589fbe0317b020a9259f5deaa7397e342181f7027171` | 60 |
+| `iac_guard_v-0.1.0a1-py3-none-any.whl` | 246996 | `da3dc5306a27b8b95ab694fc8459c2fd2de053a1fd63ab122334c454dab7712e` | 52 |
+| `iac_guard_v-0.1.0a1.tar.gz` | 237587 | `42c5a00f97233f8ee59840ace5f78bd0707b24bc14502b0f5b392667e5673a11` | 65 |
 
 ## Wheel inventory
 
@@ -32,6 +32,8 @@ iac_guard_v/config.py
 iac_guard_v/diffing.py
 iac_guard_v/engine.py
 iac_guard_v/enums.py
+iac_guard_v/examples/checkov-before-after/after.tf
+iac_guard_v/examples/checkov-before-after/before.tf
 iac_guard_v/fingerprints.py
 iac_guard_v/matching.py
 iac_guard_v/models.py
@@ -61,6 +63,7 @@ iac_guard_v/validators/terraform.py
 iac_guard_v/validators/tflint.py
 iac_guard_v/validators/universe.py
 iac_guard_v/workflow.py
+iac_guard_v_no_bytecode.pth
 ```
 
 ## Sdist inventory
@@ -81,7 +84,10 @@ iac_guard_v-0.1.0a1/docs/ALPHA_RELEASE_CHECKLIST.md
 iac_guard_v-0.1.0a1/docs/spec/THREAT_MODEL.md
 iac_guard_v-0.1.0a1/docs/spec/adr/README.md
 iac_guard_v-0.1.0a1/examples/checkov-before-after/after.tf
+iac_guard_v-0.1.0a1/examples/checkov-before-after/after/main.tf
 iac_guard_v-0.1.0a1/examples/checkov-before-after/before.tf
+iac_guard_v-0.1.0a1/examples/checkov-before-after/before/main.tf
+iac_guard_v-0.1.0a1/packaging/iac_guard_v_no_bytecode.pth
 iac_guard_v-0.1.0a1/pyproject.toml
 iac_guard_v-0.1.0a1/src/iac_guard_v/__init__.py
 iac_guard_v-0.1.0a1/src/iac_guard_v/adapters/__init__.py
@@ -97,6 +103,8 @@ iac_guard_v-0.1.0a1/src/iac_guard_v/config.py
 iac_guard_v-0.1.0a1/src/iac_guard_v/diffing.py
 iac_guard_v-0.1.0a1/src/iac_guard_v/engine.py
 iac_guard_v-0.1.0a1/src/iac_guard_v/enums.py
+iac_guard_v-0.1.0a1/src/iac_guard_v/examples/checkov-before-after/after.tf
+iac_guard_v-0.1.0a1/src/iac_guard_v/examples/checkov-before-after/before.tf
 iac_guard_v-0.1.0a1/src/iac_guard_v/fingerprints.py
 iac_guard_v-0.1.0a1/src/iac_guard_v/matching.py
 iac_guard_v-0.1.0a1/src/iac_guard_v/models.py

@@ -3126,3 +3126,46 @@ macOS skip for the native-Linux UID/bind-mount gate. Specification lint remained
 documents/166 enums with zero warnings; catalog source verification, the 4,842-file
 frozen manifest, 630/630 replay, 10,080/10,080 field comparisons, seven semantic table
 matches, and the frozen-scope diff all passed.
+
+## 2026-08-14 — UX.1–UX.3 and bounded alpha adoption gate
+
+The public CLI now makes `verify` the canonical direct path. It accepts exact before and
+after roots plus explicit or baseline-discovered targets, enters the existing public
+request and sealed verification path, and never accepts precomputed evidence. The Git PR
+path materializes exact base/head objects without changing the checkout, binds commit and
+tree provenance, and restricts changed-only target selection without restricting complete
+candidate regression evidence. `init` binds resolvable targets to exact files. Doctor is
+mode-aware, the offline demo shows all four illustrative verdict classes, the real demo
+uses the packaged Checkov fixture, report commands support create-only output files, and
+the help text documents target grammar, isolation, exits, aliases, and remediation.
+
+The five-minute native alpha uses copied-file product and scanner environments created
+with `--without-pip`; an external installer uses `pip --python ... --no-compile`. The
+wheel's RECORD-bound startup policy disables bytecode writes before product imports, so
+the documented doctor and verification commands pass twice without cache deletion or an
+undocumented environment variable. The real installed-wheel Checkov 3.3.0 golden test
+recorded `VERIFIED`, exit 0, exact `CKV_AWS_53`/`main.tf`/resource binding, visible
+reduced isolation, report-v1 validation, semantic repeatability, and no private path.
+
+The expanded non-integration matrix recorded 2,098 passes independently on Python 3.10,
+3.11, 3.12, and 3.13. Focused branch-aware coverage was 94% API, 94% CLI, 93% workflow,
+and 90% engine. Specification lint inspected 26 documents and 166 enums with zero
+warnings. The frozen manifest remained 4,842/4,842 at root
+`a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`;
+replay remained 630/630 and 10,080/10,080 with zero verdict mismatches; all seven tables
+were `SEMANTIC_MATCH`; and the frozen-scope diff was empty.
+
+After stale output deletion, the one fresh build produced a 52-file wheel at SHA-256
+`da3dc5306a27b8b95ab694fc8459c2fd2de053a1fd63ab122334c454dab7712e`
+and a 65-file sdist at SHA-256
+`42c5a00f97233f8ee59840ace5f78bd0707b24bc14502b0f5b392667e5673a11`.
+Both passed the content allowlist/denylist, LICENSE/NOTICE, schemas, reporters, workflow,
+policy, fixture, and no-test-capability checks. Publication remains blocked: `paper.pdf`
+is intentionally unchanged until the owner supplies an arXiv identifier and authorizes
+the separate legal-tip commit that removes it from the current tree and adds the links.
+
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED

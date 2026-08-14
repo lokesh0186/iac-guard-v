@@ -23,13 +23,6 @@ def _run(
     )
 
 
-def _purge_bytecode(root: Path) -> None:
-    for path in tuple(root.rglob("*.pyc")) + tuple(root.rglob("*.pyo")):
-        path.unlink()
-    for path in sorted(root.rglob("__pycache__"), reverse=True):
-        shutil.rmtree(path)
-
-
 def _semantic_execution_view(payload: dict) -> dict:
     """Exclude only exact per-process provenance from cross-run comparison.
 
@@ -52,7 +45,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     scanner_root = external / ".venv-checkov330"
     for root in (environment_root, scanner_root):
         created = _run(
-            [sys.executable, "-m", "venv", "--copies", root],
+            [sys.executable, "-m", "venv", "--copies", "--without-pip", root],
             cwd=external, environment=os.environ.copy(),
         )
         assert created.returncode == 0, created.stderr
@@ -60,36 +53,30 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     scanner_binary_dir = scanner_root / ("Scripts" if os.name == "nt" else "bin")
     python = binary_dir / ("python.exe" if os.name == "nt" else "python")
     scanner_python = scanner_binary_dir / ("python.exe" if os.name == "nt" else "python")
-    upgraded = _run(
-        [python, "-m", "pip", "install", "--upgrade", "pip"],
-        cwd=external, environment=os.environ.copy(),
-    )
-    assert upgraded.returncode == 0, upgraded.stderr
-    build_install = _run(
-        [python, "-m", "pip", "install", "--no-compile", "build>=1.2,<2"],
-        cwd=external, environment=os.environ.copy(),
-    )
-    assert build_install.returncode == 0, build_install.stderr
     artifacts = tmp_path / "artifacts"
     artifacts.mkdir()
     build = _run(
-        [python, "-m", "build", "--wheel", "--outdir", artifacts],
+        [sys.executable, "-m", "build", "--wheel", "--outdir", artifacts],
         cwd=ROOT, environment={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     )
     assert build.returncode == 0, build.stderr
     wheel = next(artifacts.glob(f"iac_guard_v-{VERSION}-py3-none-any.whl"))
     product_install = _run(
-        [python, "-m", "pip", "install", "--no-compile", wheel],
+        [
+            sys.executable, "-m", "pip", "--python", python,
+            "install", "--no-compile", wheel,
+        ],
         cwd=external, environment=os.environ.copy(),
     )
     assert product_install.returncode == 0, product_install.stderr
     scanner_install = _run(
-        [scanner_python, "-m", "pip", "install", "--no-compile", "checkov==3.3.0"],
+        [
+            sys.executable, "-m", "pip", "--python", scanner_python,
+            "install", "--no-compile", "checkov==3.3.0",
+        ],
         cwd=external, environment=os.environ.copy(),
     )
     assert scanner_install.returncode == 0, scanner_install.stderr
-    _purge_bytecode(environment_root)
-    _purge_bytecode(scanner_root)
 
     baseline = external / "baseline"
     candidate = external / "candidate"
@@ -101,15 +88,16 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     home.mkdir()
     environment = {
         key: value for key, value in os.environ.items()
-        if key not in {"PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV"}
+        if key not in {
+            "PYTHONPATH", "PYTHONHOME", "PYTHONDONTWRITEBYTECODE",
+            "PYTHONNOUSERSITE", "VIRTUAL_ENV",
+        }
     }
     environment.update({
         "HOME": str(home),
         "PATH": os.pathsep.join(
             (str(binary_dir), str(scanner_binary_dir), "/usr/bin", "/bin")
         ),
-        "PYTHONDONTWRITEBYTECODE": "1",
-        "PYTHONNOUSERSITE": "1",
         "VIRTUAL_ENV": str(environment_root),
     })
     command = binary_dir / ("iac-guard.exe" if os.name == "nt" else "iac-guard")
@@ -119,33 +107,30 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     assert version.returncode == 0, version.stderr
     assert version.stdout.strip() == f"iac-guard {VERSION}"
     doctor = _run(
-        [command, "doctor", "--format", "json"],
+        [command, "doctor", "--mode", "local-trusted", "--format", "json"],
         cwd=external, environment=environment,
     )
-    assert doctor.returncode == 3, doctor.stderr
+    assert doctor.returncode == 0, doctor.stderr
     diagnosis = json.loads(doctor.stdout)
     assert diagnosis["checkov"]["status"] == "PASS"
     assert diagnosis["validator_registry"]["status"] == "PASS"
     assert diagnosis["hardened_container"]["status"] == "INCONCLUSIVE"
-    config = external / "iac-guard.config.json"
-    initialized = _run([
-        command, "init", "--baseline", baseline, "--candidate", candidate,
-        "--target", "CKV_AWS_53=aws_s3_bucket_public_access_block.example",
-        "--framework", "terraform", "--execution-mode", "reduced-isolation",
-        "--checkov-executable", checkov, "--output", config, "--format", "json",
-    ], cwd=external, environment=environment)
-    assert initialized.returncode == 0, initialized.stderr
-
     reports: list[dict] = []
     report_paths: list[Path] = []
     for iteration in (1, 2):
+        report_path = external / f"report-{iteration}.json"
         completed = _run(
-            [command, "differential", "--config", config, "--format", "json"],
+            [
+                command, "verify", "--before", baseline, "--after", candidate,
+                "--target", "CKV_AWS_53=aws_s3_bucket_public_access_block.example",
+                "--framework", "terraform", "--local-trusted",
+                "--checkov-executable", checkov, "--format", "json",
+                "--output", report_path, "--quiet",
+            ],
             cwd=external, environment=environment,
         )
         assert completed.returncode == 0, completed.stderr
-        report_path = external / f"report-{iteration}.json"
-        report_path.write_text(completed.stdout, encoding="utf-8")
+        assert completed.stdout == ""
         validated = _run([
             python, "-c",
             "import json,sys; from iac_guard_v.report import validate_report_payload; "
@@ -153,7 +138,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
             report_path,
         ], cwd=external, environment=environment)
         assert validated.returncode == 0, validated.stderr
-        reports.append(json.loads(completed.stdout))
+        reports.append(json.loads(report_path.read_text(encoding="utf-8")))
         report_paths.append(report_path)
 
     for report in reports:
@@ -176,6 +161,12 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
         assert str(home) not in serialized
 
     assert _semantic_execution_view(reports[0]) == _semantic_execution_view(reports[1])
+
+    doctor_again = _run(
+        [command, "doctor", "--mode", "local-trusted", "--format", "json"],
+        cwd=external, environment=environment,
+    )
+    assert doctor_again.returncode == 0, doctor_again.stderr
 
     rendered = [
         _run(

@@ -46,6 +46,9 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/schemas/report-v1.schema.json",
     "iac_guard_v/schemas/config-v1.schema.json",
     "iac_guard_v/oracles/policies.json",
+    "iac_guard_v/examples/checkov-before-after/before.tf",
+    "iac_guard_v/examples/checkov-before-after/after.tf",
+    "iac_guard_v_no_bytecode.pth",
 }
 
 
@@ -94,6 +97,9 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
     wheel, sdist = alpha_artifacts
     with zipfile.ZipFile(wheel) as archive:
         wheel_names = tuple(archive.namelist())
+        assert archive.read("iac_guard_v_no_bytecode.pth") == (
+            b"import sys; sys.dont_write_bytecode = True\n"
+        )
         product_python = b"\n".join(
             archive.read(name) for name in wheel_names if name.endswith(".py")
         )

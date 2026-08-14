@@ -40,7 +40,8 @@ python -m build --outdir dist
 - [ ] Exactly one `0.1.0a1` wheel and one `0.1.0a1` sdist were created.
 - [ ] Package-content tests pass against a separately created empty output directory.
 - [ ] The wheel contains workflow.py, all three reporters, both public schemas, the
-      protected oracle policy, LICENSE, and NOTICE.
+      protected oracle policy, packaged demo fixture, the RECORD-bound no-bytecode
+      startup policy, LICENSE, and NOTICE.
 - [ ] Wheel and sdist exclude paper.pdf, frozen research/benchmark material, tests,
       tools, scripts, and test-only evidence capabilities.
 
@@ -58,14 +59,16 @@ PY
 
 ## External installation and golden workflow
 
-- [ ] Create separate copied-file product/parser and Checkov environments outside the
-      source checkout; never overlay `python-hcl2` and `bc-python-hcl2` files.
-- [ ] Install the reviewed wheel and Checkov 3.3.0 into their respective environments
-      with `--no-compile`.
-- [ ] Remove all `__pycache__`, `.pyc`, and `.pyo` entries from both environments.
-- [ ] Set `PYTHONDONTWRITEBYTECODE=1` before any product execution.
-- [ ] Run `iac-guard --version` and `iac-guard doctor`.
-- [ ] Run the README golden Checkov workflow twice.
+- [ ] Create separate copied-file product/parser and Checkov environments with
+      `venv --copies --without-pip`; never overlay `python-hcl2` and `bc-python-hcl2`.
+- [ ] From the external installer, install the reviewed wheel and Checkov 3.3.0 with
+      `pip --python <environment-python> install --no-compile`.
+- [ ] Do not manually delete caches or set `PYTHONDONTWRITEBYTECODE`; the installed
+      startup policy and scanner subprocess contract must keep both environments clean.
+- [ ] Run `iac-guard --version` and `iac-guard doctor --mode local-trusted`; doctor
+      must return 0 even though hardened-container mode remains unavailable.
+- [ ] Run the README direct `iac-guard verify --before ... --after ...` command twice,
+      then rerun doctor, without repairing or cleaning either environment.
 - [ ] Both reports are semantically valid report-v1 documents with `VERIFIED`, exit 0,
       exact CKV_AWS_53 file/resource binding, visible reduced-isolation, and no private
       absolute paths. Their semantic views and Markdown projections are byte-identical;

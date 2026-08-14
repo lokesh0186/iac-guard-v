@@ -22,6 +22,7 @@ from iac_guard_v.engine import (
     TrustedVerificationConfigBundle,
     attest_checkov_scan_plan,
     classify_target,
+    load_git_verification_config,
     load_operator_verification_config,
     require_trusted_verification_result,
     run_checkov_verification,
@@ -254,6 +255,40 @@ def _config(
         config.policy_source_authorization,
         registry, _trusted_context=ENGINE._TRUSTED_CONFIG_CONTEXT,
     )
+
+
+def test_git_config_binds_exact_pr_provenance_and_rejects_bad_identities(
+    tmp_path: Path,
+) -> None:
+    executable = _executable(tmp_path)
+    baseline = _scan_request(tmp_path / "baseline", executable)
+    candidate = _scan_request(tmp_path / "candidate", executable)
+    values = {
+        "required_gates": RequiredGates(("terraform_hcl_parse",)),
+        "repository_identity": "git_repository_v1_" + "a" * 64,
+        "base_commit": "b" * 40,
+        "head_commit": "c" * 40,
+        "context_identity": "git_pr_v1_" + "d" * 64,
+        "frameworks": ("terraform",),
+    }
+    config = load_git_verification_config(
+        baseline.request, candidate.request, **values,
+    )
+    assert config.source_provenance == "git_pr_materialized_objects_v1"
+    assert config.policy_source_authorization.mode is ENGINE.ExecutionMode.PR_BASE
+    assert config.policy_source_authorization.commit_sha == "b" * 40
+    for name, bad, message in (
+        ("repository_identity", "invalid", "repository identity"),
+        ("base_commit", "short", "base_commit"),
+        ("head_commit", "short", "head_commit"),
+        ("context_identity", "invalid", "context identity"),
+    ):
+        changed = dict(values)
+        changed[name] = bad
+        with pytest.raises(DomainError, match=message):
+            load_git_verification_config(
+                baseline.request, candidate.request, **changed,
+            )
 
 
 def test_engine_invokes_adapter_and_factories_internally(monkeypatch, tmp_path: Path) -> None:
