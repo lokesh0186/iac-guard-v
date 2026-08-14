@@ -40,9 +40,12 @@ python -m pip --python .venv-checkov330/bin/python install --no-compile \
   --format console \
   --output ./iac-guard-report.json
 # IaC-Guard-V: VERIFIED
-# target CKV_AWS_53 ...: FIXED
+# exit_code: 0
+# targets:
+#   CKV_AWS_53 aws_s3_bucket_public_access_block.example: FIXED
 # scanner integrity: PASS
-# exit: 0
+# regressions: none
+# policy: VERIFIED
 ```
 
 Exit codes are `0` VERIFIED, `1` FAILED, `2` invalid request, `3` INCONCLUSIVE, and

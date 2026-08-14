@@ -3156,9 +3156,9 @@ replay remained 630/630 and 10,080/10,080 with zero verdict mismatches; all seve
 were `SEMANTIC_MATCH`; and the frozen-scope diff was empty.
 
 After stale output deletion, the one fresh build produced a 52-file wheel at SHA-256
-`da3dc5306a27b8b95ab694fc8459c2fd2de053a1fd63ab122334c454dab7712e`
+`ef54f5ed169005ace3b55fc2dccf8f0d7a8676c34c5905c99a2ce508339376b6`
 and a 65-file sdist at SHA-256
-`42c5a00f97233f8ee59840ace5f78bd0707b24bc14502b0f5b392667e5673a11`.
+`0118a5c2dbcfe9b18b42d34682a9f6de30928800a3fefe0ce849a509ff9eea99`.
 Both passed the content allowlist/denylist, LICENSE/NOTICE, schemas, reporters, workflow,
 policy, fixture, and no-test-capability checks. Publication remains blocked: `paper.pdf`
 is intentionally unchanged until the owner supplies an arXiv identifier and authorizes

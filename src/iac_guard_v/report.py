@@ -1581,15 +1581,29 @@ def render_console(report: VerificationReportV1 | OperationalReportV1 | Candidat
             f"remediation: {diagnostic['remediation']}",
         ))
     else:
-        targets = value["verification"].get("targets", [])
+        verification = value["verification"]
+        targets = verification.get("targets", [])
         lines.append("targets:")
         for target in targets:
             identity = target["binding"]["identity"]
             lines.append(
                 f"  {identity['rule_id']} {identity['scope']}: {target['outcome']}"
             )
-        if hasattr(report, "report_sha256"):
-            lines.append(f"report_sha256: {report.report_sha256}")
+        if "failure_stage" in verification:
+            lines.extend((
+                "scanner integrity: not executed",
+                "regressions: not evaluated",
+            ))
+        else:
+            lines.append(
+                f"scanner integrity: {verification['scanner_integrity']['status']}"
+            )
+            regression = verification["regression"]["status"]
+            lines.append(
+                "regressions: none" if regression == "PASS"
+                else f"regressions: {regression}"
+            )
+        lines.append(f"policy: {value['policy']['verdict']}")
     return "\n".join(lines) + "\n"
 
 

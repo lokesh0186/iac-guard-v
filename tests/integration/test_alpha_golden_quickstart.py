@@ -117,6 +117,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     assert diagnosis["hardened_container"]["status"] == "INCONCLUSIVE"
     reports: list[dict] = []
     report_paths: list[Path] = []
+    console_outputs: list[str] = []
     for iteration in (1, 2):
         report_path = external / f"report-{iteration}.json"
         completed = _run(
@@ -124,13 +125,18 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
                 command, "verify", "--before", baseline, "--after", candidate,
                 "--target", "CKV_AWS_53=aws_s3_bucket_public_access_block.example",
                 "--framework", "terraform", "--local-trusted",
-                "--checkov-executable", checkov, "--format", "json",
-                "--output", report_path, "--quiet",
+                "--checkov-executable", checkov, "--format", "console",
+                "--output", report_path,
             ],
             cwd=external, environment=environment,
         )
         assert completed.returncode == 0, completed.stderr
-        assert completed.stdout == ""
+        assert "IaC-Guard-V: VERIFIED" in completed.stdout
+        assert "CKV_AWS_53 aws_s3_bucket_public_access_block.example: FIXED" in completed.stdout
+        assert "scanner integrity: PASS" in completed.stdout
+        assert "regressions: none" in completed.stdout
+        assert "policy: VERIFIED" in completed.stdout
+        console_outputs.append(completed.stdout)
         validated = _run([
             python, "-c",
             "import json,sys; from iac_guard_v.report import validate_report_payload; "
@@ -161,6 +167,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
         assert str(home) not in serialized
 
     assert _semantic_execution_view(reports[0]) == _semantic_execution_view(reports[1])
+    assert console_outputs[0] == console_outputs[1]
 
     doctor_again = _run(
         [command, "doctor", "--mode", "local-trusted", "--format", "json"],

@@ -196,7 +196,11 @@ def test_report_v1_retains_complete_gate_snapshot_and_policy_evidence(
         assert "filesystem_entries" in snapshot
         assert snapshot["snapshot_sha256"]
     assert canonical["policy"]["policy_evidence"]["source_origin"] == "operator"
-    assert "report_sha256" in render_console(report)
+    console = render_console(report)
+    assert "report_sha256" not in console
+    assert "scanner integrity: PASS" in console
+    assert "regressions: none" in console
+    assert "policy: VERIFIED" in console
 
 
 def test_report_rejects_policy_from_another_verification(
