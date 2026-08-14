@@ -1201,7 +1201,36 @@ def load_operator_verification_config(
     )
     if any(getattr(baseline_request, name) != getattr(candidate_request, name) for name in lock_fields):
         raise DomainError("baseline and candidate scanner lock inputs differ")
-    registry = production_gate_registry()
+    complete_registry = production_gate_registry()
+    required_validator_ids = set(required_gates.validator_ids)
+    required_oracle_ids = set(required_gates.oracle_ids)
+    # Canonical report-v1 binds exactly the implementations that were required and
+    # executed.  Retaining unused registry entries would make a one-framework public
+    # request serialize an implementation graph larger than its required-gate graph.
+    if (
+        required_validator_ids <= set(complete_registry.validator_ids)
+        and required_oracle_ids <= set(complete_registry.oracle_ids)
+    ):
+        registry = TrustedGateRegistry(
+            complete_registry.identity,
+            required_gates.validator_ids,
+            required_gates.oracle_ids,
+            tuple(
+                item for item in complete_registry.implementations
+                if (
+                    (item.kind == "validator" and item.gate_id in required_validator_ids)
+                    or (item.kind == "oracle" and item.gate_id in required_oracle_ids)
+                )
+            ),
+            _production_gate_executor,
+            _trusted_context=_TRUSTED_GATE_REGISTRY_CONTEXT,
+        )
+    else:
+        # Internal unit-test loaders replace this registry with their own closed,
+        # factory-stamped implementation before execution.  A production result that
+        # retained unsupported required IDs would still fail closed at execution and
+        # report validation.
+        registry = complete_registry
     selected_frameworks = frameworks if frameworks is not None else baseline_request.frameworks
     source_payload = {
         "mode": "operator",

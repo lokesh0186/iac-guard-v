@@ -17,12 +17,13 @@ from iac_guard_v.config import (
 )
 from iac_guard_v.engine import VerificationResult
 from iac_guard_v.enums import ArtifactKind, Verdict
-from iac_guard_v.models import DomainError
+from iac_guard_v.models import DomainError, RequiredGates
+from iac_guard_v.engine import load_operator_verification_config
 from iac_guard_v.policy import PolicyResult
 from iac_guard_v.report import OperationalReportV1, VerificationReportV1, render_console
 
 from iac_guard_v.adapters.checkov import CheckovAdapter
-from test_engine import IDENTITY, _executable, _run
+from test_engine import IDENTITY, _executable, _run, _scan_request
 from test_policy import _verdict, verified_engine  # noqa: F401
 
 
@@ -94,6 +95,22 @@ def test_explicit_reduced_isolation_runs_only_internal_evidence_pipeline(
     assert type(report) is VerificationReportV1
     assert report.verdict is Verdict.VERIFIED
     assert report.exit_code == 0
+
+
+def test_public_operator_config_binds_only_required_gate_implementations(tmp_path) -> None:
+    executable = _executable(tmp_path)
+    baseline = _scan_request(tmp_path / "baseline", executable)
+    candidate = _scan_request(tmp_path / "candidate", executable)
+    config = load_operator_verification_config(
+        baseline.request,
+        candidate.request,
+        required_gates=RequiredGates(("terraform_hcl_parse",)),
+        frameworks=("terraform",),
+    )
+    assert config.gate_registry.validator_ids == ("terraform_hcl_parse",)
+    assert tuple(
+        item.gate_id for item in config.gate_registry.implementations
+    ) == ("terraform_hcl_parse",)
 
 
 def test_public_request_has_no_precomputed_or_trust_assertion_fields() -> None:
