@@ -1271,6 +1271,78 @@ def load_operator_verification_config(
     )
 
 
+def load_git_verification_config(
+    baseline_request: CheckovScanRequest,
+    candidate_request: CheckovScanRequest,
+    *,
+    required_gates: RequiredGates,
+    repository_identity: str,
+    base_commit: str,
+    head_commit: str,
+    context_identity: str,
+    severity_floor: Severity = Severity.HIGH,
+    fail_on_location_change: bool = False,
+    frameworks: tuple | None = None,
+) -> TrustedVerificationConfigBundle:
+    """Bind an internally materialized Git comparison to protected PR provenance."""
+    if not __import__("re").fullmatch(r"git_repository_v1_[0-9a-f]{64}", repository_identity):
+        raise DomainError("Git verification repository identity is not canonical")
+    for name, value in (("base_commit", base_commit), ("head_commit", head_commit)):
+        if not __import__("re").fullmatch(r"[0-9a-f]{40,64}", value):
+            raise DomainError(f"Git verification {name} must be a full object ID")
+    if not __import__("re").fullmatch(r"git_pr_v1_[0-9a-f]{64}", context_identity):
+        raise DomainError("Git verification context identity is not canonical")
+    operator = load_operator_verification_config(
+        baseline_request,
+        candidate_request,
+        required_gates=required_gates,
+        severity_floor=severity_floor,
+        fail_on_location_change=fail_on_location_change,
+        frameworks=frameworks,
+    )
+    authorization = PolicySourceAuthorization(
+        ExecutionMode.PR_BASE,
+        repository_identity,
+        base_commit,
+        f"git_candidate_{head_commit}",
+        context_identity,
+        _trusted_context=_TRUSTED_POLICY_AUTHORIZATION_CONTEXT,
+    )
+    source_identity = "git_config_v1_" + hashlib.sha256(json.dumps({
+        "repository_identity": repository_identity,
+        "base_commit": base_commit,
+        "head_commit": head_commit,
+        "context_identity": context_identity,
+        "frameworks": list(operator.frameworks),
+        "required_gates": operator.required_gates.canonical_dict(),
+        "gate_registry": operator.gate_registry.identity,
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return TrustedVerificationConfigBundle(
+        operator.baseline_root,
+        operator.candidate_root,
+        operator.scanner_executable,
+        operator.frameworks,
+        operator.expected_version,
+        operator.expected_executable_sha256,
+        operator.expected_scanner_environment_sha256,
+        operator.expected_policy_inventory_sha256,
+        operator.required_gates,
+        operator.severity_floor,
+        operator.fail_on_location_change,
+        operator.timeout_seconds,
+        operator.max_output_bytes,
+        operator.max_eligible_files,
+        operator.max_file_bytes,
+        operator.max_total_eligible_bytes,
+        operator.governed_config,
+        source_identity,
+        "git_pr_materialized_objects_v1",
+        authorization,
+        operator.gate_registry,
+        _trusted_context=_TRUSTED_CONFIG_CONTEXT,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ScanPlanFile:
     file_path: str
@@ -3255,6 +3327,7 @@ __all__ = [
     "SealedVerificationSnapshot", "TargetOutcomeEvidence", "TrustedScanPlan", "VerificationRequest",
     "TrustedGateRegistry", "TrustedVerificationConfigBundle", "VerificationResult",
     "attest_checkov_scan_plan", "classify_target",
-    "load_operator_verification_config", "production_gate_registry",
+    "load_git_verification_config", "load_operator_verification_config",
+    "production_gate_registry",
     "require_trusted_verification_result", "run_checkov_verification",
 ]

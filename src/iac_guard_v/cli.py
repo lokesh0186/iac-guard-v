@@ -13,7 +13,12 @@ from types import MappingProxyType
 
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
-from .api import BaselineDiscoveryUnavailable, discover_baseline_targets, verify
+from .api import (
+    BaselineDiscoveryUnavailable,
+    _verify_git,
+    discover_baseline_targets,
+    verify,
+)
 from .config import (
     ExecutionIsolation, PublicTarget, PublicVerificationRequest, load_public_config,
 )
@@ -23,8 +28,8 @@ from .redaction import redact_detail
 from .reporters import render_junit, render_markdown, render_sarif
 from .workflow import (
     WORKFLOW_LOCK_CONTRACT, canonical_json, changed_only_targets_are_bound,
-    command_receipt, create_reduced_isolation_lock, public_config_payload,
-    write_new_regular_file,
+    bind_inventory_targets, command_receipt, create_reduced_isolation_lock,
+    materialize_git_comparison, public_config_payload, write_new_regular_file,
 )
 
 
@@ -228,9 +233,23 @@ def _parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--output", required=True, type=Path)
     init_parser.add_argument("--format", choices=("json", "console"), default="console")
     pr_parser = subcommands.add_parser("pr")
-    pr_parser.add_argument("--config", required=True, type=Path)
-    pr_parser.add_argument("--changed-only", action="store_true", required=True)
+    pr_source = pr_parser.add_mutually_exclusive_group(required=True)
+    pr_source.add_argument("--config", type=Path)
+    pr_source.add_argument("--base-ref")
+    pr_parser.add_argument("--head-ref")
+    pr_parser.add_argument("--repository", type=Path, default=Path("."))
+    pr_targets = pr_parser.add_mutually_exclusive_group()
+    pr_targets.add_argument("--target", action="append")
+    pr_targets.add_argument("--all-baseline-findings", action="store_true")
+    pr_parser.add_argument(
+        "--framework", choices=("terraform", "kubernetes"), action="append"
+    )
+    pr_parser.add_argument("--local-trusted", action="store_true")
+    pr_parser.add_argument("--checkov-executable", type=Path)
+    pr_parser.add_argument("--changed-only", action="store_true")
     pr_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
+    pr_parser.add_argument("--output", type=Path)
+    pr_parser.add_argument("--quiet", action="store_true")
     return parser
 
 
@@ -312,6 +331,77 @@ def _direct_request(args) -> PublicVerificationRequest | OperationalReportV1:
         configured,
         frameworks,
     )
+
+
+def _pr_executable(args) -> Path | OperationalReportV1:
+    if not args.local_trusted:
+        if args.checkov_executable is not None:
+            raise DomainError("--checkov-executable requires --local-trusted")
+        return OperationalReportV1(
+            "HARDENED_CONTAINER_UNAVAILABLE",
+            "The hardened execution image is not released and local execution was not selected.",
+            "Rerun with --local-trusted for operator-controlled local Git content.",
+        )
+    configured = args.checkov_executable
+    if configured is None:
+        discovered = shutil.which("checkov")
+        if discovered is None:
+            return OperationalReportV1(
+                "CHECKOV_NOT_FOUND",
+                "Local trusted mode could not find the locked Checkov executable.",
+                "Install Checkov 3.3.0, then rerun with --local-trusted.",
+            )
+        configured = Path(discovered)
+    return configured
+
+
+def _git_pr_report(args):
+    if args.head_ref is None:
+        raise DomainError("Git-aware pr verification requires --head-ref")
+    if not args.target and not args.all_baseline_findings:
+        raise DomainError("Git-aware pr requires --target or --all-baseline-findings")
+    executable = _pr_executable(args)
+    if type(executable) is OperationalReportV1:
+        return executable
+    frameworks = tuple(args.framework or ("kubernetes", "terraform"))
+    selectors = tuple(
+        (target.rule_id, target.resource_address, target.file_path)
+        for target in (_parse_target_selector(value) for value in (args.target or ()))
+    )
+    with materialize_git_comparison(
+        args.repository, args.base_ref, args.head_ref
+    ) as materialization:
+        eligible = materialization.changed_paths if args.changed_only else None
+        try:
+            targets = discover_baseline_targets(
+                materialization.baseline_root,
+                executable,
+                frameworks,
+                selectors,
+                all_findings=args.all_baseline_findings,
+                eligible_paths=eligible,
+            )
+        except BaselineDiscoveryUnavailable as exc:
+            return OperationalReportV1(
+                "BASELINE_TARGET_DISCOVERY_UNAVAILABLE",
+                redact_detail(str(exc)),
+                "Run doctor --mode local-trusted and repair Checkov 3.3.0.",
+            )
+        if not targets:
+            return OperationalReportV1(
+                "NO_BASELINE_TARGETS",
+                "No exact failing baseline target matched the protected Git selection.",
+                "Review the changed paths or provide a file-qualified --target selector.",
+            )
+        request = PublicVerificationRequest(
+            materialization.baseline_root,
+            materialization.candidate_root,
+            targets,
+            ExecutionIsolation.REDUCED_ISOLATION,
+            executable,
+            frameworks,
+        )
+        return _verify_git(request, materialization)
 
 
 def _write_receipt(command: str, receipt: dict, output_format: str) -> None:
@@ -504,6 +594,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "init":
             targets = tuple(_parse_target_selector(item) for item in args.target)
             frameworks = tuple(args.framework or ("kubernetes", "terraform"))
+            targets = bind_inventory_targets(args.baseline, targets, frameworks)
             mode = ExecutionIsolation(args.execution_mode)
             request = PublicVerificationRequest(
                 args.baseline,
@@ -570,10 +661,31 @@ def main(argv: list[str] | None = None) -> int:
                     )
             report = verify(request)
             return _write_report(report, args.format, args.output, quiet=args.quiet)
-        if args.command in {"scan", "differential", "pr"}:
+        if args.command == "pr":
+            if args.config is not None:
+                if any((
+                    args.head_ref is not None,
+                    bool(args.target),
+                    args.all_baseline_findings,
+                    bool(args.framework),
+                    args.local_trusted,
+                    args.checkov_executable is not None,
+                    args.repository != Path("."),
+                )):
+                    raise DomainError(
+                        "--config cannot be combined with direct Git request arguments"
+                    )
+                request = load_public_config(args.config)
+                if args.changed_only:
+                    changed_only_targets_are_bound(request)
+                report = verify(request)
+            else:
+                report = _git_pr_report(args)
+            return _write_report(
+                report, args.format, args.output, quiet=args.quiet
+            )
+        if args.command in {"scan", "differential"}:
             request = load_public_config(args.config)
-            if args.command == "pr":
-                changed_only_targets_are_bound(request)
             report = verify(request)
             return _write_report(report, args.format)
         raise DomainError("unsupported command")

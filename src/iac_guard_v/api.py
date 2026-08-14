@@ -14,6 +14,7 @@ from .enums import ArtifactKind, Status
 from .engine import (
     VerificationRequest,
     attest_checkov_scan_plan,
+    load_git_verification_config,
     load_operator_verification_config,
     run_checkov_verification,
 )
@@ -28,6 +29,7 @@ from .report import (
     CandidateArtifactFailureReportV1, ExecutionIsolationEvidence,
     OperationalReportV1, VerificationReportV1,
 )
+from .workflow import GitVerificationMaterialization
 
 
 def _launcher_digest(path: Path) -> str:
@@ -63,6 +65,28 @@ def verify(
     request: PublicVerificationRequest,
 ) -> VerificationReportV1 | OperationalReportV1:
     """Run one public verification without accepting precomputed or trusted evidence."""
+    return _verify_request(request)
+
+
+def _verify_git(
+    request: PublicVerificationRequest,
+    materialization: GitVerificationMaterialization,
+) -> VerificationReportV1 | OperationalReportV1:
+    """Internal PR path: bind exact materialized objects to Git provenance."""
+    if type(materialization) is not GitVerificationMaterialization or not materialization._trusted:
+        raise DomainError("Git verification requires protected materialization provenance")
+    if (
+        request.baseline_root != materialization.baseline_root.resolve(strict=True)
+        or request.candidate_root != materialization.candidate_root.resolve(strict=True)
+    ):
+        raise DomainError("Git verification request roots disagree with materialized objects")
+    return _verify_request(request, materialization)
+
+
+def _verify_request(
+    request: PublicVerificationRequest,
+    git_materialization: GitVerificationMaterialization | None = None,
+) -> VerificationReportV1 | OperationalReportV1:
     if type(request) is not PublicVerificationRequest:
         raise TypeError("verify requires an exact PublicVerificationRequest")
     if request.execution_isolation is ExecutionIsolation.HARDENED_CONTAINER:
@@ -117,12 +141,24 @@ def verify(
         f"{name}_hcl_parse" if name == "terraform" else "kubernetes_yaml_parse"
         for name in request.frameworks
     ))
-    config = load_operator_verification_config(
-        baseline.request,
-        candidate.request,
-        required_gates=RequiredGates(validators),
-        frameworks=request.frameworks,
-    )
+    if git_materialization is None:
+        config = load_operator_verification_config(
+            baseline.request,
+            candidate.request,
+            required_gates=RequiredGates(validators),
+            frameworks=request.frameworks,
+        )
+    else:
+        config = load_git_verification_config(
+            baseline.request,
+            candidate.request,
+            required_gates=RequiredGates(validators),
+            repository_identity=git_materialization.repository_identity,
+            base_commit=git_materialization.base_commit,
+            head_commit=git_materialization.head_commit,
+            context_identity=git_materialization.context_identity,
+            frameworks=request.frameworks,
+        )
     engine_request = VerificationRequest(
         baseline, candidate, tuple(item.to_domain() for item in request.targets), config
     )

@@ -4,13 +4,25 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import shutil
 import stat
+import subprocess
+import tempfile
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
-from .config import PublicVerificationRequest
-from .engine import _filesystem_inventory
+from .config import PublicTarget, PublicVerificationRequest
+from .engine import (
+    _filesystem_inventory,
+    _kubernetes_json_resources,
+    _kubernetes_resources,
+    _terraform_resources,
+)
+from .enums import ArtifactKind
 from .models import DomainError
 
 
@@ -19,6 +31,351 @@ WORKFLOW_RECEIPT_CONTRACT = "iac-guard-v-workflow-command-v1"
 _MAX_INVENTORY_FILES = 10_000
 _MAX_FILE_BYTES = 10 * 1024 * 1024
 _MAX_TOTAL_BYTES = 64 * 1024 * 1024
+_GIT_CONTEXT = object()
+
+
+@dataclass(frozen=True, slots=True)
+class GitVerificationMaterialization:
+    repository_identity: str
+    base_commit: str
+    base_tree: str
+    head_commit: str
+    head_tree: str
+    changed_paths: tuple[str, ...]
+    baseline_root: Path
+    candidate_root: Path
+    context_identity: str
+    _trusted_context: object = field(repr=False, compare=False)
+    _trusted: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        for name in ("base_commit", "base_tree", "head_commit", "head_tree"):
+            if not re.fullmatch(r"[0-9a-f]{40,64}", getattr(self, name)):
+                raise DomainError(f"Git materialization {name} must be a full object ID")
+        for name in ("repository_identity", "context_identity"):
+            value = getattr(self, name)
+            if not re.fullmatch(r"[a-z0-9_]+", value):
+                raise DomainError(f"Git materialization {name} is not canonical")
+        if type(self.changed_paths) is not tuple or any(
+            type(item) is not str or not item for item in self.changed_paths
+        ):
+            raise DomainError("Git changed paths must be an exact nonblank tuple")
+        if len(self.changed_paths) != len(set(self.changed_paths)):
+            raise DomainError("Git changed paths contain duplicates")
+        for name in ("baseline_root", "candidate_root"):
+            value = getattr(self, name)
+            if not isinstance(value, Path) or not value.is_dir():
+                raise DomainError(f"Git materialization {name} must be a directory")
+        if self._trusted_context is not _GIT_CONTEXT:
+            raise DomainError("Git materialization requires protected workflow provenance")
+        object.__setattr__(self, "_trusted", True)
+
+
+def _git_executable() -> Path:
+    discovered = shutil.which("git")
+    if discovered is None:
+        raise DomainError("Git executable is unavailable")
+    path = Path(discovered)
+    try:
+        metadata = path.stat()
+        resolved = path.resolve(strict=True)
+    except OSError as exc:
+        raise DomainError("Git executable cannot be inspected") from exc
+    if not stat.S_ISREG(metadata.st_mode) or not os.access(resolved, os.X_OK):
+        raise DomainError("Git executable must be an executable regular file")
+    return resolved
+
+
+def _git(
+    executable: Path,
+    repository: Path,
+    arguments: tuple[str, ...],
+    *,
+    max_output_bytes: int = 2 * 1024 * 1024,
+) -> bytes:
+    if type(arguments) is not tuple or any(type(item) is not str for item in arguments):
+        raise DomainError("Git arguments must be an exact string tuple")
+    environment = {
+        "GIT_CONFIG_GLOBAL": os.devnull,
+        "GIT_CONFIG_NOSYSTEM": "1",
+        "GIT_OPTIONAL_LOCKS": "0",
+        "HOME": os.devnull,
+        "LANG": "C",
+        "LC_ALL": "C",
+        "PATH": "",
+    }
+    try:
+        completed = subprocess.run(
+            [str(executable), *arguments],
+            cwd=repository,
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            check=False,
+            timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise DomainError("Git object command failed") from exc
+    if len(completed.stdout) > max_output_bytes or len(completed.stderr) > 256 * 1024:
+        raise DomainError("Git object command exceeded its output limit")
+    if completed.returncode != 0:
+        raise DomainError("Git object command rejected the repository or ref")
+    return completed.stdout
+
+
+def _safe_ref(value: str, name: str) -> str:
+    if type(value) is not str or not value or len(value) > 256:
+        raise DomainError(f"{name} must be a nonblank bounded Git ref")
+    if value.startswith("-") or any(ord(character) < 32 for character in value):
+        raise DomainError(f"{name} is not a safe Git ref")
+    return value
+
+
+def _object_id(
+    executable: Path, repository: Path, expression: str, object_kind: str,
+) -> str:
+    raw = _git(
+        executable,
+        repository,
+        ("rev-parse", "--verify", f"{expression}^{{{object_kind}}}"),
+        max_output_bytes=1024,
+    ).decode("ascii", errors="strict").strip()
+    if not re.fullmatch(r"[0-9a-f]{40,64}", raw):
+        raise DomainError("Git returned a noncanonical object ID")
+    return raw
+
+
+def _git_tree_entries(
+    executable: Path, repository: Path, commit: str,
+) -> tuple[tuple[str, str, str, int], ...]:
+    raw = _git(
+        executable,
+        repository,
+        ("ls-tree", "-r", "-z", "-l", "--full-tree", commit),
+        max_output_bytes=8 * 1024 * 1024,
+    )
+    entries: list[tuple[str, str, str, int]] = []
+    total = 0
+    for record in raw.split(b"\0"):
+        if not record:
+            continue
+        try:
+            header, path_raw = record.split(b"\t", 1)
+            mode_raw, kind_raw, object_raw, size_raw = header.split(b" ", 3)
+            mode = mode_raw.decode("ascii")
+            kind = kind_raw.decode("ascii")
+            object_id = object_raw.decode("ascii")
+            relative = path_raw.decode("utf-8", errors="strict")
+            size = int(size_raw)
+        except (UnicodeError, ValueError) as exc:
+            raise DomainError("Git tree entry is malformed") from exc
+        from .models import canonical_repo_path
+        relative = canonical_repo_path(relative, "Git tree path")
+        if mode not in {"100644", "100755", "120000"} or kind != "blob":
+            raise DomainError("Git tree contains an unsupported entry type")
+        if not re.fullmatch(r"[0-9a-f]{40,64}", object_id) or size < 0:
+            raise DomainError("Git tree entry identity is malformed")
+        if size > _MAX_FILE_BYTES:
+            raise DomainError("Git tree file exceeds the protected per-file limit")
+        total += size
+        if total > 100 * 1024 * 1024:
+            raise DomainError("Git tree exceeds the protected total-byte limit")
+        entries.append((relative, mode, object_id, size))
+    if len(entries) > _MAX_INVENTORY_FILES:
+        raise DomainError("Git tree exceeds the protected file-count limit")
+    paths = [item[0] for item in entries]
+    if len(paths) != len(set(paths)):
+        raise DomainError("Git tree contains duplicate canonical paths")
+    return tuple(sorted(entries))
+
+
+def _write_all(descriptor: int, payload: bytes) -> None:
+    offset = 0
+    while offset < len(payload):
+        try:
+            written = os.write(descriptor, payload[offset:])
+        except InterruptedError:
+            continue
+        if written <= 0:
+            raise DomainError("Git materialization encountered a zero-byte write")
+        offset += written
+
+
+def _materialize_git_tree(
+    executable: Path, repository: Path, commit: str, destination: Path,
+) -> None:
+    destination.mkdir(mode=0o700)
+    entries = _git_tree_entries(executable, repository, commit)
+    for relative, mode, object_id, expected_size in entries:
+        target = destination / relative
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        payload = _git(
+            executable,
+            repository,
+            ("cat-file", "blob", object_id),
+            max_output_bytes=_MAX_FILE_BYTES,
+        )
+        if len(payload) != expected_size:
+            raise DomainError("Git blob size changed during materialization")
+        if mode == "120000":
+            try:
+                link_target = payload.decode("utf-8", errors="strict")
+                os.symlink(link_target, target)
+            except (OSError, UnicodeError) as exc:
+                raise DomainError("Git symlink could not be materialized safely") from exc
+            continue
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        try:
+            descriptor = os.open(target, flags, 0o600)
+            try:
+                _write_all(descriptor, payload)
+                os.fsync(descriptor)
+            finally:
+                os.close(descriptor)
+        except OSError as exc:
+            raise DomainError("Git blob could not be materialized safely") from exc
+        if hashlib.sha256(target.read_bytes()).hexdigest() != hashlib.sha256(payload).hexdigest():
+            raise DomainError("Git materialized bytes failed digest verification")
+
+
+@contextmanager
+def materialize_git_comparison(
+    repository: Path, base_ref: str, head_ref: str,
+):
+    """Yield exact private Git trees without reading or changing the working tree."""
+    if not isinstance(repository, Path):
+        raise DomainError("Git repository must be pathlib.Path")
+    executable = _git_executable()
+    requested = repository.resolve(strict=True)
+    root_raw = _git(
+        executable, requested, ("rev-parse", "--show-toplevel"), max_output_bytes=4096
+    )
+    try:
+        root = Path(root_raw.decode("utf-8", errors="strict").strip()).resolve(strict=True)
+    except (OSError, UnicodeError) as exc:
+        raise DomainError("Git repository root cannot be resolved") from exc
+    base = _object_id(executable, root, _safe_ref(base_ref, "base_ref"), "commit")
+    head = _object_id(executable, root, _safe_ref(head_ref, "head_ref"), "commit")
+    base_tree = _object_id(executable, root, base, "tree")
+    head_tree = _object_id(executable, root, head, "tree")
+    changed_raw = _git(
+        executable,
+        root,
+        ("diff", "--no-renames", "--name-only", "-z", base, head, "--"),
+        max_output_bytes=8 * 1024 * 1024,
+    )
+    from .models import canonical_repo_path
+    changed = tuple(sorted(
+        canonical_repo_path(item.decode("utf-8", errors="strict"), "changed Git path")
+        for item in changed_raw.split(b"\0") if item
+    ))
+    roots_raw = _git(
+        executable,
+        root,
+        ("rev-list", "--max-parents=0", "--all"),
+        max_output_bytes=1024 * 1024,
+    )
+    repository_seed = tuple(sorted(roots_raw.decode("ascii", errors="strict").split()))
+    if not repository_seed or any(
+        not re.fullmatch(r"[0-9a-f]{40,64}", item) for item in repository_seed
+    ):
+        raise DomainError("Git repository identity roots are unavailable")
+    repository_identity = "git_repository_v1_" + hashlib.sha256(
+        "\n".join(repository_seed).encode("ascii")
+    ).hexdigest()
+    context_payload = json.dumps({
+        "repository_identity": repository_identity,
+        "base_commit": base,
+        "base_tree": base_tree,
+        "head_commit": head,
+        "head_tree": head_tree,
+        "changed_paths": list(changed),
+    }, sort_keys=True, separators=(",", ":")).encode()
+    context_identity = "git_pr_v1_" + hashlib.sha256(context_payload).hexdigest()
+    temporary = Path(tempfile.mkdtemp(prefix="iacgv-git-comparison-"))
+    baseline = temporary / "baseline"
+    candidate = temporary / "candidate"
+    try:
+        _materialize_git_tree(executable, root, base, baseline)
+        _materialize_git_tree(executable, root, head, candidate)
+        yield GitVerificationMaterialization(
+            repository_identity,
+            base,
+            base_tree,
+            head,
+            head_tree,
+            changed,
+            baseline,
+            candidate,
+            context_identity,
+            _GIT_CONTEXT,
+        )
+    finally:
+        try:
+            shutil.rmtree(temporary)
+        except OSError as exc:
+            raise DomainError("Git verification temporary-tree cleanup failed") from exc
+
+
+def bind_inventory_targets(
+    baseline_root: Path,
+    targets: tuple[PublicTarget, ...],
+    frameworks: tuple[str, ...],
+) -> tuple[PublicTarget, ...]:
+    """Resolve init selectors against the complete independent baseline inventory."""
+    entries = _filesystem_inventory(
+        baseline_root,
+        max_files=_MAX_INVENTORY_FILES,
+        max_file_bytes=_MAX_FILE_BYTES,
+        max_total_bytes=_MAX_TOTAL_BYTES,
+    )
+    resources = []
+    for entry in entries:
+        if entry.kind != "REGULAR_FILE" or entry.content is None:
+            continue
+        path = entry.file_path
+        suffix = Path(path).suffix.lower()
+        if suffix == ".tf" and "terraform" in frameworks:
+            resources.extend(_terraform_resources(path, entry.content))
+        elif suffix in {".yaml", ".yml"} and "kubernetes" in frameworks:
+            detected, _identities = _kubernetes_resources(path, entry.content)
+            resources.extend(detected)
+        elif suffix == ".json" and not path.lower().endswith(".tf.json") and "kubernetes" in frameworks:
+            detected, _identities = _kubernetes_json_resources(path, entry.content)
+            resources.extend(detected)
+    # Preserve config-v1 authoring for an intentionally empty scope. Such a config
+    # remains non-authoritative and verification will fail closed because its selector
+    # cannot resolve. Real documented init inputs with IaC resources are bound below.
+    if not resources:
+        return targets
+    bound: list[PublicTarget] = []
+    for target in targets:
+        matches = [
+            item for item in resources
+            if item.resource_address == target.resource_address
+            and (not target.file_path or item.file_path == target.file_path)
+        ]
+        if not matches:
+            raise DomainError(
+                f"init target does not resolve in baseline inventory: "
+                f"{target.rule_id}={target.resource_address}"
+            )
+        if len(matches) != 1:
+            candidates = ", ".join(sorted(
+                f"{target.rule_id}={target.resource_address}@{item.file_path}"
+                for item in matches
+            ))
+            raise DomainError(f"init target is ambiguous; choose one exact selector: {candidates}")
+        resource = matches[0]
+        bound.append(PublicTarget(
+            target.rule_id,
+            target.resource_address,
+            resource.file_path,
+            resource.artifact_kind,
+            resource.scanner_native_lookup,
+            target.baseline_occurrences,
+        ))
+    return tuple(bound)
 
 
 def _canonical_request(request: PublicVerificationRequest) -> dict:
@@ -208,8 +565,9 @@ def command_receipt(command: str, artifact_contract: str, sha256: str) -> dict:
 
 
 __all__ = [
-    "WORKFLOW_LOCK_CONTRACT", "WORKFLOW_RECEIPT_CONTRACT", "canonical_json",
+    "GitVerificationMaterialization", "WORKFLOW_LOCK_CONTRACT",
+    "WORKFLOW_RECEIPT_CONTRACT", "bind_inventory_targets", "canonical_json",
     "changed_only_targets_are_bound", "command_receipt",
     "create_reduced_isolation_lock", "request_identity", "write_new_regular_file",
-    "public_config_payload",
+    "materialize_git_comparison", "public_config_payload",
 ]
