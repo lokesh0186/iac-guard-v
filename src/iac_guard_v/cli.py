@@ -14,10 +14,21 @@ from types import MappingProxyType
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
 from .api import verify
-from .config import load_public_config
+from .config import (
+    ExecutionIsolation, PublicTarget, PublicVerificationRequest, load_public_config,
+)
 from .models import DomainError
 from .report import OperationalReportV1, render_console, validate_report_payload
 from .redaction import redact_detail
+from .reporters import render_junit, render_markdown, render_sarif
+from .workflow import (
+    WORKFLOW_LOCK_CONTRACT, canonical_json, changed_only_targets_are_bound,
+    command_receipt, create_reduced_isolation_lock, public_config_payload,
+    write_new_regular_file,
+)
+
+
+_REPORT_FORMATS = ("json", "console", "sarif", "markdown", "junit")
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,15 +178,88 @@ def _parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
     verify_parser = subcommands.add_parser("verify")
     verify_parser.add_argument("--config", required=True, type=Path)
-    verify_parser.add_argument("--format", choices=("json", "console"), default="console")
+    verify_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
     doctor_parser = subcommands.add_parser("doctor")
     doctor_parser.add_argument("--format", choices=("json", "console"), default="console")
     demo_parser = subcommands.add_parser("demo")
     demo_parser.add_argument("--format", choices=("json", "console"), default="console")
     explain_parser = subcommands.add_parser("explain")
     explain_parser.add_argument("report", type=Path)
-    explain_parser.add_argument("--format", choices=("json", "console"), default="console")
+    explain_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
+    for name in ("scan", "differential"):
+        workflow_parser = subcommands.add_parser(name)
+        workflow_parser.add_argument("--config", required=True, type=Path)
+        workflow_parser.add_argument(
+            "--format", choices=_REPORT_FORMATS, default="console"
+        )
+    lock_parser = subcommands.add_parser("lock")
+    lock_parser.add_argument("--config", required=True, type=Path)
+    lock_parser.add_argument("--output", required=True, type=Path)
+    lock_parser.add_argument("--format", choices=("json", "console"), default="console")
+    init_parser = subcommands.add_parser("init")
+    init_parser.add_argument("--baseline", required=True, type=Path)
+    init_parser.add_argument("--candidate", required=True, type=Path)
+    init_parser.add_argument("--target", required=True, action="append")
+    init_parser.add_argument(
+        "--framework", choices=("terraform", "kubernetes"), action="append"
+    )
+    init_parser.add_argument(
+        "--execution-mode",
+        choices=("hardened-container", "reduced-isolation"),
+        default="hardened-container",
+    )
+    init_parser.add_argument("--checkov-executable", type=Path)
+    init_parser.add_argument("--output", required=True, type=Path)
+    init_parser.add_argument("--format", choices=("json", "console"), default="console")
+    pr_parser = subcommands.add_parser("pr")
+    pr_parser.add_argument("--config", required=True, type=Path)
+    pr_parser.add_argument("--changed-only", action="store_true", required=True)
+    pr_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
     return parser
+
+
+def _parse_target_selector(value: str) -> PublicTarget:
+    if type(value) is not str or "=" not in value:
+        raise DomainError("target selector must use RULE_ID=RESOURCE_ADDRESS")
+    rule_id, resource_address = value.split("=", 1)
+    if not rule_id.strip() or not resource_address.strip():
+        raise DomainError("target selector must contain a rule and resource")
+    return PublicTarget(rule_id.strip(), resource_address.strip())
+
+
+def _write_receipt(command: str, receipt: dict, output_format: str) -> None:
+    if output_format == "json":
+        sys.stdout.write(canonical_json(receipt).decode("utf-8"))
+        return
+    sys.stdout.write(
+        f"IaC-Guard-V {command}\nstatus: {receipt['status']}\n"
+        f"artifact_contract: {receipt['artifact_contract']}\n"
+        f"artifact_sha256: {receipt['artifact_sha256']}\n"
+    )
+
+
+def _write_report(result, output_format: str) -> int:
+    if output_format == "json":
+        output = result.canonical_json()
+    elif output_format == "console":
+        output = render_console(result)
+    else:
+        output = _project_report(result.canonical_dict(), output_format)
+    sys.stdout.write(output)
+    return result.exit_code
+
+
+def _project_report(payload: dict, output_format: str) -> str:
+    renderers = {
+        "sarif": render_sarif,
+        "markdown": render_markdown,
+        "junit": render_junit,
+    }
+    try:
+        renderer = renderers[output_format]
+    except KeyError as exc:
+        raise DomainError("report output format is unsupported") from exc
+    return renderer(payload)
 
 
 def _read_report(path: Path) -> dict:
@@ -298,8 +382,10 @@ def main(argv: list[str] | None = None) -> int:
             value = _read_report(args.report)
             if args.format == "json":
                 sys.stdout.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
-            else:
+            elif args.format == "console":
                 sys.stdout.write(_explain_report(value))
+            else:
+                sys.stdout.write(_project_report(value, args.format))
             return 0
         if args.command == "doctor":
             result = doctor()
@@ -320,12 +406,60 @@ def main(argv: list[str] | None = None) -> int:
                 and result.hardened_container["status"] == "PASS"
                 and result.validator_registry["status"] == "PASS"
             ) else 3
-        request = load_public_config(args.config)
-        report = verify(request)
-        sys.stdout.write(
-            report.canonical_json() if args.format == "json" else render_console(report)
-        )
-        return report.exit_code
+        if args.command == "init":
+            targets = tuple(_parse_target_selector(item) for item in args.target)
+            frameworks = tuple(args.framework or ("kubernetes", "terraform"))
+            mode = ExecutionIsolation(args.execution_mode)
+            request = PublicVerificationRequest(
+                args.baseline,
+                args.candidate,
+                targets,
+                mode,
+                args.checkov_executable,
+                frameworks,
+            )
+            payload = canonical_json(public_config_payload(request))
+            digest = write_new_regular_file(args.output, payload)
+            _write_receipt(
+                "init", command_receipt("init", "config-v1", digest), args.format
+            )
+            return 0
+        if args.command == "lock":
+            request = load_public_config(args.config)
+            if request.execution_isolation is ExecutionIsolation.HARDENED_CONTAINER:
+                return _write_report(OperationalReportV1(
+                    "HARDENED_CONTAINER_LOCK_UNAVAILABLE",
+                    "The Phase-E hardened execution image has not been released, so its "
+                    "runtime lock cannot be created.",
+                    "Use an explicit verified reduced-isolation Checkov environment for "
+                    "local alpha evaluation, or wait for the protected image release.",
+                ), args.format)
+            try:
+                assert request.checkov_executable is not None
+                version = _version(request.checkov_executable.resolve(strict=True))
+                lock = create_reduced_isolation_lock(request, scanner_version=version)
+            except (DomainError, OSError) as exc:
+                return _write_report(OperationalReportV1(
+                    "WORKFLOW_LOCK_ENVIRONMENT_UNAVAILABLE",
+                    redact_detail(str(exc)),
+                    "Run doctor and reinstall the exact Checkov 3.3.0 dependency closure "
+                    "from pinned wheels before creating a lock.",
+                ), args.format)
+            payload = canonical_json(lock)
+            digest = write_new_regular_file(args.output, payload)
+            _write_receipt(
+                "lock",
+                command_receipt("lock", WORKFLOW_LOCK_CONTRACT, digest),
+                args.format,
+            )
+            return 0
+        if args.command in {"verify", "scan", "differential", "pr"}:
+            request = load_public_config(args.config)
+            if args.command == "pr":
+                changed_only_targets_are_bound(request)
+            report = verify(request)
+            return _write_report(report, args.format)
+        raise DomainError("unsupported command")
     except DomainError as exc:
         sys.stderr.write(json.dumps({
             "schema_version": "request-error-v1",
