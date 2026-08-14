@@ -7,9 +7,11 @@ import json
 import shutil
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass, field
+from importlib.resources import files as package_files
 from pathlib import Path
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
@@ -99,13 +101,15 @@ def _thaw(value):
     return value
 
 
-def doctor() -> DoctorReportV1:
+def doctor(mode: str = "all") -> DoctorReportV1:
+    if mode not in {"all", "local-trusted", "hardened-container"}:
+        raise DomainError("doctor mode is unsupported")
     discovered = shutil.which("checkov")
     if discovered is None:
         checkov = {
             "status": "UNAVAILABLE",
             "reason_code": "CHECKOV_NOT_FOUND",
-            "remediation": "Install exactly Checkov 3.3.0 in a dedicated copied-file virtual environment.",
+            "remediation": "python -m pip install --no-compile checkov==3.3.0",
         }
     else:
         executable = Path(discovered).resolve(strict=True)
@@ -144,7 +148,7 @@ def doctor() -> DoctorReportV1:
                 ),
                 "detail": redact_detail(detail),
                 "remediation": (
-                    "Remove all __pycache__, .pyc and .pyo entries, then reinstall from pinned wheels."
+                    "python -m pip install --force-reinstall --no-compile checkov==3.3.0"
                     if unsafe_bytecode else
                     "Reinstall Checkov 3.3.0 and its dependency closure from pinned wheels with valid RECORD hashes."
                 ),
@@ -181,10 +185,36 @@ def doctor() -> DoctorReportV1:
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="iac-guard")
+    parser = argparse.ArgumentParser(
+        prog="iac-guard",
+        description="Fail-closed before/after verification for infrastructure-as-code repairs.",
+        epilog=(
+            "Canonical alpha command:\n"
+            "  iac-guard verify --before BEFORE --after AFTER "
+            "--target RULE=RESOURCE --local-trusted\n\n"
+            "Exit codes: 0 VERIFIED, 1 FAILED, 2 invalid request, "
+            "3 INCONCLUSIVE, 4 internal error.\n"
+            "The canonical alpha command is verify. Local trusted mode is reduced "
+            "isolation for operator-controlled input only."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     subcommands = parser.add_subparsers(dest="command", required=True)
-    verify_parser = subcommands.add_parser("verify")
+    verify_parser = subcommands.add_parser(
+        "verify",
+        help="verify one before/after repair (canonical alpha command)",
+        description=(
+            "Verify explicit targets or every exact failed baseline finding. "
+            "Target grammar: RULE_ID=RESOURCE_ADDRESS or RULE_ID=RESOURCE_ADDRESS@FILE."
+        ),
+        epilog=(
+            "Example:\n  iac-guard verify --before ./before --after ./after "
+            "--target CKV_AWS_53=aws_s3_bucket_public_access_block.example "
+            "--local-trusted --output ./iac-guard-report.json"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     request_source = verify_parser.add_mutually_exclusive_group(required=True)
     request_source.add_argument("--config", type=Path)
     request_source.add_argument("--before", type=Path)
@@ -200,24 +230,49 @@ def _parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
     verify_parser.add_argument("--output", type=Path)
     verify_parser.add_argument("--quiet", action="store_true")
-    doctor_parser = subcommands.add_parser("doctor")
+    doctor_parser = subcommands.add_parser(
+        "doctor", help="diagnose readiness for one selected isolation mode"
+    )
+    doctor_parser.add_argument(
+        "--mode", choices=("local-trusted", "hardened-container", "all"), default="all"
+    )
     doctor_parser.add_argument("--format", choices=("json", "console"), default="console")
-    demo_parser = subcommands.add_parser("demo")
-    demo_parser.add_argument("--format", choices=("json", "console"), default="console")
-    explain_parser = subcommands.add_parser("explain")
+    demo_parser = subcommands.add_parser(
+        "demo", help="show illustrative outcomes or run the real packaged Checkov example"
+    )
+    demo_parser.add_argument("--real", action="store_true")
+    demo_parser.add_argument("--local-trusted", action="store_true")
+    demo_parser.add_argument("--checkov-executable", type=Path)
+    demo_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
+    demo_parser.add_argument("--output", type=Path)
+    demo_parser.add_argument("--quiet", action="store_true")
+    explain_parser = subcommands.add_parser(
+        "explain", help="render and explain an existing validated report-v1"
+    )
     explain_parser.add_argument("report", type=Path)
     explain_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
+    explain_parser.add_argument("--output", type=Path)
+    explain_parser.add_argument("--quiet", action="store_true")
     for name in ("scan", "differential"):
-        workflow_parser = subcommands.add_parser(name)
+        workflow_parser = subcommands.add_parser(
+            name,
+            help=f"advanced compatibility alias of verify --config ({name})",
+        )
         workflow_parser.add_argument("--config", required=True, type=Path)
         workflow_parser.add_argument(
             "--format", choices=_REPORT_FORMATS, default="console"
         )
-    lock_parser = subcommands.add_parser("lock")
+        workflow_parser.add_argument("--output", type=Path)
+        workflow_parser.add_argument("--quiet", action="store_true")
+    lock_parser = subcommands.add_parser(
+        "lock", help="write a non-evidentiary reduced-isolation environment lock"
+    )
     lock_parser.add_argument("--config", required=True, type=Path)
     lock_parser.add_argument("--output", required=True, type=Path)
     lock_parser.add_argument("--format", choices=("json", "console"), default="console")
-    init_parser = subcommands.add_parser("init")
+    init_parser = subcommands.add_parser(
+        "init", help="write an advanced reproducible config-v1 request"
+    )
     init_parser.add_argument("--baseline", required=True, type=Path)
     init_parser.add_argument("--candidate", required=True, type=Path)
     init_parser.add_argument("--target", required=True, action="append")
@@ -232,7 +287,9 @@ def _parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--checkov-executable", type=Path)
     init_parser.add_argument("--output", required=True, type=Path)
     init_parser.add_argument("--format", choices=("json", "console"), default="console")
-    pr_parser = subcommands.add_parser("pr")
+    pr_parser = subcommands.add_parser(
+        "pr", help="verify exact Git base/head objects without changing the checkout"
+    )
     pr_source = pr_parser.add_mutually_exclusive_group(required=True)
     pr_source.add_argument("--config", type=Path)
     pr_source.add_argument("--base-ref")
@@ -434,6 +491,77 @@ def _write_report(
     return result.exit_code
 
 
+def _write_text_artifact(
+    text: str, output_path: Path | None, *, quiet: bool = False,
+) -> None:
+    if output_path is not None:
+        write_new_regular_file(
+            output_path, text.encode("utf-8"), max_bytes=25 * 1024 * 1024
+        )
+    if not quiet:
+        sys.stdout.write(text)
+
+
+def _offline_demo(args) -> int:
+    result = OperationalReportV1(
+        "OFFLINE_DEMO_ONLY",
+        "Illustrative non-evidentiary outcomes: VERIFIED, FAILED, SUPPRESSED, INCONCLUSIVE.",
+        "Run demo --real --local-trusted or verify for scanner-backed evidence.",
+    )
+    if args.format != "console":
+        _write_report(
+            result, args.format, args.output, quiet=args.quiet
+        )
+        return 0
+    text = (
+        "IaC-Guard-V offline demo (illustrative; not verification evidence)\n"
+        "VERIFIED     target FIXED; scanner integrity PASS; policy VERIFIED; exit 0\n"
+        "FAILED       target STILL_PRESENT; policy FAILED; exit 1\n"
+        "SUPPRESSED   suppression visible; policy FAILED; exit 1\n"
+        "INCONCLUSIVE scanner or coverage evidence unavailable; exit 3\n"
+        "Next: iac-guard demo --real --local-trusted\n"
+    )
+    _write_text_artifact(text, args.output, quiet=args.quiet)
+    return 0
+
+
+def _real_demo(args) -> int:
+    if not args.local_trusted:
+        raise DomainError("demo --real requires the explicit --local-trusted mode")
+    temporary = Path(tempfile.mkdtemp(prefix="iacgv-real-demo-"))
+    try:
+        baseline = temporary / "before"
+        candidate = temporary / "after"
+        baseline.mkdir()
+        candidate.mkdir()
+        example = package_files("iac_guard_v").joinpath(
+            "examples", "checkov-before-after"
+        )
+        (baseline / "main.tf").write_text(
+            example.joinpath("before.tf").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        (candidate / "main.tf").write_text(
+            example.joinpath("after.tf").read_text(encoding="utf-8"), encoding="utf-8"
+        )
+        request = _direct_request(SimpleNamespace(
+            before=baseline,
+            after=candidate,
+            target=["CKV_AWS_53=aws_s3_bucket_public_access_block.example"],
+            all_baseline_findings=False,
+            framework=["terraform"],
+            local_trusted=True,
+            checkov_executable=args.checkov_executable,
+        ))
+        report = request if type(request) is OperationalReportV1 else verify(request)
+        return _write_report(
+            report, args.format, args.output, quiet=args.quiet
+        )
+    except (FileNotFoundError, OSError) as exc:
+        raise DomainError("packaged real-demo fixture is unavailable") from exc
+    finally:
+        shutil.rmtree(temporary, ignore_errors=True)
+
+
 def _project_report(payload: dict, output_format: str) -> str:
     renderers = {
         "sarif": render_sarif,
@@ -554,43 +682,46 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = _parser().parse_args(argv)
         if args.command == "demo":
-            result = OperationalReportV1(
-                "OFFLINE_DEMO_ONLY",
-                "This deterministic fixture demonstrates report-v1 without executing a scanner.",
-                "Run verify with a trusted environment for production evidence.",
-            )
-            sys.stdout.write(
-                result.canonical_json() if args.format == "json" else render_console(result)
-            )
-            return 0
+            return _real_demo(args) if args.real else _offline_demo(args)
         if args.command == "explain":
             value = _read_report(args.report)
             if args.format == "json":
-                sys.stdout.write(json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n")
+                rendered = json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n"
             elif args.format == "console":
-                sys.stdout.write(_explain_report(value))
+                rendered = _explain_report(value)
             else:
-                sys.stdout.write(_project_report(value, args.format))
+                rendered = _project_report(value, args.format)
+            _write_text_artifact(rendered, args.output, quiet=args.quiet)
             return 0
         if args.command == "doctor":
-            result = doctor()
+            result = doctor() if args.mode == "all" else doctor(args.mode)
             if args.format == "json":
                 sys.stdout.write(result.canonical_json())
             else:
                 value = result.canonical_dict()
                 sys.stdout.write(
-                    f"IaC-Guard-V doctor\nCheckov: {value['checkov']['status']} "
+                    f"IaC-Guard-V doctor\nRequested mode: {args.mode}\n"
+                    f"Checkov: {value['checkov']['status']} "
                     f"({value['checkov']['reason_code']})\nHardened container: "
                     f"{value['hardened_container']['status']} "
                     f"({value['hardened_container']['reason_code']})\nValidator registry: "
                     f"{value['validator_registry']['status']} "
                     f"({value['validator_registry']['reason_code']})\n"
                 )
-            return 0 if (
+            local_ready = (
                 result.checkov["status"] == "PASS"
-                and result.hardened_container["status"] == "PASS"
                 and result.validator_registry["status"] == "PASS"
-            ) else 3
+            )
+            hardened_ready = (
+                result.hardened_container["status"] == "PASS"
+                and result.validator_registry["status"] == "PASS"
+            )
+            ready = (
+                local_ready if args.mode == "local-trusted"
+                else hardened_ready if args.mode == "hardened-container"
+                else local_ready and hardened_ready
+            )
+            return 0 if ready else 3
         if args.command == "init":
             targets = tuple(_parse_target_selector(item) for item in args.target)
             frameworks = tuple(args.framework or ("kubernetes", "terraform"))
@@ -687,7 +818,9 @@ def main(argv: list[str] | None = None) -> int:
         if args.command in {"scan", "differential"}:
             request = load_public_config(args.config)
             report = verify(request)
-            return _write_report(report, args.format)
+            return _write_report(
+                report, args.format, args.output, quiet=args.quiet
+            )
         raise DomainError("unsupported command")
     except DomainError as exc:
         sys.stderr.write(json.dumps({
