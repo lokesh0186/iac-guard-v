@@ -274,10 +274,14 @@ def test_candidate_failure_json_and_verification_isolation_guard(
 
 def test_version_probe_success_and_failures(tmp_path: Path, monkeypatch) -> None:
     executable = tmp_path / "checkov"; executable.write_text("x")
-    monkeypatch.setattr(CLI.subprocess, "run", lambda *a, **k: SimpleNamespace(
-        stdout="Checkov 3.3.0\n", stderr="", returncode=0,
-    ))
+    observed = {}
+    def successful_probe(*_args, **kwargs):
+        observed.update(kwargs["env"])
+        return SimpleNamespace(stdout="Checkov 3.3.0\n", stderr="", returncode=0)
+    monkeypatch.setattr(CLI.subprocess, "run", successful_probe)
     assert CLI._version(executable) == "3.3.0"
+    assert observed["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert observed["PYTHONNOUSERSITE"] == "1"
     monkeypatch.setattr(CLI.subprocess, "run", lambda *a, **k: SimpleNamespace(
         stdout="", stderr="", returncode=1,
     ))

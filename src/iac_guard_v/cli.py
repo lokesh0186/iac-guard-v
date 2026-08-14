@@ -65,7 +65,10 @@ def _version(executable: Path) -> str:
     try:
         completed = subprocess.run(
             [str(executable), "--version"], check=False, capture_output=True,
-            text=True, timeout=10, env={"PATH": "", "LANG": "C", "LC_ALL": "C"},
+            text=True, timeout=10, env={
+                "PATH": "", "LANG": "C", "LC_ALL": "C",
+                "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
+            },
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise DomainError("Checkov version probe failed") from exc

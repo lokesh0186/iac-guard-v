@@ -26,33 +26,131 @@ ready for validated-discrepancy screening.
 
 ## Install
 
-IaC-Guard-V supports CPython 3.10–3.13. After an owner-authorized package release,
-install the alpha with:
+IaC-Guard-V supports CPython 3.10–3.13. A normal installation is suitable for the
+offline demo and inspection of an existing validated report:
 
 ```bash
 python -m pip install "iac-guard-v==0.1.0a1"
 ```
 
-Until publication, build and install the reviewed source locally:
+That ordinary install is **not equivalent** to the bytecode-free environment required
+for authoritative reduced-isolation verification. Normal installers may create Python
+bytecode caches; IaC-Guard-V types a cache-bearing scanner/parser environment as
+inconclusive rather than weakening that integrity control.
+
+Until publication, the tested alpha bootstrap below installs a freshly built local
+wheel. After publication, the wheel argument can be replaced with the exact published
+`iac-guard-v==0.1.0a1` artifact.
+
+## Five-minute Checkov alpha path
+
+Run this one contiguous sequence from a reviewed source checkout. It creates separate
+copied-file product/parser and scanner environments, prevents stale artifact reuse,
+installs without bytecode,
+executes the real Checkov 3.3.0 before/after workflow twice, validates both report-v1
+documents, and checks deterministic semantic/Markdown output:
 
 ```bash
-python -m pip install build
-python -m build
-python -m pip install dist/iac_guard_v-0.1.0a1-py3-none-any.whl
-```
+python3 -m venv --copies .venv-iac-guard
+. .venv-iac-guard/bin/activate
 
-Check the installed command:
+python -m pip install --upgrade pip
+python -m pip install --no-compile "build>=1.2,<2"
 
-```bash
+rm -rf dist build
+find . -maxdepth 2 -type d -name '*.egg-info' -prune -exec rm -rf {} +
+python -m build --outdir dist
+
+python -m pip install --no-compile \
+  ./dist/iac_guard_v-0.1.0a1-py3-none-any.whl
+
+python3 -m venv --copies .venv-checkov330
+.venv-checkov330/bin/python -m pip install --no-compile "checkov==3.3.0"
+
+find .venv-iac-guard -name __pycache__ -type d -prune -exec rm -rf {} +
+find .venv-iac-guard -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+find .venv-checkov330 -name __pycache__ -type d -prune -exec rm -rf {} +
+find .venv-checkov330 -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+export PYTHONDONTWRITEBYTECODE=1
+export PATH="$PWD/.venv-checkov330/bin:$PATH"
+
 iac-guard --version
 # iac-guard 0.1.0a1
+iac-guard doctor --format json
+
+export ALPHA_WORK="$(mktemp -d)"
+mkdir -p "$ALPHA_WORK/baseline" "$ALPHA_WORK/candidate"
+cp examples/checkov-before-after/before.tf "$ALPHA_WORK/baseline/main.tf"
+cp examples/checkov-before-after/after.tf "$ALPHA_WORK/candidate/main.tf"
+
+iac-guard init \
+  --baseline "$ALPHA_WORK/baseline" \
+  --candidate "$ALPHA_WORK/candidate" \
+  --target CKV_AWS_53=aws_s3_bucket_public_access_block.example \
+  --framework terraform \
+  --execution-mode reduced-isolation \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
+  --output "$ALPHA_WORK/iac-guard.config.json" \
+  --format json
+
+iac-guard differential \
+  --config "$ALPHA_WORK/iac-guard.config.json" \
+  --format json > "$ALPHA_WORK/report-1.json"
+iac-guard differential \
+  --config "$ALPHA_WORK/iac-guard.config.json" \
+  --format json > "$ALPHA_WORK/report-2.json"
+
+python - <<'PY'
+import copy, json, os
+from pathlib import Path
+from iac_guard_v.report import validate_report_payload
+from iac_guard_v.reporters import render_markdown
+
+root = Path(os.environ["ALPHA_WORK"])
+reports = [json.loads((root / f"report-{n}.json").read_text()) for n in (1, 2)]
+for report in reports:
+    validate_report_payload(report)
+    binding = report["verification"]["targets"][0]["binding"]
+    assert report["verdict"] == "VERIFIED" and report["exit_code"] == 0
+    assert report["execution_isolation"]["mode"] == "reduced-isolation"
+    assert binding["artifact_kind"] == "terraform_hcl"
+    assert binding["file_path"] == "main.tf"
+    assert binding["identity"]["rule_id"] == "CKV_AWS_53"
+    assert binding["identity"]["scope"] == \
+           "aws_s3_bucket_public_access_block.example"
+    assert str(root) not in json.dumps(report, sort_keys=True)
+semantic = copy.deepcopy(reports)
+for report in semantic:
+    for run in ("baseline_run", "candidate_run"):
+        for field in ("duration_ms", "raw_output_sha256", "stdout_sha256"):
+            report["verification"][run].pop(field)
+assert semantic[0] == semantic[1]
+assert render_markdown(reports[0]) == render_markdown(reports[1])
+print("VERIFIED exit=0 target=CKV_AWS_53 isolation=reduced-isolation deterministic=PASS")
+PY
+# VERIFIED exit=0 target=CKV_AWS_53 isolation=reduced-isolation deterministic=PASS
 ```
 
-The wheel contains product code, schemas, and protected bundled oracle policy. It
-does not contain the paper, benchmark, stored runs, research datasets, experiment
-scripts, or test-only evidence capabilities.
+Exact raw stdout/result hashes and measured durations remain run-specific provenance in
+report-v1 because Checkov emits a fresh private output path per execution. The test
+therefore requires stable canonical scanner evidence and byte-identical deterministic
+Markdown, while preserving—not erasing—the exact raw hashes.
 
-## Quickstart
+`doctor` checks the installed Checkov closure, executable caches, validator registry,
+and hardened-container availability. Exit 3 is expected in this alpha because the
+hardened container is unavailable; Checkov and validator-registry checks must still
+pass. Native **`reduced-isolation`** is for trusted local input only, never hostile pull-
+request content. Multi-scanner evidence remains experimental and advisory.
+
+The two environments are intentional: Checkov 3.3.0 installs `bc-python-hcl2`, while
+the product's protected Terraform parser is `python-hcl2`. Installing both distributions
+over the same `hcl2` package files breaks wheel-RECORD provenance and is rejected.
+
+The wheel contains product code, schemas, and protected bundled oracle policy. It does
+not contain the paper, benchmark, stored runs, research datasets, experiment scripts,
+or test-only evidence capabilities.
+
+## Other alpha commands
 
 ### Offline demo
 
@@ -66,40 +164,6 @@ iac-guard demo --format json
 
 Its `OFFLINE_DEMO_ONLY` diagnostic is intentional. It demonstrates the public report
 shape; it is not a successful scan.
-
-### Environment diagnosis
-
-```bash
-iac-guard doctor
-iac-guard doctor --format json
-```
-
-`doctor` checks the installed Checkov closure, executable caches, validator registry,
-and hardened-container availability. Exit 3 means the environment is incomplete,
-unverifiable, or operationally uncertain; it is not silently converted to success.
-
-Native Checkov execution is named **`reduced-isolation`**. Use it only for locally
-trusted input. It is not a substitute for the unreleased hardened container and must
-not be used for hostile pull-request content.
-
-### Real Checkov before/after example
-
-The repository includes a minimal Terraform repair under
-[`examples/checkov-before-after`](examples/checkov-before-after). With Checkov 3.3.0:
-
-```bash
-checkov --framework terraform --check CKV_AWS_53 \
-  --file examples/checkov-before-after/before.tf --quiet --compact --skip-download
-# exit 1: block_public_acls is false
-
-checkov --framework terraform --check CKV_AWS_53 \
-  --file examples/checkov-before-after/after.tf --quiet --compact --skip-download
-# exit 0: CKV_AWS_53 passes
-```
-
-This demonstrates the scanner observation only. An IaC-Guard-V `VERIFIED` result
-additionally requires sealed baseline/candidate snapshots, exact target binding,
-scanner and gate integrity, regression evidence, and protected policy evaluation.
 
 ### Explain an existing report
 

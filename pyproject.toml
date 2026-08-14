@@ -75,6 +75,7 @@ include = [
   "NOTICE",
   "CITATION.cff",
   "examples/checkov-before-after",
+  "docs/ALPHA_RELEASE_CHECKLIST.md",
   "docs/spec/THREAT_MODEL.md",
   "pyproject.toml",
 ]

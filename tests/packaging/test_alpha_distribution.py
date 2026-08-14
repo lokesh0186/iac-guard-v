@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import email
+import hashlib
 import json
 import os
 import subprocess
@@ -37,11 +38,21 @@ TEST_CAPABILITY_MARKERS = (
     b"_create_test_protected_checks_cache_identity",
     b"def create_oracle_result",
 )
+REQUIRED_WHEEL_FILES = {
+    "iac_guard_v/workflow.py",
+    "iac_guard_v/reporters/sarif.py",
+    "iac_guard_v/reporters/markdown.py",
+    "iac_guard_v/reporters/junit.py",
+    "iac_guard_v/schemas/report-v1.schema.json",
+    "iac_guard_v/schemas/config-v1.schema.json",
+    "iac_guard_v/oracles/policies.json",
+}
 
 
 @pytest.fixture(scope="module")
 def alpha_artifacts(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Path]:
     output = tmp_path_factory.mktemp("alpha-dist")
+    assert tuple(output.iterdir()) == ()
     completed = subprocess.run(
         [sys.executable, "-m", "build", "--outdir", str(output)],
         cwd=ROOT,
@@ -51,10 +62,11 @@ def alpha_artifacts(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Pat
         timeout=180,
     )
     assert completed.returncode == 0, completed.stderr
-    return (
-        next(output.glob(f"iac_guard_v-{VERSION}-py3-none-any.whl")),
-        next(output.glob(f"iac_guard_v-{VERSION}.tar.gz")),
-    )
+    wheel = next(output.glob(f"iac_guard_v-{VERSION}-py3-none-any.whl"))
+    sdist = next(output.glob(f"iac_guard_v-{VERSION}.tar.gz"))
+    assert set(output.iterdir()) == {wheel, sdist}
+    assert output != ROOT / "dist"
+    return wheel, sdist
 
 
 def _forbidden_path(name: str) -> bool:
@@ -96,14 +108,10 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
 
     assert not any(_forbidden_path(name) for name in (*wheel_names, *sdist_names))
     assert not any(marker in product_python for marker in TEST_CAPABILITY_MARKERS)
-    assert "iac_guard_v/oracles/policies.json" in wheel_names
-    assert "iac_guard_v/schemas/report-v1.schema.json" in wheel_names
-    assert "iac_guard_v/schemas/config-v1.schema.json" in wheel_names
+    assert REQUIRED_WHEEL_FILES <= set(wheel_names)
     assert "iac_guard_v/oracles/preconditions.py" in wheel_names
-    assert "iac_guard_v/workflow.py" in wheel_names
-    assert "iac_guard_v/reporters/sarif.py" in wheel_names
-    assert "iac_guard_v/reporters/markdown.py" in wheel_names
-    assert "iac_guard_v/reporters/junit.py" in wheel_names
+    assert any(name.endswith(".dist-info/licenses/LICENSE") for name in wheel_names)
+    assert any(name.endswith(".dist-info/licenses/NOTICE") for name in wheel_names)
 
     public_sdist_files = {
         Path(name).name for name in sdist_names if not name.endswith("/")
@@ -120,7 +128,22 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
         "before.tf",
         "after.tf",
     } <= public_sdist_files
+    assert "LICENSE" in public_sdist_files
     assert any(name.endswith("docs/spec/THREAT_MODEL.md") for name in sdist_names)
+    assert any(name.endswith("docs/ALPHA_RELEASE_CHECKLIST.md") for name in sdist_names)
+
+
+def test_fresh_artifacts_have_stable_nonempty_hashes(alpha_artifacts) -> None:
+    wheel, sdist = alpha_artifacts
+    hashes = {
+        artifact.name: hashlib.sha256(artifact.read_bytes()).hexdigest()
+        for artifact in (wheel, sdist)
+    }
+    assert set(hashes) == {
+        f"iac_guard_v-{VERSION}-py3-none-any.whl",
+        f"iac_guard_v-{VERSION}.tar.gz",
+    }
+    assert all(len(value) == 64 and value != "0" * 64 for value in hashes.values())
 
 
 def test_wheel_installs_and_runs_outside_source_checkout(
@@ -203,10 +226,28 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "There are no external-adoption",
         "zero `EXACT` mappings",
         "No arXiv identifier",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "trusted local input only",
     ):
         assert statement in readme
     assert "arXiv:ADD" not in readme
     assert "XXXX.XXXXX" not in readme
+
+
+def test_release_checklist_keeps_legal_tip_owner_gated() -> None:
+    checklist = (ROOT / "docs/ALPHA_RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
+    assert "rm -rf dist build" in checklist
+    assert "paper.pdf is absent from the current tree" in checklist
+    assert "owner supplies the arXiv identifier" in checklist
+    assert "Do not push a tag" in checklist
+
+
+def test_public_ci_actions_are_immutable() -> None:
+    workflow = (ROOT / ".github/workflows/python-compat.yml").read_text(encoding="utf-8")
+    assert "actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683" in workflow
+    assert "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065" in workflow
+    assert "actions/checkout@v" not in workflow
+    assert "actions/setup-python@v" not in workflow
 
 
 def test_checkov_before_after_fixture_is_one_narrow_repair() -> None:
