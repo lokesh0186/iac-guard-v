@@ -351,7 +351,9 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
    source identity. A protected-policy repository requires an exact pinned commit and a
    repository outside the evaluated workspace. Explicit operator loading remains a
    separately reported local mode. Candidate loading always stamps `CANDIDATE_HEAD` and
-   can never create an authoritative bundle.
+   can never create an authoritative bundle. If the default policy path is absent from
+   both exact Git trees, PR mode uses the closed empty no-exception policy and binds that
+   path absence to the base/candidate commits; this default can never grant permission.
 3. Exceptions may permit only the exact scanner/rule/resource/file/artifact/native
    target binding and exact eligible outcome
    named by an in-force loader-stamped record. The inclusive evaluation date is captured

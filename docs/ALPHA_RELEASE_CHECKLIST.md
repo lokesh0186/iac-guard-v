@@ -65,14 +65,21 @@ PY
       `pip --python <environment-python> install --no-compile`.
 - [ ] Do not manually delete caches or set `PYTHONDONTWRITEBYTECODE`; the installed
       startup policy and scanner subprocess contract must keep both environments clean.
-- [ ] Run `iac-guard --version` and `iac-guard doctor --mode local-trusted`; doctor
-      must return 0 even though hardened-container mode remains unavailable.
-- [ ] Run the README direct `iac-guard verify --before ... --after ...` command twice,
+- [ ] Run `iac-guard --version` and the literal README
+      `iac-guard doctor --mode local-trusted --checkov-executable <exact-path>`;
+      doctor must return 0 without an undocumented `PATH` change even though
+      hardened-container mode remains unavailable.
+- [ ] Run the README automatic-target
+      `iac-guard verify --before ... --after ... --all-baseline-findings` command twice,
       then rerun doctor, without repairing or cleaning either environment.
 - [ ] Both reports are semantically valid report-v1 documents with `VERIFIED`, exit 0,
       exact CKV_AWS_53 file/resource binding, visible reduced-isolation, and no private
       absolute paths. Their semantic views and Markdown projections are byte-identical;
       exact raw hashes and measured durations remain run-specific provenance.
+- [ ] Run the direct Git `iac-guard pr --base-ref ... --head-ref ...
+      --all-baseline-findings --changed-only` path against a temporary repository;
+      require exit 0, valid SARIF, exact Checkov rule evidence, no private paths, and
+      an unchanged checkout/index/worktree.
 
 ## Project gates
 
@@ -82,6 +89,13 @@ PY
       `actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065`
       (`v5.6.0`). These tag-to-commit relations were resolved from the official
       repositories on 2026-08-13.
+- [ ] Both public-CI checkouts use `fetch-depth: 0`; when the intentionally unpushed
+      `qrs-2026-replication-v1` tag is absent, CI creates and verifies only a local
+      annotated tag at `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5` from
+      `research/TAG_MESSAGE_REPLACEMENT.txt`. No CI command pushes the tag.
+- [ ] The shallow/no-tag public-clone regression proves the historical commit is
+      initially unavailable, becomes available only after full-history fetch, and the
+      local tag bootstrap is deterministic and idempotent.
 - [ ] Python 3.10, 3.11, 3.12, and 3.13 non-integration matrices pass.
 - [ ] Checkov 3.3.0 locked integration passes.
 - [ ] Changed release/alpha modules retain at least 90% branch coverage.

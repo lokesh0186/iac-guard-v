@@ -92,6 +92,7 @@ def _git(
     arguments: tuple[str, ...],
     *,
     max_output_bytes: int = 2 * 1024 * 1024,
+    accepted_returncodes: tuple[int, ...] = (0,),
 ) -> bytes:
     if type(arguments) is not tuple or any(type(item) is not str for item in arguments):
         raise DomainError("Git arguments must be an exact string tuple")
@@ -118,9 +119,41 @@ def _git(
         raise DomainError("Git object command failed") from exc
     if len(completed.stdout) > max_output_bytes or len(completed.stderr) > 256 * 1024:
         raise DomainError("Git object command exceeded its output limit")
-    if completed.returncode != 0:
+    if (
+        type(accepted_returncodes) is not tuple
+        or not accepted_returncodes
+        or any(type(item) is not int or item < 0 for item in accepted_returncodes)
+    ):
+        raise DomainError("Git accepted return codes must be a nonempty integer tuple")
+    if completed.returncode not in accepted_returncodes:
         raise DomainError("Git object command rejected the repository or ref")
     return completed.stdout
+
+
+def _repository_identity(executable: Path, repository: Path) -> str:
+    roots_raw = _git(
+        executable,
+        repository,
+        ("rev-list", "--max-parents=0", "--all"),
+        max_output_bytes=1024 * 1024,
+    )
+    roots = tuple(sorted(roots_raw.decode("ascii", errors="strict").split()))
+    if not roots or any(not re.fullmatch(r"[0-9a-f]{40,64}", item) for item in roots):
+        raise DomainError("Git repository identity roots are unavailable")
+    remote_raw = _git(
+        executable,
+        repository,
+        ("config", "--get", "remote.origin.url"),
+        max_output_bytes=4096,
+        accepted_returncodes=(0, 1),
+    )
+    remote = remote_raw.decode("utf-8", errors="strict").strip()
+    payload = json.dumps(
+        {"root_commits": list(roots), "protected_remote": remote},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return "git_repository_v1_" + hashlib.sha256(payload).hexdigest()
 
 
 def _safe_ref(value: str, name: str) -> str:
@@ -269,20 +302,7 @@ def materialize_git_comparison(
         canonical_repo_path(item.decode("utf-8", errors="strict"), "changed Git path")
         for item in changed_raw.split(b"\0") if item
     ))
-    roots_raw = _git(
-        executable,
-        root,
-        ("rev-list", "--max-parents=0", "--all"),
-        max_output_bytes=1024 * 1024,
-    )
-    repository_seed = tuple(sorted(roots_raw.decode("ascii", errors="strict").split()))
-    if not repository_seed or any(
-        not re.fullmatch(r"[0-9a-f]{40,64}", item) for item in repository_seed
-    ):
-        raise DomainError("Git repository identity roots are unavailable")
-    repository_identity = "git_repository_v1_" + hashlib.sha256(
-        "\n".join(repository_seed).encode("ascii")
-    ).hexdigest()
+    repository_identity = _repository_identity(executable, root)
     context_payload = json.dumps({
         "repository_identity": repository_identity,
         "base_commit": base,
@@ -297,7 +317,30 @@ def materialize_git_comparison(
     candidate = temporary / "candidate"
     try:
         _materialize_git_tree(executable, root, base, baseline)
-        _materialize_git_tree(executable, root, head, candidate)
+        _git(
+            executable,
+            root,
+            (
+                "clone", "--quiet", "--no-checkout", "--no-tags", "--local",
+                "--no-hardlinks",
+                "--", str(root), str(candidate),
+            ),
+            max_output_bytes=1024 * 1024,
+        )
+        original_remote = _git(
+            executable,
+            root,
+            ("config", "--get", "remote.origin.url"),
+            max_output_bytes=4096,
+            accepted_returncodes=(0, 1),
+        ).decode("utf-8", errors="strict").strip()
+        if original_remote:
+            _git(executable, candidate, ("remote", "set-url", "origin", original_remote))
+        else:
+            _git(executable, candidate, ("remote", "remove", "origin"))
+        _git(executable, candidate, ("checkout", "--quiet", "--detach", "--force", head))
+        if _repository_identity(executable, candidate) != repository_identity:
+            raise DomainError("private Git materialization changed repository identity")
         yield GitVerificationMaterialization(
             repository_identity,
             base,

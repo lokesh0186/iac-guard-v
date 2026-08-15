@@ -3,8 +3,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 import iac_guard_v.cli as CLI
+from iac_guard_v.models import DomainError
 from iac_guard_v.report import OperationalReportV1
 
 
@@ -18,13 +22,55 @@ def _doctor(checkov: str, hardened: str, registry: str) -> CLI.DoctorReportV1:
 
 def test_doctor_exit_status_tracks_only_requested_mode(monkeypatch, capsys) -> None:
     report = _doctor("PASS", "INCONCLUSIVE", "PASS")
-    monkeypatch.setattr(CLI, "doctor", lambda mode="all": report)
+    seen = []
+    monkeypatch.setattr(
+        CLI, "doctor",
+        lambda mode="all", checkov_executable=None: seen.append(
+            (mode, checkov_executable)
+        ) or report,
+    )
     assert CLI.main(["doctor", "--mode", "local-trusted", "--format", "json"]) == 0
     assert json.loads(capsys.readouterr().out)["checkov"]["status"] == "PASS"
     assert CLI.main(["doctor", "--mode", "hardened-container"]) == 3
     capsys.readouterr()
     assert CLI.main(["doctor", "--mode", "all"]) == 3
     capsys.readouterr()
+    assert seen == [
+        ("local-trusted", None), ("hardened-container", None), ("all", None),
+    ]
+
+
+def test_doctor_uses_explicit_checkov_without_path_discovery(
+    tmp_path: Path, monkeypatch,
+) -> None:
+    executable = tmp_path / "checkov"
+    executable.write_bytes(b"launcher")
+    executable.chmod(0o700)
+    path_lookups: list[str] = []
+    monkeypatch.setattr(
+        CLI.shutil, "which",
+        lambda name: path_lookups.append(name) or None,
+    )
+    monkeypatch.setattr(CLI, "_version", lambda path: "3.3.0" if path == executable else "bad")
+    monkeypatch.setattr(
+        CLI, "checkov_distribution_identity",
+        lambda path, version: SimpleNamespace(
+            scanner_environment_digest="a" * 64,
+            policy_inventory_digest="b" * 64,
+            installed_distribution_digest="c" * 64,
+            dependency_lock_digest="d" * 64,
+        ),
+    )
+    report = CLI.doctor("local-trusted", executable).canonical_dict()
+    assert report["checkov"]["status"] == "PASS"
+    assert "checkov" not in path_lookups
+    assert report["checkov"]["launcher_sha256"]
+    with pytest.raises(DomainError, match="valid only"):
+        CLI.doctor("hardened-container", executable)
+
+    missing = CLI.doctor("local-trusted", tmp_path / "missing").canonical_dict()
+    assert missing["checkov"]["status"] == "INCONCLUSIVE"
+    assert missing["checkov"]["reason_code"] == "CHECKOV_ENVIRONMENT_INCOMPLETE"
 
 
 def test_offline_demo_shows_four_distinct_outcomes(capsys) -> None:

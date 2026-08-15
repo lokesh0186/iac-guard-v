@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 import iac_guard_v.cli as CLI
+import iac_guard_v.policy as POLICY
 from iac_guard_v.config import PublicTarget
 from iac_guard_v.enums import ArtifactKind
 from iac_guard_v.report import OperationalReportV1
@@ -61,6 +62,13 @@ def test_git_materialization_reads_exact_objects_without_touching_checkout(
         assert "value = true" in (materialized.candidate_root / "main.tf").read_text()
         assert not (materialized.candidate_root / "untracked.txt").exists()
         assert materialized.repository_identity.startswith("git_repository_v1_")
+        assert _git(materialized.candidate_root, "rev-parse", "HEAD") == candidate
+        assert _git(
+            materialized.candidate_root, "status", "--porcelain=v1", "-uall"
+        ) == ""
+        assert POLICY._portable_repository_identity(
+            materialized.candidate_root
+        ) == materialized.repository_identity
     assert temporary_root is not None and not temporary_root.exists()
     assert _git(repository, "rev-parse", "HEAD") == head_before
     assert _git(repository, "write-tree") == index_before

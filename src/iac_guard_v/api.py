@@ -22,6 +22,8 @@ from .models import DomainError, RequiredGates, require_trusted_scanner_run
 from .policy import (
     PolicyRequest,
     evaluate_policy,
+    load_base_commit_policy,
+    load_git_execution_context,
     load_operator_execution_context,
     load_operator_policy,
 )
@@ -163,10 +165,14 @@ def _verify_request(
         baseline, candidate, tuple(item.to_domain() for item in request.targets), config
     )
     verification = run_checkov_verification(engine_request)
-    context = load_operator_execution_context(config)
-    policy = load_operator_policy(
-        {"exceptions": [], "optional_gates": []}, context=context
-    )
+    if git_materialization is None:
+        context = load_operator_execution_context(config)
+        policy = load_operator_policy(
+            {"exceptions": [], "optional_gates": []}, context=context
+        )
+    else:
+        context = load_git_execution_context(config)
+        policy = load_base_commit_policy(context)
     return VerificationReportV1(
         verification, evaluate_policy(PolicyRequest(verification, policy)), isolation
     )

@@ -3169,3 +3169,53 @@ NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+
+## 2026-08-14 — ALPHA.4 literal onboarding and public-CI closure
+
+Doctor now accepts an exact Checkov executable for `local-trusted` and `all` mode, so
+the supported two-environment bootstrap no longer relies on an undocumented `PATH`
+change. The primary README verification discovers all exact baseline findings; the
+explicit selector remains the precision path. The installed-wheel golden test executes
+that literal environment twice, then exercises direct base/head Git verification to
+valid SARIF without changing the source checkout, index, branch, or worktree.
+
+The first real direct-Git golden run exposed one alpha blocker: the private candidate
+tree lacked the protected PR execution context required by the base-commit policy
+loader. The narrow closure materializes the exact head as a private detached clean Git
+checkout, proves its portable repository identity, and reads the exact base policy.
+When the default governed policy is absent from both exact trees, the protected default
+is a canonical empty policy that cannot grant an exception; any candidate addition is
+still policy drift. The golden path then recorded `VERIFIED`, exit 0, exact
+`CKV_AWS_53` file/resource binding, valid deterministic report projections, and no
+private paths.
+
+Public CI now checks out complete history and uses a reviewed helper to create the
+historical freeze tag only as an annotated local CI ref when it is absent. A shallow,
+no-tag clone regression proves the target commit is initially unavailable, the
+full-history fetch makes it available without fetching tags, and repeated local tag
+verification is deterministic. No workflow or helper command pushes the tag. CI uses a
+copied-file environment, `--no-compile` installation, and retains pip for the fresh
+wheel installation smoke.
+
+The complete non-integration matrix recorded 2,102 passes on each of Python 3.10,
+3.11, 3.12, and 3.13. Branch-aware coverage was 92% for workflow, 91% for CLI, 92% for
+API, and 91% for policy. The installed-wheel real Checkov 3.3.0 golden test passed in
+391.55 seconds. With a separately installed bytecode-free Checkov 3.3.0, the broader
+local integration run recorded 11 passes and the expected native-Linux portability
+skip; the three E0.3-cache-dependent kubeconform/Trivy cases were not runnable because
+`IACGV_PHASE_E_CACHE` was unavailable and are not reported as passing.
+
+Specification lint inspected 26 documents and 166 enums with zero warnings. The frozen
+manifest remained 4,842/4,842 at root
+`a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`;
+replay remained 630/630 and 10,080/10,080 with zero verdict mismatches; all seven tables
+were `SEMANTIC_MATCH`; and the frozen-scope diff was empty. Publication remains blocked
+until the owner supplies the arXiv identifier and authorizes the separate current-tip
+paper/link commit. No push, PR, tag publication, package publication, or external
+outreach occurred.
+
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED

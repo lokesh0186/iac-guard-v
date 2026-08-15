@@ -109,6 +109,27 @@ def _protected_context(source: POLICY.TrustedGitSource) -> POLICY.TrustedExecuti
     )
 
 
+def test_absent_base_policy_uses_closed_no_exception_default(tmp_path: Path) -> None:
+    repository = tmp_path / "absent-policy"
+    repository.mkdir()
+    _git(repository, "init", "-q")
+    _git(repository, "config", "user.name", "Test")
+    _git(repository, "config", "user.email", "test@example.invalid")
+    (repository / "main.tf").write_text('resource "aws_x" "r" {}\n', encoding="utf-8")
+    _git(repository, "add", "main.tf")
+    _git(repository, "commit", "-q", "-m", "candidate without policy")
+    commit = _git(repository, "rev-parse", "HEAD")
+    source = POLICY.attest_git_source(
+        repository, commit, repository, (".iac-guard.json",)
+    )
+    bundle = POLICY.load_base_commit_policy(_base_context(source))
+    assert len(bundle.policy) == 0
+    assert bundle.optional_gates == frozenset()
+    assert bundle.source_origin is ExceptionOrigin.TRUSTED_BASE
+    assert bundle.candidate_policy_state == "not_compared"
+    assert bundle.policy_drift is False
+
+
 def _operator_context(config, when=None) -> POLICY.TrustedExecutionContext:
     return POLICY.TrustedExecutionContext(
         ExecutionMode.EXPLICIT_OPERATOR, None, "", "", config.candidate_root, "",

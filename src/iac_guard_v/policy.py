@@ -148,7 +148,7 @@ def _portable_repository_identity(repository: Path) -> str:
         {"root_commits": roots, "protected_remote": remote},
         sort_keys=True, separators=(",", ":"),
     ).encode()
-    return "git_repo_v1_" + hashlib.sha256(payload).hexdigest()
+    return "git_repository_v1_" + hashlib.sha256(payload).hexdigest()
 
 
 def _candidate_checkout_tree(
@@ -340,6 +340,40 @@ def load_operator_execution_context(
         config.config_sha256, authorization.context_identity,
         datetime.now(timezone.utc), "system_utc_clock",
         ".", config.candidate_source_snapshot_sha256,
+        _trusted_context=_TRUSTED_EXECUTION_CONTEXT_CONTEXT,
+    )
+
+
+def load_git_execution_context(
+    config: TrustedVerificationConfigBundle,
+) -> TrustedExecutionContext:
+    """Bind a private detached Git materialization to its PR authorization."""
+    require_exact_type(config, TrustedVerificationConfigBundle, "verification config")
+    authorization = config.policy_source_authorization
+    if authorization.mode is not ExecutionMode.PR_BASE:
+        raise DomainError("Git context requires PR-base authorization")
+    match = __import__("re").fullmatch(
+        r"git_candidate_([0-9a-f]{40,64})", authorization.candidate_identity
+    )
+    if match is None:
+        raise DomainError("Git candidate authorization is malformed")
+    return TrustedExecutionContext(
+        ExecutionMode.PR_BASE,
+        config.candidate_root,
+        authorization.repository_identity,
+        authorization.commit_sha,
+        config.candidate_root,
+        match.group(1),
+        None,
+        "",
+        "",
+        tuple(sorted(_default_governed_paths(config))),
+        config.config_sha256,
+        authorization.context_identity,
+        datetime.now(timezone.utc),
+        "system_utc_clock",
+        ".",
+        config.candidate_source_snapshot_sha256,
         _trusted_context=_TRUSTED_EXECUTION_CONTEXT_CONTEXT,
     )
 
@@ -1113,9 +1147,19 @@ def _load_git_source_bundle(
     candidate_object_path = _prefixed_path(
         context.repository_relative_candidate_prefix, governed_path
     )
-    trusted_bytes = _git_object_bytes(
+    trusted_entry = _git_tree_entry(
         source.repository_root, source.commit_sha, trusted_object_path
     )
+    if trusted_entry is None:
+        if origin is not ExceptionOrigin.TRUSTED_BASE:
+            raise DomainError("protected policy object is absent")
+        # The protected default is intentionally incapable of granting an exception.
+        # Its use is bound to exact base/candidate absence through governed evidence.
+        trusted_bytes = _canonical_payload({"exceptions": [], "optional_gates": []})
+    else:
+        trusted_bytes = _git_object_bytes(
+            source.repository_root, source.commit_sha, trusted_object_path
+        )
     candidate_entry = _git_tree_entry(
         context.repository_root, context.candidate_commit, candidate_object_path
     )
@@ -1125,7 +1169,12 @@ def _load_git_source_bundle(
             context.repository_root, context.candidate_commit, candidate_object_path
         )
     )
-    candidate_state = "missing" if candidate_bytes is None else "present"
+    candidate_state = (
+        "not_compared"
+        if trusted_entry is None and candidate_bytes is None
+        else "missing" if candidate_bytes is None
+        else "present"
+    )
     repository_identity = expected_identity
     return _bundle(
         _parse_policy_bytes(trusted_bytes),
@@ -1470,7 +1519,7 @@ __all__ = [
     "TrustedExecutionContext", "TrustedGitSource", "TrustedPolicyBundle", "attest_git_source",
     "attest_protected_policy_repository", "evaluate_policy", "load_base_commit_policy",
     "load_candidate_exception", "load_candidate_policy", "load_operator_policy",
-    "load_operator_execution_context",
+    "load_git_execution_context", "load_operator_execution_context",
     "load_protected_policy_repository", "load_trusted_exception",
     "require_trusted_policy_result",
 ]

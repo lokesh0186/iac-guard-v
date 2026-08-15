@@ -101,10 +101,21 @@ def _thaw(value):
     return value
 
 
-def doctor(mode: str = "all") -> DoctorReportV1:
+def doctor(
+    mode: str = "all", checkov_executable: Path | None = None,
+) -> DoctorReportV1:
     if mode not in {"all", "local-trusted", "hardened-container"}:
         raise DomainError("doctor mode is unsupported")
-    discovered = shutil.which("checkov")
+    if checkov_executable is not None:
+        if not isinstance(checkov_executable, Path):
+            raise DomainError("doctor Checkov executable must be pathlib.Path")
+        if mode == "hardened-container":
+            raise DomainError(
+                "--checkov-executable is valid only for local-trusted or all doctor mode"
+            )
+        discovered = str(checkov_executable)
+    else:
+        discovered = shutil.which("checkov")
     if discovered is None:
         checkov = {
             "status": "UNAVAILABLE",
@@ -112,8 +123,8 @@ def doctor(mode: str = "all") -> DoctorReportV1:
             "remediation": "python -m pip install --no-compile checkov==3.3.0",
         }
     else:
-        executable = Path(discovered).resolve(strict=True)
         try:
+            executable = Path(discovered).resolve(strict=True)
             version = _version(executable)
             identity = checkov_distribution_identity(executable, version)
             supported = version in CHECKOV_CONTRACT.supported_versions
@@ -191,7 +202,7 @@ def _parser() -> argparse.ArgumentParser:
         epilog=(
             "Canonical alpha command:\n"
             "  iac-guard verify --before BEFORE --after AFTER "
-            "--target RULE=RESOURCE --local-trusted\n\n"
+            "--all-baseline-findings --local-trusted\n\n"
             "Exit codes: 0 VERIFIED, 1 FAILED, 2 invalid request, "
             "3 INCONCLUSIVE, 4 internal error.\n"
             "The canonical alpha command is verify. Local trusted mode is reduced "
@@ -210,7 +221,7 @@ def _parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "Example:\n  iac-guard verify --before ./before --after ./after "
-            "--target CKV_AWS_53=aws_s3_bucket_public_access_block.example "
+            "--all-baseline-findings "
             "--local-trusted --output ./iac-guard-report.json"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -235,6 +246,10 @@ def _parser() -> argparse.ArgumentParser:
     )
     doctor_parser.add_argument(
         "--mode", choices=("local-trusted", "hardened-container", "all"), default="all"
+    )
+    doctor_parser.add_argument(
+        "--checkov-executable", type=Path,
+        help="exact Checkov 3.3.0 launcher for local-trusted diagnosis",
     )
     doctor_parser.add_argument("--format", choices=("json", "console"), default="console")
     demo_parser = subcommands.add_parser(
@@ -694,7 +709,11 @@ def main(argv: list[str] | None = None) -> int:
             _write_text_artifact(rendered, args.output, quiet=args.quiet)
             return 0
         if args.command == "doctor":
-            result = doctor() if args.mode == "all" else doctor(args.mode)
+            result = (
+                doctor()
+                if args.mode == "all" and args.checkov_executable is None
+                else doctor(args.mode, args.checkov_executable)
+            )
             if args.format == "json":
                 sys.stdout.write(result.canonical_json())
             else:

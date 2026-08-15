@@ -53,6 +53,11 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     scanner_binary_dir = scanner_root / ("Scripts" if os.name == "nt" else "bin")
     python = binary_dir / ("python.exe" if os.name == "nt" else "python")
     scanner_python = scanner_binary_dir / ("python.exe" if os.name == "nt" else "python")
+    pip_upgrade = _run(
+        [sys.executable, "-m", "pip", "install", "--upgrade", "pip"],
+        cwd=external, environment=os.environ.copy(),
+    )
+    assert pip_upgrade.returncode == 0, pip_upgrade.stderr
     artifacts = tmp_path / "artifacts"
     artifacts.mkdir()
     build = _run(
@@ -95,9 +100,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     }
     environment.update({
         "HOME": str(home),
-        "PATH": os.pathsep.join(
-            (str(binary_dir), str(scanner_binary_dir), "/usr/bin", "/bin")
-        ),
+        "PATH": os.pathsep.join((str(binary_dir), "/usr/bin", "/bin")),
         "VIRTUAL_ENV": str(environment_root),
     })
     command = binary_dir / ("iac-guard.exe" if os.name == "nt" else "iac-guard")
@@ -107,7 +110,10 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     assert version.returncode == 0, version.stderr
     assert version.stdout.strip() == f"iac-guard {VERSION}"
     doctor = _run(
-        [command, "doctor", "--mode", "local-trusted", "--format", "json"],
+        [
+            command, "doctor", "--mode", "local-trusted",
+            "--checkov-executable", checkov, "--format", "json",
+        ],
         cwd=external, environment=environment,
     )
     assert doctor.returncode == 0, doctor.stderr
@@ -123,7 +129,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
         completed = _run(
             [
                 command, "verify", "--before", baseline, "--after", candidate,
-                "--target", "CKV_AWS_53=aws_s3_bucket_public_access_block.example",
+                "--all-baseline-findings",
                 "--framework", "terraform", "--local-trusted",
                 "--checkov-executable", checkov, "--format", "console",
                 "--output", report_path,
@@ -170,7 +176,10 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     assert console_outputs[0] == console_outputs[1]
 
     doctor_again = _run(
-        [command, "doctor", "--mode", "local-trusted", "--format", "json"],
+        [
+            command, "doctor", "--mode", "local-trusted",
+            "--checkov-executable", checkov, "--format", "json",
+        ],
         cwd=external, environment=environment,
     )
     assert doctor_again.returncode == 0, doctor_again.stderr
@@ -185,5 +194,66 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     assert all(item.returncode == 0 for item in rendered)
     assert rendered[0].stdout == rendered[1].stdout
     assert "VERIFIED" in rendered[0].stdout
+
+    repository = external / "repository"
+    repository.mkdir()
+    shutil.copyfile(ROOT / "examples/checkov-before-after/before.tf", repository / "main.tf")
+    git = shutil.which("git")
+    assert git is not None
+    git_environment = os.environ.copy()
+    for arguments in (
+        ("init", "-q"),
+        ("config", "user.name", "IaC-Guard-V alpha test"),
+        ("config", "user.email", "alpha@example.invalid"),
+        ("add", "main.tf"),
+        ("commit", "-q", "-m", "baseline"),
+    ):
+        completed = _run([git, *arguments], cwd=repository, environment=git_environment)
+        assert completed.returncode == 0, completed.stderr
+    base = _run([git, "rev-parse", "HEAD"], cwd=repository, environment=git_environment)
+    assert base.returncode == 0, base.stderr
+    base_commit = base.stdout.strip()
+    shutil.copyfile(ROOT / "examples/checkov-before-after/after.tf", repository / "main.tf")
+    for arguments in (
+        ("add", "main.tf"),
+        ("commit", "-q", "-m", "candidate"),
+        ("update-ref", "refs/remotes/origin/main", base_commit),
+    ):
+        completed = _run([git, *arguments], cwd=repository, environment=git_environment)
+        assert completed.returncode == 0, completed.stderr
+    head_before = _run(
+        [git, "rev-parse", "HEAD"], cwd=repository, environment=git_environment,
+    ).stdout.strip()
+    status_before = _run(
+        [git, "status", "--porcelain=v1", "-uall"],
+        cwd=repository, environment=git_environment,
+    ).stdout
+    sarif_path = external / "iac-guard.sarif"
+    pr = _run(
+        [
+            command, "pr", "--repository", repository,
+            "--base-ref", "origin/main", "--head-ref", "HEAD",
+            "--all-baseline-findings", "--changed-only",
+            "--framework", "terraform", "--local-trusted",
+            "--checkov-executable", checkov, "--format", "sarif",
+            "--output", sarif_path,
+        ],
+        cwd=external, environment=environment,
+    )
+    assert pr.returncode == 0, pr.stderr
+    sarif = json.loads(sarif_path.read_text(encoding="utf-8"))
+    assert sarif["version"] == "2.1.0"
+    assert any(
+        result["ruleId"] == "checkov:CKV_AWS_53"
+        for run in sarif["runs"] for result in run["results"]
+    )
+    assert str(tmp_path) not in json.dumps(sarif, sort_keys=True)
+    assert _run(
+        [git, "rev-parse", "HEAD"], cwd=repository, environment=git_environment,
+    ).stdout.strip() == head_before
+    assert _run(
+        [git, "status", "--porcelain=v1", "-uall"],
+        cwd=repository, environment=git_environment,
+    ).stdout == status_before
     assert not tuple(environment_root.rglob("__pycache__"))
     assert not tuple(scanner_root.rglob("__pycache__"))

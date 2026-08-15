@@ -164,6 +164,11 @@ exact commit. The candidate's copies are read solely to be compared. A differenc
 evidence, and fails by default. Nothing in the candidate takes effect during the run
 that evaluates it.
 
+When the default policy path is absent from both the protected base and candidate Git
+trees, the loader applies a closed empty no-exception policy. The absence is checked
+against both exact commits; it is not a candidate-supplied policy and cannot permit an
+otherwise failing outcome.
+
 An exception's `owner` field is a label, not an authorisation. Authorisation comes from
 the record's location in the trusted source, optionally strengthened by a configured
 `approval_binding` (protected file path, signed commit, or required review). The

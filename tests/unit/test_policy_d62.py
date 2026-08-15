@@ -183,7 +183,7 @@ def test_git_bundle_retains_path_by_path_governed_policy_evidence(
     assert by_path["config/severity-policy.json"].state == "changed"
     canonical = bundle.canonical_dict()
     assert canonical["source_commit"] == base_commit
-    assert canonical["source_repository"].startswith("git_repo_")
+    assert canonical["source_repository"].startswith("git_repository_v1_")
 
 
 def test_git_policy_tree_entry_must_be_regular_not_symlink(tmp_path: Path) -> None:

@@ -19,6 +19,7 @@ hidden environment variable is required; specifically, users do not need to expo
 ```bash
 rm -rf dist build
 find . -maxdepth 2 -type d -name '*.egg-info' -prune -exec rm -rf {} +
+python -m pip install --upgrade pip
 python -m pip install 'build>=1.2,<2'
 python -m build --outdir dist
 
@@ -29,11 +30,13 @@ python -m pip --python .venv-iac-guard/bin/python install --no-compile \
 python -m pip --python .venv-checkov330/bin/python install --no-compile \
   'checkov==3.3.0'
 
-.venv-iac-guard/bin/iac-guard doctor --mode local-trusted
+.venv-iac-guard/bin/iac-guard doctor \
+  --mode local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov"
 .venv-iac-guard/bin/iac-guard verify \
   --before examples/checkov-before-after/before \
   --after examples/checkov-before-after/after \
-  --target CKV_AWS_53=aws_s3_bucket_public_access_block.example \
+  --all-baseline-findings \
   --framework terraform \
   --local-trusted \
   --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
@@ -53,6 +56,20 @@ Exit codes are `0` VERIFIED, `1` FAILED, `2` invalid request, `3` INCONCLUSIVE, 
 when console output is selected. Native `local-trusted` mode is reduced isolation:
 use it only for operator-controlled input. [Advanced config workflow](#advanced-pinned-configuration)
 remains available for reproducible automation.
+
+Use an exact selector when a repository contains multiple occurrences or when only one
+baseline finding should be verified:
+
+```bash
+.venv-iac-guard/bin/iac-guard verify \
+  --before examples/checkov-before-after/before \
+  --after examples/checkov-before-after/after \
+  --target CKV_AWS_53=aws_s3_bucket_public_access_block.example \
+  --framework terraform \
+  --local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
+  --output ./iac-guard-report.json
+```
 
 After publication, replace the local wheel path with `iac-guard-v==0.1.0a1` in the
 same `pip --python ... install --no-compile` command. Run `doctor` and `verify` again
@@ -89,6 +106,26 @@ not contain the paper, benchmark, stored runs, research datasets, experiment scr
 or test-only evidence capabilities.
 
 ## Other alpha commands
+
+### Direct Git pull-request verification
+
+The Git-aware path reads exact objects into private temporary trees and does not change
+the current checkout, index, branch, or worktree. `--changed-only` restricts target
+selection; regression coverage still uses the complete candidate snapshot.
+
+```bash
+.venv-iac-guard/bin/iac-guard pr \
+  --repository . \
+  --base-ref origin/main \
+  --head-ref HEAD \
+  --all-baseline-findings \
+  --changed-only \
+  --framework terraform \
+  --local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
+  --format sarif \
+  --output ./iac-guard.sarif
+```
 
 ### Offline demo
 
