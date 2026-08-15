@@ -3219,3 +3219,31 @@ NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+
+## 2026-08-14 — ALPHA.5 source-independent installed quickstart
+
+The first real post-install command now uses `demo --real` and the fixture embedded in
+the installed wheel. The permanent golden test builds and installs only the wheel and a
+separate Checkov 3.3.0 environment, changes into an otherwise empty directory, runs
+doctor, and executes the packaged real demo twice without cache cleanup. Neither the
+demo nor the subsequent direct-verify and Git/SARIF setup reads or copies the repository
+example; the test obtains those later inputs from the reviewed wheel archive.
+
+The uncontended acceptance run measured 123.39 seconds from clean environment bootstrap
+through the first validated `VERIFIED` report. The complete workflow—including the
+second packaged demo, two direct verification runs, report validation and explanation,
+doctor rerun, and detached Git/SARIF verification—measured 464.56 seconds and passed in
+467.13 seconds. README no longer represents the repository-level example path as a
+post-PyPI input and keeps the ordinary user-supplied before/after command directly below
+the source-independent demo.
+
+The complete non-integration matrix remained 2,102 passes on each of Python 3.10, 3.11,
+3.12, and 3.13. Publication remains blocked on the separately owner-gated arXiv and
+current-tip paper/link commit; ALPHA.5 does not modify `paper.pdf`, citation identifiers,
+the product version, or verification semantics.
+
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED

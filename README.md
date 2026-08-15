@@ -8,7 +8,7 @@ turning operational uncertainty into success?**
 `0.1.0a1` is a Checkov-focused alpha. It is prepared for review but is not yet a
 published release.
 
-## Five-minute Checkov alpha path
+## Source-independent Checkov alpha path
 
 This is the supported native alpha path for trusted local input. It uses copied-file
 environments created without bundled pip, installs with `--no-compile`, and relies on
@@ -33,11 +33,8 @@ python -m pip --python .venv-checkov330/bin/python install --no-compile \
 .venv-iac-guard/bin/iac-guard doctor \
   --mode local-trusted \
   --checkov-executable "$PWD/.venv-checkov330/bin/checkov"
-.venv-iac-guard/bin/iac-guard verify \
-  --before examples/checkov-before-after/before \
-  --after examples/checkov-before-after/after \
-  --all-baseline-findings \
-  --framework terraform \
+.venv-iac-guard/bin/iac-guard demo \
+  --real \
   --local-trusted \
   --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
   --format console \
@@ -57,13 +54,28 @@ when console output is selected. Native `local-trusted` mode is reduced isolatio
 use it only for operator-controlled input. [Advanced config workflow](#advanced-pinned-configuration)
 remains available for reproducible automation.
 
+`demo --real` reads the example from the installed wheel, so the command above works
+from an otherwise empty directory and does not require a Git source checkout. To verify
+your own before/after directories, use the same installed environments:
+
+```bash
+.venv-iac-guard/bin/iac-guard verify \
+  --before ./my-before \
+  --after ./my-after \
+  --all-baseline-findings \
+  --framework terraform \
+  --local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
+  --output ./iac-guard-report.json
+```
+
 Use an exact selector when a repository contains multiple occurrences or when only one
 baseline finding should be verified:
 
 ```bash
 .venv-iac-guard/bin/iac-guard verify \
-  --before examples/checkov-before-after/before \
-  --after examples/checkov-before-after/after \
+  --before ./my-before \
+  --after ./my-after \
   --target CKV_AWS_53=aws_s3_bucket_public_access_block.example \
   --framework terraform \
   --local-trusted \
@@ -72,8 +84,10 @@ baseline finding should be verified:
 ```
 
 After publication, replace the local wheel path with `iac-guard-v==0.1.0a1` in the
-same `pip --python ... install --no-compile` command. Run `doctor` and `verify` again
-without cache cleanup; the release gate tests precisely that sequence twice.
+same `pip --python ... install --no-compile` command. The packaged `demo --real` command
+then remains source-independent; ordinary `verify` consumes directories supplied by the
+user. Run `doctor` and the real demo again without cache cleanup—the release gate tests
+that installed sequence twice.
 
 ## Project status
 

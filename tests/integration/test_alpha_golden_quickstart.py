@@ -7,6 +7,8 @@ import os
 import shutil
 import subprocess
 import sys
+import time
+import zipfile
 from pathlib import Path
 
 
@@ -39,6 +41,7 @@ def _semantic_execution_view(payload: dict) -> dict:
 
 
 def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
+    acceptance_started = time.monotonic()
     external = tmp_path / "outside-source-checkout"
     external.mkdir()
     environment_root = external / ".venv-iac-guard"
@@ -87,8 +90,13 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     candidate = external / "candidate"
     baseline.mkdir()
     candidate.mkdir()
-    shutil.copyfile(ROOT / "examples/checkov-before-after/before.tf", baseline / "main.tf")
-    shutil.copyfile(ROOT / "examples/checkov-before-after/after.tf", candidate / "main.tf")
+    with zipfile.ZipFile(wheel) as archive:
+        (baseline / "main.tf").write_bytes(archive.read(
+            "iac_guard_v/examples/checkov-before-after/before.tf"
+        ))
+        (candidate / "main.tf").write_bytes(archive.read(
+            "iac_guard_v/examples/checkov-before-after/after.tf"
+        ))
     home = external / "home"
     home.mkdir()
     environment = {
@@ -105,8 +113,11 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     })
     command = binary_dir / ("iac-guard.exe" if os.name == "nt" else "iac-guard")
     checkov = scanner_binary_dir / ("checkov.exe" if os.name == "nt" else "checkov")
+    run_directory = external / "empty-run-directory"
+    run_directory.mkdir()
+    assert tuple(run_directory.iterdir()) == ()
 
-    version = _run([command, "--version"], cwd=external, environment=environment)
+    version = _run([command, "--version"], cwd=run_directory, environment=environment)
     assert version.returncode == 0, version.stderr
     assert version.stdout.strip() == f"iac-guard {VERSION}"
     doctor = _run(
@@ -114,13 +125,51 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
             command, "doctor", "--mode", "local-trusted",
             "--checkov-executable", checkov, "--format", "json",
         ],
-        cwd=external, environment=environment,
+        cwd=run_directory, environment=environment,
     )
-    assert doctor.returncode == 0, doctor.stderr
+    assert doctor.returncode == 0, doctor.stdout + doctor.stderr
     diagnosis = json.loads(doctor.stdout)
     assert diagnosis["checkov"]["status"] == "PASS"
     assert diagnosis["validator_registry"]["status"] == "PASS"
     assert diagnosis["hardened_container"]["status"] == "INCONCLUSIVE"
+
+    demo_reports: list[dict] = []
+    first_verified_seconds = 0.0
+    for iteration in (1, 2):
+        demo_path = run_directory / f"installed-demo-{iteration}.json"
+        demo = _run(
+            [
+                command, "demo", "--real", "--local-trusted",
+                "--checkov-executable", checkov, "--format", "console",
+                "--output", demo_path,
+            ],
+            cwd=run_directory, environment=environment,
+        )
+        assert demo.returncode == 0, demo.stderr
+        assert "IaC-Guard-V: VERIFIED" in demo.stdout
+        assert "CKV_AWS_53 aws_s3_bucket_public_access_block.example: FIXED" in demo.stdout
+        validated = _run([
+            python, "-c",
+            "import json,sys; from iac_guard_v.report import validate_report_payload; "
+            "validate_report_payload(json.load(open(sys.argv[1], encoding='utf-8')))",
+            demo_path,
+        ], cwd=run_directory, environment=environment)
+        assert validated.returncode == 0, validated.stderr
+        payload = json.loads(demo_path.read_text(encoding="utf-8"))
+        assert payload["verdict"] == "VERIFIED"
+        assert payload["exit_code"] == 0
+        assert payload["execution_isolation"]["mode"] == "reduced-isolation"
+        serialized = json.dumps(payload, sort_keys=True)
+        assert str(tmp_path) not in serialized
+        assert str(environment_root) not in serialized
+        assert str(scanner_root) not in serialized
+        demo_reports.append(payload)
+        if iteration == 1:
+            first_verified_seconds = time.monotonic() - acceptance_started
+    assert _semantic_execution_view(demo_reports[0]) == _semantic_execution_view(
+        demo_reports[1]
+    )
+
     reports: list[dict] = []
     report_paths: list[Path] = []
     console_outputs: list[str] = []
@@ -134,7 +183,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
                 "--checkov-executable", checkov, "--format", "console",
                 "--output", report_path,
             ],
-            cwd=external, environment=environment,
+            cwd=run_directory, environment=environment,
         )
         assert completed.returncode == 0, completed.stderr
         assert "IaC-Guard-V: VERIFIED" in completed.stdout
@@ -148,7 +197,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
             "import json,sys; from iac_guard_v.report import validate_report_payload; "
             "validate_report_payload(json.load(open(sys.argv[1], encoding='utf-8')))",
             report_path,
-        ], cwd=external, environment=environment)
+        ], cwd=run_directory, environment=environment)
         assert validated.returncode == 0, validated.stderr
         reports.append(json.loads(report_path.read_text(encoding="utf-8")))
         report_paths.append(report_path)
@@ -180,14 +229,14 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
             command, "doctor", "--mode", "local-trusted",
             "--checkov-executable", checkov, "--format", "json",
         ],
-        cwd=external, environment=environment,
+        cwd=run_directory, environment=environment,
     )
     assert doctor_again.returncode == 0, doctor_again.stderr
 
     rendered = [
         _run(
             [command, "explain", path, "--format", "markdown"],
-            cwd=external, environment=environment,
+            cwd=run_directory, environment=environment,
         )
         for path in report_paths
     ]
@@ -197,7 +246,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
 
     repository = external / "repository"
     repository.mkdir()
-    shutil.copyfile(ROOT / "examples/checkov-before-after/before.tf", repository / "main.tf")
+    shutil.copyfile(baseline / "main.tf", repository / "main.tf")
     git = shutil.which("git")
     assert git is not None
     git_environment = os.environ.copy()
@@ -213,7 +262,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     base = _run([git, "rev-parse", "HEAD"], cwd=repository, environment=git_environment)
     assert base.returncode == 0, base.stderr
     base_commit = base.stdout.strip()
-    shutil.copyfile(ROOT / "examples/checkov-before-after/after.tf", repository / "main.tf")
+    shutil.copyfile(candidate / "main.tf", repository / "main.tf")
     for arguments in (
         ("add", "main.tf"),
         ("commit", "-q", "-m", "candidate"),
@@ -238,7 +287,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
             "--checkov-executable", checkov, "--format", "sarif",
             "--output", sarif_path,
         ],
-        cwd=external, environment=environment,
+        cwd=run_directory, environment=environment,
     )
     assert pr.returncode == 0, pr.stderr
     sarif = json.loads(sarif_path.read_text(encoding="utf-8"))
@@ -257,3 +306,6 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     ).stdout == status_before
     assert not tuple(environment_root.rglob("__pycache__"))
     assert not tuple(scanner_root.rglob("__pycache__"))
+    full_acceptance_seconds = time.monotonic() - acceptance_started
+    print(f"TIME_TO_FIRST_VERIFIED_SECONDS={first_verified_seconds:.2f}")
+    print(f"FULL_GOLDEN_ACCEPTANCE_SECONDS={full_acceptance_seconds:.2f}")

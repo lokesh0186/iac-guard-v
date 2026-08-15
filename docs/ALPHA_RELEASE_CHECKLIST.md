@@ -69,9 +69,14 @@ PY
       `iac-guard doctor --mode local-trusted --checkov-executable <exact-path>`;
       doctor must return 0 without an undocumented `PATH` change even though
       hardened-container mode remains unavailable.
+- [ ] From an otherwise empty directory, run the installed-wheel
+      `iac-guard demo --real --local-trusted --checkov-executable <exact-path>` twice.
+      It must use only the packaged fixture and return validated `VERIFIED` report-v1
+      evidence without accessing the source checkout.
 - [ ] Run the README automatic-target
-      `iac-guard verify --before ... --after ... --all-baseline-findings` command twice,
-      then rerun doctor, without repairing or cleaning either environment.
+      `iac-guard verify --before ... --after ... --all-baseline-findings` command against
+      user-supplied directories, then rerun doctor, without repairing or cleaning either
+      environment.
 - [ ] Both reports are semantically valid report-v1 documents with `VERIFIED`, exit 0,
       exact CKV_AWS_53 file/resource binding, visible reduced-isolation, and no private
       absolute paths. Their semantic views and Markdown projections are byte-identical;
@@ -80,6 +85,9 @@ PY
       --all-baseline-findings --changed-only` path against a temporary repository;
       require exit 0, valid SARIF, exact Checkov rule evidence, no private paths, and
       an unchanged checkout/index/worktree.
+- [ ] Record time from clean bootstrap start to the first real `VERIFIED` report
+      separately from the complete golden acceptance duration. Describe the path as
+      five-minute onboarding only when the first measurement is below five minutes.
 
 ## Project gates
 
