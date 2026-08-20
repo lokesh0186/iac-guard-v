@@ -60,6 +60,9 @@ PY
 
 ## External installation and golden workflow
 
+- [ ] On macOS, reject any framework Python that cannot honor `venv --copies`; install
+      Python 3.12 through uv and resolve it with
+      `uv python find --managed-python 3.12`. Never remove `--copies` as a workaround.
 - [ ] Create separate copied-file product/parser and Checkov environments with
       `venv --copies --without-pip`; never overlay `python-hcl2` and `bc-python-hcl2`.
 - [ ] From the external installer, install the reviewed wheel and Checkov 3.3.0 with
@@ -89,6 +92,9 @@ PY
 - [ ] Record time from clean bootstrap start to the first real `VERIFIED` report
       separately from the complete golden acceptance duration. Describe the path as
       five-minute onboarding only when the first measurement is below five minutes.
+- [ ] Tell alpha users that real verification captures scanner output and may remain
+      quiet for several minutes before printing the validated conclusion; treat a
+      result within the documented timeout as active unless the process exits.
 
 ## Project gates
 

@@ -234,6 +234,8 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "public identifier is still pending",
         "PYTHONDONTWRITEBYTECODE=1",
         "trusted local input only",
+        "uv python find --managed-python 3.12",
+        "may remain quiet for several minutes",
     ):
         assert statement in readme
     assert "arXiv:ADD" not in readme

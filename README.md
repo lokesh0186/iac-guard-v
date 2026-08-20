@@ -16,18 +16,34 @@ the wheel's RECORD-bound startup policy to prevent runtime bytecode. No cache cl
 hidden environment variable is required; specifically, users do not need to export
 `PYTHONDONTWRITEBYTECODE=1`. The hardened hostile-input container is not released.
 
+On macOS, the Apple or another framework Python may report that it cannot create a
+virtual environment without symlinks. Do not remove `--copies`: install a standalone,
+uv-managed Python and use it for the two protected environments:
+
+```bash
+brew install uv
+uv python install 3.12
+ALPHA_PYTHON="$(uv python find --managed-python 3.12)"
+```
+
+On a Python installation that already supports copied-file environments, use:
+
+```bash
+ALPHA_PYTHON="$(command -v python3)"
+```
+
 ```bash
 rm -rf dist build
 find . -maxdepth 2 -type d -name '*.egg-info' -prune -exec rm -rf {} +
-python -m pip install --upgrade pip
-python -m pip install 'build>=1.2,<2'
-python -m build --outdir dist
+python3 -m pip install --upgrade pip
+python3 -m pip install 'build>=1.2,<2'
+python3 -m build --outdir dist
 
-python -m venv --copies --without-pip .venv-iac-guard
-python -m venv --copies --without-pip .venv-checkov330
-python -m pip --python .venv-iac-guard/bin/python install --no-compile \
+"$ALPHA_PYTHON" -m venv --copies --without-pip .venv-iac-guard
+"$ALPHA_PYTHON" -m venv --copies --without-pip .venv-checkov330
+python3 -m pip --python .venv-iac-guard/bin/python install --no-compile \
   dist/iac_guard_v-0.1.0a1-py3-none-any.whl
-python -m pip --python .venv-checkov330/bin/python install --no-compile \
+python3 -m pip --python .venv-checkov330/bin/python install --no-compile \
   'checkov==3.3.0'
 
 .venv-iac-guard/bin/iac-guard doctor \
@@ -47,6 +63,11 @@ python -m pip --python .venv-checkov330/bin/python install --no-compile \
 # regressions: none
 # policy: VERIFIED
 ```
+
+Real verification may remain quiet for several minutes while Checkov runs and
+IaC-Guard-V captures and validates its output. `0.1.0a1` prints the conclusion only
+after that evidence is complete; do not interpret the quiet period as a hung process.
+The external macOS smoke completed with `VERIFIED` in approximately three minutes.
 
 Exit codes are `0` VERIFIED, `1` FAILED, `2` invalid request, `3` INCONCLUSIVE, and
 `4` unexpected internal error. The saved file is canonical validated `report-v1` even
