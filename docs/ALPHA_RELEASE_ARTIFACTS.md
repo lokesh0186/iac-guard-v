@@ -1,13 +1,15 @@
-# ALPHA.3 clean-build artifact record
+# PUBLIC.1 clean-build artifact record
 
-This records the fresh local artifacts produced by the bounded adoption gate. It is not
-a publication authorization. The arXiv/paper-tip gate in ALPHA_RELEASE_CHECKLIST.md is
-still blocked.
+This records the fresh local artifacts produced after removing `paper.pdf` from the
+current product tip and separating software release readiness from pending publication
+metadata. It is not a push, tag, upload, or publication authorization. The submitted
+manuscript's public arXiv identifier and the Springer Version of Record remain follow-up
+links; no placeholder identifier is present.
 
 | Artifact | Bytes | SHA-256 | Files |
 | --- | ---: | --- | ---: |
-| `iac_guard_v-0.1.0a1-py3-none-any.whl` | 247099 | `ef54f5ed169005ace3b55fc2dccf8f0d7a8676c34c5905c99a2ce508339376b6` | 52 |
-| `iac_guard_v-0.1.0a1.tar.gz` | 237687 | `0118a5c2dbcfe9b18b42d34682a9f6de30928800a3fefe0ce849a509ff9eea99` | 65 |
+| `iac_guard_v-0.1.0a1-py3-none-any.whl` | 248617 | `7d81dbf71432d402845245212c5cebfbfb0f3452c5a113aa98af600f42ad5358` | 52 |
+| `iac_guard_v-0.1.0a1.tar.gz` | 240234 | `de683d77f53f1ef1b612c4f9dae617c1a56e6f91214057ec17fa5d4bf7c5c92c` | 65 |
 
 ## Wheel inventory
 

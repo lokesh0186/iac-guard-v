@@ -12,9 +12,10 @@
 | [0008](ADR-0008-plugin-discovery.md) | Entry-point adapter discovery, trusted-config activation | Accepted |
 | [0009](ADR-0009-no-telemetry.md) | No telemetry of any kind | Accepted |
 | [0010](ADR-0010-version-lock.md) | Version and digest locking with `--locked` | Accepted |
-| [0011](ADR-0011-paper-hosting.md) | Hosting of `paper.pdf` | Interim: `KEEP_UNCHANGED_PENDING_RIGHTS_CONFIRMATION` |
+| [0011](ADR-0011-paper-hosting.md) | Hosting of `paper.pdf` | Superseded by ADR-0014 |
 | [0012](ADR-0012-byte-vs-semantic-freeze.md) | Two freeze mechanisms: byte-exact and semantic | Accepted |
 | [0013](ADR-0013-trusted-policy-source.md) | Policy loads from the trusted base, never the candidate | Accepted |
+| [0014](ADR-0014-publication-links-and-paper-tip.md) | Remove the current-tip PDF; publication links follow availability | Accepted |
 
 Format: context, decision, consequences, alternatives considered. An ADR is amended by
 a new ADR, not by rewriting history.

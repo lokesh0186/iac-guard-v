@@ -93,7 +93,7 @@ that installed sequence twice.
 
 | Area | Status |
 | --- | --- |
-| Frozen QRS 2026 research snapshot | Preserved at tag `qrs-2026-replication-v1`; 4,842 files and 630 stored runs can be checked without new model calls. |
+| Frozen QRS 2026 research snapshot | Bound to commit `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5` and `MANIFEST_ROOT` `a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`; public CI reconstructs and verifies the local-only annotated freeze tag, which is not published. |
 | Hardened product core | Typed differential evidence, fail-closed report validation, Checkov 3.3.0 integration, and deterministic reporters. |
 | Checkov-focused alpha | The supported initial product focus; package version `0.1.0a1` is not published. |
 | KICS, Trivy, OpenTofu, kubeconform, and TFLint | Experimental and advisory; their agreement cannot change the final verdict. |
@@ -246,8 +246,10 @@ scanner of record is Checkov 3.2.517, while the alpha product contract uses Chec
 3.3.0. The stored experiment outputs are never re-labelled as hardened-engine runs.
 
 See [RESEARCH_SNAPSHOT.md](RESEARCH_SNAPSHOT.md) for the manifest root, replay
-contract, limitations, and exact offline verification commands. No arXiv identifier is
-published here because the owner has not supplied one.
+contract, limitations, and exact offline verification commands. The pre-peer-review
+manuscript has been submitted to arXiv, but its public identifier is still pending. No
+placeholder identifier or broken link is published. The Springer Version of Record and
+DOI will be linked when they become available.
 
 ## Contributing and roadmap
 
@@ -259,8 +261,10 @@ published here because the owner has not supplied one.
 ## Citation
 
 Citation metadata for the accepted QRS 2026 paper and this software is in
-[CITATION.cff](CITATION.cff). An arXiv link will be added only after the owner supplies
-the identifier.
+[CITATION.cff](CITATION.cff). The arXiv submission is pending public availability. Once
+Springer publishes the Version of Record, its DOI and publisher page will become the
+primary paper citation; an available arXiv preprint may remain as a separate accessible
+manuscript link.
 
 ## License
 

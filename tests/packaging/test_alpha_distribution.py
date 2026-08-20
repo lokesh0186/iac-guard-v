@@ -231,7 +231,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "Hardened production container",
         "There are no external-adoption",
         "zero `EXACT` mappings",
-        "No arXiv identifier",
+        "public identifier is still pending",
         "PYTHONDONTWRITEBYTECODE=1",
         "trusted local input only",
     ):
@@ -240,12 +240,13 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "XXXX.XXXXX" not in readme
 
 
-def test_release_checklist_keeps_legal_tip_owner_gated() -> None:
+def test_release_checklist_requires_paper_absence_without_fake_identifier() -> None:
     checklist = (ROOT / "docs/ALPHA_RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
     assert "rm -rf dist build" in checklist
-    assert "paper.pdf is absent from the current tree" in checklist
-    assert "owner supplies the arXiv identifier" in checklist
+    assert "`paper.pdf` is absent from the current tree" in checklist
+    assert "must not publish" in checklist
     assert "Do not push a tag" in checklist
+    assert not (ROOT / "paper.pdf").exists()
 
 
 def test_public_ci_actions_are_immutable() -> None:

@@ -15,14 +15,27 @@ how much of it can be re-derived offline.
 | Runs | 630 = 70 items × 3 models × 3 methods |
 | New model calls required to reproduce the tables | **none** |
 
+## Manuscript availability
+
+The pre-peer-review manuscript has been submitted to arXiv, but no public identifier is
+available yet. This repository does not publish a placeholder arXiv identifier. When the
+submission becomes public, its abstract record will be linked here. When Springer
+publishes the Version of Record, this document will also link its DOI and publisher page.
+The current repository tip does not distribute `paper.pdf`.
+
+An ordinary deletion does not remove prior Git objects. The previously published history
+and the separate rights/history question are documented in ADR-0011 and ADR-0014. The
+local-only freeze tag remains unpublished.
+
 ## What is frozen
 
 `benchmark/**`, `runs/**`, `results/**`, `prompts/**`, `scanners/**`, `scripts/**`,
 and `requirements.txt` — 4,842 files, bit-for-bit. Everything else in the repository
 (README, `docs/EXAMPLE_WALKTHROUGH.md`, `docs/VERIFICATION_PROCEDURE.md`,
-`CITATION.cff`, `LICENSE`, `.gitignore`, `.gitattributes`, `paper.pdf`) is mutable
-product documentation and is deliberately **not** covered by the byte manifest, so
-that ordinary documentation work cannot trip the freeze.
+`CITATION.cff`, `LICENSE`, `.gitignore`, and `.gitattributes`) is mutable product
+documentation and is deliberately **not** covered by the byte manifest, so that ordinary
+documentation work cannot trip the freeze. The formerly tracked `paper.pdf` was also
+outside the byte manifest and its removal does not change the frozen research scope.
 
 ## Two different guarantees, deliberately not merged
 

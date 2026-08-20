@@ -3247,3 +3247,47 @@ NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
 NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
 
 MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED
+
+## 2026-08-20 — PUBLIC.1 current-tip paper removal and publication decoupling
+
+The owner superseded ADR-0011's interim paper-hosting decision with ADR-0014. The
+current product tip removes `paper.pdf` in an ordinary commit without rewriting history.
+Public documentation records the pending arXiv submission without a placeholder
+identifier and will use the Springer DOI and publisher page as the primary Version of
+Record citation when available. The local-only historical freeze tag remains unpublished.
+
+The first direct non-integration attempt used the pre-existing Anaconda host and correctly
+failed closed: its `packaging` distribution contained prohibited bytecode and the test run
+created 22 source-cache files. Those host results are not represented as product failures
+or passes. The generated source caches were moved outside the checkout, and the complete
+suite was rerun in a copied-file, `--no-compile`, bytecode-disabled compatibility
+environment. That governed run passed 2,102/2,102 tests on Python 3.11. The public CI
+matrix remains responsible for Python 3.10, 3.12, and 3.13 results after push.
+
+The source-independent installed-wheel Checkov 3.3.0 acceptance path passed. Time from
+clean bootstrap to first real `VERIFIED` was 109.55 seconds. The full repeated workflow—
+including two real demos, two direct verifications, report validation/explanation,
+doctor rerun, and Git/SARIF verification—passed in 424.94 seconds (pytest: 425.20
+seconds).
+
+Packaging tests passed 8/8. The wheel contains 52 files; the sdist contains 65. Both
+exclude the paper, research/benchmark data, tests, scripts, tools, scanner fixtures, and
+private test capabilities. The fresh artifacts are:
+
+```text
+7d81dbf71432d402845245212c5cebfbfb0f3452c5a113aa98af600f42ad5358  dist/iac_guard_v-0.1.0a1-py3-none-any.whl
+de683d77f53f1ef1b612c4f9dae617c1a56e6f91214057ec17fa5d4bf7c5c92c  dist/iac_guard_v-0.1.0a1.tar.gz
+```
+
+Specification lint inspected 27 documents and 166 enums with zero warnings. The frozen
+manifest remained 4,842/4,842 at root
+`a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`;
+replay remained 630/630 and 10,080/10,080 with zero verdict mismatches; all seven tables
+were `SEMANTIC_MATCH`; and the frozen-scope diff was empty. No push, PR, tag publication,
+package publication, or new upstream outreach occurred.
+
+NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED
+
+NO_NEW_MODEL_PROVIDER_CALLS_FROM_IAC_GUARD_V
+
+MODEL_REFRESH_PROTOCOL_NOT_PREPARED_AND_NOT_EXECUTED

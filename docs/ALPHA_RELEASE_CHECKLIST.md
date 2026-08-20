@@ -3,24 +3,25 @@
 This checklist prepares reviewed artifacts; it does not authorize a push, tag, upload,
 or publication. Run it only from the owner-reviewed release commit with a clean tree.
 
-## Current legal blocker
+## Publication-metadata boundary
 
-The release is **BLOCKED** until all of the following are true in a separate,
-owner-authorized documentation/legal-tip commit:
-
-- the owner supplies the arXiv identifier for the pre-peer-review manuscript;
-- `paper.pdf is absent from the current tree`;
-- README.md, CITATION.cff, and RESEARCH_SNAPSHOT.md link the arXiv abstract record.
+The software alpha is not blocked by arXiv moderation or by Springer production. It is
+blocked if `paper.pdf` is present in the current tree. While the arXiv submission has no
+public identifier, public documentation must say that it is pending and must not publish
+a placeholder identifier or broken URL. Add the real arXiv abstract URL when it exists.
+Add the Springer Version of Record DOI and publisher page when they exist.
 
 An ordinary deletion does not remove historical Git objects. Do not push the frozen
-historical tag while the paper-distribution question remains unresolved.
+historical tag while the prior-distribution question remains separately unresolved. Do
+not redistribute the Springer PDF unless the applicable publication licence permits it.
 
 ## Clean source gate
 
 - [ ] Confirm the branch is `adoption/phase-e-multiscanner`.
 - [ ] Record and independently review the exact release HEAD.
 - [ ] Confirm `git status --short` is empty.
-- [ ] Confirm the arXiv/paper conditions above.
+- [ ] Confirm `paper.pdf` is absent from the current tree and the publication-status
+      wording above remains accurate.
 - [ ] Confirm no secret, token, absolute private path, or private test capability is
       present in a public surface.
 

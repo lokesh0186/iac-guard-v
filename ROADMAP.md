@@ -33,4 +33,6 @@ This roadmap records intent, not a delivery commitment.
 - Public Phase-F scanner cases and upstream submissions without owner review.
 - Model refresh.
 
-An arXiv link will be added only after the owner supplies the identifier.
+The submitted manuscript's arXiv link will be added when the public identifier exists.
+The Springer Version of Record and DOI will be linked when published. Neither pending
+publication record blocks the software alpha.
