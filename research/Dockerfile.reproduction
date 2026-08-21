@@ -1,0 +1,55 @@
+# Reproduction environment for the QRS 2026 replay.
+#
+# Scope: replaying the frozen data — rebuilding results/tables/all_runs.csv from
+# runs/raw and regenerating the seven derived tables. No scanner is invoked and no
+# model provider is contacted, so neither checkov nor boto3 is installed here.
+#
+# This is not a claim about the machine the original experiment ran on. That host was
+# never recorded; see the not_recorded fields in
+# research/ORIGINAL_EXPERIMENT_METADATA.json.
+#
+# Base image pinned by digest, resolved 2026-08-09:
+#   docker buildx imagetools inspect python:3.11.5-slim-bookworm
+#     Digest: sha256:edaf703dce209d774af3ff768fc92b1e3b60261e7602126276f9ceb0e3a96874
+#     linux/amd64 manifest: sha256:a28fdf3bde6c0c97b656841669f6b4cc8164d0f34067c6ce6b5532effe94f8a7
+# The multi-platform index digest is used so the same reference works on amd64 and
+# arm64 hosts; the replay lock's wheel hashes are linux/amd64, so build with
+# --platform linux/amd64 for a byte-reproducible dependency set.
+#
+# Build:
+#   docker build --platform linux/amd64 -f research/Dockerfile.reproduction \
+#     -t iac-guard-v-repro:qrs2026 .
+#
+# Run (read-only source, no network, writable scratch only):
+#   docker run --rm --platform linux/amd64 \
+#     --network=none --read-only \
+#     --cap-drop=ALL --security-opt=no-new-privileges \
+#     --user "$(id -u):$(id -g)" \
+#     --tmpfs /tmp:rw,noexec,nosuid,size=256m \
+#     -e HOME=/tmp \
+#     -v "$PWD:/src:ro" -w /src \
+#     iac-guard-v-repro:qrs2026 \
+#     research/replay_from_frozen_runs.py --check
+#
+# Note: --read-only requires the tmpfs above. Verified: without it, the container
+# fails with "can't create /tmp/...: Read-only file system".
+
+FROM python:3.11.5-slim-bookworm@sha256:edaf703dce209d774af3ff768fc92b1e3b60261e7602126276f9ceb0e3a96874
+
+# Hash-pinned, transitively complete for the replay: numpy and scipy only.
+# --require-hashes makes pip refuse any artifact whose digest does not match.
+# --no-deps is safe because the closure is complete and pinned here explicitly.
+COPY research/requirements-replay.lock /tmp/replay.lock
+RUN pip install --no-cache-dir --no-compile --require-hashes --no-deps \
+        -r /tmp/replay.lock \
+    && rm -f /tmp/replay.lock \
+    && python -c "import numpy, scipy; print('numpy', numpy.__version__, 'scipy', scipy.__version__)"
+
+# Non-root by default. The runtime --user flag above overrides this with the host UID
+# so that any mounted output directory stays writable on Linux CI.
+RUN useradd --create-home --uid 10001 replay
+USER 10001
+
+WORKDIR /src
+ENTRYPOINT ["python"]
+CMD ["research/replay_from_frozen_runs.py", "--check"]

@@ -1,1 +1,25 @@
+# NOTE: .gitignore is repository hygiene, not a privacy mechanism.
+# Private material (impact ledgers, correspondence, undisclosed scanner cases,
+# absolute local paths) must live outside this repository entirely.
+
 .DS_Store
+
+# Python build / cache
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IaC-Guard-V run output
+.iac-guard-results/
+out/
+
+# Local scratch
+*.local
+*.tmp

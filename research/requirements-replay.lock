@@ -1,0 +1,33 @@
+# Replay dependency lock — hash-pinned, for `pip install --require-hashes`.
+#
+# Scope: reproducing the QRS 2026 tables from the frozen run records. Nothing here
+# invokes a scanner and nothing here contacts a model provider.
+#
+# Dependency set derived from the frozen analysis scripts by AST import analysis,
+# not from requirements.txt. The frozen scripts import only:
+#   csv, json, os, collections, itertools  (standard library)
+#   numpy                                  (analyze_part1, analyze_part2, analyze_part3)
+#   scipy                                  (analyze_part2)
+# pandas and matplotlib appear in requirements.txt but are NOT imported by any
+# analysis script, so they are not replay dependencies and are deliberately absent.
+#
+# Resolved inside the target image, not on a developer machine, because wheel
+# selection and therefore hashes are platform-specific:
+#   docker run --rm --platform linux/amd64 \
+#     python:3.11.5-slim-bookworm@sha256:edaf703dce209d774af3ff768fc92b1e3b60261e7602126276f9ceb0e3a96874 \
+#     sh -c 'pip download --no-cache-dir -d /tmp/d numpy==1.26.4 scipy==1.11.1 && \
+#            cd /tmp/d && sha256sum *'
+#
+# Resolution date: 2026-08-09
+# Target platform: linux/amd64, CPython 3.11
+# Transitive closure: complete. numpy has no runtime dependencies; scipy depends only
+# on numpy, which is pinned here. pip download produced exactly these two artifacts.
+#
+# Install with:
+#   pip install --require-hashes --no-deps -r research/requirements-replay.lock
+
+numpy==1.26.4 \
+    --hash=sha256:666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5
+
+scipy==1.11.1 \
+    --hash=sha256:b4bb943010203465ac81efa392e4645265077b4d9e99b66cf3ed33ae12254173

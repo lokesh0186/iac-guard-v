@@ -1,0 +1,96 @@
+{
+  "schema": "iac-guard-v/validated-replay-environment/v2",
+  "describes": "The environment in which the frozen QRS 2026 data was successfully replayed",
+  "is_not": "A record of the original experiment environment. Nothing in this file may be copied into ORIGINAL_EXPERIMENT_METADATA.json. The original host environment was never recorded and remains not_recorded there.",
+  "replay_performed_on": "2026-08-09",
+  "replayed_from_commit": "7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5",
+  "manifest_root": "a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3",
+  "interpreter": {
+    "python": "3.11.5",
+    "implementation": "CPython"
+  },
+  "dependency_derivation": "AST import analysis of the three frozen analysis scripts, not requirements.txt. They import only csv, json, os, collections, itertools from the standard library plus numpy (all three) and scipy (analyze_part2). pandas and matplotlib appear in requirements.txt but are imported by no analysis script, so they are not replay dependencies.",
+  "packages": {
+    "numpy": "1.26.4",
+    "scipy": "1.11.1"
+  },
+  "packages_in_requirements_txt_but_unused_by_replay": {
+    "pandas": "declared range >=2.0,<3.0",
+    "matplotlib": "declared range >=3.7,<4.0",
+    "boto3": "declared range >=1.34,<2.0; provider SDK, never needed for replay"
+  },
+  "lock": {
+    "replay": "research/requirements-replay.lock",
+    "hash_pinned": true,
+    "install_command": "pip install --require-hashes --no-deps -r research/requirements-replay.lock",
+    "transitive_closure_complete": true,
+    "closure_note": "numpy has no runtime dependencies; scipy depends only on numpy, which is pinned. pip download inside the target image produced exactly these two artifacts.",
+    "resolution_platform": "linux/amd64, CPython 3.11",
+    "resolution_date": "2026-08-09",
+    "checkov_compatibility": "research/requirements-checkov-3.2.517.lock (separate; version-pinned only; off the replay path)"
+  },
+  "container": {
+    "dockerfile": "research/Dockerfile.reproduction",
+    "base_image": "python:3.11.5-slim-bookworm",
+    "base_index_digest": "sha256:edaf703dce209d774af3ff768fc92b1e3b60261e7602126276f9ceb0e3a96874",
+    "base_amd64_manifest_digest": "sha256:a28fdf3bde6c0c97b656841669f6b4cc8164d0f34067c6ce6b5532effe94f8a7",
+    "built_local_image_id": "sha256:338db8953db19fb91662ac459cce7c442c9f97771e88678f10adaf4cb1a45361",
+    "registry_digest": null,
+    "registry_digest_note": "null by design: the image has not been pushed. A locally built image's RepoDigests value is bound to no registry and must not be recorded as provenance.",
+    "verified_offline_run": true,
+    "offline_run_flags": "--network=none --read-only --cap-drop=ALL --security-opt=no-new-privileges --pids-limit=256 --memory=2g --cpus=2 --user $(id -u):$(id -g) --tmpfs /tmp:rw,noexec,nosuid,size=256m -e HOME=/tmp -v $PWD:/src:ro",
+    "git_absent_in_container": true,
+    "workspace_copy_method_in_container": "filesystem-walk-with-exclusions",
+    "workspace_copy_method_on_host": "git-ls-files",
+    "files_copied_both_methods": 642
+  },
+  "host_platform": {
+    "os_family": "macOS",
+    "architecture": "arm64",
+    "note": "The container run used --platform linux/amd64, so the hash-pinned linux wheels applied. Both host and container produced identical results."
+  },
+  "scanner_not_exercised": {
+    "checkov_installed_locally": "3.3.0",
+    "checkov_required_for_replication": "3.2.517",
+    "note": "The replay recomputes tables from frozen run records and never invokes Checkov, so the local 3.3.0 installation cannot influence the result. Any workflow that re-executes the scanner must pin 3.2.517."
+  },
+  "result": {
+    "frozen_run_records": 630,
+    "committed_rows": 630,
+    "field_comparisons": 10080,
+    "field_comparisons_equal": 10080,
+    "duplicate_csv_keys": 0,
+    "duplicate_run_keys": 0,
+    "missing_json_fields": 0,
+    "attempts_total": 762,
+    "verification_dicts": 759,
+    "verification_repr_strings": 0,
+    "verification_missing": 3,
+    "verification_parse_failures": 0,
+    "ast_literal_eval_invocations": 0,
+    "ast_literal_eval_note": "Retained as a compatibility path for repr-encoded values. This artifact stores every verification value as a JSON object, so the path is not exercised. An earlier report incorrectly described 759 dictionaries as having been parsed by it.",
+    "final_verdicts_checked": 627,
+    "final_verdicts_unavailable": 3,
+    "final_verdicts_unavailable_files": [
+      "BM-0276_claude-opus-4.6_verify_loop.json",
+      "BM-0276_claude-sonnet-4.6_verify_loop.json",
+      "BM-0279_claude-sonnet-4.6_verify_loop.json"
+    ],
+    "final_verdicts_unavailable_reason": "In each, the final verify-loop attempt recorded error 'empty_extraction' and produced no verification object. All three records carry overall_verified_fix = false, consistent with a failed final attempt. They are classified as unavailable evidence, not skipped.",
+    "final_verdict_mismatches": 0,
+    "derived_tables_compared": 7,
+    "derived_tables_semantic_match": 7,
+    "derived_tables_byte_identical": 0,
+    "canonicalisation_applied": "CRLF->LF plus exactly one trailing newline",
+    "figures_regenerated": false,
+    "figures_note": "No frozen analysis script calls savefig; the three committed PNGs are not reproduced by this replay and are protected by the byte manifest instead."
+  },
+  "reproduce_with": [
+    "python research/verify_byte_manifest.py --manifest research/qrs2026-byte-manifest.jsonl --root . --tag qrs-2026-replication-v1 --expect-entries 4842 --strict",
+    "python research/replay_from_frozen_runs.py --check",
+    "python -m pytest tests/research -q",
+    "docker build --platform linux/amd64 -f research/Dockerfile.reproduction -t iac-guard-v-repro:qrs2026 ."
+  ],
+  "model_calls_made": 0,
+  "inference_statement": "NO_NEW_BENCHMARK_INFERENCE_RUNS_EXECUTED"
+}

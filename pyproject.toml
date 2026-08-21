@@ -1,0 +1,94 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iac-guard-v"
+version = "0.1.0a1"
+description = "Differential verification for infrastructure-as-code changes: did the fix actually fix it?"
+readme = "README.md"
+requires-python = ">=3.10,<3.14"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+authors = [{ name = "Lokesh Chauhan" }]
+keywords = ["infrastructure-as-code", "terraform", "kubernetes", "verification", "devsecops"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+]
+# Parser dependencies are part of the independent IaC evidence boundary.  No
+# model-provider SDK is present; the core remains model-agnostic and offline-capable.
+dependencies = [
+  "PyYAML>=6.0.2,<7",
+  "python-hcl2>=7.3,<8",
+  "jsonschema>=4.23,<5",
+  "packaging>=22,<27",
+]
+
+[project.optional-dependencies]
+dev = ["build>=1.2,<2", "pytest>=8.0", "pytest-cov>=5.0"]
+# The compatibility job also executes the frozen replay tests.  NumPy 1.x has no
+# Python 3.13 wheels, so that interpreter uses NumPy 2.x while the frozen research
+# environment remains governed separately by requirements.txt and its lock file.
+compat-test = [
+  "build>=1.2,<2",
+  "pytest>=8,<10",
+  "pytest-cov>=5,<8",
+  "numpy>=1.24,<2; python_version < '3.13'",
+  "numpy>=2,<3; python_version >= '3.13'",
+  "pandas>=2,<3",
+  "scipy>=1.11,<2",
+  "matplotlib>=3.7,<4",
+]
+
+[project.urls]
+Homepage = "https://github.com/lokesh0186/iac-guard-v"
+Repository = "https://github.com/lokesh0186/iac-guard-v"
+Documentation = "https://github.com/lokesh0186/iac-guard-v#readme"
+Changelog = "https://github.com/lokesh0186/iac-guard-v/blob/main/CHANGELOG.md"
+Security = "https://github.com/lokesh0186/iac-guard-v/security/policy"
+
+[project.scripts]
+iac-guard = "iac_guard_v.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/iac_guard_v"]
+artifacts = ["src/iac_guard_v/oracles/policies.json"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"packaging/iac_guard_v_no_bytecode.pth" = "iac_guard_v_no_bytecode.pth"
+
+# Research data, the paper, and experiment outputs must never enter a distribution.
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/iac_guard_v",
+  "README.md",
+  "RESEARCH_SNAPSHOT.md",
+  "LICENSE",
+  "SECURITY.md",
+  "CONTRIBUTING.md",
+  "ROADMAP.md",
+  "CHANGELOG.md",
+  "NOTICE",
+  "CITATION.cff",
+  "packaging/iac_guard_v_no_bytecode.pth",
+  "examples/checkov-before-after",
+  "docs/ALPHA_RELEASE_CHECKLIST.md",
+  "docs/spec/THREAT_MODEL.md",
+  "pyproject.toml",
+]
+exclude = ["benchmark/", "runs/", "results/", "scanners/", "prompts/", "research/",
+           "scripts/", "tools/", "controls/", "paper.pdf", "tests/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["src/iac_guard_v"]

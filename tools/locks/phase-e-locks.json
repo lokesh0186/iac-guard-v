@@ -1,0 +1,1389 @@
+{
+  "architectures": [
+    "linux/amd64",
+    "linux/arm64"
+  ],
+  "artifact_cache_contract": "phase-e-protected-artifact-cache-v3",
+  "hardened_container_base": {
+    "architecture_digests": {
+      "linux/amd64": "sha256:362e64223cc0da95422b3b13c045186fc0a81250e765d31c025fbddf257f6143",
+      "linux/arm64": "sha256:817e6cf99d6fc127ff4ffe8580049b60deba0adfbbb2bd65ddc3ef8fbb7aade0"
+    },
+    "cached_index_path": "oci/base.json",
+    "execution_references": {
+      "index": "docker.io/library/debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241",
+      "linux/amd64": "docker.io/library/debian:bookworm-slim@sha256:362e64223cc0da95422b3b13c045186fc0a81250e765d31c025fbddf257f6143",
+      "linux/arm64": "docker.io/library/debian:bookworm-slim@sha256:817e6cf99d6fc127ff4ffe8580049b60deba0adfbbb2bd65ddc3ef8fbb7aade0"
+    },
+    "image": "docker.io/library/debian:bookworm-slim",
+    "index_digest": "sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241",
+    "selection_basis": "Selected only after every accepted tool exposed linux/amd64 and linux/arm64 artifacts. Phase E implementation must use the index or platform manifest digest, never the tag.",
+    "supported_architectures": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "verification_status": "CACHED_OCI_INDEX_VERIFIED"
+  },
+  "lock_contract": "phase-e-verified-tool-locks-v4",
+  "lock_payload_sha256": "6a945cd22b117283825bd12724dc29b7dcc406bf014b61af41c6cd2efae4e0a6",
+  "protected_cache_attestation": {
+    "attestation_path": "tools/locks/phase-e-cache-attestation.json",
+    "attestation_sha256": "689f087a6a8edebde12cbecd83a15bba188f8ebf13b608a19ac5db0a2eae789f",
+    "contract": "phase-e-protected-cache-attestation-v2",
+    "manifest_path": "tools/locks/phase-e-cache-manifest.json",
+    "manifest_root": "cb53a2f9ac0e2648418e72e37fffa1aa972315f14545c814542809410c115e74",
+    "manifest_sha256": "6ca05e7323b8f84a84b66a4053f59e630b7c7ac1efcbbdc0a3f302184d032436",
+    "public_key_path": "tools/locks/phase-e-cache-attestation.pub.pem",
+    "public_key_sha256": "37cf2ed6ba5f8062c35db76e0f22718db224f2eff7fc453cace48095caf51ee8",
+    "signature_method": "ED25519_OPENSSL",
+    "signature_path": "tools/locks/phase-e-cache-attestation.sig",
+    "signature_sha256": "50994d4b71618d498d6bf582a3197e606b37ec9464ebb38f38a72e4d02093e1a",
+    "signer_identity": "e02-local-acquisition-ed25519:37cf2ed6ba5f8062c35db76e0f22718db224f2eff7fc453cace48095caf51ee8"
+  },
+  "retrieval_date": "2026-08-12",
+  "review_date": "2026-08-12",
+  "selection_decisions": {
+    "kics": {
+      "accepted": "2.1.20",
+      "proposed": "2.1.21",
+      "reason": "v2.1.21 has an upstream source release but no official archives or checkmarx/kics container tag; v2.1.20 is the newest release with signed archives and immutable amd64/arm64 OCI manifests."
+    },
+    "terraform": {
+      "accepted": "1.15.8",
+      "reason": "Identity is reviewed but Terraform is user-supplied only and is never copied into the IaC-Guard-V image."
+    },
+    "trivy_checks": {
+      "accepted": "2.2.0",
+      "reason": "The immutable 2.2.0 OCI manifest is selected; the moving major tag :2 is forbidden."
+    }
+  },
+  "tools": {
+    "kics": {
+      "archives": {
+        "linux/amd64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "kics/checksums.txt",
+              "sha256": "c9d0e2ee80a6b2d4ef377ad4c9a0d6bdcc167a53932e443174b6a531bb0acfab",
+              "url": "https://github.com/Checkmarx/kics/releases/download/v2.1.20/checksums.txt"
+            },
+            "immutable_download_url": "https://github.com/Checkmarx/kics/releases/download/v2.1.20/kics_2.1.20_linux_amd64.tar.gz",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Detached signature verified over the cached checksum manifest.",
+              "issuer": "Checkmarx KICS upstream release key",
+              "key_cache_path": "kics/kics-signing-key.asc",
+              "key_sha256": "d9dc233c82e1afac682d7a1f7b49db1050e24fb7092f21d49cf1427cbb19df0e",
+              "key_url": "https://github.com/Checkmarx/kics/releases/download/v2.1.20/kics-signing-key.asc",
+              "method": "OPENPGP",
+              "signature_cache_path": "kics/checksums.txt.asc",
+              "signature_sha256": "aebf873cab2911a6d327995e090969fd698183f8700e9884af252f8d9ac76e6d",
+              "signature_url": "https://github.com/Checkmarx/kics/releases/download/v2.1.20/checksums.txt.asc",
+              "signer_identity": "8F94F30BF6B3FC6085C42590F856854108973D6C",
+              "status": "VERIFIED",
+              "subject_digest": "c9d0e2ee80a6b2d4ef377ad4c9a0d6bdcc167a53932e443174b6a531bb0acfab",
+              "verification_command": "gpg --verify checksums.txt.asc checksums.txt",
+              "verification_record_cache_path": "kics/gpg-verification.txt",
+              "verification_record_sha256": "df6c15bf83927a4aed32c4ace3aeb283eb8086f11abca0e09699b178f5215d0a"
+            },
+            "upstream_subject_identity": "https://github.com/Checkmarx/kics@v2.1.20:kics_2.1.20_linux_amd64.tar.gz"
+          },
+          "cache_path": "kics/kics_2.1.20_linux_amd64.tar.gz",
+          "name": "kics_2.1.20_linux_amd64.tar.gz",
+          "sha256": "8a5aa375ccfdc0ddd1114eddf1f9638ad7f6122e98d12a592207509dbe6d81f8",
+          "verification_status": "CHECKSUM_AND_SIGNATURE_VERIFIED"
+        },
+        "linux/arm64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "kics/checksums.txt",
+              "sha256": "c9d0e2ee80a6b2d4ef377ad4c9a0d6bdcc167a53932e443174b6a531bb0acfab",
+              "url": "https://github.com/Checkmarx/kics/releases/download/v2.1.20/checksums.txt"
+            },
+            "immutable_download_url": "https://github.com/Checkmarx/kics/releases/download/v2.1.20/kics_2.1.20_linux_arm64.tar.gz",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Detached signature verified over the cached checksum manifest.",
+              "issuer": "Checkmarx KICS upstream release key",
+              "key_cache_path": "kics/kics-signing-key.asc",
+              "key_sha256": "d9dc233c82e1afac682d7a1f7b49db1050e24fb7092f21d49cf1427cbb19df0e",
+              "key_url": "https://github.com/Checkmarx/kics/releases/download/v2.1.20/kics-signing-key.asc",
+              "method": "OPENPGP",
+              "signature_cache_path": "kics/checksums.txt.asc",
+              "signature_sha256": "aebf873cab2911a6d327995e090969fd698183f8700e9884af252f8d9ac76e6d",
+              "signature_url": "https://github.com/Checkmarx/kics/releases/download/v2.1.20/checksums.txt.asc",
+              "signer_identity": "8F94F30BF6B3FC6085C42590F856854108973D6C",
+              "status": "VERIFIED",
+              "subject_digest": "c9d0e2ee80a6b2d4ef377ad4c9a0d6bdcc167a53932e443174b6a531bb0acfab",
+              "verification_command": "gpg --verify checksums.txt.asc checksums.txt",
+              "verification_record_cache_path": "kics/gpg-verification.txt",
+              "verification_record_sha256": "df6c15bf83927a4aed32c4ace3aeb283eb8086f11abca0e09699b178f5215d0a"
+            },
+            "upstream_subject_identity": "https://github.com/Checkmarx/kics@v2.1.20:kics_2.1.20_linux_arm64.tar.gz"
+          },
+          "cache_path": "kics/kics_2.1.20_linux_arm64.tar.gz",
+          "name": "kics_2.1.20_linux_arm64.tar.gz",
+          "sha256": "486d65b634316299deaa3620888609521c32437c09dbfcb49f8b6eb442b1244b",
+          "verification_status": "CHECKSUM_AND_SIGNATURE_VERIFIED"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_REVIEW",
+        "scope": "Release checksum, tag, OCI architecture and upstream JSON reporter fixture were reviewed. Adapter/runtime execution remains unauthorized."
+      },
+      "container": {
+        "architecture_digests": {
+          "linux/amd64": "sha256:643071cf0c1657eaea695a48b49d2d61b7e625bb87c51505530e624e0c0a1ad1",
+          "linux/arm64": "sha256:d6d12f269db55d9ca59e2886248997c0613f8d1855f0380716795b6b9cedce90"
+        },
+        "cached_index_path": "oci/kics.json",
+        "execution_references": {
+          "index": "docker.io/checkmarx/kics@sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602",
+          "linux/amd64": "docker.io/checkmarx/kics@sha256:643071cf0c1657eaea695a48b49d2d61b7e625bb87c51505530e624e0c0a1ad1",
+          "linux/arm64": "docker.io/checkmarx/kics@sha256:d6d12f269db55d9ca59e2886248997c0613f8d1855f0380716795b6b9cedce90"
+        },
+        "image": "docker.io/checkmarx/kics",
+        "index_digest": "sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "verification_status": "CACHED_OCI_INDEX_VERIFIED"
+      },
+      "invocation_contract": {
+        "argv": [
+          "kics",
+          "scan",
+          "--path",
+          "<sealed-scan-view>",
+          "--output-path",
+          "<private-output-dir>",
+          "--report-formats",
+          "json",
+          "--no-progress",
+          "--minimal-ui"
+        ],
+        "contract_version": "kics-adapter-contract-research-v1"
+      },
+      "license": {
+        "cache_path": "licenses/kics",
+        "id": "Apache-2.0",
+        "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+        "url": "https://raw.githubusercontent.com/Checkmarx/kics/e1f23cad9640f55b963f22a116b04906b8c16ac6/LICENSE"
+      },
+      "offline_requirements": "The exact KICS image/binary contains its query set; network is disabled and no candidate query/config path is loaded.",
+      "output_schema_fixture": {
+        "cache_path": "fixtures/kics",
+        "path": "pkg/report/json_test.go",
+        "sha256": "20862774200dbd6a773678035465c0533a4fa09df704032316c5c1caae4e39e1",
+        "source": "https://raw.githubusercontent.com/Checkmarx/kics/e1f23cad9640f55b963f22a116b04906b8c16ac6/pkg/report/json_test.go"
+      },
+      "release": {
+        "commit": "e1f23cad9640f55b963f22a116b04906b8c16ac6",
+        "repository": "https://github.com/Checkmarx/kics",
+        "tag": "v2.1.20",
+        "tag_refs_cache_path": "kics/tag-refs.txt",
+        "tag_refs_sha256": "a88783af68c5ca8d56e763545cc21dbdeb314e9999801fa9512855b82f7ce5f9",
+        "verification_status": "CACHED_TAG_RELATION_VERIFIED"
+      },
+      "runtime_records": {
+        "linux/amd64": {
+          "architecture": "linux/amd64",
+          "argv": [
+            "version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 1576091750,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "27a7b8451ba3ac20848fb0b9aca5fbd6d8dfed1e9483b3281597d6883aa48977",
+          "execution_reference": "docker.io/checkmarx/kics@sha256:643071cf0c1657eaea695a48b49d2d61b7e625bb87c51505530e624e0c0a1ad1",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:643071cf0c1657eaea695a48b49d2d61b7e625bb87c51505530e624e0c0a1ad1",
+          "image_index_digest": "sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/kics-amd64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/kics-amd64.stdout",
+          "stdout_sha256": "075a490a31785ceccc9ee9dcb99ef274fa984b1a53f957fee49fd34719b7b9ac",
+          "tool": "kics",
+          "version": "2.1.20",
+          "version_output": "Keeping Infrastructure as Code Secure v2.1.20"
+        },
+        "linux/arm64": {
+          "architecture": "linux/arm64",
+          "argv": [
+            "version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 762947166,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "501c6f5572c843122b6e3e21b2600f34b10ff84a0211d0fa77c57fd3f9770f4c",
+          "execution_reference": "docker.io/checkmarx/kics@sha256:d6d12f269db55d9ca59e2886248997c0613f8d1855f0380716795b6b9cedce90",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:d6d12f269db55d9ca59e2886248997c0613f8d1855f0380716795b6b9cedce90",
+          "image_index_digest": "sha256:3e5a268eb8adda2e5a483c9359ddfc4cd520ab856a7076dc0b1d8784a37e2602",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/kics-arm64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/kics-arm64.stdout",
+          "stdout_sha256": "075a490a31785ceccc9ee9dcb99ef274fa984b1a53f957fee49fd34719b7b9ac",
+          "tool": "kics",
+          "version": "2.1.20",
+          "version_output": "Keeping Infrastructure as Code Secure v2.1.20"
+        }
+      },
+      "runtime_smoke": {
+        "architecture": "linux/arm64",
+        "compatibility_status": "VERSION_SMOKE_PASS_OUTPUT_CONTRACT_NOT_EXECUTED",
+        "execution_digest": "40df1064f7a021c38c4940dc38294e38829815bf2b9ced9bfb6b4b95a45a7e6c",
+        "network_disabled_proof": "docker --network none",
+        "offline_invocation_result": "PASS_VERSION_COMMAND_WITH_NETWORK_DISABLED",
+        "output_schema_parse_result": "NOT_EXECUTED_STATIC_FIXTURE_ONLY",
+        "stderr_cache_path": "smoke/kics.stderr",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_cache_path": "smoke/kics.stdout",
+        "stdout_sha256": "075a490a31785ceccc9ee9dcb99ef274fa984b1a53f957fee49fd34719b7b9ac",
+        "version_output": "Keeping Infrastructure as Code Secure v2.1.20"
+      },
+      "upgrade_policy": "Upgrade only after a new signed archive, immutable two-architecture OCI index, output fixture and contract suite all pass review; contract/digests change together.",
+      "version": "2.1.20"
+    },
+    "kubeconform": {
+      "archives": {
+        "linux/amd64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "kubeconform/CHECKSUMS",
+              "sha256": "235fc6d8801ca0b6dba3ff3d49b8751e27c7ec92f4414fe052b283ec50cca0af",
+              "url": "https://github.com/yannh/kubeconform/releases/download/v0.8.0/CHECKSUMS"
+            },
+            "immutable_download_url": "https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "The upstream v0.8.0 release publishes CHECKSUMS but no detached signature or bundle.",
+              "issuer": null,
+              "key_cache_path": null,
+              "key_sha256": null,
+              "key_url": null,
+              "method": "NONE",
+              "signature_cache_path": null,
+              "signature_sha256": null,
+              "signature_url": null,
+              "signer_identity": null,
+              "status": "UNAVAILABLE",
+              "subject_digest": "235fc6d8801ca0b6dba3ff3d49b8751e27c7ec92f4414fe052b283ec50cca0af",
+              "verification_command": null,
+              "verification_record_cache_path": null,
+              "verification_record_sha256": null
+            },
+            "upstream_subject_identity": "https://github.com/yannh/kubeconform@v0.8.0:kubeconform-linux-amd64.tar.gz"
+          },
+          "cache_path": "kubeconform/kubeconform-linux-amd64.tar.gz",
+          "name": "kubeconform-linux-amd64.tar.gz",
+          "sha256": "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883",
+          "verification_status": "CHECKSUM_VERIFIED_SIGNATURE_UNAVAILABLE"
+        },
+        "linux/arm64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "kubeconform/CHECKSUMS",
+              "sha256": "235fc6d8801ca0b6dba3ff3d49b8751e27c7ec92f4414fe052b283ec50cca0af",
+              "url": "https://github.com/yannh/kubeconform/releases/download/v0.8.0/CHECKSUMS"
+            },
+            "immutable_download_url": "https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-arm64.tar.gz",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "The upstream v0.8.0 release publishes CHECKSUMS but no detached signature or bundle.",
+              "issuer": null,
+              "key_cache_path": null,
+              "key_sha256": null,
+              "key_url": null,
+              "method": "NONE",
+              "signature_cache_path": null,
+              "signature_sha256": null,
+              "signature_url": null,
+              "signer_identity": null,
+              "status": "UNAVAILABLE",
+              "subject_digest": "235fc6d8801ca0b6dba3ff3d49b8751e27c7ec92f4414fe052b283ec50cca0af",
+              "verification_command": null,
+              "verification_record_cache_path": null,
+              "verification_record_sha256": null
+            },
+            "upstream_subject_identity": "https://github.com/yannh/kubeconform@v0.8.0:kubeconform-linux-arm64.tar.gz"
+          },
+          "cache_path": "kubeconform/kubeconform-linux-arm64.tar.gz",
+          "name": "kubeconform-linux-arm64.tar.gz",
+          "sha256": "1f53fc8e81258197a35e8603054162a5af1de8c5af13746c71ab680d9534ed87",
+          "verification_status": "CHECKSUM_VERIFIED_SIGNATURE_UNAVAILABLE"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_REVIEW",
+        "scope": "Release CHECKSUMS, OCI manifests and upstream JSON formatter fixture were reviewed. Validator/runtime execution remains unauthorized."
+      },
+      "container": {
+        "architecture_digests": {
+          "linux/amd64": "sha256:5103f6f5e89061728aad4ad5a250627dd0fc9b2a92eb876f3762677a4222f9e0",
+          "linux/arm64": "sha256:5ec810f20ae7b78696499089a767c348802d70bc5d1afabd87b87143395b223d"
+        },
+        "cached_index_path": "oci/kubeconform.json",
+        "execution_references": {
+          "index": "ghcr.io/yannh/kubeconform@sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e",
+          "linux/amd64": "ghcr.io/yannh/kubeconform@sha256:5103f6f5e89061728aad4ad5a250627dd0fc9b2a92eb876f3762677a4222f9e0",
+          "linux/arm64": "ghcr.io/yannh/kubeconform@sha256:5ec810f20ae7b78696499089a767c348802d70bc5d1afabd87b87143395b223d"
+        },
+        "image": "ghcr.io/yannh/kubeconform",
+        "index_digest": "sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "verification_status": "CACHED_OCI_INDEX_VERIFIED"
+      },
+      "invocation_contract": {
+        "argv": [
+          "kubeconform",
+          "-output",
+          "json",
+          "-strict",
+          "-summary",
+          "-schema-location",
+          "<pinned-local-schema-root>",
+          "<sealed-scan-view>"
+        ],
+        "contract_version": "kubeconform-validator-contract-research-v1"
+      },
+      "license": {
+        "cache_path": "licenses/kubeconform",
+        "id": "Apache-2.0",
+        "sha256": "1294f9be73faeda3987cb554c1597f599641eebdcd4d4fa88f97bdb6241be275",
+        "url": "https://raw.githubusercontent.com/yannh/kubeconform/02374e583d700721f57300fae78e11acd27ee539/LICENSE"
+      },
+      "offline_requirements": "A separately reviewed, digest-pinned Kubernetes schema bundle is mandatory. Missing schema is unsupported/inconclusive; network schema retrieval is forbidden.",
+      "output_schema_fixture": {
+        "cache_path": "fixtures/kubeconform",
+        "path": "pkg/output/json_test.go",
+        "sha256": "f8df61e733272fb4cabdbd39bc5f5287e40cd2746b9f54952a34f45ae19dc6d3",
+        "source": "https://raw.githubusercontent.com/yannh/kubeconform/02374e583d700721f57300fae78e11acd27ee539/pkg/output/json_test.go"
+      },
+      "release": {
+        "commit": "02374e583d700721f57300fae78e11acd27ee539",
+        "repository": "https://github.com/yannh/kubeconform",
+        "tag": "v0.8.0",
+        "tag_refs_cache_path": "kubeconform/tag-refs.txt",
+        "tag_refs_sha256": "f37f020b719a51e825106e090e2b051c25f8001b3218f74b213a7c6173581f65",
+        "verification_status": "CACHED_TAG_RELATION_VERIFIED"
+      },
+      "runtime_records": {
+        "linux/amd64": {
+          "architecture": "linux/amd64",
+          "argv": [
+            "-v"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 446178375,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "37b6004afc56f14df9a040af574600f5d59941c3cc871cfd63e3eebb69d74fc0",
+          "execution_reference": "ghcr.io/yannh/kubeconform@sha256:5103f6f5e89061728aad4ad5a250627dd0fc9b2a92eb876f3762677a4222f9e0",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:5103f6f5e89061728aad4ad5a250627dd0fc9b2a92eb876f3762677a4222f9e0",
+          "image_index_digest": "sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/kubeconform-amd64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/kubeconform-amd64.stdout",
+          "stdout_sha256": "7dfe51344c2f4d648ce2c54465c531fdc19f823c3aaf0ce9e8d4393416436ce2",
+          "tool": "kubeconform",
+          "version": "0.8.0",
+          "version_output": "v0.8.0"
+        },
+        "linux/arm64": {
+          "architecture": "linux/arm64",
+          "argv": [
+            "-v"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 318457250,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "745a80fa788c7499aa4bd9fe43767d027b4efc41458cb8462885daca566a2434",
+          "execution_reference": "ghcr.io/yannh/kubeconform@sha256:5ec810f20ae7b78696499089a767c348802d70bc5d1afabd87b87143395b223d",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:5ec810f20ae7b78696499089a767c348802d70bc5d1afabd87b87143395b223d",
+          "image_index_digest": "sha256:faffaf43f95aa6425306e1ab8d6fcad72acb9049158f38e574c085ea1ec0f64e",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/kubeconform-arm64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/kubeconform-arm64.stdout",
+          "stdout_sha256": "7dfe51344c2f4d648ce2c54465c531fdc19f823c3aaf0ce9e8d4393416436ce2",
+          "tool": "kubeconform",
+          "version": "0.8.0",
+          "version_output": "v0.8.0"
+        }
+      },
+      "runtime_smoke": {
+        "architecture": "linux/arm64",
+        "compatibility_status": "VERSION_SMOKE_PASS_OUTPUT_CONTRACT_NOT_EXECUTED",
+        "execution_digest": "2c2bd938bb59d47f957271873c9535b41b52388ef362d0dbd7102569f26bcb7e",
+        "network_disabled_proof": "docker --network none",
+        "offline_invocation_result": "PASS_VERSION_COMMAND_WITH_NETWORK_DISABLED",
+        "output_schema_parse_result": "NOT_EXECUTED_STATIC_FIXTURE_ONLY",
+        "stderr_cache_path": "smoke/kubeconform.stderr",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_cache_path": "smoke/kubeconform.stdout",
+        "stdout_sha256": "7dfe51344c2f4d648ce2c54465c531fdc19f823c3aaf0ce9e8d4393416436ce2",
+        "version_output": "v0.8.0"
+      },
+      "schema_bundle": {
+        "cache_root": "schema/kubernetes-json-schema-c8f4e61c63bc529749125ac566bccc6986e08d45",
+        "commit": "c8f4e61c63bc529749125ac566bccc6986e08d45",
+        "content_digest": "f1e0b62f3bedbaf0d190bd9724bb67448496dfc859f035bac3a409d34101bb67",
+        "crd_policy": "CRD schemas require a separate protected digest-pinned local bundle; absent CRD schemas are UNSUPPORTED and network fallback is forbidden.",
+        "license": {
+          "id": "NOASSERTION",
+          "reason": "Generated schema repository has no root licence file; redistribution must be reviewed before bundling."
+        },
+        "non_strict_tree": {
+          "file_count": 1304,
+          "manifest_root": "44cfe82a61d37191417037bc5954cb497424b4a7b9f18baef4dce051638c246f",
+          "relative_path": "v1.34.0-standalone",
+          "total_bytes": 55122521
+        },
+        "offline_cache_layout": "<protected-cache>/schema/kubernetes-json-schema-<commit>/{v1.34.0-standalone,v1.34.0-standalone-strict}; kubeconform schema-location resolves only file:// paths beneath this root.",
+        "repository": "https://github.com/yannh/kubernetes-json-schema",
+        "source_acquisition": "git sparse checkout of exact commit over HTTPS",
+        "source_evidence": {
+          "commit_object_cache_path": "schema/source-commit-object.txt",
+          "commit_object_sha256": "0818e7d65c50067d4fec19e9cf53a3b5869fccfa21a4cff7e6b862e1a02dfe94",
+          "extracted_file_count": 2608,
+          "license_evidence": "NO_ROOT_LICENSE_FILE_IN_LOCKED_TREE",
+          "ls_tree_cache_path": "schema/source-ls-tree.txt",
+          "ls_tree_sha256": "787de224023a337a70d546e6d843a5818c6be05487d43d827b091b15b3f1dcdb",
+          "root_tree_cache_path": "schema/source-root-tree.txt",
+          "root_tree_sha256": "a64e3b96fe8ae03a19c61a9c51f9db0130abda1c318122a28e0417ef08211783"
+        },
+        "strict_tree": {
+          "file_count": 1304,
+          "manifest_root": "0c8b0cd8155344ac4cc95d5c9a4c56898be5956e715f1fc597b4fab41e552828",
+          "relative_path": "v1.34.0-standalone-strict",
+          "total_bytes": 56498213
+        },
+        "supported_kubernetes_versions": [
+          "1.34.0"
+        ]
+      },
+      "upgrade_policy": "Upgrade only with pinned schemas, immutable two-architecture artifacts and passing valid/invalid/missing-schema JSON contract fixtures.",
+      "version": "0.8.0"
+    },
+    "opentofu": {
+      "archives": {
+        "linux/amd64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "opentofu/tofu_1.12.5_SHA256SUMS",
+              "sha256": "120345f8a2493375aebbca072106de425b2eb227837f8064440b8d911e36f987",
+              "url": "https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_SHA256SUMS"
+            },
+            "immutable_download_url": "https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_linux_amd64.zip",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Detached signature verified over the cached checksum manifest.",
+              "issuer": "OpenTofu upstream release key",
+              "key_cache_path": "opentofu/opentofu-release-key.gpg",
+              "key_sha256": "55fcff8ee506ffc46a37a70af5b76b4181f2f5e24b18387013a8629144c02fdf",
+              "key_url": "https://get.opentofu.org/opentofu.gpg",
+              "method": "OPENPGP",
+              "signature_cache_path": "opentofu/tofu_1.12.5_SHA256SUMS.gpgsig",
+              "signature_sha256": "f5928d1d9864e28fbbe6a7c72dd3b05a6b3dc26d2fb810a92323192e9325baf0",
+              "signature_url": "https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_SHA256SUMS.gpgsig",
+              "signer_identity": "E3E6E43D84CB852EADB0051D0C0AF313E5FD9F80",
+              "status": "VERIFIED",
+              "subject_digest": "120345f8a2493375aebbca072106de425b2eb227837f8064440b8d911e36f987",
+              "verification_command": "gpg --verify tofu_1.12.5_SHA256SUMS.gpgsig tofu_1.12.5_SHA256SUMS",
+              "verification_record_cache_path": "opentofu/gpg-verification.txt",
+              "verification_record_sha256": "9637ebe9c5f62aceaeb7c0def889d7e5576dbbacbe31736868d9dc35bfaa0008"
+            },
+            "upstream_subject_identity": "https://github.com/opentofu/opentofu@v1.12.5:tofu_1.12.5_linux_amd64.zip"
+          },
+          "cache_path": "opentofu/tofu_1.12.5_linux_amd64.zip",
+          "name": "tofu_1.12.5_linux_amd64.zip",
+          "sha256": "dade9650e6b74fc7a8b986bd8717497d32f9e09cf82e479afef4977fa3085536",
+          "verification_status": "CHECKSUM_AND_SIGNATURE_VERIFIED"
+        },
+        "linux/arm64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "opentofu/tofu_1.12.5_SHA256SUMS",
+              "sha256": "120345f8a2493375aebbca072106de425b2eb227837f8064440b8d911e36f987",
+              "url": "https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_SHA256SUMS"
+            },
+            "immutable_download_url": "https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_linux_arm64.zip",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Detached signature verified over the cached checksum manifest.",
+              "issuer": "OpenTofu upstream release key",
+              "key_cache_path": "opentofu/opentofu-release-key.gpg",
+              "key_sha256": "55fcff8ee506ffc46a37a70af5b76b4181f2f5e24b18387013a8629144c02fdf",
+              "key_url": "https://get.opentofu.org/opentofu.gpg",
+              "method": "OPENPGP",
+              "signature_cache_path": "opentofu/tofu_1.12.5_SHA256SUMS.gpgsig",
+              "signature_sha256": "f5928d1d9864e28fbbe6a7c72dd3b05a6b3dc26d2fb810a92323192e9325baf0",
+              "signature_url": "https://github.com/opentofu/opentofu/releases/download/v1.12.5/tofu_1.12.5_SHA256SUMS.gpgsig",
+              "signer_identity": "E3E6E43D84CB852EADB0051D0C0AF313E5FD9F80",
+              "status": "VERIFIED",
+              "subject_digest": "120345f8a2493375aebbca072106de425b2eb227837f8064440b8d911e36f987",
+              "verification_command": "gpg --verify tofu_1.12.5_SHA256SUMS.gpgsig tofu_1.12.5_SHA256SUMS",
+              "verification_record_cache_path": "opentofu/gpg-verification.txt",
+              "verification_record_sha256": "9637ebe9c5f62aceaeb7c0def889d7e5576dbbacbe31736868d9dc35bfaa0008"
+            },
+            "upstream_subject_identity": "https://github.com/opentofu/opentofu@v1.12.5:tofu_1.12.5_linux_arm64.zip"
+          },
+          "cache_path": "opentofu/tofu_1.12.5_linux_arm64.zip",
+          "name": "tofu_1.12.5_linux_arm64.zip",
+          "sha256": "528f4eea63452bbddb30fa4f1780b57fac8d7676f9dda0f772e847bb62c1260a",
+          "verification_status": "CHECKSUM_AND_SIGNATURE_VERIFIED"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_REVIEW",
+        "scope": "Signed release assets, OCI architectures and upstream validate JSON fixture were reviewed. External validator execution remains unauthorized."
+      },
+      "container": {
+        "architecture_digests": {
+          "linux/amd64": "sha256:181e070709e9f38cc0acaddc0fa1eb9939976481c76f9aae2657581de7821dc4",
+          "linux/arm64": "sha256:57dc209eed201f36a6a202cb01fe49ede303677be171b2ece3ec2ee24564965a"
+        },
+        "cached_index_path": "oci/opentofu.json",
+        "execution_references": {
+          "index": "ghcr.io/opentofu/opentofu@sha256:ba827d1af675c3f522eb78e2b8098cc87daefb9ceb9d3c4b69d0a1bb6d272463",
+          "linux/amd64": "ghcr.io/opentofu/opentofu@sha256:181e070709e9f38cc0acaddc0fa1eb9939976481c76f9aae2657581de7821dc4",
+          "linux/arm64": "ghcr.io/opentofu/opentofu@sha256:57dc209eed201f36a6a202cb01fe49ede303677be171b2ece3ec2ee24564965a"
+        },
+        "image": "ghcr.io/opentofu/opentofu",
+        "index_digest": "sha256:ba827d1af675c3f522eb78e2b8098cc87daefb9ceb9d3c4b69d0a1bb6d272463",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "verification_status": "CACHED_OCI_INDEX_VERIFIED"
+      },
+      "invocation_contract": {
+        "argv": [
+          "tofu",
+          "validate",
+          "-json"
+        ],
+        "contract_version": "tofu-validate-contract-research-v1"
+      },
+      "license": {
+        "cache_path": "licenses/opentofu",
+        "id": "MPL-2.0",
+        "sha256": "142b957651baf401646dd7f3d855cb7c4f6f0921d645faa27e7cb540bc33cf4c",
+        "url": "https://raw.githubusercontent.com/opentofu/opentofu/230349e959a44fb8eb7b83754f9d9b012f3bdb42/LICENSE"
+      },
+      "offline_requirements": "Run only in a sealed module copy after an offline, backend-disabled initialization with every required provider/module mirror independently pinned; otherwise return unsupported/inconclusive.",
+      "output_schema_fixture": {
+        "cache_path": "fixtures/opentofu",
+        "path": "internal/command/testdata/validate-valid/output.json",
+        "sha256": "4cd9eddc4d07c5aff74dadb6b3544f98186f6705ac60e0d94d545fc42b45b9b6",
+        "source": "https://raw.githubusercontent.com/opentofu/opentofu/230349e959a44fb8eb7b83754f9d9b012f3bdb42/internal/command/testdata/validate-valid/output.json"
+      },
+      "release": {
+        "commit": "230349e959a44fb8eb7b83754f9d9b012f3bdb42",
+        "repository": "https://github.com/opentofu/opentofu",
+        "tag": "v1.12.5",
+        "tag_refs_cache_path": "opentofu/tag-refs.txt",
+        "tag_refs_sha256": "e804750b8c2298b2bd69e23d4afab4e5c4adf971cf5a1eaf71a8214d049986a4",
+        "verification_status": "CACHED_TAG_RELATION_VERIFIED"
+      },
+      "runtime_records": {
+        "linux/amd64": {
+          "architecture": "linux/amd64",
+          "argv": [
+            "version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 1175542875,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "e3ac9a97b3cf7e3cac1cc7866311d6cc5127a92c1a0546085502bcec7f44fad7",
+          "execution_reference": "ghcr.io/opentofu/opentofu@sha256:181e070709e9f38cc0acaddc0fa1eb9939976481c76f9aae2657581de7821dc4",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:181e070709e9f38cc0acaddc0fa1eb9939976481c76f9aae2657581de7821dc4",
+          "image_index_digest": "sha256:ba827d1af675c3f522eb78e2b8098cc87daefb9ceb9d3c4b69d0a1bb6d272463",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/opentofu-amd64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/opentofu-amd64.stdout",
+          "stdout_sha256": "ed368d3662cdd11a2efc91150fc7892224c32ec41e072508e18a1e2e007d8e09",
+          "tool": "opentofu",
+          "version": "1.12.5",
+          "version_output": "OpenTofu v1.12.5\non linux_amd64"
+        },
+        "linux/arm64": {
+          "architecture": "linux/arm64",
+          "argv": [
+            "version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 707517459,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "87bd0c299ddf4a0164f3d6b966ad264abe385b2dbf31ce330a955848cc3650e0",
+          "execution_reference": "ghcr.io/opentofu/opentofu@sha256:57dc209eed201f36a6a202cb01fe49ede303677be171b2ece3ec2ee24564965a",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:57dc209eed201f36a6a202cb01fe49ede303677be171b2ece3ec2ee24564965a",
+          "image_index_digest": "sha256:ba827d1af675c3f522eb78e2b8098cc87daefb9ceb9d3c4b69d0a1bb6d272463",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/opentofu-arm64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/opentofu-arm64.stdout",
+          "stdout_sha256": "e0e78cbce6ed61b4785b390c5114308f6d552eead4b2c4c16ebcea567691925d",
+          "tool": "opentofu",
+          "version": "1.12.5",
+          "version_output": "OpenTofu v1.12.5\non linux_arm64"
+        }
+      },
+      "runtime_smoke": {
+        "architecture": "linux/arm64",
+        "compatibility_status": "VERSION_SMOKE_PASS_OUTPUT_CONTRACT_NOT_EXECUTED",
+        "execution_digest": "ace31f03f32975662ef6c0b0fb67a28558b88956b7be93e6d1e767b10554a16f",
+        "network_disabled_proof": "docker --network none",
+        "offline_invocation_result": "PASS_VERSION_COMMAND_WITH_NETWORK_DISABLED",
+        "output_schema_parse_result": "NOT_EXECUTED_STATIC_FIXTURE_ONLY",
+        "stderr_cache_path": "smoke/opentofu.stderr",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_cache_path": "smoke/opentofu.stdout",
+        "stdout_sha256": "e0e78cbce6ed61b4785b390c5114308f6d552eead4b2c4c16ebcea567691925d",
+        "version_output": "OpenTofu v1.12.5\non linux_arm64"
+      },
+      "upgrade_policy": "Upgrade only after signed asset verification and offline init/validate fixtures cover valid, invalid, provider-required and module-required cases.",
+      "version": "1.12.5"
+    },
+    "terraform": {
+      "archives": {
+        "linux/amd64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "terraform/terraform_1.15.8_SHA256SUMS",
+              "sha256": "405f0b4bc41f017ee5d32f74bf5969e5b105a31f99f76b70f6c472d1ca5fa226",
+              "url": "https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_SHA256SUMS"
+            },
+            "immutable_download_url": "https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_amd64.zip",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Detached signature verified over the cached checksum manifest.",
+              "issuer": "HashiCorp Security release key",
+              "key_cache_path": "terraform/hashicorp-release-key.asc",
+              "key_sha256": "c2f5bc1163bd8d15a711616b587bcede212d045a5b8b52df01c74095897cd065",
+              "key_url": "https://www.hashicorp.com/.well-known/pgp-key.txt",
+              "method": "OPENPGP",
+              "signature_cache_path": "terraform/terraform_1.15.8_SHA256SUMS.sig",
+              "signature_sha256": "f948771bcf7a49b3ee07dd7c7b5110bdc0bffaa8da0f5416e158a964296c0d0b",
+              "signature_url": "https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_SHA256SUMS.sig",
+              "signer_identity": "374EC75B485913604A831CC7C820C6D5CD27AB87",
+              "status": "VERIFIED",
+              "subject_digest": "405f0b4bc41f017ee5d32f74bf5969e5b105a31f99f76b70f6c472d1ca5fa226",
+              "verification_command": "gpg --verify terraform_1.15.8_SHA256SUMS.sig terraform_1.15.8_SHA256SUMS",
+              "verification_record_cache_path": "terraform/gpg-verification.txt",
+              "verification_record_sha256": "583bad87d23edc418671d93b9ad70860ce7fe51661a6b4df59d43d314b694dd4"
+            },
+            "upstream_subject_identity": "https://github.com/hashicorp/terraform@v1.15.8:terraform_1.15.8_linux_amd64.zip"
+          },
+          "cache_path": "terraform/terraform_1.15.8_linux_amd64.zip",
+          "name": "terraform_1.15.8_linux_amd64.zip",
+          "sha256": "d25ce7b6902013ad905db3d2eab0be4cd905887fe88b81a6171b8d5503c31f3d",
+          "verification_status": "CHECKSUM_AND_SIGNATURE_VERIFIED"
+        },
+        "linux/arm64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "terraform/terraform_1.15.8_SHA256SUMS",
+              "sha256": "405f0b4bc41f017ee5d32f74bf5969e5b105a31f99f76b70f6c472d1ca5fa226",
+              "url": "https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_SHA256SUMS"
+            },
+            "immutable_download_url": "https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_linux_arm64.zip",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Detached signature verified over the cached checksum manifest.",
+              "issuer": "HashiCorp Security release key",
+              "key_cache_path": "terraform/hashicorp-release-key.asc",
+              "key_sha256": "c2f5bc1163bd8d15a711616b587bcede212d045a5b8b52df01c74095897cd065",
+              "key_url": "https://www.hashicorp.com/.well-known/pgp-key.txt",
+              "method": "OPENPGP",
+              "signature_cache_path": "terraform/terraform_1.15.8_SHA256SUMS.sig",
+              "signature_sha256": "f948771bcf7a49b3ee07dd7c7b5110bdc0bffaa8da0f5416e158a964296c0d0b",
+              "signature_url": "https://releases.hashicorp.com/terraform/1.15.8/terraform_1.15.8_SHA256SUMS.sig",
+              "signer_identity": "374EC75B485913604A831CC7C820C6D5CD27AB87",
+              "status": "VERIFIED",
+              "subject_digest": "405f0b4bc41f017ee5d32f74bf5969e5b105a31f99f76b70f6c472d1ca5fa226",
+              "verification_command": "gpg --verify terraform_1.15.8_SHA256SUMS.sig terraform_1.15.8_SHA256SUMS",
+              "verification_record_cache_path": "terraform/gpg-verification.txt",
+              "verification_record_sha256": "583bad87d23edc418671d93b9ad70860ce7fe51661a6b4df59d43d314b694dd4"
+            },
+            "upstream_subject_identity": "https://github.com/hashicorp/terraform@v1.15.8:terraform_1.15.8_linux_arm64.zip"
+          },
+          "cache_path": "terraform/terraform_1.15.8_linux_arm64.zip",
+          "name": "terraform_1.15.8_linux_arm64.zip",
+          "sha256": "8891e9dcedc9e3b8950bc6af9d4d8af1f4cfade3062f53b9dc403a89f6ce8c9c",
+          "verification_status": "CHECKSUM_AND_SIGNATURE_VERIFIED"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_REVIEW_USER_SUPPLIED_ONLY",
+        "scope": "Official checksums, OCI architectures and upstream validate JSON fixture were reviewed. The binary is never bundled."
+      },
+      "container": {
+        "architecture_digests": {
+          "linux/amd64": "sha256:8207a3cae11633e1182b94698adf46fdaf55a848e3d0ff151139729773568494",
+          "linux/arm64": "sha256:728102b238128667d3f13c43d746978c2c48b025d2fccf404bc71d819dc26fd7"
+        },
+        "cached_index_path": "oci/terraform.json",
+        "execution_references": {
+          "index": "docker.io/hashicorp/terraform@sha256:7ae513256f7ce67879e218ae8593d6fbe216ec9e123abe6c94e4e10704857963",
+          "linux/amd64": "docker.io/hashicorp/terraform@sha256:8207a3cae11633e1182b94698adf46fdaf55a848e3d0ff151139729773568494",
+          "linux/arm64": "docker.io/hashicorp/terraform@sha256:728102b238128667d3f13c43d746978c2c48b025d2fccf404bc71d819dc26fd7"
+        },
+        "image": "docker.io/hashicorp/terraform",
+        "index_digest": "sha256:7ae513256f7ce67879e218ae8593d6fbe216ec9e123abe6c94e4e10704857963",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "verification_status": "CACHED_OCI_INDEX_VERIFIED"
+      },
+      "distribution_mode": "USER_SUPPLIED_ONLY_NEVER_BUNDLED",
+      "invocation_contract": {
+        "argv": [
+          "terraform",
+          "validate",
+          "-json"
+        ],
+        "contract_version": "terraform-validate-contract-research-v1"
+      },
+      "license": {
+        "cache_path": "licenses/terraform",
+        "id": "BUSL-1.1",
+        "sha256": "dc4cb9f6140970b69110d82e8f25545135965ae50f6761ddfd6cd7cf9452bfa9",
+        "url": "https://raw.githubusercontent.com/hashicorp/terraform/b9e178decf87d274d25ed36bc5a4dbc857e00420/LICENSE"
+      },
+      "offline_requirements": "Operator-supplied executable and provider/module mirrors must satisfy protected locks; no Terraform binary is downloaded or bundled by IaC-Guard-V.",
+      "output_schema_fixture": {
+        "cache_path": "fixtures/terraform",
+        "path": "internal/command/testdata/validate-valid/output.json",
+        "sha256": "4cd9eddc4d07c5aff74dadb6b3544f98186f6705ac60e0d94d545fc42b45b9b6",
+        "source": "https://raw.githubusercontent.com/hashicorp/terraform/b9e178decf87d274d25ed36bc5a4dbc857e00420/internal/command/testdata/validate-valid/output.json"
+      },
+      "release": {
+        "commit": "b9e178decf87d274d25ed36bc5a4dbc857e00420",
+        "repository": "https://github.com/hashicorp/terraform",
+        "tag": "v1.15.8",
+        "tag_refs_cache_path": "terraform/tag-refs.txt",
+        "tag_refs_sha256": "80f252d281b0850191cfd8cc8bbfdd712b235ab1d77e23c2e0626b11b3f7285b",
+        "verification_status": "CACHED_TAG_RELATION_VERIFIED"
+      },
+      "runtime_records": {
+        "linux/amd64": {
+          "architecture": "linux/amd64",
+          "argv": [
+            "version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 1110460000,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "31af6d4c9ad0af7eeb1082c45e2121e35692f30362b741414e459ad989a5cbf3",
+          "execution_reference": "docker.io/hashicorp/terraform@sha256:8207a3cae11633e1182b94698adf46fdaf55a848e3d0ff151139729773568494",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:8207a3cae11633e1182b94698adf46fdaf55a848e3d0ff151139729773568494",
+          "image_index_digest": "sha256:7ae513256f7ce67879e218ae8593d6fbe216ec9e123abe6c94e4e10704857963",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/terraform-amd64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/terraform-amd64.stdout",
+          "stdout_sha256": "93a4db18beb185480595cd476c65e09cd893b9bf8915909d97294923de6f78ee",
+          "tool": "terraform",
+          "version": "1.15.8",
+          "version_output": "Terraform v1.15.8\non linux_amd64"
+        },
+        "linux/arm64": {
+          "architecture": "linux/arm64",
+          "argv": [
+            "version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 897147750,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "4feb785d229300b3ad486ff5b7143e39994235454b50129d8f4853651a588e7e",
+          "execution_reference": "docker.io/hashicorp/terraform@sha256:728102b238128667d3f13c43d746978c2c48b025d2fccf404bc71d819dc26fd7",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:728102b238128667d3f13c43d746978c2c48b025d2fccf404bc71d819dc26fd7",
+          "image_index_digest": "sha256:7ae513256f7ce67879e218ae8593d6fbe216ec9e123abe6c94e4e10704857963",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/terraform-arm64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/terraform-arm64.stdout",
+          "stdout_sha256": "c66667b3fe9867c4f4f8ecf25842a6e797b6f6347eb5f70119a5b36b14a5a850",
+          "tool": "terraform",
+          "version": "1.15.8",
+          "version_output": "Terraform v1.15.8\non linux_arm64"
+        }
+      },
+      "runtime_smoke": {
+        "architecture": "linux/arm64",
+        "compatibility_status": "VERSION_SMOKE_PASS_OUTPUT_CONTRACT_NOT_EXECUTED",
+        "execution_digest": "05acf9112dd22160a5c11dd33c3074f8f897c42da0f5dbf4af7e52bf88dfcf09",
+        "network_disabled_proof": "docker --network none",
+        "offline_invocation_result": "PASS_VERSION_COMMAND_WITH_NETWORK_DISABLED",
+        "output_schema_parse_result": "NOT_EXECUTED_STATIC_FIXTURE_ONLY",
+        "stderr_cache_path": "smoke/terraform.stderr",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_cache_path": "smoke/terraform.stdout",
+        "stdout_sha256": "c66667b3fe9867c4f4f8ecf25842a6e797b6f6347eb5f70119a5b36b14a5a850",
+        "version_output": "Terraform v1.15.8\non linux_arm64"
+      },
+      "upgrade_policy": "Only a protected operator lock may change the accepted user-supplied version/digest; no same-run candidate configuration can do so.",
+      "version": "1.15.8"
+    },
+    "tflint": {
+      "archives": {
+        "linux/amd64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "tflint/checksums.txt",
+              "sha256": "07496dc0ab06a39fa718a9f8e471112b6e6ab4fd3a9f1024210a55fe3f1a9ff9",
+              "url": "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/checksums.txt"
+            },
+            "immutable_download_url": "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_amd64.zip",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Upstream keyless signature and certificate cached; identity-policy verification was not executed in E0.1.",
+              "issuer": "UNVERIFIED_SIGSTORE_FULCIO",
+              "key_cache_path": "tflint/checksums.txt.pem",
+              "key_sha256": "212d2605fc52fd959da58ad1fa0b6b8e939dca94921a323bc00528654c31da9b",
+              "key_url": "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/checksums.txt.pem",
+              "method": "SIGSTORE",
+              "signature_cache_path": "tflint/checksums.txt.keyless.sig",
+              "signature_sha256": "71dc48c5b238566ac678ee48d21a43eb594c59b979c9ae46f07cfc345f8e1e5a",
+              "signature_url": "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/checksums.txt.keyless.sig",
+              "signer_identity": "UNVERIFIED_GITHUB_ACTIONS_IDENTITY",
+              "status": "AVAILABLE_NOT_VERIFIED",
+              "subject_digest": "07496dc0ab06a39fa718a9f8e471112b6e6ab4fd3a9f1024210a55fe3f1a9ff9",
+              "verification_command": "cosign verify-blob --signature <sig> --certificate <pem> <checksums>",
+              "verification_record_cache_path": null,
+              "verification_record_sha256": null
+            },
+            "upstream_subject_identity": "https://github.com/terraform-linters/tflint@v0.64.0:tflint_linux_amd64.zip"
+          },
+          "cache_path": "tflint/tflint_linux_amd64.zip",
+          "name": "tflint_linux_amd64.zip",
+          "sha256": "cca9d13e2e1d7a2c627af60ff899a3c9b74212899416aeb96ec764d2ef954537",
+          "verification_status": "CHECKSUM_VERIFIED_SIGNATURE_AVAILABLE_NOT_VERIFIED"
+        },
+        "linux/arm64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "tflint/checksums.txt",
+              "sha256": "07496dc0ab06a39fa718a9f8e471112b6e6ab4fd3a9f1024210a55fe3f1a9ff9",
+              "url": "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/checksums.txt"
+            },
+            "immutable_download_url": "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/tflint_linux_arm64.zip",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Upstream keyless signature and certificate cached; identity-policy verification was not executed in E0.1.",
+              "issuer": "UNVERIFIED_SIGSTORE_FULCIO",
+              "key_cache_path": "tflint/checksums.txt.pem",
+              "key_sha256": "212d2605fc52fd959da58ad1fa0b6b8e939dca94921a323bc00528654c31da9b",
+              "key_url": "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/checksums.txt.pem",
+              "method": "SIGSTORE",
+              "signature_cache_path": "tflint/checksums.txt.keyless.sig",
+              "signature_sha256": "71dc48c5b238566ac678ee48d21a43eb594c59b979c9ae46f07cfc345f8e1e5a",
+              "signature_url": "https://github.com/terraform-linters/tflint/releases/download/v0.64.0/checksums.txt.keyless.sig",
+              "signer_identity": "UNVERIFIED_GITHUB_ACTIONS_IDENTITY",
+              "status": "AVAILABLE_NOT_VERIFIED",
+              "subject_digest": "07496dc0ab06a39fa718a9f8e471112b6e6ab4fd3a9f1024210a55fe3f1a9ff9",
+              "verification_command": "cosign verify-blob --signature <sig> --certificate <pem> <checksums>",
+              "verification_record_cache_path": null,
+              "verification_record_sha256": null
+            },
+            "upstream_subject_identity": "https://github.com/terraform-linters/tflint@v0.64.0:tflint_linux_arm64.zip"
+          },
+          "cache_path": "tflint/tflint_linux_arm64.zip",
+          "name": "tflint_linux_arm64.zip",
+          "sha256": "560da89aacf59389d4eb029730dd5b109b7288096c32f2726a0d9e783a5ea8eb",
+          "verification_status": "CHECKSUM_VERIFIED_SIGNATURE_AVAILABLE_NOT_VERIFIED"
+        }
+      },
+      "compatibility_test": {
+        "result": "STATIC_REVIEW_OPTIONAL_NON_SECURITY",
+        "scope": "Checksums, keyless signature assets, OCI architectures and JSON formatter fixture were reviewed. TFLint remains optional and non-security."
+      },
+      "container": {
+        "architecture_digests": {
+          "linux/amd64": "sha256:85c63179e53e69f48fb5d1e22fb6c2b4941049c7f906f30625defa6ffcc3f834",
+          "linux/arm64": "sha256:80b051005568a11339948abc9f06f4919f2aa3b4ef451b0d69bb43bb01be878c"
+        },
+        "cached_index_path": "oci/tflint.json",
+        "execution_references": {
+          "index": "ghcr.io/terraform-linters/tflint@sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f",
+          "linux/amd64": "ghcr.io/terraform-linters/tflint@sha256:85c63179e53e69f48fb5d1e22fb6c2b4941049c7f906f30625defa6ffcc3f834",
+          "linux/arm64": "ghcr.io/terraform-linters/tflint@sha256:80b051005568a11339948abc9f06f4919f2aa3b4ef451b0d69bb43bb01be878c"
+        },
+        "image": "ghcr.io/terraform-linters/tflint",
+        "index_digest": "sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "verification_status": "CACHED_OCI_INDEX_VERIFIED"
+      },
+      "invocation_contract": {
+        "argv": [
+          "tflint",
+          "--format",
+          "json",
+          "--no-color",
+          "--chdir",
+          "<sealed-scan-view>"
+        ],
+        "contract_version": "tflint-advisory-contract-research-v1"
+      },
+      "license": {
+        "cache_path": "licenses/tflint",
+        "id": "MPL-2.0",
+        "sha256": "1f256ecad192880510e84ad60474eab7589218784b9a50bc7ceee34c2b91f1d5",
+        "url": "https://raw.githubusercontent.com/terraform-linters/tflint/15c65a33b322750f6131e286cd9597896299ba32/LICENSE"
+      },
+      "offline_requirements": "No plugin initialization or network access. Every optional plugin must be independently lock-pinned before use; otherwise only bundled rules may run.",
+      "output_schema_fixture": {
+        "cache_path": "fixtures/tflint",
+        "path": "formatter/json_test.go",
+        "sha256": "ae8b2375e4b5a7c94fb0d790a2859b06986f769adee48ed5f67e2102d94a3cfc",
+        "source": "https://raw.githubusercontent.com/terraform-linters/tflint/15c65a33b322750f6131e286cd9597896299ba32/formatter/json_test.go"
+      },
+      "release": {
+        "commit": "15c65a33b322750f6131e286cd9597896299ba32",
+        "repository": "https://github.com/terraform-linters/tflint",
+        "tag": "v0.64.0",
+        "tag_refs_cache_path": "tflint/tag-refs.txt",
+        "tag_refs_sha256": "072e5d9e073227e90e84f8438edebcdf52b3e44bf16664e4c84e3cafdbdf425d",
+        "verification_status": "CACHED_TAG_RELATION_VERIFIED"
+      },
+      "runtime_records": {
+        "linux/amd64": {
+          "architecture": "linux/amd64",
+          "argv": [
+            "--version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 1002158417,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "78d1a0a119cc2648e278b767cb5418dca4f8b6814f398151197f720b46af0358",
+          "execution_reference": "ghcr.io/terraform-linters/tflint@sha256:85c63179e53e69f48fb5d1e22fb6c2b4941049c7f906f30625defa6ffcc3f834",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:85c63179e53e69f48fb5d1e22fb6c2b4941049c7f906f30625defa6ffcc3f834",
+          "image_index_digest": "sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/tflint-amd64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/tflint-amd64.stdout",
+          "stdout_sha256": "ad404f1729ab6f0e274bfa5ca7d08f2e5a908dfa5b36599b415163a7189b3744",
+          "tool": "tflint",
+          "version": "0.64.0",
+          "version_output": "TFLint version 0.64.0\n+ ruleset.terraform (0.15.0-bundled)"
+        },
+        "linux/arm64": {
+          "architecture": "linux/arm64",
+          "argv": [
+            "--version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 766800000,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "48ab4414d654bd18c1b1d4c04c0c7e11c5f1efa43de6f60fdba828ba741aea2d",
+          "execution_reference": "ghcr.io/terraform-linters/tflint@sha256:80b051005568a11339948abc9f06f4919f2aa3b4ef451b0d69bb43bb01be878c",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:80b051005568a11339948abc9f06f4919f2aa3b4ef451b0d69bb43bb01be878c",
+          "image_index_digest": "sha256:1c595f42d794c32c45a6ea8b58655fd66433d4ca3b1bc631c574a48d120bd19f",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/tflint-arm64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/tflint-arm64.stdout",
+          "stdout_sha256": "ad404f1729ab6f0e274bfa5ca7d08f2e5a908dfa5b36599b415163a7189b3744",
+          "tool": "tflint",
+          "version": "0.64.0",
+          "version_output": "TFLint version 0.64.0\n+ ruleset.terraform (0.15.0-bundled)"
+        }
+      },
+      "runtime_smoke": {
+        "architecture": "linux/arm64",
+        "compatibility_status": "VERSION_SMOKE_PASS_OUTPUT_CONTRACT_NOT_EXECUTED",
+        "execution_digest": "790e6d627f9415f319f3e636416eaac135c6136051aabc68b3466d6f51749d28",
+        "network_disabled_proof": "docker --network none",
+        "offline_invocation_result": "PASS_VERSION_COMMAND_WITH_NETWORK_DISABLED",
+        "output_schema_parse_result": "NOT_EXECUTED_STATIC_FIXTURE_ONLY",
+        "stderr_cache_path": "smoke/tflint.stderr",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_cache_path": "smoke/tflint.stdout",
+        "stdout_sha256": "ad404f1729ab6f0e274bfa5ca7d08f2e5a908dfa5b36599b415163a7189b3744",
+        "version_output": "TFLint version 0.64.0\n+ ruleset.terraform (0.15.0-bundled)"
+      },
+      "security_role": "OPTIONAL_NON_SECURITY",
+      "upgrade_policy": "Optional advisory upgrade only after signed checksum verification and deterministic JSON fixtures; it never participates in security consensus.",
+      "version": "0.64.0"
+    },
+    "trivy": {
+      "archives": {
+        "linux/amd64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "trivy/trivy_0.73.0_checksums.txt",
+              "sha256": "36890275ffdff13025e9bd9fe039724c6e36bf58e698499856b801f619046fe2",
+              "url": "https://github.com/aquasecurity/trivy/releases/download/v0.73.0/trivy_0.73.0_checksums.txt"
+            },
+            "immutable_download_url": "https://github.com/aquasecurity/trivy/releases/download/v0.73.0/trivy_0.73.0_Linux-64bit.tar.gz",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Upstream Sigstore bundle cached; signer policy verification was not executed in E0.1.",
+              "issuer": "UNVERIFIED_SIGSTORE_ISSUER",
+              "key_cache_path": null,
+              "key_sha256": null,
+              "key_url": null,
+              "method": "SIGSTORE",
+              "signature_cache_path": "trivy/trivy_0.73.0_checksums.txt.sigstore.json",
+              "signature_sha256": "9fd48a23df626712b62df85ce6a3828e05a8b1b0e55cefb9c2fbd13f8e97f1b2",
+              "signature_url": "https://github.com/aquasecurity/trivy/releases/download/v0.73.0/trivy_0.73.0_checksums.txt.sigstore.json",
+              "signer_identity": "UNVERIFIED_UPSTREAM_SIGSTORE_IDENTITY",
+              "status": "AVAILABLE_NOT_VERIFIED",
+              "subject_digest": "36890275ffdff13025e9bd9fe039724c6e36bf58e698499856b801f619046fe2",
+              "verification_command": "cosign verify-blob --bundle <bundle> <checksums>",
+              "verification_record_cache_path": null,
+              "verification_record_sha256": null
+            },
+            "upstream_subject_identity": "https://github.com/aquasecurity/trivy@v0.73.0:trivy_0.73.0_Linux-64bit.tar.gz"
+          },
+          "cache_path": "trivy/trivy_0.73.0_Linux-64bit.tar.gz",
+          "name": "trivy_0.73.0_Linux-64bit.tar.gz",
+          "sha256": "2edd39da482bb4e9831962487b68f68e3928ec3137794757f54d00383d79547b",
+          "verification_status": "CHECKSUM_VERIFIED_SIGNATURE_AVAILABLE_NOT_VERIFIED"
+        },
+        "linux/arm64": {
+          "acquisition": {
+            "checksum_manifest": {
+              "cache_path": "trivy/trivy_0.73.0_checksums.txt",
+              "sha256": "36890275ffdff13025e9bd9fe039724c6e36bf58e698499856b801f619046fe2",
+              "url": "https://github.com/aquasecurity/trivy/releases/download/v0.73.0/trivy_0.73.0_checksums.txt"
+            },
+            "immutable_download_url": "https://github.com/aquasecurity/trivy/releases/download/v0.73.0/trivy_0.73.0_Linux-ARM64.tar.gz",
+            "retrieval_date": "2026-08-12",
+            "signature": {
+              "explanation": "Upstream Sigstore bundle cached; signer policy verification was not executed in E0.1.",
+              "issuer": "UNVERIFIED_SIGSTORE_ISSUER",
+              "key_cache_path": null,
+              "key_sha256": null,
+              "key_url": null,
+              "method": "SIGSTORE",
+              "signature_cache_path": "trivy/trivy_0.73.0_checksums.txt.sigstore.json",
+              "signature_sha256": "9fd48a23df626712b62df85ce6a3828e05a8b1b0e55cefb9c2fbd13f8e97f1b2",
+              "signature_url": "https://github.com/aquasecurity/trivy/releases/download/v0.73.0/trivy_0.73.0_checksums.txt.sigstore.json",
+              "signer_identity": "UNVERIFIED_UPSTREAM_SIGSTORE_IDENTITY",
+              "status": "AVAILABLE_NOT_VERIFIED",
+              "subject_digest": "36890275ffdff13025e9bd9fe039724c6e36bf58e698499856b801f619046fe2",
+              "verification_command": "cosign verify-blob --bundle <bundle> <checksums>",
+              "verification_record_cache_path": null,
+              "verification_record_sha256": null
+            },
+            "upstream_subject_identity": "https://github.com/aquasecurity/trivy@v0.73.0:trivy_0.73.0_Linux-ARM64.tar.gz"
+          },
+          "cache_path": "trivy/trivy_0.73.0_Linux-ARM64.tar.gz",
+          "name": "trivy_0.73.0_Linux-ARM64.tar.gz",
+          "sha256": "13833d97e8a1a5367471c372a173180157f593bece570e20d5d925fef552f5dd",
+          "verification_status": "CHECKSUM_VERIFIED_SIGNATURE_AVAILABLE_NOT_VERIFIED"
+        }
+      },
+      "checks": {
+        "cache_identity": "trivy-checks-cache-v1:sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+        "cached_manifest_path": "oci/checks.json",
+        "embedded_checks_identity": "github.com/aquasecurity/trivy-checks@v1.12.2-0.20251219190323-79d27547baf5",
+        "external_layer_cache_path": "trivy/trivy-checks-2.2.0-bundle.tar.gz",
+        "external_layer_digest": "sha256:40a47ef8eb262c8e41d44f25c266463fff4dba9adcba12d33b93da88cbc7c80f",
+        "external_manifest_digest": "sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+        "external_repository": "ghcr.io/aquasecurity/trivy-checks:2.2.0",
+        "external_source_commit": "d7c9302130a9b7e614a5c5d32854f6a08b4bc52e",
+        "fallback_used": false,
+        "offline_verification": {
+          "cache_metadata_path": "trivy/runtime/policy/metadata.json",
+          "fallback_used": false,
+          "output_cache_path": "trivy/runtime/offline.json",
+          "record_cache_path": "trivy/runtime/runtime-record.json",
+          "record_sha256": "ad8e68833273359d24dc39ae7624db135358b6d6ad401d4aefc6911bc2c49b34",
+          "runtime_records": {
+            "linux/amd64": {
+              "architecture": "linux/amd64",
+              "argv": [
+                "/bin/sh",
+                "-c",
+                "set -eu\n/usr/local/bin/trivy config --format json --skip-check-update . >/tmp/report.json 2>/tmp/trivy.log\nsed -E 's/\"ReportID\": \"[^\"]*\"/\"ReportID\": \"00000000-0000-0000-0000-000000000000\"/;s/\"CreatedAt\": \"[^\"]*\"/\"CreatedAt\": \"1970-01-01T00:00:00Z\"/' /tmp/report.json\nsed -E 's/^[^[:space:]]+[[:space:]]+//' /tmp/trivy.log >&2\n"
+              ],
+              "cache_identity": "trivy-checks-cache-v1:sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+              "canonical_output_sha256": "011764692304749941ac6578e3cbe9479446c898671475a704e41401bf20dbe0",
+              "checks_manifest_digest": "sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+              "contract": "trivy-external-checks-offline-smoke-v3",
+              "duration_ns": 3245791750,
+              "environment_allowlist": [
+                "TRIVY_CACHE_DIR=/cache"
+              ],
+              "execution_digest": "265f777a69f70c43522b825ca15f14ca187ea1269e0bef61d380c6c650604d1c",
+              "execution_reference": "docker.io/aquasec/trivy@sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
+              "exit_code": 0,
+              "fallback_used": false,
+              "filesystem_mode": "read-only-root,read-only-cache,read-only-input",
+              "image_architecture_digest": "sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
+              "image_index_digest": "sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+              "layer_digest": "sha256:40a47ef8eb262c8e41d44f25c266463fff4dba9adcba12d33b93da88cbc7c80f",
+              "network_mode": "none",
+              "output_cache_path": "runtime-v2/trivy-offline-amd64.json",
+              "output_schema_result": "PASS_SCHEMA_VERSION_2",
+              "output_sha256": "aaef90dbaaf7f7e18d78e8d6b8e09c913b04728b7a5b54b068f4d6281c39801e",
+              "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+              "skip_check_update": true,
+              "stderr_cache_path": "runtime-v2/trivy-offline-amd64.stderr",
+              "stderr_sha256": "1083b6d76634974f9dbcc8a5b0a0f7f684ceef33549fdf0fcf8052527a487029"
+            },
+            "linux/arm64": {
+              "architecture": "linux/arm64",
+              "argv": [
+                "/bin/sh",
+                "-c",
+                "set -eu\n/usr/local/bin/trivy config --format json --skip-check-update . >/tmp/report.json 2>/tmp/trivy.log\nsed -E 's/\"ReportID\": \"[^\"]*\"/\"ReportID\": \"00000000-0000-0000-0000-000000000000\"/;s/\"CreatedAt\": \"[^\"]*\"/\"CreatedAt\": \"1970-01-01T00:00:00Z\"/' /tmp/report.json\nsed -E 's/^[^[:space:]]+[[:space:]]+//' /tmp/trivy.log >&2\n"
+              ],
+              "cache_identity": "trivy-checks-cache-v1:sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+              "canonical_output_sha256": "011764692304749941ac6578e3cbe9479446c898671475a704e41401bf20dbe0",
+              "checks_manifest_digest": "sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45",
+              "contract": "trivy-external-checks-offline-smoke-v3",
+              "duration_ns": 1541805917,
+              "environment_allowlist": [
+                "TRIVY_CACHE_DIR=/cache"
+              ],
+              "execution_digest": "f0438d686c8f5ea316d25d84f2ceba4b0695f16fd8db36949065e5afd3fb1151",
+              "execution_reference": "docker.io/aquasec/trivy@sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8",
+              "exit_code": 0,
+              "fallback_used": false,
+              "filesystem_mode": "read-only-root,read-only-cache,read-only-input",
+              "image_architecture_digest": "sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8",
+              "image_index_digest": "sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+              "layer_digest": "sha256:40a47ef8eb262c8e41d44f25c266463fff4dba9adcba12d33b93da88cbc7c80f",
+              "network_mode": "none",
+              "output_cache_path": "runtime-v2/trivy-offline-arm64.json",
+              "output_schema_result": "PASS_SCHEMA_VERSION_2",
+              "output_sha256": "aaef90dbaaf7f7e18d78e8d6b8e09c913b04728b7a5b54b068f4d6281c39801e",
+              "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+              "skip_check_update": true,
+              "stderr_cache_path": "runtime-v2/trivy-offline-arm64.stderr",
+              "stderr_sha256": "1083b6d76634974f9dbcc8a5b0a0f7f684ceef33549fdf0fcf8052527a487029"
+            }
+          },
+          "status": "RUNTIME_PASS",
+          "stderr_cache_path": "trivy/runtime/offline.stderr"
+        },
+        "selected_source": "external",
+        "source_identity_rule": "Changing external versus embedded source or fallback_used changes execution identity. The moving ghcr tag :2 is prohibited.",
+        "source_repository": "https://github.com/aquasecurity/trivy-checks",
+        "source_tag": "v2.2.0",
+        "source_tag_refs_cache_path": "trivy/checks-tag-refs.txt",
+        "source_tag_refs_sha256": "078cb93360dd94376bc5ce1c9ca7020c4506caff43657f9fb6418cf8b37cab2e"
+      },
+      "compatibility_test": {
+        "result": "STATIC_REVIEW",
+        "scope": "Sigstore release assets, OCI architectures, external checks schema-2 manifest and upstream Terraform JSON golden output were reviewed. Scanner execution remains unauthorized."
+      },
+      "container": {
+        "architecture_digests": {
+          "linux/amd64": "sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
+          "linux/arm64": "sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8"
+        },
+        "cached_index_path": "oci/trivy.json",
+        "execution_references": {
+          "index": "docker.io/aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+          "linux/amd64": "docker.io/aquasec/trivy@sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
+          "linux/arm64": "docker.io/aquasec/trivy@sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8"
+        },
+        "image": "docker.io/aquasec/trivy",
+        "index_digest": "sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+        "supported_architectures": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "verification_status": "CACHED_OCI_INDEX_VERIFIED"
+      },
+      "invocation_contract": {
+        "argv": [
+          "trivy",
+          "config",
+          "--format",
+          "json",
+          "--output",
+          "<private-output-file>",
+          "--skip-check-update",
+          "<sealed-scan-view>"
+        ],
+        "contract_version": "trivy-config-adapter-contract-research-v1"
+      },
+      "license": {
+        "cache_path": "licenses/trivy",
+        "id": "Apache-2.0",
+        "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+        "url": "https://raw.githubusercontent.com/aquasecurity/trivy/40c73e5d6166dcc0346a1ab4e94499d1572854e4/LICENSE"
+      },
+      "offline_requirements": "The exact external checks OCI artifact must be preloaded into a private cache and its content identity verified before network is disabled. Embedded fallback is a separately reported identity and is not silently accepted.",
+      "output_schema_fixture": {
+        "cache_path": "fixtures/trivy",
+        "path": "integration/testdata/terraform-terraform-registry.json.golden",
+        "sha256": "9ff430ea4b82efda61f4787f466b28ef361c93907e6e4704b6f6e8c1fa909ab3",
+        "source": "https://raw.githubusercontent.com/aquasecurity/trivy/40c73e5d6166dcc0346a1ab4e94499d1572854e4/integration/testdata/terraform-terraform-registry.json.golden"
+      },
+      "release": {
+        "commit": "40c73e5d6166dcc0346a1ab4e94499d1572854e4",
+        "repository": "https://github.com/aquasecurity/trivy",
+        "tag": "v0.73.0",
+        "tag_refs_cache_path": "trivy/tag-refs.txt",
+        "tag_refs_sha256": "95c6ba424eba2e324a68398b2bcc9f471ad55aefeb7830e1d17289ca65c75eb0",
+        "verification_status": "CACHED_TAG_RELATION_VERIFIED"
+      },
+      "runtime_records": {
+        "linux/amd64": {
+          "architecture": "linux/amd64",
+          "argv": [
+            "--version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 1471361667,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "fc9afcc6cdac0e47e60b1e5685fef75b10ba019d059dd021837476a36daca3e1",
+          "execution_reference": "docker.io/aquasec/trivy@sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:4bbf3824d974b70f27631005e2e6194d4d8fbd6e72c4a9e04cf521e25c5cb07f",
+          "image_index_digest": "sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/trivy-amd64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/trivy-amd64.stdout",
+          "stdout_sha256": "6e536dafbaac7e271e4df4e5e1f831355be663096c6fb0990ce1b3444ea51a32",
+          "tool": "trivy",
+          "version": "0.73.0",
+          "version_output": "Version: 0.73.0"
+        },
+        "linux/arm64": {
+          "architecture": "linux/arm64",
+          "argv": [
+            "--version"
+          ],
+          "contract": "phase-e-runtime-smoke-v2",
+          "duration_ns": 412035000,
+          "environment_allowlist": [
+            "HOME=/tmp",
+            "TMPDIR=/tmp"
+          ],
+          "execution_digest": "c292544feba897de33e8804aaefe62573512965611f529bfa188ed690d72f6f2",
+          "execution_reference": "docker.io/aquasec/trivy@sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8",
+          "exit_code": 0,
+          "filesystem_mode": "read-only-root,tmpfs-/tmp,no-host-mounts",
+          "image_architecture_digest": "sha256:3c135a0270fe7f19a677eabb3f7eca95c96ae78b52b81697de736670fc6e66c8",
+          "image_index_digest": "sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c",
+          "network_mode": "none",
+          "output_schema_result": "VERSION_COMMAND_OUTPUT_ONLY_NOT_ADAPTER_AUTHORIZATION",
+          "runner_build_identity": "33a8a695d9afdef56dbaa1ad8be31cf2ca04da87ce453f104de7302b54481672",
+          "stderr_cache_path": "runtime-v2/trivy-arm64.stderr",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_cache_path": "runtime-v2/trivy-arm64.stdout",
+          "stdout_sha256": "6e536dafbaac7e271e4df4e5e1f831355be663096c6fb0990ce1b3444ea51a32",
+          "tool": "trivy",
+          "version": "0.73.0",
+          "version_output": "Version: 0.73.0"
+        }
+      },
+      "runtime_smoke": {
+        "architecture": "linux/arm64",
+        "compatibility_status": "RUNTIME_PASS",
+        "execution_digest": "257acb97005947cf7be40d445ef7f2f1d6873b039a646f6eeaae61981297fc9e",
+        "network_disabled_proof": "docker --network none",
+        "offline_invocation_result": "PASS_VERSION_COMMAND_WITH_NETWORK_DISABLED",
+        "output_schema_parse_result": "PASS_TRIVY_SCHEMA_VERSION_2_EXTERNAL_CHECKS",
+        "stderr_cache_path": "smoke/trivy.stderr",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_cache_path": "smoke/trivy.stdout",
+        "stdout_sha256": "6e536dafbaac7e271e4df4e5e1f831355be663096c6fb0990ce1b3444ea51a32",
+        "version_output": "Version: 0.73.0"
+      },
+      "upgrade_policy": "Binary, checks OCI manifest, embedded-check commit, cache identity, fixture and invocation contract are one lock unit. Any fallback or source change requires a new execution identity.",
+      "version": "0.73.0"
+    }
+  },
+  "verification_claims": {
+    "runtime": "REQUIRES_REEXECUTION_OR_SIGNED_ATTESTATION",
+    "schema": "REQUIRES_SCHEMA_VALIDATION",
+    "source": "REQUIRES_PROTECTED_CACHE_VERIFICATION"
+  }
+}

@@ -1,307 +1,292 @@
 # IaC-Guard-V
 
-### A Verification Framework for LLM-Generated Infrastructure-as-Code Repairs
+IaC-Guard-V is a fail-closed verifier for infrastructure-as-code changes. It asks a
+more specific question than a scanner: **did this candidate change resolve the bound
+finding without hiding evidence, deleting the target, introducing a regression, or
+turning operational uncertainty into success?**
 
-**A verification framework that evaluates whether LLM-generated Infrastructure-as-Code repairs are actually correct, not just syntactically valid.**
+`0.1.0a1` is a Checkov-focused technical alpha.
 
-[![Accepted: QRS 2026](https://img.shields.io/badge/QRS%202026-Accepted-brightgreen)](https://qrs26.techconf.org/)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
-[![Checkov v3.2.517](https://img.shields.io/badge/Checkov-v3.2.517-blueviolet.svg)](https://www.checkov.io/)
-[![Benchmark: 70 items](https://img.shields.io/badge/Benchmark-70_items-green.svg)](benchmark/)
-[![Experiments: 630 runs](https://img.shields.io/badge/Experiments-630_runs-orange.svg)](runs/)
+## Source-independent Checkov alpha path
 
-<!-- After arXiv submission, uncomment and fill ID: -->
-<!-- [![arXiv](https://img.shields.io/badge/arXiv-XXXX.XXXXX-b31b1b.svg)](https://arxiv.org/abs/XXXX.XXXXX) -->
-<!-- After Zenodo DOI, uncomment and fill: -->
-<!-- [![DOI](https://zenodo.org/badge/DOI/ADD-DOI-HERE.svg)](https://doi.org/ADD-DOI-HERE) -->
+This is the supported native alpha path for trusted local input. It uses copied-file
+environments created without bundled pip, installs with `--no-compile`, and relies on
+the wheel's RECORD-bound startup policy to prevent runtime bytecode. No cache cleanup or
+hidden environment variable is required; specifically, users do not need to export
+`PYTHONDONTWRITEBYTECODE=1`. The hardened hostile-input container is not released.
 
-**Paper**: ✅ Accepted at the [26th IEEE International Conference on Software Quality, Reliability, and Security (QRS 2026)](https://qrs26.techconf.org/), to be held July 22–25, 2026 in Florence, Italy. Proceedings will appear in Springer Lecture Notes in Computer Science (LNCS).
-
-**Author**: [Lokesh Chauhan](https://orcid.org/0009-0004-1544-6424), Independent Researcher
-
-> 📎 The paper is not hosted in this repository. A preprint will be made available; a link will be added here once posted, and the publisher's DOI will be added once the proceedings are published.
-
----
-
-## Overview
-
-LLM-generated Infrastructure-as-Code repairs often *look* correct but silently introduce regressions or fail to resolve the target issue. IaC-Guard-V addresses this with a **four-gate verification framework** that evaluates repairs across multiple dimensions simultaneously.
-
-<p align="center">
-  <img src="results/figures/figure1_pipeline.png" alt="IaC-Guard-V Pipeline" width="85%">
-</p>
-<p align="center"><em>Figure 1: IaC-Guard-V pipeline. An IaC artifact with a scanner finding is repaired by an LLM using one of three strategies. The verification harness evaluates the repair across four gates. In verify-loop mode, failed results are fed back to the LLM for iterative refinement.</em></p>
-
-### The Four Verification Gates
-
-| Gate | What It Checks | Type |
-|------|---------------|------|
-| **V1: Syntactic Validity** | Can the repaired file be parsed? | Binary |
-| **V2: Target-Issue Resolution** | Is the original scanner finding gone? | Binary |
-| **V3: Regression Safety** | Were any *new* findings introduced? | Binary |
-| **V4: Patch Minimality** | How much of the file was changed? | Informational |
-
-A repair is a **verified fix** only if it passes V1, V2, and V3 simultaneously.
-
----
-
-## Key Findings
-
-From **630 experimental runs** across 3 LLM families, 3 repair strategies, and 70 benchmark items:
-
-1. **Syntactic validity is a poor proxy for correctness.** All models achieve 100% syntax validity, yet only 32--50% pass full verification under single-shot prompting.
-
-2. **Verification-guided repair dramatically improves trustworthiness.** Iterative repair with scanner feedback achieves 68--92% verified-fix rates, statistically significantly outperforming baselines (McNemar's test, p < 0.001).
-
-3. **Verification matters more than model capability.** An open-source model (Llama 4 Maverick) with verification outperforms the strongest commercial model (Claude Opus 4.6) without it, at less than one-tenth the cost per verified fix.
-
-4. **Structured prompting hurts Terraform repairs.** Constraining LLM output to JSON schema consistently degrades repair quality (32--42% vs. 44--50%), a counterintuitive result that reverses on Kubernetes.
-
----
-
-## Results
-
-### Verified-Fix Rate by Model and Strategy
-
-<p align="center">
-  <img src="results/figures/figure2_hero_vfr.png" alt="Verified-Fix Rate" width="70%">
-</p>
-<p align="center"><em>Figure 2: Verified-fix rate by model and repair strategy (Terraform, n=50). Error bars show 95% bootstrap confidence intervals.</em></p>
-
-#### Terraform (n=50 per cell)
-
-| Model | Plain | Structured | Verify-Loop | 95% CI |
-|:------|------:|-----------:|------------:|-------:|
-| Claude Opus 4.6 | 46% | 34% | **92%** | 84--98% |
-| Claude Sonnet 4.6 | 44% | 32% | **68%** | 54--80% |
-| Llama 4 Maverick 17B | 50% | 42% | **70%** | 56--82% |
-
-All verify-loop vs. structured comparisons significant at p < 0.001 (McNemar's exact test, Bonferroni-corrected). Effect sizes: Cliff's delta 0.28--0.58.
-
-Full statistical tests: [`results/tables/statistical_tests.csv`](results/tables/statistical_tests.csv)
-
-#### Kubernetes (n=20 per cell)
-
-| Model | Plain | Structured | Verify-Loop |
-|:------|------:|-----------:|------------:|
-| Claude Opus 4.6 | 100% | 100% | **100%** |
-| Claude Sonnet 4.6 | 100% | 100% | **100%** |
-| Llama 4 Maverick 17B | 45% | 95% | **100%** |
-
-Commercial models achieve perfect scores. The open-source model requires verification-guided iteration to match.
-
-Full results: [`results/tables/main_results_with_ci.csv`](results/tables/main_results_with_ci.csv)
-
-### Cost-Effectiveness
-
-| Model | Method | VFR | Avg Tokens | Latency | Cost/Fix |
-|:------|:-------|----:|-----------:|--------:|---------:|
-| Maverick | Plain | 48.6% | 1,027 | 1.7s | $0.001 |
-| **Maverick** | **Verify-Loop** | **78.6%** | **3,163** | **5.0s** | **$0.002** |
-| Opus | Plain | 61.4% | 1,214 | 6.4s | $0.029 |
-| **Opus** | **Verify-Loop** | **94.3%** | **3,320** | **15.2s** | **$0.047** |
-
-Maverick with verify-loop produces more verified fixes per dollar than any commercial model configuration.
-
-Full data: [`results/tables/cost_effectiveness.csv`](results/tables/cost_effectiveness.csv)
-
-### Convergence Analysis
-
-<p align="center">
-  <img src="results/figures/figure3_convergence.png" alt="Convergence" width="70%">
-</p>
-<p align="center"><em>Figure 3: Distribution of fixes by attempt number. Most fixes occur in attempts 1--2; a third retry adds only ~2 percentage points.</em></p>
-
-Full data: [`results/tables/convergence.csv`](results/tables/convergence.csv)
-
-### Performance by Violation Class (Terraform, Verify-Loop)
-
-| Violation Class | Plain | Verify-Loop | Improvement |
-|:---------------|------:|------------:|------------:|
-| Missing encryption | 83% | **97%** | +14pp |
-| Public exposure | 17% | **94%** | +78pp |
-| Weak observability | 56% | **83%** | +28pp |
-| Over-permissive access | 46% | **71%** | +25pp |
-| Network hardening | 33% | **67%** | +33pp |
-| Other | 20% | **53%** | +33pp |
-| Insecure defaults | 33% | **47%** | +13pp |
-
-Values aggregated across all three models. Public exposure violations show the largest improvement, suggesting verification feedback is most valuable when initial fixes are likely incomplete.
-
-Full breakdown by model: [`results/tables/results_by_violation_class.csv`](results/tables/results_by_violation_class.csv)
-
----
-
-## Benchmark
-
-70 misconfigured IaC artifacts sourced from [Checkov's](https://www.checkov.io/) official test suite (v3.2.517), spanning **70 unique scanner rules** across **8 violation classes**.
-
-| Violation Class | Terraform | Kubernetes | Total |
-|:---------------|----------:|-----------:|------:|
-| Missing encryption | 12 | 2 | 14 |
-| Over-permissive access | 8 | 6 | 14 |
-| Network hardening | 8 | 3 | 11 |
-| Public exposure | 6 | --- | 6 |
-| Weak observability | 6 | 1 | 7 |
-| Insecure defaults | 5 | 3 | 8 |
-| Missing runtime safety | --- | 4 | 4 |
-| Other | 5 | 1 | 6 |
-| **Total** | **50** | **20** | **70** |
-
-Selection used stratified sampling with deliberate over-sampling of minority classes to avoid inflating fix rates with easily repaired encryption misconfigurations.
-
-- Benchmark artifacts: [`benchmark/raw/`](benchmark/raw/) (1,081 Terraform `.tf` + 2,400 Kubernetes `.yaml` from the full corpus)
-- Selected items (Terraform): [`benchmark/selected_manifest_enriched.csv`](benchmark/selected_manifest_enriched.csv)
-- Selected items (Kubernetes): [`benchmark/k8s_selected_manifest_enriched.csv`](benchmark/k8s_selected_manifest_enriched.csv)
-- Full corpus manifest: [`benchmark/manifest.csv`](benchmark/manifest.csv)
-
----
-
-## Models
-
-| Model | Family | Type | Access |
-|:------|:-------|:-----|:-------|
-| Claude Opus 4.6 | Anthropic | Commercial | [AWS Bedrock](https://aws.amazon.com/bedrock/) |
-| Claude Sonnet 4.6 | Anthropic | Commercial | [AWS Bedrock](https://aws.amazon.com/bedrock/) |
-| Llama 4 Maverick 17B | Meta | Open-weight | [AWS Bedrock](https://aws.amazon.com/bedrock/) |
-
-All experiments use temperature 0 for deterministic, reproducible outputs.
-
----
-
-## Reproducing Results
-
-### Requirements
-
-- Python 3.10+
-- [Checkov](https://www.checkov.io/) v3.2.517
-- AWS account with [Amazon Bedrock](https://aws.amazon.com/bedrock/) access
+On macOS, the Apple or another framework Python may report that it cannot create a
+virtual environment without symlinks. Do not remove `--copies`: install a standalone,
+uv-managed Python and use it for the two protected environments:
 
 ```bash
-pip install checkov==3.2.517 boto3
+brew install uv
+uv python install 3.12
+ALPHA_PYTHON="$(uv python find --managed-python 3.12)"
 ```
 
-### Running Experiments
+On a Python installation that already supports copied-file environments, use:
 
 ```bash
-# Step 1: Run Checkov baselines on all benchmark items
-python scripts/run_baseline_checkov.py
-
-# Step 2: Run all 630 experiments (3 models x 3 methods x 70 items)
-python scripts/run_full_experiments.py
-
-# Step 3: Generate result tables and figures
-python scripts/analyze_part1.py
-python scripts/analyze_part2.py
-python scripts/analyze_part3.py
+ALPHA_PYTHON="$(command -v python3)"
 ```
-
-### Using Pre-Computed Results
-
-All 630 experimental runs are included in this repository. To verify results without re-running experiments:
 
 ```bash
-# Regenerate tables and figures from existing run data
-python scripts/analyze_part1.py
-python scripts/analyze_part2.py
-python scripts/analyze_part3.py
+rm -rf dist build
+find . -maxdepth 2 -type d -name '*.egg-info' -prune -exec rm -rf {} +
+python3 -m pip install --upgrade pip
+python3 -m pip install 'build>=1.2,<2'
+python3 -m build --outdir dist
+
+"$ALPHA_PYTHON" -m venv --copies --without-pip .venv-iac-guard
+"$ALPHA_PYTHON" -m venv --copies --without-pip .venv-checkov330
+python3 -m pip --python .venv-iac-guard/bin/python install --no-compile \
+  dist/iac_guard_v-0.1.0a1-py3-none-any.whl
+python3 -m pip --python .venv-checkov330/bin/python install --no-compile \
+  'checkov==3.3.0'
+
+.venv-iac-guard/bin/iac-guard doctor \
+  --mode local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov"
+.venv-iac-guard/bin/iac-guard demo \
+  --real \
+  --local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
+  --format console \
+  --output ./iac-guard-report.json
+# IaC-Guard-V: VERIFIED
+# exit_code: 0
+# targets:
+#   CKV_AWS_53 aws_s3_bucket_public_access_block.example: FIXED
+# scanner integrity: PASS
+# regressions: none
+# policy: VERIFIED
 ```
 
-Output tables are written to [`results/tables/`](results/tables/) and figures to [`results/figures/`](results/figures/).
+Real verification may remain quiet for several minutes while Checkov runs and
+IaC-Guard-V captures and validates its output. `0.1.0a1` prints the conclusion only
+after that evidence is complete; do not interpret the quiet period as a hung process.
+The external macOS smoke completed with `VERIFIED` in approximately three minutes.
 
----
+Exit codes are `0` VERIFIED, `1` FAILED, `2` invalid request, `3` INCONCLUSIVE, and
+`4` unexpected internal error. The saved file is canonical validated `report-v1` even
+when console output is selected. Native `local-trusted` mode is reduced isolation:
+use it only for operator-controlled input. [Advanced config workflow](#advanced-pinned-configuration)
+remains available for reproducible automation.
 
-## Limitations
+`demo --real` reads the example from the installed wheel, so the command above works
+from an otherwise empty directory and does not require a Git source checkout. To verify
+your own before/after directories, use the same installed environments:
 
-- **Benchmark scope**: 70 items from Checkov's test suite; may not represent all real-world configurations.
-- **Single scanner**: Results are Checkov-specific; multi-scanner consensus untested.
-- **No human evaluation**: Repair quality assessed only through automated verification gates.
-- **Retry cap**: Maximum 2 retries; diminishing returns suggest 3+ would add minimal benefit.
-
----
-
-## Repository Structure
-
-```
-iac-guard-v/
-├── benchmark/
-│   ├── raw/                              # All benchmark artifacts
-│   │   ├── BM-0001.tf ... BM-1081.tf    # 1,081 Terraform files
-│   │   └── BM-2001.yaml ... BM-2400.yaml # 2,400 Kubernetes manifests
-│   ├── selected_manifest_enriched.csv    # 50 selected Terraform items
-│   ├── k8s_selected_manifest_enriched.csv # 20 selected K8s items
-│   └── manifest.csv                      # Full corpus (3,481 items)
-│
-├── scripts/
-│   ├── build_benchmark.py                # Benchmark construction
-│   ├── build_k8s_benchmark.py            # K8s benchmark construction
-│   ├── run_experiment.py                 # Main experiment runner
-│   ├── run_full_experiments.py           # Orchestrator for all combos
-│   ├── run_baseline_checkov.py           # Baseline scanner runs
-│   ├── run_k8s_baseline.py              # K8s baseline runs
-│   ├── call_bedrock.py                   # AWS Bedrock API caller
-│   ├── verify_patch.py                   # 4-gate verification harness
-│   ├── analyze_part1.py                  # Main results + statistics
-│   ├── analyze_part2.py                  # Cost + minimality analysis
-│   └── analyze_part3.py                  # Figures + stat tests
-│
-├── prompts/
-│   ├── plain_v1.txt                      # Plain prompting template
-│   ├── structured_v1.txt                 # Structured prompting template
-│   └── retry_v1.txt                      # Verify-loop retry template
-│
-├── runs/
-│   ├── raw/                              # 630 raw LLM responses
-│   └── patches/                          # 630 extracted patches
-│
-├── results/
-│   ├── tables/
-│   │   ├── all_runs.csv                  # Complete results (630 rows)
-│   │   ├── main_results_with_ci.csv      # VFR with confidence intervals
-│   │   ├── cost_effectiveness.csv        # Cost per verified fix
-│   │   ├── results_by_violation_class.csv # Breakdown by violation type
-│   │   ├── statistical_tests.csv         # McNemar's + Cochran's Q
-│   │   ├── convergence.csv               # Fixes by attempt number
-│   │   ├── difficulty_terraform.csv      # Per-item difficulty
-│   │   └── difficulty_kubernetes.csv     # Per-item difficulty
-│   └── figures/
-│       ├── figure1_pipeline.png          # Framework pipeline
-│       ├── figure2_hero_vfr.png          # Main VFR results
-│       └── figure3_convergence.png       # Convergence analysis
-│
-├── scanners/outputs/baseline/            # 70 Checkov baseline outputs
-│
-├── docs/
-│   ├── EXAMPLE_WALKTHROUGH.md            # Worked example (BM-0075)
-│   └── VERIFICATION_PROCEDURE.md         # Plain-English Algorithm 1
-│
-├── CITATION.cff                          # Citation metadata
-├── requirements.txt                      # Pinned dependencies
-├── LICENSE                               # Apache 2.0
-└── README.md                             # This file
-
+```bash
+.venv-iac-guard/bin/iac-guard verify \
+  --before ./my-before \
+  --after ./my-after \
+  --all-baseline-findings \
+  --framework terraform \
+  --local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
+  --output ./iac-guard-report.json
 ```
 
----
+Use an exact selector when a repository contains multiple occurrences or when only one
+baseline finding should be verified:
+
+```bash
+.venv-iac-guard/bin/iac-guard verify \
+  --before ./my-before \
+  --after ./my-after \
+  --target CKV_AWS_53=aws_s3_bucket_public_access_block.example \
+  --framework terraform \
+  --local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
+  --output ./iac-guard-report.json
+```
+
+After publication, replace the local wheel path with `iac-guard-v==0.1.0a1` in the
+same `pip --python ... install --no-compile` command. The packaged `demo --real` command
+then remains source-independent; ordinary `verify` consumes directories supplied by the
+user. Run `doctor` and the real demo again without cache cleanup—the release gate tests
+that installed sequence twice.
+
+## Project status
+
+| Area | Status |
+| --- | --- |
+| Frozen QRS 2026 research snapshot | Bound to commit `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5` and `MANIFEST_ROOT` `a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`; public CI reconstructs and verifies the local-only annotated freeze tag, which is not published. |
+| Hardened product core | Typed differential evidence, fail-closed report validation, Checkov 3.3.0 integration, and deterministic reporters. |
+| Checkov-focused alpha | The supported initial product focus; package version `0.1.0a1`. |
+| KICS, Trivy, OpenTofu, kubeconform, and TFLint | Experimental and advisory; their agreement cannot change the final verdict. |
+| Hardened production container and Action | Not released. |
+
+There are no external-adoption, production-readiness, or multi-scanner-consensus
+claims. The control catalog has zero `EXACT` mappings and is not ready for validated-
+discrepancy screening.
+
+Exact raw stdout/result hashes and durations remain run-specific provenance. The
+release test requires stable semantic evidence and deterministic reporter projections
+while preserving those exact raw identities.
+
+`doctor --mode local-trusted` succeeds when the Checkov alpha is usable; `doctor --mode
+hardened-container` remains inconclusive until that image exists. Multi-scanner evidence
+remains experimental and advisory.
+
+The two environments are intentional: Checkov 3.3.0 installs `bc-python-hcl2`, while
+the product's protected Terraform parser is `python-hcl2`. Installing both distributions
+over the same `hcl2` package files breaks wheel-RECORD provenance and is rejected.
+
+The wheel contains product code, schemas, and protected bundled oracle policy. It does
+not contain the paper, benchmark, stored runs, research datasets, experiment scripts,
+or test-only evidence capabilities.
+
+## Other alpha commands
+
+### Direct Git pull-request verification
+
+The Git-aware path reads exact objects into private temporary trees and does not change
+the current checkout, index, branch, or worktree. `--changed-only` restricts target
+selection; regression coverage still uses the complete candidate snapshot.
+
+```bash
+.venv-iac-guard/bin/iac-guard pr \
+  --repository . \
+  --base-ref origin/main \
+  --head-ref HEAD \
+  --all-baseline-findings \
+  --changed-only \
+  --framework terraform \
+  --local-trusted \
+  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
+  --format sarif \
+  --output ./iac-guard.sarif
+```
+
+### Offline demo
+
+`demo` is deterministic, requires neither Checkov nor Docker, and creates no trusted
+verification evidence:
+
+```bash
+iac-guard demo
+iac-guard demo --format json
+```
+
+Console demo shows illustrative VERIFIED, FAILED, SUPPRESSED, and INCONCLUSIVE states.
+Its JSON `OFFLINE_DEMO_ONLY` report remains non-evidentiary. `demo --real
+--local-trusted` runs the packaged Checkov example through the public verification path.
+
+### Explain an existing report
+
+`explain` validates the complete `report-v1` evidence graph before rendering it. It
+does not create or change verification evidence:
+
+```bash
+iac-guard explain report.json
+```
+
+Contradictory or forged reports are rejected as invalid requests.
+
+### Advanced pinned configuration
+
+For operator-controlled local input, initialize an explicit reduced-isolation request:
+
+```bash
+iac-guard init \
+  --baseline ./before \
+  --candidate ./after \
+  --target CKV_AWS_53=aws_s3_bucket_public_access_block.example \
+  --framework terraform \
+  --execution-mode reduced-isolation \
+  --checkov-executable "$(command -v checkov)" \
+  --output ./iac-guard.config.json
+```
+
+The workflow commands all enter the same sealed-snapshot and protected-policy verifier:
+
+```bash
+iac-guard scan --config ./iac-guard.config.json --format json
+iac-guard differential --config ./iac-guard.config.json --format markdown
+iac-guard pr --changed-only --config ./iac-guard.config.json --format sarif
+```
+
+`scan` remains a differential report-v1 workflow in this alpha: its config names both
+the trusted baseline and candidate. `pr --changed-only` additionally requires every
+selected target file to have changed, then the normal verifier independently reseals
+both complete snapshots.
+
+Create a deterministic local environment record with:
+
+```bash
+iac-guard lock \
+  --config ./iac-guard.config.json \
+  --output ./iac-guard.lock.json
+```
+
+The alpha lock is labelled `LOCK_RECORD_NOT_VERIFICATION_EVIDENCE`; it cannot be
+submitted as scanner evidence or make a verdict trusted. Hardened-container lock
+creation remains unavailable until that image is reviewed and released.
+
+Validated report-v1 input can be projected as `json`, `console`, `sarif`, `markdown`,
+or `junit` where the command accepts `--format`. Reporters never reinterpret a target
+outcome, and JUnit represents uncertainty as skipped/error rather than success.
+
+## Verdicts and exit codes
+
+| Result | Exit | Meaning |
+| --- | ---: | --- |
+| `VERIFIED` | 0 | Every required protected predicate passed. |
+| `FAILED` | 1 | The candidate is definitely invalid or failed policy. |
+| Invalid request/configuration | 2 | The invocation or protected configuration is malformed. |
+| `INCONCLUSIVE` / operational uncertainty | 3 | Required evidence is missing, partial, unsupported, or unverifiable. |
+
+Uncertainty is never reported as a successful test.
+
+## Security boundaries and current limitations
+
+- Public CLI/config/API inputs cannot submit raw scanner results, precomputed policy
+  decisions, oracle results, validator-universe results, callbacks, or trust claims.
+- Native `reduced-isolation` is for trusted local input only.
+- The production fully offline hardened container and composite GitHub Action are not
+  released; their native-Linux UID/bind-mount gate remains pending.
+- Multi-scanner and deterministic-oracle evidence remains advisory. V7 consensus is
+  disconnected from final verdicts.
+- `.tf.json` remains explicitly unsupported/inconclusive end to end.
+- The kubeconform schema bundle has licence status `NOASSERTION` and is not publicly
+  redistributed.
+- IaC-Guard-V does not defend against hostile Python already executing inside its
+  trusted interpreter.
+
+See [SECURITY.md](SECURITY.md) for reporting guidance and
+[`docs/spec/THREAT_MODEL.md`](docs/spec/THREAT_MODEL.md) for the detailed model.
+
+## Research snapshot
+
+The QRS 2026 artifact is historical evidence, not the current hardened product. Its
+scanner of record is Checkov 3.2.517, while the alpha product contract uses Checkov
+3.3.0. The stored experiment outputs are never re-labelled as hardened-engine runs.
+
+See [RESEARCH_SNAPSHOT.md](RESEARCH_SNAPSHOT.md) for the manifest root, replay
+contract, limitations, and exact offline verification commands. The pre-peer-review
+manuscript has been submitted to arXiv, but its public identifier is still pending. No
+placeholder identifier or broken link is published. The Springer Version of Record and
+DOI will be linked when they become available.
+
+## Contributing and roadmap
+
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [ROADMAP.md](ROADMAP.md)
+- [CHANGELOG.md](CHANGELOG.md)
+- [NOTICE](NOTICE)
 
 ## Citation
 
-If you use IaC-Guard-V in your research, please cite:
-
-```bibtex
-@inproceedings{chauhan2026iacguardv,
-  title={{IaC-Guard-V}: A Verification Framework for {LLM}-Generated Infrastructure-as-Code Repairs},
-  author={Chauhan, Lokesh},
-  booktitle={Software Quality, Reliability, and Security (QRS 2026)},
-  series={Lecture Notes in Computer Science},
-  publisher={Springer},
-  year={2026}
-}
-```
-
----
+Citation metadata for the accepted QRS 2026 paper and this software is in
+[CITATION.cff](CITATION.cff). The arXiv submission is pending public availability. Once
+Springer publishes the Version of Record, its DOI and publisher page will become the
+primary paper citation; an available arXiv preprint may remain as a separate accessible
+manuscript link.
 
 ## License
 
-This project is licensed under the [Apache License 2.0](LICENSE). The benchmark items are derived from [Checkov's](https://github.com/bridgecrewio/checkov) open-source test suite (Apache 2.0).
+IaC-Guard-V is licensed under the [Apache License 2.0](LICENSE). Third-party tools are
+not bundled and retain their own licences and trademarks.

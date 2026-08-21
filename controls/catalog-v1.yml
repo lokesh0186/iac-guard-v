@@ -1,0 +1,149 @@
+contract: iac-guard-v-control-relationship-catalog-v3
+catalog_status: ADVISORY_ONLY
+exact_mapping_count: 0
+runtime_evidence:
+  path: controls/runtime-evidence-v1.json
+  sha256: bcaa79c5826b2e9afe4f3445d3cbc074e2d8b58aad5aa89ea0aa646b4bd5189f
+scanner_locks:
+  checkov:
+    version: 3.3.0
+    source_repository: https://github.com/bridgecrewio/checkov
+    release_tag: 3.3.0
+    tag_ref_commit: 5b5ce3e65339c78ca9977e06beb504240db95fdc
+    source_commit: 5b5ce3e65339c78ca9977e06beb504240db95fdc
+    policy_identity: checkov-3.3.0-packaged-kubernetes-checks
+    runtime_policy_digest: bc120aac2cdc76e87084c554fda047f2e5c75c786c92a1b9dbe5b10b3839a480
+    runtime_environment_digest: fa324c3b0d1fb3901766c952327432dd32e22f48ff1995cf517af720f109ee6b
+  kics:
+    version: 2.1.20
+    source_repository: https://github.com/Checkmarx/kics
+    release_tag: v2.1.20
+    tag_ref_commit: e1f23cad9640f55b963f22a116b04906b8c16ac6
+    source_commit: e1f23cad9640f55b963f22a116b04906b8c16ac6
+    policy_identity: kics-v2.1.20-embedded-query-set
+    runtime_policy_digest: 6b7804fd59cf498fab3069149a4092d97ce10cf612ff9a6d3e07a5cbc4800a8c
+    runtime_environment_digest: a6867fb87c139d463bc5447b680b49cd672d8ee0d407b475bd1da7d4df67190f
+  trivy:
+    version: 0.73.0
+    source_repository: https://github.com/aquasecurity/trivy-checks
+    release_tag: v2.2.0
+    tag_ref_commit: d7c9302130a9b7e614a5c5d32854f6a08b4bc52e
+    source_commit: d7c9302130a9b7e614a5c5d32854f6a08b4bc52e
+    policy_identity: sha256:b63166ca02aa09e30a5127320384d7bd0d2760dc19bab3ab7041a6070114ba45
+    runtime_policy_digest: a3a2e9204d91098c984d8885224fd2e7c7b13188bd421b25095531736e6b89fc
+    runtime_environment_digest: 11c9c6b2918573e0fca5034f8d765568a1e1022dc2e3f567b4e88dce4fd2bd57
+relationships:
+  - relationship_id: k8s-privileged-container-v1
+    classification: OVERLAPPING
+    checkov_rule_id: CKV_K8S_16
+    kics_query_id: dd29336b-fe57-445b-a26e-e6aa867ae609
+    trivy_check_id: AVD-KSV-0017
+    semantics:
+      checkov: Fails supported Pod and workload container or initContainer entries when securityContext.privileged is true.
+      kics: Reports container and initContainer entries when securityContext.privileged is true.
+      trivy: Reports selected Kubernetes workload containers when securityContext.privileged is true.
+    authoritative_sources:
+      checkov:
+        repository: https://github.com/bridgecrewio/checkov
+        commit: 5b5ce3e65339c78ca9977e06beb504240db95fdc
+        relative_path: checkov/kubernetes/checks/resource/k8s/PrivilegedContainers.py
+        url: https://raw.githubusercontent.com/bridgecrewio/checkov/5b5ce3e65339c78ca9977e06beb504240db95fdc/checkov/kubernetes/checks/resource/k8s/PrivilegedContainers.py
+        sha256: 8db4658cd3cd3a8016f40b669b59320d3337f1b677a6a79adf13a2d8cf28281b
+        source_attestation_identity: f977a759cd730abda78bbf08f55e7af3f8decbb84199da67bd118e2f02330c84
+      kics:
+        repository: https://github.com/Checkmarx/kics
+        commit: e1f23cad9640f55b963f22a116b04906b8c16ac6
+        relative_path: assets/queries/k8s/container_is_privileged/query.rego
+        url: https://raw.githubusercontent.com/Checkmarx/kics/e1f23cad9640f55b963f22a116b04906b8c16ac6/assets/queries/k8s/container_is_privileged/query.rego
+        sha256: 9a0e7c27fadf3edf05546abf395385f7675a0b091a4f7750912207116200b57d
+        source_attestation_identity: f0a6bc59aa27b3b73942e78887caf3a7b30acf81e00d503af8de79406f0500cb
+      trivy:
+        repository: https://github.com/aquasecurity/trivy-checks
+        commit: d7c9302130a9b7e614a5c5d32854f6a08b4bc52e
+        relative_path: checks/kubernetes/privileged.rego
+        url: https://raw.githubusercontent.com/aquasecurity/trivy-checks/d7c9302130a9b7e614a5c5d32854f6a08b4bc52e/checks/kubernetes/privileged.rego
+        sha256: 98af8ef6e31b069b4f39e399f50bcb42b2d08b183d96cec451ae52887ba99174
+        source_attestation_identity: 86b640aff3904a90393abfdb14c10d3bdbdd79ea2d57ef8988574cab31097c23
+    fixtures:
+      positive: controls/fixtures/k8s-privileged/positive.yaml
+      negative: controls/fixtures/k8s-privileged/negative.yaml
+      boundary: controls/fixtures/k8s-privileged/boundary.yaml
+    expected_locked_observations:
+      positive: {checkov: FINDING, kics: INCONCLUSIVE, trivy: ERROR}
+      negative: {checkov: NO_FINDING, kics: INCONCLUSIVE, trivy: ERROR}
+      boundary: {checkov: FINDING, kics: ERROR, trivy: ERROR}
+    variable_default_behavior: The field is a Kubernetes literal; omission differs from true and does not create a finding in these pinned implementations.
+    resource_type_scope:
+      - Pod
+      - Deployment
+      - DaemonSet
+      - StatefulSet
+      - Job
+      - CronJob
+    known_semantic_differences:
+      - Each scanner owns a distinct workload-kind selector and resource-normalization library.
+      - Finding locations and occurrence identities are scanner-native and not interchangeable.
+    exact_blockers:
+      - No independent reviewer has signed exact set equality for every supported workload kind and malformed-input boundary.
+    validated_screening_status: NOT_READY_FOR_VALIDATED_SCREENING
+    validated_screening_blockers:
+      - KICS_LOCKED_FIXTURE_EXECUTION_INCOMPLETE
+      - TRIVY_LOCKED_FIXTURE_EXECUTION_ERROR
+    independent_reviewer_signoff: null
+  - relationship_id: k8s-allow-privilege-escalation-v1
+    classification: OVERLAPPING
+    checkov_rule_id: CKV_K8S_20
+    kics_query_id: 5572cc5e-1e4c-4113-92a6-7a8a3bd25e6d
+    trivy_check_id: AVD-KSV-0001
+    semantics:
+      checkov: Requires securityContext.allowPrivilegeEscalation to be explicitly false for supported Pod and workload containers.
+      kics: Reports true or absent allowPrivilegeEscalation for container and initContainer entries.
+      trivy: Reports selected Kubernetes workload containers unless allowPrivilegeEscalation is explicitly false.
+    authoritative_sources:
+      checkov:
+        repository: https://github.com/bridgecrewio/checkov
+        commit: 5b5ce3e65339c78ca9977e06beb504240db95fdc
+        relative_path: checkov/kubernetes/checks/resource/k8s/AllowPrivilegeEscalation.py
+        url: https://raw.githubusercontent.com/bridgecrewio/checkov/5b5ce3e65339c78ca9977e06beb504240db95fdc/checkov/kubernetes/checks/resource/k8s/AllowPrivilegeEscalation.py
+        sha256: 8b4c6a608aa3755c2267e236d35626b4b4b49b31971fd7a142aa046b434a2317
+        source_attestation_identity: 6be37b7c21c8b169edd90b3ff65e304fc323caca5d5adc1796de65b245d37385
+      kics:
+        repository: https://github.com/Checkmarx/kics
+        commit: e1f23cad9640f55b963f22a116b04906b8c16ac6
+        relative_path: assets/queries/k8s/privilege_escalation_allowed/query.rego
+        url: https://raw.githubusercontent.com/Checkmarx/kics/e1f23cad9640f55b963f22a116b04906b8c16ac6/assets/queries/k8s/privilege_escalation_allowed/query.rego
+        sha256: d38f32e8d3bc6a8f76dcb74e137cbdf4130d8be736547402822085887882a624
+        source_attestation_identity: 82b8fe393f2e9457434e6d46a954724cc117f966dc22f4864821a6abc8ebdf7c
+      trivy:
+        repository: https://github.com/aquasecurity/trivy-checks
+        commit: d7c9302130a9b7e614a5c5d32854f6a08b4bc52e
+        relative_path: checks/kubernetes/can_elevate_its_own_privileges.rego
+        url: https://raw.githubusercontent.com/aquasecurity/trivy-checks/d7c9302130a9b7e614a5c5d32854f6a08b4bc52e/checks/kubernetes/can_elevate_its_own_privileges.rego
+        sha256: 175b99a61e8c5b8af01c018bb0d870e3713610847d9abdfa5f9290a36bebc3e1
+        source_attestation_identity: e2967118bd02e44e14379922979549cfc212d3d7b59444402109a5c505f114bd
+    fixtures:
+      positive: controls/fixtures/k8s-allow-privilege-escalation/positive.yaml
+      negative: controls/fixtures/k8s-allow-privilege-escalation/negative.yaml
+      boundary: controls/fixtures/k8s-allow-privilege-escalation/boundary.yaml
+    expected_locked_observations:
+      positive: {checkov: FINDING, kics: INCONCLUSIVE, trivy: ERROR}
+      negative: {checkov: NO_FINDING, kics: INCONCLUSIVE, trivy: ERROR}
+      boundary: {checkov: FINDING, kics: INCONCLUSIVE, trivy: ERROR}
+    variable_default_behavior: Explicit false passes; true and omission are adverse under the pinned rule implementations.
+    resource_type_scope:
+      - Pod
+      - Deployment
+      - DaemonSet
+      - StatefulSet
+      - Job
+      - CronJob
+    known_semantic_differences:
+      - Each scanner owns a distinct workload-kind selector and malformed-container behavior.
+      - Scanner-native location and occurrence evidence is not interchangeable.
+    exact_blockers:
+      - No independent reviewer has signed exact set equality across all selected workload and defaulting boundaries.
+    validated_screening_status: NOT_READY_FOR_VALIDATED_SCREENING
+    validated_screening_blockers:
+      - KICS_LOCKED_FIXTURE_EXECUTION_INCOMPLETE
+      - TRIVY_LOCKED_FIXTURE_EXECUTION_ERROR
+    independent_reviewer_signoff: null

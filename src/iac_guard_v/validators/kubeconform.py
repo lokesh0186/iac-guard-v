@@ -1,0 +1,563 @@
+"""Pinned kubeconform 0.8.0 validation against the signed offline schema tree."""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import tempfile
+from dataclasses import InitVar, dataclass, field
+from pathlib import Path
+from typing import Any
+
+from ..adapters.base import (
+    read_locked_output_directory, remove_private_tree, require_hardened_docker_argv,
+)
+from ..adapters.phase_e_lock import (
+    LockedContainerIdentity, ProtectedKubernetesSchemaIdentity, require_locked_identity,
+)
+from ..adapters.phase_e_runtime import (
+    TrustedContainerRuntime, require_trusted_container_runtime,
+    revalidate_trusted_container_runtime,
+)
+from ..enums import ScanRole, Status
+from ..models import BoundInputFile, DomainError, canonical_repo_path, safe_report_text
+from ..process import CommandRequest, CommandResult, run_command
+from .base import (
+    ValidationDiagnostic, ValidationReason, ValidatorExecutionEvidence, canonical_sha256,
+)
+from .terraform import _strict_json
+from .materialization import (
+    SealedSourceFile, bind_source_file, materialize_view,
+    materialized_view_manifest, prepare_writable_output_directory,
+    read_sealed_source, revalidate_materialized_view,
+    revalidate_writable_output_directory, TrustedValidationScopePlan,
+    create_trusted_validation_scope_plan, revalidate_validation_scope_plan,
+)
+
+
+_REQUEST_CONTEXT = object()
+_DOCKER_USER = "65532:65532"
+_DOCKER_PIDS_LIMIT = "128"
+_DOCKER_MEMORY = "512m"
+_DOCKER_CPUS = "1.0"
+_CONTROLS = (
+    "cap-drop-all", "cpu-limit", "memory-limit", "network-none",
+    "no-ignore-missing-schemas", "no-new-privileges", "non-root",
+    "offline-schema-only", "output-inventory", "pid-limit", "read-only-root",
+    "sealed-input",
+)
+_BUILTIN_GROUPS = (
+    "admissionregistration.k8s.io/", "apiextensions.k8s.io/", "apps/",
+    "authentication.k8s.io/", "authorization.k8s.io/", "autoscaling/", "batch/",
+    "certificates.k8s.io/", "coordination.k8s.io/", "discovery.k8s.io/",
+    "events.k8s.io/", "flowcontrol.apiserver.k8s.io/", "networking.k8s.io/",
+    "node.k8s.io/", "policy/", "rbac.authorization.k8s.io/", "resource.k8s.io/",
+    "scheduling.k8s.io/", "storage.k8s.io/",
+)
+
+
+def _bound_file(root: Path, relative: str, max_bytes: int) -> tuple[BoundInputFile, bytes]:
+    sealed, raw = bind_source_file(
+        root, relative, max_bytes, (".yaml", ".yml", ".json"), "kubeconform input",
+    )
+    return sealed.evidence, raw
+
+
+def _discover(relative: str, raw: bytes):
+    from ..engine import _kubernetes_json_resources, _kubernetes_resources
+    if relative.endswith(".json"):
+        return _kubernetes_json_resources(relative, raw)
+    return _kubernetes_resources(relative, raw)
+
+
+@dataclass(frozen=True, slots=True)
+class KubeconformValidationRequest:
+    workspace_root: Path
+    scan_root: Path
+    role: ScanRole
+    files_eligible: tuple
+    input_evidence: tuple
+    resource_identities: tuple
+    syntax_error: str
+    container_runtime: TrustedContainerRuntime
+    locked_identity: LockedContainerIdentity
+    schema_identity: ProtectedKubernetesSchemaIdentity
+    scope_plan: TrustedValidationScopePlan | None = None
+    source_bindings: tuple = ()
+    protected_crd_schema: ProtectedKubernetesSchemaIdentity | None = None
+    timeout_seconds: int = 120
+    max_output_bytes: int = 8 * 1024 * 1024
+    max_file_bytes: int = 8 * 1024 * 1024
+    max_total_input_bytes: int = 64 * 1024 * 1024
+    _trusted_context: InitVar[object] = None
+    _trusted_request: bool = field(init=False, default=False, repr=False, compare=False)
+
+    def __post_init__(self, _trusted_context: object) -> None:
+        if _trusted_context is not _REQUEST_CONTEXT:
+            raise DomainError("kubeconform requests require the sealed factory")
+        if type(self.role) is not ScanRole or self.role not in {ScanRole.BASELINE, ScanRole.CANDIDATE}:
+            raise DomainError("kubeconform role must be baseline or candidate")
+        identity = require_locked_identity(self.locked_identity, "kubeconform")
+        if (
+            type(self.schema_identity) is not ProtectedKubernetesSchemaIdentity
+            or not self.schema_identity._trusted_schema_evidence
+        ):
+            raise DomainError("kubeconform schema must come from signed E0.3 evidence")
+        if self.protected_crd_schema is not None and (
+            type(self.protected_crd_schema) is not ProtectedKubernetesSchemaIdentity
+            or not self.protected_crd_schema._trusted_schema_evidence
+        ):
+            raise DomainError("CRD schemas must be protected digest-bound evidence")
+        try:
+            workspace = self.workspace_root.resolve(strict=True)
+            scan = self.scan_root.resolve(strict=True)
+            scan.relative_to(workspace)
+        except (OSError, ValueError) as exc:
+            raise DomainError("kubeconform scan root must be inside its workspace") from exc
+        runtime = require_trusted_container_runtime(
+            self.container_runtime, workspace_root=workspace,
+            protected_evidence_identity=identity.protected_evidence_identity,
+        )
+        paths = tuple(canonical_repo_path(item) for item in self.files_eligible)
+        if type(self.files_eligible) is not tuple or paths != tuple(sorted(set(paths))):
+            raise DomainError("kubeconform paths must be sorted and unique")
+        if type(self.input_evidence) is not tuple or tuple(
+            item.file_path for item in self.input_evidence if type(item) is BoundInputFile
+        ) != paths:
+            raise DomainError("kubeconform input evidence is incomplete")
+        if (
+            type(self.source_bindings) is not tuple
+            or any(type(item) is not SealedSourceFile for item in self.source_bindings)
+            or tuple(item.evidence for item in self.source_bindings) != self.input_evidence
+        ):
+            raise DomainError("kubeconform sealed source bindings are incomplete")
+        resources = tuple(self.resource_identities)
+        if (
+            type(self.scope_plan) is not TrustedValidationScopePlan
+            or self.scope_plan.scope_kind != "kubernetes-artifact-universe"
+            or self.scope_plan.role is not self.role
+            or self.scope_plan.files != self.input_evidence
+            or self.scope_plan.resource_identities != resources
+        ):
+            raise DomainError("kubeconform trusted validation scope is invalid")
+        if resources != tuple(sorted(set(resources))) or any(type(item) is not str for item in resources):
+            raise DomainError("kubeconform resource identities must be sorted and unique")
+        if type(self.syntax_error) is not str:
+            raise DomainError("kubeconform syntax_error must be a string")
+        for name in ("timeout_seconds", "max_output_bytes", "max_file_bytes", "max_total_input_bytes"):
+            if type(getattr(self, name)) is not int or getattr(self, name) <= 0:
+                raise DomainError(f"{name} must be positive")
+        if sum(item.size for item in self.input_evidence) > self.max_total_input_bytes:
+            raise DomainError("kubeconform inputs exceed total-byte limit")
+        object.__setattr__(self, "workspace_root", workspace)
+        object.__setattr__(self, "scan_root", scan)
+        object.__setattr__(self, "container_runtime", runtime)
+        object.__setattr__(self, "files_eligible", paths)
+        object.__setattr__(self, "resource_identities", resources)
+        object.__setattr__(self, "_trusted_request", True)
+
+    @property
+    def sealed_snapshot_identity(self) -> str:
+        return self.scope_plan.manifest_sha256
+
+
+def create_kubeconform_validation_request(
+    *, workspace_root: Path, scan_root: Path, role: ScanRole, files_eligible: tuple,
+    container_runtime: TrustedContainerRuntime, locked_identity: LockedContainerIdentity,
+    schema_identity: ProtectedKubernetesSchemaIdentity,
+    protected_crd_schema: ProtectedKubernetesSchemaIdentity | None = None,
+    timeout_seconds: int = 120, max_output_bytes: int = 8 * 1024 * 1024,
+    max_file_bytes: int = 8 * 1024 * 1024,
+    max_total_input_bytes: int = 64 * 1024 * 1024,
+) -> KubeconformValidationRequest:
+    scan = scan_root.resolve(strict=True)
+    paths = tuple(sorted(canonical_repo_path(item) for item in files_eligible))
+    if any(not item.endswith((".yaml", ".yml", ".json")) for item in paths):
+        raise DomainError("kubeconform accepts only YAML and JSON inputs")
+    if len(paths) != len(set(paths)):
+        raise DomainError("kubeconform paths contain duplicates")
+    evidence = []
+    bindings = []
+    identities = []
+    syntax_error = ""
+    for relative in paths:
+        sealed, raw = bind_source_file(
+            scan_root, relative, max_file_bytes, (".yaml", ".yml", ".json"),
+            "kubeconform input",
+        )
+        bindings.append(sealed)
+        evidence.append(sealed.evidence)
+        try:
+            _resources, detected = _discover(relative, raw)
+            identities.extend(f"{item.file_path}:{item.canonical_address}" for item in detected)
+        except DomainError as exc:
+            syntax_error = safe_report_text(str(exc), "kubernetes syntax error", 4096)
+    scope_plan = create_trusted_validation_scope_plan(
+        scan_root=scan_root, files_eligible=paths, role=role,
+        scope_kind="kubernetes-artifact-universe", max_file_bytes=max_file_bytes,
+    )
+    return KubeconformValidationRequest(
+        workspace_root=workspace_root, scan_root=scan_root, role=role,
+        files_eligible=paths, input_evidence=tuple(evidence), source_bindings=tuple(bindings),
+        resource_identities=tuple(sorted(set(identities))), syntax_error=syntax_error,
+        scope_plan=scope_plan,
+        container_runtime=container_runtime, locked_identity=locked_identity,
+        schema_identity=schema_identity, protected_crd_schema=protected_crd_schema,
+        timeout_seconds=timeout_seconds, max_output_bytes=max_output_bytes,
+        max_file_bytes=max_file_bytes, max_total_input_bytes=max_total_input_bytes,
+        _trusted_context=_REQUEST_CONTEXT,
+    )
+
+
+def _custom_resources(resources: tuple[str, ...]) -> bool:
+    for identity in resources:
+        api_version = identity.split(":", 1)[-1].rsplit("/", 3)[0]
+        if api_version != "v1" and not api_version.startswith(_BUILTIN_GROUPS):
+            return True
+    return False
+
+
+def _native_path(value: Any, eligible: tuple[str, ...]) -> str:
+    if type(value) is not str or not value:
+        raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+    if "\\" in value:
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    if value.startswith("/iacgv-input/"):
+        relative = value.removeprefix("/iacgv-input/")
+    elif not value.startswith("/"):
+        relative = value.removeprefix("./")
+    else:
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    try:
+        canonical = canonical_repo_path(relative, "kubeconform native path")
+    except DomainError as exc:
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value) from exc
+    if canonical not in eligible or value not in {
+        canonical, f"/iacgv-input/{canonical}", f"./{canonical}",
+    }:
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    return canonical
+
+
+def _validation_errors(value: Any) -> tuple[tuple[str, str], ...]:
+    if value is None:
+        return ()
+    if type(value) is not list or len(value) > 1_000:
+        raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+    result = []
+    for item in value:
+        if type(item) is not dict or set(item) != {"path", "msg"}:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        if type(item["path"]) is not str or type(item["msg"]) is not str:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        path = safe_report_text(item["path"], "validation error path", 4_096)
+        message = safe_report_text(item["msg"], "validation error message", 16_384)
+        if not path or not message:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        result.append((path, message))
+    return tuple(result)
+
+
+def _parse_native(
+    raw: bytes, request: KubeconformValidationRequest, exit_code: int | None,
+) -> tuple[Status, ValidationReason, tuple, str, tuple[str, ...], tuple[str, ...]]:
+    payload = _strict_json(raw)
+    if set(payload) != {"resources", "summary"}:
+        raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+    resources = payload["resources"]
+    summary = payload["summary"]
+    if type(resources) is not list or type(summary) is not dict or set(summary) != {
+        "valid", "invalid", "errors", "skipped",
+    }:
+        raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+    for value in summary.values():
+        if type(value) is not int or value < 0:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+    total = sum(summary.values())
+    if total != len(request.resource_identities):
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    if not resources and total:
+        raise DomainError(
+            ValidationReason.AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE.value
+        )
+    diagnostics = []
+    status_counts = {
+        "statusValid": 0, "statusInvalid": 0,
+        "statusError": 0, "statusSkipped": 0,
+    }
+    expected = {}
+    for identity in request.resource_identities:
+        path, address = identity.split(":", 1)
+        api_version, kind, _namespace, name = address.rsplit("/", 3)
+        key = (path, api_version, kind, name)
+        expected.setdefault(key, []).append(identity)
+    observed = []
+    observed_files = []
+    for item in resources:
+        if type(item) is not dict or not {"filename", "kind", "name", "version", "status", "msg"} <= set(item):
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        if set(item) - {"filename", "kind", "name", "version", "status", "msg", "validationErrors"}:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        path = _native_path(item["filename"], request.files_eligible)
+        if any(type(item.get(name)) is not str for name in ("kind", "name", "version", "status", "msg")):
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        status = item["status"]
+        if status not in status_counts:
+            raise DomainError(ValidationReason.MALFORMED_OUTPUT.value)
+        message = safe_report_text(item["msg"], "kubeconform message", 16_384) if item["msg"] else ""
+        validation_errors = _validation_errors(item.get("validationErrors"))
+        if status == "statusValid" and (message or validation_errors):
+            raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+        if status == "statusInvalid" and not (message or validation_errors):
+            raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+        if status in {"statusError", "statusSkipped"} and not message:
+            raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+        matches = expected.get((path, item["version"], item["kind"], item["name"]), ())
+        if len(matches) != 1:
+            raise DomainError(
+                ValidationReason.AFFIRMATIVE_RESOURCE_COVERAGE_UNAVAILABLE.value
+            )
+        observed.append(matches[0])
+        observed_files.append(path)
+        status_counts[status] += 1
+        if status != "statusValid":
+            severity = "error" if status != "statusSkipped" else "warning"
+            diagnostics.append(
+                ValidationDiagnostic(severity, status, message or status, path)
+            )
+    if len(observed) != len(set(observed)):
+        raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+    if set(observed) != set(request.resource_identities):
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    if set(observed_files) != set(request.files_eligible):
+        raise DomainError(ValidationReason.INCOMPLETE_COVERAGE.value)
+    if status_counts != {
+        "statusValid": summary["valid"],
+        "statusInvalid": summary["invalid"],
+        "statusError": summary["errors"],
+        "statusSkipped": summary["skipped"],
+    }:
+        raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+    if exit_code != (0 if summary["invalid"] == summary["errors"] == summary["skipped"] == 0 else 1):
+        raise DomainError(ValidationReason.DIAGNOSTIC_CONTRADICTION.value)
+    # kubeconform may emit resources in filesystem traversal order.  Preserve
+    # raw bytes separately, but make the semantic identity independent of that
+    # volatile ordering.
+    semantic_payload = {
+        "resources": sorted(
+            resources,
+            key=lambda item: json.dumps(item, sort_keys=True, separators=(",", ":")),
+        ),
+        "summary": summary,
+    }
+    canonical = canonical_sha256(semantic_payload)
+    if summary["errors"] or summary["skipped"]:
+        missing = any("could not find schema" in item.detail.casefold() for item in diagnostics)
+        reason = (
+            ValidationReason.CRD_SCHEMA_UNAVAILABLE
+            if missing and _custom_resources(request.resource_identities)
+            and request.protected_crd_schema is None
+            else ValidationReason.MISSING_SCHEMA if missing
+            else ValidationReason.UNSUPPORTED_CONDITION
+        )
+        return (
+            Status.INCONCLUSIVE, reason, tuple(diagnostics), canonical,
+            tuple(sorted(observed)), tuple(sorted(set(observed_files))),
+        )
+    if summary["invalid"]:
+        if request.role is ScanRole.BASELINE:
+            return (
+                Status.INCONCLUSIVE, ValidationReason.BASELINE_EVIDENCE_INVALID,
+                tuple(diagnostics), canonical, tuple(sorted(observed)),
+                tuple(sorted(set(observed_files))),
+            )
+        return (
+            Status.FAIL, ValidationReason.INVALID_CONFIGURATION, tuple(diagnostics),
+            canonical, tuple(sorted(observed)), tuple(sorted(set(observed_files))),
+        )
+    return (
+        Status.PASS, ValidationReason.COMPLETED, tuple(diagnostics), canonical,
+        tuple(sorted(observed)), tuple(sorted(set(observed_files))),
+    )
+
+
+def _copy_view(request: KubeconformValidationRequest, view: Path) -> str:
+    return materialize_view(
+        request.scan_root, request.source_bindings, view, request.max_file_bytes,
+    )
+
+
+def _evidence(
+    request: KubeconformValidationRequest, *, status: Status, reason: ValidationReason,
+    process: CommandResult | None = None, raw: bytes = b"", diagnostics: tuple = (),
+    canonical: str | None = None, observed_resources: tuple = (),
+    observed_files: tuple = (), output_manifest: str = "",
+    argv: tuple = (), materialized_view: str = "",
+) -> ValidatorExecutionEvidence:
+    empty = hashlib.sha256(b"").hexdigest()
+    return ValidatorExecutionEvidence._from_execution(
+        validator_id="kubeconform_schema", tool="kubeconform",
+        version=request.locked_identity.version, status=status, reason=reason,
+        advisory_only=False, diagnostics=diagnostics,
+        resource_identities=observed_resources, input_files=request.input_evidence,
+        files_eligible=len(request.input_evidence),
+        files_validated=len(observed_files),
+        resources_expected=len(request.resource_identities),
+        resources_validated=len(observed_resources),
+        runtime_identity=request.container_runtime.identity,
+        tool_environment_identity=canonical_sha256({
+            "tool": request.locked_identity.environment_digest,
+            "schema": request.schema_identity.identity,
+            "crd_schema": request.protected_crd_schema.identity if request.protected_crd_schema else None,
+        }),
+        invocation_identity=canonical_sha256({
+            "argv": ["protected-container-runtime", *argv[1:]] if argv else [],
+            "snapshot": request.sealed_snapshot_identity,
+            "materialized_view": materialized_view or materialized_view_manifest(request.input_evidence),
+            "schema": request.schema_identity.identity,
+        }),
+        sealed_snapshot_identity=request.sealed_snapshot_identity,
+        materialized_view_sha256=(
+            materialized_view or materialized_view_manifest(request.input_evidence)
+        ),
+        stdout_sha256=process.stdout_sha256 if process else empty,
+        stderr_sha256=process.stderr_sha256 if process else empty,
+        native_output_bytes_sha256=hashlib.sha256(raw).hexdigest(),
+        canonical_native_output_sha256=canonical or hashlib.sha256(raw).hexdigest(),
+        output_directory_manifest_sha256=output_manifest or empty,
+        exit_code=process.exit_code if process else None,
+        duration_ms=process.duration_ms if process else 0,
+        validation_scope=tuple(sorted({
+            "kind": "kubernetes-resource-set", "role": request.role.value,
+            "expected_resources_sha256": canonical_sha256(
+                list(request.resource_identities)
+            ),
+            "observed_resources_sha256": canonical_sha256(list(observed_resources)),
+        }.items())),
+        execution_controls=_CONTROLS,
+    )
+
+
+class KubeconformValidator:
+    def validate(self, request: KubeconformValidationRequest) -> ValidatorExecutionEvidence:
+        if type(request) is not KubeconformValidationRequest or not request._trusted_request:
+            raise DomainError("kubeconform validation requires a sealed request")
+        if request.syntax_error:
+            reason = (
+                ValidationReason.INVALID_CONFIGURATION if request.role is ScanRole.CANDIDATE
+                else ValidationReason.BASELINE_EVIDENCE_INVALID
+            )
+            status = Status.FAIL if request.role is ScanRole.CANDIDATE else Status.INCONCLUSIVE
+            return _evidence(request, status=status, reason=reason,
+                             diagnostics=(ValidationDiagnostic("error", reason.value, request.syntax_error),))
+        if not request.resource_identities:
+            return _evidence(request, status=Status.SKIPPED, reason=ValidationReason.EMPTY_SCOPE)
+        work = Path(tempfile.mkdtemp(prefix="iacgv-kubeconform-"))
+        process = None
+        raw = b""
+        output_manifest = ""
+        materialized_view = ""
+        result = None
+        try:
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
+            revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
+            request.schema_identity.revalidate()
+            if request.protected_crd_schema:
+                request.protected_crd_schema.revalidate()
+            view = work / "input"
+            output = work / "output"
+            materialized_view = _copy_view(request, view)
+            prepare_writable_output_directory(output)
+            schema_location = "file:///schemas/{{.ResourceKind}}{{.KindSuffix}}.json"
+            argv = (
+                str(request.container_runtime.executable_path), "run", "--rm", "--pull", "never",
+                "--network", "none", "--read-only", "--cap-drop", "ALL",
+                "--security-opt", "no-new-privileges", "--pids-limit", _DOCKER_PIDS_LIMIT,
+                "--memory", _DOCKER_MEMORY, "--cpus", _DOCKER_CPUS, "--user", _DOCKER_USER,
+                "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",
+                "-v", f"{view}:/iacgv-input:ro", "-v", f"{output}:/iacgv-output:rw",
+                "-v", f"{request.schema_identity.schema_root}:/schemas:ro",
+                "--entrypoint", "/kubeconform", request.locked_identity.execution_reference,
+                "-output", "json", "-strict", "-summary", "-verbose",
+                "-schema-location", schema_location,
+                "/iacgv-input",
+            )
+            if request.protected_crd_schema:
+                argv = (*argv[:-1], "-schema-location", "file:///crd-schemas/{{.ResourceKind}}.json", argv[-1])
+                argv = (*argv[:argv.index("--entrypoint")], "-v", f"{request.protected_crd_schema.schema_root}:/crd-schemas:ro", *argv[argv.index("--entrypoint"):])
+            require_hardened_docker_argv(argv, pids_limit=_DOCKER_PIDS_LIMIT,
+                                         memory=_DOCKER_MEMORY, cpus=_DOCKER_CPUS, user=_DOCKER_USER)
+            revalidate_trusted_container_runtime(request.container_runtime, workspace_root=request.workspace_root)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
+            process = run_command(CommandRequest(
+                argv=argv, expected_exit_codes=(0, 1), workspace_root=request.workspace_root,
+                timeout_seconds=request.timeout_seconds, max_output_bytes=request.max_output_bytes,
+                max_stdout_bytes=request.max_output_bytes, max_stderr_bytes=request.max_output_bytes,
+                env_extra={"PYTHONDONTWRITEBYTECODE": "1"},
+            ))
+            if process.argv != argv:
+                raise DomainError(ValidationReason.RUNTIME_INTEGRITY_FAILED.value)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
+            for sealed in request.source_bindings:
+                read_sealed_source(request.scan_root, sealed, request.max_file_bytes)
+            revalidate_materialized_view(
+                view, request.input_evidence, request.max_file_bytes,
+            )
+            revalidate_writable_output_directory(output)
+            revalidate_validation_scope_plan(
+                request.scan_root, request.scope_plan, request.max_file_bytes,
+            )
+            request.schema_identity.revalidate()
+            if request.protected_crd_schema:
+                request.protected_crd_schema.revalidate()
+            _, output_manifest = read_locked_output_directory(
+                output, allowed_files=(), max_file_bytes=request.max_output_bytes,
+                max_total_bytes=request.max_output_bytes,
+            )
+            revalidate_writable_output_directory(output)
+            if process.status is not Status.PASS:
+                reason = ValidationReason.TIMEOUT if process.timed_out else ValidationReason.PROCESS_ERROR
+                result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,
+                                   process=process, output_manifest=output_manifest, argv=argv,
+                                   materialized_view=materialized_view)
+            else:
+                raw = process.stdout
+                (
+                    status, reason, diagnostics, canonical,
+                    observed_resources, observed_files,
+                ) = _parse_native(raw, request, process.exit_code)
+                result = _evidence(request, status=status, reason=reason, process=process,
+                                   raw=raw, diagnostics=diagnostics, canonical=canonical,
+                                   observed_resources=observed_resources,
+                                   observed_files=observed_files,
+                                   output_manifest=output_manifest, argv=argv,
+                                   materialized_view=materialized_view)
+        except (DomainError, OSError) as exc:
+            try:
+                reason = ValidationReason(str(exc))
+            except ValueError:
+                reason = ValidationReason.PROCESS_ERROR
+            result = _evidence(request, status=Status.INCONCLUSIVE, reason=reason,
+                               process=process, raw=raw, output_manifest=output_manifest,
+                               materialized_view=materialized_view)
+        try:
+            remove_private_tree(work)
+        except OSError:
+            return _evidence(request, status=Status.INCONCLUSIVE,
+                             reason=ValidationReason.OUTPUT_DIRECTORY_INTEGRITY_FAILED,
+                             process=process, raw=raw, output_manifest=output_manifest,
+                             materialized_view=materialized_view)
+        assert result is not None
+        return result
+
+
+__all__ = [
+    "KubeconformValidationRequest", "KubeconformValidator",
+    "create_kubeconform_validation_request",
+]

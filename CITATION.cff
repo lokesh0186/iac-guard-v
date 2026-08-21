@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software or benchmark, please cite the QRS 2026 paper."
+message: "If you use the software, cite this record; if you use the frozen research artifact, also cite the QRS 2026 paper below."
 title: "IaC-Guard-V: A Verification Framework for LLM-Generated Infrastructure-as-Code Repairs"
 authors:
   - family-names: Chauhan
@@ -8,6 +8,7 @@ authors:
     email: lokesh0186@gmail.com
     affiliation: "Independent Researcher"
 type: software
+version: 0.1.0a1
 license: Apache-2.0
 repository-code: "https://github.com/lokesh0186/iac-guard-v"
 url: "https://github.com/lokesh0186/iac-guard-v"
@@ -30,7 +31,7 @@ preferred-citation:
       orcid: "https://orcid.org/0009-0004-1544-6424"
   year: 2026
   conference:
-    name: "26th IEEE International Conference on Software Quality, Reliability, and Security (QRS 2026)"
+    name: "26th International Conference on Software Quality, Reliability, and Security (QRS 2026)"
     city: Florence
     country: Italy
     date-start: 2026-07-22
@@ -38,9 +39,3 @@ preferred-citation:
   collection-title: "Lecture Notes in Computer Science"
   publisher:
     name: "Springer"
-# After arXiv ID and Zenodo DOI are available, uncomment and fill:
-# identifiers:
-#   - type: doi
-#     value: "ADD-ZENODO-DOI-HERE"
-#   - type: other
-#     value: "arXiv:ADD-ID-HERE"
