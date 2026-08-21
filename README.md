@@ -103,11 +103,11 @@ baseline finding should be verified:
   --output ./iac-guard-report.json
 ```
 
-After publication, replace the local wheel path with `iac-guard-v==0.1.0a1` in the
-same `pip --python ... install --no-compile` command. The packaged `demo --real` command
-then remains source-independent; ordinary `verify` consumes directories supplied by the
-user. Run `doctor` and the real demo again without cache cleanup—the release gate tests
-that installed sequence twice.
+For the published alpha, replace the local wheel path with `iac-guard-v==0.1.0a1` in
+the same `pip --python ... install --no-compile` command. The packaged `demo --real`
+command then remains source-independent; ordinary `verify` consumes directories supplied
+by the user. Run `doctor` and the real demo again without cache cleanup—the release gate
+tests that installed sequence twice.
 
 ## Project status
 
@@ -256,8 +256,10 @@ Uncertainty is never reported as a successful test.
 - IaC-Guard-V does not defend against hostile Python already executing inside its
   trusted interpreter.
 
-See [SECURITY.md](SECURITY.md) for reporting guidance and
-[`docs/spec/THREAT_MODEL.md`](docs/spec/THREAT_MODEL.md) for the detailed model.
+See [SECURITY.md](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md) for
+reporting guidance and
+[`docs/spec/THREAT_MODEL.md`](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/spec/THREAT_MODEL.md)
+for the detailed model.
 
 ## Research snapshot
 
@@ -265,28 +267,30 @@ The QRS 2026 artifact is historical evidence, not the current hardened product. 
 scanner of record is Checkov 3.2.517, while the alpha product contract uses Checkov
 3.3.0. The stored experiment outputs are never re-labelled as hardened-engine runs.
 
-See [RESEARCH_SNAPSHOT.md](RESEARCH_SNAPSHOT.md) for the manifest root, replay
-contract, limitations, and exact offline verification commands. The pre-peer-review
-manuscript has been submitted to arXiv, but its public identifier is still pending. No
-placeholder identifier or broken link is published. The Springer Version of Record and
-DOI will be linked when they become available.
+See
+[RESEARCH_SNAPSHOT.md](https://github.com/lokesh0186/iac-guard-v/blob/main/RESEARCH_SNAPSHOT.md)
+for the manifest root, replay contract, limitations, and exact offline verification
+commands. The pre-peer-review manuscript has been submitted to arXiv, but its public
+identifier is still pending. No placeholder identifier or broken link is published. The
+Springer Version of Record and DOI will be linked when they become available.
 
 ## Contributing and roadmap
 
-- [CONTRIBUTING.md](CONTRIBUTING.md)
-- [ROADMAP.md](ROADMAP.md)
-- [CHANGELOG.md](CHANGELOG.md)
-- [NOTICE](NOTICE)
+- [CONTRIBUTING.md](https://github.com/lokesh0186/iac-guard-v/blob/main/CONTRIBUTING.md)
+- [ROADMAP.md](https://github.com/lokesh0186/iac-guard-v/blob/main/ROADMAP.md)
+- [CHANGELOG.md](https://github.com/lokesh0186/iac-guard-v/blob/main/CHANGELOG.md)
+- [NOTICE](https://github.com/lokesh0186/iac-guard-v/blob/main/NOTICE)
 
 ## Citation
 
 Citation metadata for the accepted QRS 2026 paper and this software is in
-[CITATION.cff](CITATION.cff). The arXiv submission is pending public availability. Once
-Springer publishes the Version of Record, its DOI and publisher page will become the
-primary paper citation; an available arXiv preprint may remain as a separate accessible
-manuscript link.
+[CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff). The
+arXiv submission is pending public availability. Once Springer publishes the Version of
+Record, its DOI and publisher page will become the primary paper citation; an available
+arXiv preprint may remain as a separate accessible manuscript link.
 
 ## License
 
-IaC-Guard-V is licensed under the [Apache License 2.0](LICENSE). Third-party tools are
-not bundled and retain their own licences and trademarks.
+IaC-Guard-V is licensed under the
+[Apache License 2.0](https://github.com/lokesh0186/iac-guard-v/blob/main/LICENSE).
+Third-party tools are not bundled and retain their own licences and trademarks.
