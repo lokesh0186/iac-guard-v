@@ -1,0 +1,52 @@
+name: Publish reviewed PyPI artifacts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pypi-0.1.0a1
+  cancel-in-progress: false
+
+jobs:
+  publish-pypi:
+    name: Publish 0.1.0a1 to PyPI
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/iac-guard-v
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download and verify the reviewed GitHub Release artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: v0.1.0-alpha.1
+          RELEASE_COMMIT: 8e654ab7e58aaa3e4010a4accc58e1f8e0352a10
+          WHEEL_SHA256: cef195ecd950f12b8ef40c5f30c6d72761aa346902df3fc91c7e17b65ff5ce49
+          SDIST_SHA256: 2237087355d580c3d14a2a73d8bea21a958e6a4f31e9dbbb5e9684570d3db904
+        run: |
+          set -euo pipefail
+          test "${GITHUB_REPOSITORY}" = "lokesh0186/iac-guard-v"
+          test "$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json targetCommitish --jq .targetCommitish)" = "${RELEASE_COMMIT}"
+          mkdir dist
+          gh release download "${RELEASE_TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --dir dist \
+            --pattern 'iac_guard_v-0.1.0a1-py3-none-any.whl' \
+            --pattern 'iac_guard_v-0.1.0a1.tar.gz'
+          test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 2
+          printf '%s  %s\n' \
+            "${WHEEL_SHA256}" 'dist/iac_guard_v-0.1.0a1-py3-none-any.whl' \
+            "${SDIST_SHA256}" 'dist/iac_guard_v-0.1.0a1.tar.gz' \
+            | sha256sum --check --strict -
+
+      - name: Publish the byte-identical artifacts with Trusted Publishing
+        uses: pypa/gh-action-pypi-publish@dc376e1e1c63e2034f94d8a5b11f265b73ba33 # release/v1, reviewed 2026-08-20
+        with:
+          packages-dir: dist/
+          print-hash: true
+
