@@ -270,9 +270,9 @@ scanner of record is Checkov 3.2.517, while the alpha product contract uses Chec
 See
 [RESEARCH_SNAPSHOT.md](https://github.com/lokesh0186/iac-guard-v/blob/main/RESEARCH_SNAPSHOT.md)
 for the manifest root, replay contract, limitations, and exact offline verification
-commands. The pre-peer-review manuscript has been submitted to arXiv, but its public
-identifier is still pending. No placeholder identifier or broken link is published. The
-Springer Version of Record and DOI will be linked when they become available.
+commands. The pre-peer-review manuscript has been submitted to arXiv. Its public identifier is still pending.
+No placeholder identifier or broken link is published. The Springer Version of Record
+and DOI will be linked when they become available.
 
 ## Contributing and roadmap
 
