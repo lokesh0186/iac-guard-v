@@ -45,8 +45,7 @@ jobs:
             | sha256sum --check --strict -
 
       - name: Publish the byte-identical artifacts with Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@dc376e1e1c63e2034f94d8a5b11f265b73ba33 # release/v1, reviewed 2026-08-20
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1, reviewed 2026-08-20
         with:
           packages-dir: dist/
           print-hash: true
-

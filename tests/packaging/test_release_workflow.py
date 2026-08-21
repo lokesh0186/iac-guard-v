@@ -30,8 +30,7 @@ def test_release_workflow_pins_the_publisher_action() -> None:
 
     assert (
         "pypa/gh-action-pypi-publish@"
-        "dc376e1e1c63e2034f94d8a5b11f265b73ba33"
+        "dc37677b2e1c63e2034f94d8a5b11f265b73ba33"
     ) in workflow
     assert "pypa/gh-action-pypi-publish@release/" not in workflow
     assert "pypa/gh-action-pypi-publish@v" not in workflow
-
