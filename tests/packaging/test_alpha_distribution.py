@@ -240,6 +240,11 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         assert statement in readme
     assert "arXiv:ADD" not in readme
     assert "XXXX.XXXXX" not in readme
+    assert "not yet a published release" not in readme
+    assert "package version `0.1.0a1` is not published" not in readme
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [0.1.0a1] — 2026-08-20" in changelog
+    assert "prepared, not published" not in changelog
 
 
 def test_release_checklist_requires_paper_absence_without_fake_identifier() -> None:

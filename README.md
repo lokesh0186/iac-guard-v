@@ -5,8 +5,7 @@ more specific question than a scanner: **did this candidate change resolve the b
 finding without hiding evidence, deleting the target, introducing a regression, or
 turning operational uncertainty into success?**
 
-`0.1.0a1` is a Checkov-focused alpha. It is prepared for review but is not yet a
-published release.
+`0.1.0a1` is a Checkov-focused technical alpha.
 
 ## Source-independent Checkov alpha path
 
@@ -116,7 +115,7 @@ that installed sequence twice.
 | --- | --- |
 | Frozen QRS 2026 research snapshot | Bound to commit `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5` and `MANIFEST_ROOT` `a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`; public CI reconstructs and verifies the local-only annotated freeze tag, which is not published. |
 | Hardened product core | Typed differential evidence, fail-closed report validation, Checkov 3.3.0 integration, and deterministic reporters. |
-| Checkov-focused alpha | The supported initial product focus; package version `0.1.0a1` is not published. |
+| Checkov-focused alpha | The supported initial product focus; package version `0.1.0a1`. |
 | KICS, Trivy, OpenTofu, kubeconform, and TFLint | Experimental and advisory; their agreement cannot change the final verdict. |
 | Hardened production container and Action | Not released. |
 
