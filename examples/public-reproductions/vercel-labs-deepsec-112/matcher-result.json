@@ -1,0 +1,40 @@
+{
+  "repository": "vercel-labs/deepsec",
+  "pull_request": 112,
+  "base_sha": "97ebd04b455a492dfd5b9ad86f2dd9cf8b05fa04",
+  "head_sha": "783195c4b2a1da94c23f5cacf55114a190c2032f",
+  "matcher": "k8s-privileged-workload",
+  "results": [
+    {
+      "id": "block_privileged",
+      "fixture": "fixtures/block-privileged.yaml",
+      "fixture_sha256": "e1abf6903a8c7099b88da96f2726e48d3a66915b64f4adfb1dde2cb59cc145eb",
+      "matches": [
+        {
+          "pattern": "privileged container",
+          "line_numbers": [
+            10
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inline_privileged",
+      "fixture": "fixtures/inline-privileged.yaml",
+      "fixture_sha256": "2028fd18fce912f5726442c5dc574b297fb27771e51d6d76ec7bf278e81ce660",
+      "matches": []
+    },
+    {
+      "id": "list_privileged",
+      "fixture": "fixtures/list-privileged.yaml",
+      "fixture_sha256": "dbdb50044c0b3fb2c4cd81c148412bfe161edfc7cc58da7d580bb1777d21143e",
+      "matches": []
+    },
+    {
+      "id": "windows_hostprocess",
+      "fixture": "fixtures/windows-hostprocess.yaml",
+      "fixture_sha256": "d8e16e5a6bb9c49ae288a73be4604f2d76255ac7a9fad73a1c5d06e2e8ba23f6",
+      "matches": []
+    }
+  ]
+}

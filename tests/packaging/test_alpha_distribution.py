@@ -275,8 +275,45 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "no telemetry, model-provider SDK" in security_model
 
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "## [0.1.0a1] — 2026-08-20" in changelog
+    assert "## [0.1.0a1] - 2026-08-20" in changelog
     assert "prepared, not published" not in changelog
+
+
+def test_public_deepsec_evidence_is_sanitized_and_bound() -> None:
+    evidence = (
+        ROOT / "examples/public-reproductions/vercel-labs-deepsec-112"
+    )
+    matcher = json.loads((evidence / "matcher-result.json").read_text(encoding="utf-8"))
+    oracle = json.loads((evidence / "oracle-result.json").read_text(encoding="utf-8"))
+
+    assert matcher["base_sha"] == "97ebd04b455a492dfd5b9ad86f2dd9cf8b05fa04"
+    assert matcher["head_sha"] == "783195c4b2a1da94c23f5cacf55114a190c2032f"
+    matcher_results = {item["id"]: item for item in matcher["results"]}
+    assert matcher_results["block_privileged"]["matches"][0]["pattern"] == (
+        "privileged container"
+    )
+    assert matcher_results["inline_privileged"]["matches"] == []
+
+    assert oracle["result_kind"] == "protected-oracle-semantic-projection-v1"
+    oracle_results = {item["id"]: item for item in oracle["results"]}
+    inline = oracle_results["inline_privileged"]["oracle_result_projection"]
+    assert inline["oracle_id"] == "kubernetes_no_privileged_containers_v1"
+    assert inline["status"] == "FAIL"
+    assert inline["reason"] == "ASSERTION_VIOLATED"
+
+    for payload in (matcher, oracle):
+        for item in payload["results"]:
+            fixture = evidence / item["fixture"]
+            assert hashlib.sha256(fixture.read_bytes()).hexdigest() == item["fixture_sha256"]
+
+    public_bytes = b"\n".join(
+        path.read_bytes() for path in evidence.rglob("*") if path.is_file()
+    )
+    for forbidden in (
+        b"/Users/", b"iac-guard-v-private-screening", b"implementation_build_identity",
+        b"sealed_snapshot_identity",
+    ):
+        assert forbidden not in public_bytes
 
 
 def test_release_checklist_requires_paper_absence_without_fake_identifier() -> None:

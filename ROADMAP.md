@@ -20,6 +20,7 @@ promised release dates:
 - Strengthen Terraform lexical inventory for valid quoted-string content.
 - Add bounded Checkov CKV2/graph-finding evidence without weakening exact target
   identity.
+- Stabilize protected-oracle implementation identity across fresh Python processes.
 - Improve diagnostics and performance for large Git materializations.
 - Evaluate a candidate-only/new-IaC review mode that reports introduced findings
   without mislabelling a new module as a `FIXED` repair.

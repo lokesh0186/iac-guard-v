@@ -1,0 +1,105 @@
+{
+  "checkov_version": "3.3.0",
+  "iac_guard_v_version": "0.1.0a1",
+  "result_kind": "protected-oracle-semantic-projection-v1",
+  "results": [
+    {
+      "fixture": "fixtures/inline-privileged.yaml",
+      "fixture_sha256": "2028fd18fce912f5726442c5dc574b297fb27771e51d6d76ec7bf278e81ce660",
+      "id": "inline_privileged",
+      "oracle_result_projection": {
+        "artifact_kind": "kubernetes_yaml",
+        "authoritative_reference": "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+        "contract_version": "protected-deterministic-oracle-v3",
+        "execution_controls": [
+          "callbacks-disabled",
+          "candidate-policy-disabled",
+          "network-disabled",
+          "sealed-snapshot-bytes",
+          "unpinned-bundles-disabled"
+        ],
+        "file_path": "inline-privileged.yaml",
+        "observations": [
+          {
+            "detail": "securityContext.privileged is not true",
+            "path": "containers/app/securityContext/privileged",
+            "result": "VIOLATED"
+          }
+        ],
+        "oracle_id": "kubernetes_no_privileged_containers_v1",
+        "protected_policy_sha256": "c19bef94f5704947941ec22c377918d1fc0c7eaca28f0d96b92b4add4cf5fe0b",
+        "reason": "ASSERTION_VIOLATED",
+        "resource_identity": "v1/Pod/default/inline-demo",
+        "role": "candidate",
+        "status": "FAIL"
+      }
+    },
+    {
+      "fixture": "fixtures/list-privileged.yaml",
+      "fixture_sha256": "dbdb50044c0b3fb2c4cd81c148412bfe161edfc7cc58da7d580bb1777d21143e",
+      "id": "list_privileged",
+      "oracle_result_projection": {
+        "artifact_kind": "kubernetes_yaml",
+        "authoritative_reference": "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+        "contract_version": "protected-deterministic-oracle-v3",
+        "execution_controls": [
+          "callbacks-disabled",
+          "candidate-policy-disabled",
+          "network-disabled",
+          "sealed-snapshot-bytes",
+          "unpinned-bundles-disabled"
+        ],
+        "file_path": "list-privileged.yaml",
+        "observations": [
+          {
+            "detail": "securityContext.privileged is not true",
+            "path": "containers/app/securityContext/privileged",
+            "result": "VIOLATED"
+          }
+        ],
+        "oracle_id": "kubernetes_no_privileged_containers_v1",
+        "protected_policy_sha256": "c19bef94f5704947941ec22c377918d1fc0c7eaca28f0d96b92b4add4cf5fe0b",
+        "reason": "ASSERTION_VIOLATED",
+        "resource_identity": "v1/Pod/default/list-demo",
+        "role": "candidate",
+        "status": "FAIL"
+      }
+    },
+    {
+      "fixture": "fixtures/windows-hostprocess.yaml",
+      "fixture_sha256": "d8e16e5a6bb9c49ae288a73be4604f2d76255ac7a9fad73a1c5d06e2e8ba23f6",
+      "id": "windows_hostprocess",
+      "oracle_result_projection": {
+        "artifact_kind": "kubernetes_yaml",
+        "authoritative_reference": "https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline",
+        "contract_version": "protected-deterministic-oracle-v3",
+        "execution_controls": [
+          "callbacks-disabled",
+          "candidate-policy-disabled",
+          "network-disabled",
+          "sealed-snapshot-bytes",
+          "unpinned-bundles-disabled"
+        ],
+        "file_path": "windows-hostprocess.yaml",
+        "observations": [
+          {
+            "detail": "securityContext.windowsOptions.hostProcess is not true",
+            "path": "containers/app/securityContext/windowsOptions/hostProcess",
+            "result": "SATISFIED"
+          },
+          {
+            "detail": "securityContext.windowsOptions.hostProcess is not true",
+            "path": "pod/securityContext/windowsOptions/hostProcess",
+            "result": "VIOLATED"
+          }
+        ],
+        "oracle_id": "kubernetes_no_windows_hostprocess_v1",
+        "protected_policy_sha256": "c19bef94f5704947941ec22c377918d1fc0c7eaca28f0d96b92b4add4cf5fe0b",
+        "reason": "ASSERTION_VIOLATED",
+        "resource_identity": "v1/Pod/default/windows-demo",
+        "role": "candidate",
+        "status": "FAIL"
+      }
+    }
+  ]
+}

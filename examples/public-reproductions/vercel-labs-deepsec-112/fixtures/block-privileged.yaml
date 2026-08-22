@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: block-demo
+spec:
+  containers:
+    - name: app
+      image: example.invalid/app
+      securityContext:
+        privileged: true

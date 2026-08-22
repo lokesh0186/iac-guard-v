@@ -12,6 +12,8 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 - Moved detailed installation, scope, and trust-boundary material into focused public
   documentation without weakening any alpha limitation.
 - Clarified contribution priorities and made the roadmap evidence-driven.
+- Added target-scoped DeepSec #112 evidence for Kubernetes privileged-workload
+  matcher boundaries.
 
 ## [0.1.0a1] - 2026-08-20
 
