@@ -1,87 +1,66 @@
 # IaC-Guard-V
 
-IaC-Guard-V is a fail-closed verifier for infrastructure-as-code changes. It asks a
-more specific question than a scanner: **did this candidate change resolve the bound
-finding without hiding evidence, deleting the target, introducing a regression, or
-turning operational uncertainty into success?**
+[![PyPI](https://img.shields.io/pypi/v/iac-guard-v)](https://pypi.org/project/iac-guard-v/)
+[![Python](https://img.shields.io/pypi/pyversions/iac-guard-v)](https://pypi.org/project/iac-guard-v/)
+[![Python compatibility](https://github.com/lokesh0186/iac-guard-v/actions/workflows/python-compat.yml/badge.svg?branch=main)](https://github.com/lokesh0186/iac-guard-v/actions/workflows/python-compat.yml)
+[![License](https://img.shields.io/pypi/l/iac-guard-v)](https://github.com/lokesh0186/iac-guard-v/blob/main/LICENSE)
+[![QRS 2026](https://img.shields.io/badge/QRS-2026-4b5563)](https://github.com/lokesh0186/iac-guard-v/blob/main/RESEARCH_SNAPSHOT.md)
 
-`0.1.0a1` is a Checkov-focused technical alpha.
+**Verify that an infrastructure-as-code security fix actually fixed the intended
+finding—without hiding evidence, deleting the target, or introducing a regression.**
 
-## Source-independent Checkov alpha path
+IaC-Guard-V works with changes written by people, AI coding agents, and remediation
+tools. It binds scanner evidence to the exact before/after files and resources, then
+fails closed when the evidence is incomplete or unverifiable.
 
-This is the supported native alpha path for trusted local input. It uses copied-file
-environments created without bundled pip, installs with `--no-compile`, and relies on
-the wheel's RECORD-bound startup policy to prevent runtime bytecode. No cache cleanup or
-hidden environment variable is required; specifically, users do not need to export
-`PYTHONDONTWRITEBYTECODE=1`. The hardened hostile-input container is not released.
+> **Status:** `0.1.0a1` technical alpha · Checkov-focused · trusted local input only.
+> The hardened hostile-input container and GitHub Action are not released.
 
-On macOS, the Apple or another framework Python may report that it cannot create a
-virtual environment without symlinks. Do not remove `--copies`: install a standalone,
-uv-managed Python and use it for the two protected environments:
+## Why IaC-Guard-V?
+
+A scanner can say, “this check passes now.” IaC-Guard-V asks the questions needed to
+trust that conclusion:
+
+- Was this exact finding present before?
+- Is the candidate evidence bound to the same file and resource?
+- Did the finding actually become a passing evaluation?
+- Was the target deleted, renamed, suppressed, or replaced?
+- Did another finding or destructive change appear?
+- Did the scanner, ruleset, parser, and coverage remain trustworthy?
+
+Uncertainty is reported as `INCONCLUSIVE`, never as success.
+
+## Install and try it
+
+Install the public package and run the deterministic offline demo:
 
 ```bash
-brew install uv
-uv python install 3.12
-ALPHA_PYTHON="$(uv python find --managed-python 3.12)"
+python -m pip install iac-guard-v==0.1.0a1
+iac-guard --version
+iac-guard demo
 ```
 
-On a Python installation that already supports copied-file environments, use:
-
-```bash
-ALPHA_PYTHON="$(command -v python3)"
+```text
+IaC-Guard-V offline demo (illustrative; not verification evidence)
+VERIFIED     target FIXED; scanner integrity PASS; policy VERIFIED; exit 0
+FAILED       target STILL_PRESENT; policy FAILED; exit 1
+SUPPRESSED   suppression visible; policy FAILED; exit 1
+INCONCLUSIVE scanner or coverage evidence unavailable; exit 3
 ```
 
-```bash
-rm -rf dist build
-find . -maxdepth 2 -type d -name '*.egg-info' -prune -exec rm -rf {} +
-python3 -m pip install --upgrade pip
-python3 -m pip install 'build>=1.2,<2'
-python3 -m build --outdir dist
+The offline demo needs neither Checkov nor Docker. It explains the result model but
+does not create verification evidence.
 
-"$ALPHA_PYTHON" -m venv --copies --without-pip .venv-iac-guard
-"$ALPHA_PYTHON" -m venv --copies --without-pip .venv-checkov330
-python3 -m pip --python .venv-iac-guard/bin/python install --no-compile \
-  dist/iac_guard_v-0.1.0a1-py3-none-any.whl
-python3 -m pip --python .venv-checkov330/bin/python install --no-compile \
-  'checkov==3.3.0'
+## Verify a real change
 
-.venv-iac-guard/bin/iac-guard doctor \
-  --mode local-trusted \
-  --checkov-executable "$PWD/.venv-checkov330/bin/checkov"
-.venv-iac-guard/bin/iac-guard demo \
-  --real \
-  --local-trusted \
-  --checkov-executable "$PWD/.venv-checkov330/bin/checkov" \
-  --format console \
-  --output ./iac-guard-report.json
-# IaC-Guard-V: VERIFIED
-# exit_code: 0
-# targets:
-#   CKV_AWS_53 aws_s3_bucket_public_access_block.example: FIXED
-# scanner integrity: PASS
-# regressions: none
-# policy: VERIFIED
-```
-
-Real verification may remain quiet for several minutes while Checkov runs and
-IaC-Guard-V captures and validates its output. `0.1.0a1` prints the conclusion only
-after that evidence is complete; do not interpret the quiet period as a hung process.
-The external macOS smoke completed with `VERIFIED` in approximately three minutes.
-
-Exit codes are `0` VERIFIED, `1` FAILED, `2` invalid request, `3` INCONCLUSIVE, and
-`4` unexpected internal error. The saved file is canonical validated `report-v1` even
-when console output is selected. Native `local-trusted` mode is reduced isolation:
-use it only for operator-controlled input. [Advanced config workflow](#advanced-pinned-configuration)
-remains available for reproducible automation.
-
-`demo --real` reads the example from the installed wheel, so the command above works
-from an otherwise empty directory and does not require a Git source checkout. To verify
-your own before/after directories, use the same installed environments:
+Real Checkov verification uses separate protected product and scanner environments.
+Follow the tested [real-verification installation](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/ADVANCED_INSTALLATION.md),
+then run:
 
 ```bash
 .venv-iac-guard/bin/iac-guard verify \
-  --before ./my-before \
-  --after ./my-after \
+  --before ./before \
+  --after ./after \
   --all-baseline-findings \
   --framework terraform \
   --local-trusted \
@@ -89,13 +68,24 @@ your own before/after directories, use the same installed environments:
   --output ./iac-guard-report.json
 ```
 
-Use an exact selector when a repository contains multiple occurrences or when only one
-baseline finding should be verified:
+A successful target-scoped repair looks like:
+
+```text
+IaC-Guard-V: VERIFIED
+exit_code: 0
+target: CKV_AWS_53 aws_s3_bucket_public_access_block.example: FIXED
+scanner integrity: PASS
+regressions: none
+policy: VERIFIED
+```
+
+Use an exact selector when you want one finding or when a resource occurs in more than
+one file:
 
 ```bash
 .venv-iac-guard/bin/iac-guard verify \
-  --before ./my-before \
-  --after ./my-after \
+  --before ./before \
+  --after ./after \
   --target CKV_AWS_53=aws_s3_bucket_public_access_block.example \
   --framework terraform \
   --local-trusted \
@@ -103,49 +93,38 @@ baseline finding should be verified:
   --output ./iac-guard-report.json
 ```
 
-For the published alpha, replace the local wheel path with `iac-guard-v==0.1.0a1` in
-the same `pip --python ... install --no-compile` command. The packaged `demo --real`
-command then remains source-independent; ordinary `verify` consumes directories supplied
-by the user. Run `doctor` and the real demo again without cache cleanup—the release gate
-tests that installed sequence twice.
+Real verification may remain quiet for several minutes while Checkov runs and the
+evidence is captured and validated. The validated conclusion is printed only after the
+evidence is complete.
 
-## Project status
+## Real-world example
 
-| Area | Status |
+IaC-Guard-V independently evaluated the privilege-hardening portion of
+[Coder `demo-env-templates` PR #180](https://github.com/coder/demo-env-templates/pull/180):
+
+| Exact target | Base | Head | Outcome |
+| --- | --- | --- | --- |
+| `CKV_K8S_16` · `kubernetes_deployment_v1.this` | failing | passing | `FIXED` |
+| `CKV_K8S_20` · `kubernetes_deployment_v1.this` | failing | passing | `FIXED` |
+
+Scanner integrity, Terraform parsing, and target-scoped regression gates passed,
+producing `VERIFIED` with exit `0`. This is target-scoped evidence—not a whole-PR
+certification. See the
+[immutable reproduction and report](https://github.com/lokesh0186/iac-guard-v/tree/25cff91e2c039ddc648541a06191f4b9b9a813b7/examples/public-reproductions/coder-demo-env-templates-180).
+
+## Main commands
+
+| Command | Purpose |
 | --- | --- |
-| Frozen QRS 2026 research snapshot | Bound to commit `7646d5930832cc7a6b4dcd7c59de57a6c50fc4b5` and `MANIFEST_ROOT` `a42cf0184aa345e50603caeed2c9035f3da45bc636c950633d766566f5e9b7b3`; public CI reconstructs and verifies the local-only annotated freeze tag, which is not published. |
-| Hardened product core | Typed differential evidence, fail-closed report validation, Checkov 3.3.0 integration, and deterministic reporters. |
-| Checkov-focused alpha | The supported initial product focus; package version `0.1.0a1`. |
-| KICS, Trivy, OpenTofu, kubeconform, and TFLint | Experimental and advisory; their agreement cannot change the final verdict. |
-| Hardened production container and Action | Not released. |
+| `iac-guard demo` | Show deterministic illustrative outcomes offline. |
+| `iac-guard demo --real --local-trusted ...` | Run the packaged Checkov before/after fixture. |
+| `iac-guard doctor --mode local-trusted ...` | Check whether the selected local verification environment is usable. |
+| `iac-guard verify ...` | Verify exact before/after directories. |
+| `iac-guard pr ...` | Materialize exact Git base/head objects and verify changed targets. |
+| `iac-guard explain report.json` | Validate and explain an existing `report-v1`. |
 
-There are no external-adoption, production-readiness, or multi-scanner-consensus
-claims. The control catalog has zero `EXACT` mappings and is not ready for validated-
-discrepancy screening.
-
-Exact raw stdout/result hashes and durations remain run-specific provenance. The
-release test requires stable semantic evidence and deterministic reporter projections
-while preserving those exact raw identities.
-
-`doctor --mode local-trusted` succeeds when the Checkov alpha is usable; `doctor --mode
-hardened-container` remains inconclusive until that image exists. Multi-scanner evidence
-remains experimental and advisory.
-
-The two environments are intentional: Checkov 3.3.0 installs `bc-python-hcl2`, while
-the product's protected Terraform parser is `python-hcl2`. Installing both distributions
-over the same `hcl2` package files breaks wheel-RECORD provenance and is rejected.
-
-The wheel contains product code, schemas, and protected bundled oracle policy. It does
-not contain the paper, benchmark, stored runs, research datasets, experiment scripts,
-or test-only evidence capabilities.
-
-## Other alpha commands
-
-### Direct Git pull-request verification
-
-The Git-aware path reads exact objects into private temporary trees and does not change
-the current checkout, index, branch, or worktree. `--changed-only` restricts target
-selection; regression coverage still uses the complete candidate snapshot.
+Git-aware verification does not modify the current checkout, index, branch, or
+worktree:
 
 ```bash
 .venv-iac-guard/bin/iac-guard pr \
@@ -161,136 +140,63 @@ selection; regression coverage still uses the complete candidate snapshot.
   --output ./iac-guard.sarif
 ```
 
-### Offline demo
-
-`demo` is deterministic, requires neither Checkov nor Docker, and creates no trusted
-verification evidence:
-
-```bash
-iac-guard demo
-iac-guard demo --format json
-```
-
-Console demo shows illustrative VERIFIED, FAILED, SUPPRESSED, and INCONCLUSIVE states.
-Its JSON `OFFLINE_DEMO_ONLY` report remains non-evidentiary. `demo --real
---local-trusted` runs the packaged Checkov example through the public verification path.
-
-### Explain an existing report
-
-`explain` validates the complete `report-v1` evidence graph before rendering it. It
-does not create or change verification evidence:
-
-```bash
-iac-guard explain report.json
-```
-
-Contradictory or forged reports are rejected as invalid requests.
-
-### Advanced pinned configuration
-
-For operator-controlled local input, initialize an explicit reduced-isolation request:
-
-```bash
-iac-guard init \
-  --baseline ./before \
-  --candidate ./after \
-  --target CKV_AWS_53=aws_s3_bucket_public_access_block.example \
-  --framework terraform \
-  --execution-mode reduced-isolation \
-  --checkov-executable "$(command -v checkov)" \
-  --output ./iac-guard.config.json
-```
-
-The workflow commands all enter the same sealed-snapshot and protected-policy verifier:
-
-```bash
-iac-guard scan --config ./iac-guard.config.json --format json
-iac-guard differential --config ./iac-guard.config.json --format markdown
-iac-guard pr --changed-only --config ./iac-guard.config.json --format sarif
-```
-
-`scan` remains a differential report-v1 workflow in this alpha: its config names both
-the trusted baseline and candidate. `pr --changed-only` additionally requires every
-selected target file to have changed, then the normal verifier independently reseals
-both complete snapshots.
-
-Create a deterministic local environment record with:
-
-```bash
-iac-guard lock \
-  --config ./iac-guard.config.json \
-  --output ./iac-guard.lock.json
-```
-
-The alpha lock is labelled `LOCK_RECORD_NOT_VERIFICATION_EVIDENCE`; it cannot be
-submitted as scanner evidence or make a verdict trusted. Hardened-container lock
-creation remains unavailable until that image is reviewed and released.
-
-Validated report-v1 input can be projected as `json`, `console`, `sarif`, `markdown`,
-or `junit` where the command accepts `--format`. Reporters never reinterpret a target
-outcome, and JUnit represents uncertainty as skipped/error rather than success.
+Advanced pinned configuration, lock records, source builds, macOS `uv` setup, and the
+source-independent real demo are documented in
+[Advanced installation and workflows](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/ADVANCED_INSTALLATION.md).
 
 ## Verdicts and exit codes
 
 | Result | Exit | Meaning |
 | --- | ---: | --- |
 | `VERIFIED` | 0 | Every required protected predicate passed. |
-| `FAILED` | 1 | The candidate is definitely invalid or failed policy. |
+| `FAILED` | 1 | The candidate definitely failed a required predicate or policy. |
 | Invalid request/configuration | 2 | The invocation or protected configuration is malformed. |
-| `INCONCLUSIVE` / operational uncertainty | 3 | Required evidence is missing, partial, unsupported, or unverifiable. |
+| `INCONCLUSIVE` | 3 | Required evidence is missing, partial, unsupported, or unverifiable. |
+| Unexpected internal error | 4 | The verifier could not complete safely. |
 
-Uncertainty is never reported as a successful test.
+## Supported scope
 
-## Security boundaries and current limitations
+The initial supported path verifies Terraform and Kubernetes-related changes with the
+locked Checkov 3.3.0 environment and emits validated JSON, console, SARIF, Markdown, or
+JUnit reports. Native execution is `reduced-isolation` and must be used only with
+operator-controlled input.
 
-- Public CLI/config/API inputs cannot submit raw scanner results, precomputed policy
-  decisions, oracle results, validator-universe results, callbacks, or trust claims.
-- Native `reduced-isolation` is for trusted local input only.
-- The production fully offline hardened container and composite GitHub Action are not
-  released; their native-Linux UID/bind-mount gate remains pending.
-- Multi-scanner and deterministic-oracle evidence remains advisory. V7 consensus is
-  disconnected from final verdicts.
-- `.tf.json` remains explicitly unsupported/inconclusive end to end.
-- The kubeconform schema bundle has licence status `NOASSERTION` and is not publicly
-  redistributed.
-- IaC-Guard-V does not defend against hostile Python already executing inside its
-  trusted interpreter.
+KICS, Trivy, OpenTofu, kubeconform, TFLint, multi-scanner consensus, Helm
+materialization, and candidate-only new-IaC review remain experimental, advisory, or
+future work. They cannot silently change the final verdict.
 
-See [SECURITY.md](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md) for
-reporting guidance and
-[`docs/spec/THREAT_MODEL.md`](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/spec/THREAT_MODEL.md)
-for the detailed model.
+See [Supported scope and limitations](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORTED_SCOPE.md)
+for exact boundaries and [Security model](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SECURITY_MODEL.md)
+for the fail-closed trust architecture.
+
+## Documentation
+
+- [Advanced installation and workflows](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/ADVANCED_INSTALLATION.md)
+- [Supported scope and limitations](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORTED_SCOPE.md)
+- [Security model](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SECURITY_MODEL.md)
+- [Example walkthrough](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/EXAMPLE_WALKTHROUGH.md)
+- [Security policy](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md)
+- [Contributing](https://github.com/lokesh0186/iac-guard-v/blob/main/CONTRIBUTING.md)
+- [Roadmap](https://github.com/lokesh0186/iac-guard-v/blob/main/ROADMAP.md)
+- [Changelog](https://github.com/lokesh0186/iac-guard-v/blob/main/CHANGELOG.md)
 
 ## Research snapshot
 
-The QRS 2026 artifact is historical evidence, not the current hardened product. Its
-scanner of record is Checkov 3.2.517, while the alpha product contract uses Checkov
-3.3.0. The stored experiment outputs are never re-labelled as hardened-engine runs.
+IaC-Guard-V grew from a QRS 2026 study of infrastructure-as-code repair verification.
+The frozen research artifact is historical evidence, not the current product. No
+benchmark inference or model-provider call occurs during product verification.
 
-See
-[RESEARCH_SNAPSHOT.md](https://github.com/lokesh0186/iac-guard-v/blob/main/RESEARCH_SNAPSHOT.md)
-for the manifest root, replay contract, limitations, and exact offline verification
-commands. The pre-peer-review manuscript has been submitted to arXiv. Its public identifier is still pending.
-No placeholder identifier or broken link is published. The Springer Version of Record
-and DOI will be linked when they become available.
+See [RESEARCH_SNAPSHOT.md](https://github.com/lokesh0186/iac-guard-v/blob/main/RESEARCH_SNAPSHOT.md)
+for the frozen manifest, replay contract, limitations, and offline reproduction. The
+pre-peer-review manuscript is awaiting a public arXiv identifier; the Springer Version
+of Record and DOI will be linked when available. No placeholder publication link is
+published.
 
-## Contributing and roadmap
+## Contributing, citation, and license
 
-- [CONTRIBUTING.md](https://github.com/lokesh0186/iac-guard-v/blob/main/CONTRIBUTING.md)
-- [ROADMAP.md](https://github.com/lokesh0186/iac-guard-v/blob/main/ROADMAP.md)
-- [CHANGELOG.md](https://github.com/lokesh0186/iac-guard-v/blob/main/CHANGELOG.md)
-- [NOTICE](https://github.com/lokesh0186/iac-guard-v/blob/main/NOTICE)
+Small, test-backed documentation, compatibility, fixture, and adapter contributions are
+welcome. Start with [CONTRIBUTING.md](https://github.com/lokesh0186/iac-guard-v/blob/main/CONTRIBUTING.md).
 
-## Citation
-
-Citation metadata for the accepted QRS 2026 paper and this software is in
-[CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff). The
-arXiv submission is pending public availability. Once Springer publishes the Version of
-Record, its DOI and publisher page will become the primary paper citation; an available
-arXiv preprint may remain as a separate accessible manuscript link.
-
-## License
-
-IaC-Guard-V is licensed under the
-[Apache License 2.0](https://github.com/lokesh0186/iac-guard-v/blob/main/LICENSE).
+Citation metadata is in [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).
+IaC-Guard-V is licensed under the [Apache License 2.0](https://github.com/lokesh0186/iac-guard-v/blob/main/LICENSE).
 Third-party tools are not bundled and retain their own licences and trademarks.

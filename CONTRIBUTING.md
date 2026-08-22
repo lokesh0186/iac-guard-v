@@ -3,6 +3,20 @@
 Thank you for helping improve IaC-Guard-V. The project values small, reviewable
 changes backed by adversarial tests.
 
+## Good contributions
+
+We especially welcome:
+
+- reproducible scanner-compatibility issues;
+- positive, negative, and boundary verification fixtures;
+- bounded scanner or validator adapters with explicit evidence contracts;
+- documentation and onboarding improvements;
+- real-world before/after cases with exact file and resource identities.
+
+If a change would add a new framework, materializer, or public trust surface,
+open an issue first so its contract and maintenance scope can be agreed before
+implementation.
+
 ## Development setup
 
 Use CPython 3.10–3.13:

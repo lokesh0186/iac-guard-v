@@ -79,7 +79,10 @@ include = [
   "CITATION.cff",
   "packaging/iac_guard_v_no_bytecode.pth",
   "examples/checkov-before-after",
+  "docs/ADVANCED_INSTALLATION.md",
   "docs/ALPHA_RELEASE_CHECKLIST.md",
+  "docs/SECURITY_MODEL.md",
+  "docs/SUPPORTED_SCOPE.md",
   "docs/spec/THREAT_MODEL.md",
   "pyproject.toml",
 ]

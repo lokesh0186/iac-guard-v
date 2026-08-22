@@ -69,7 +69,7 @@ PY
       `pip --python <environment-python> install --no-compile`.
 - [ ] Do not manually delete caches or set `PYTHONDONTWRITEBYTECODE`; the installed
       startup policy and scanner subprocess contract must keep both environments clean.
-- [ ] Run `iac-guard --version` and the literal README
+- [ ] Run `iac-guard --version` and the literal advanced-installation
       `iac-guard doctor --mode local-trusted --checkov-executable <exact-path>`;
       doctor must return 0 without an undocumented `PATH` change even though
       hardened-container mode remains unavailable.

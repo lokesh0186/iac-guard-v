@@ -3,6 +3,16 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
+## [Unreleased]
+
+### Changed
+
+- Reorganized the README around value, installation, a real verification command,
+  and the public Coder #180 reproduction.
+- Moved detailed installation, scope, and trust-boundary material into focused public
+  documentation without weakening any alpha limitation.
+- Clarified contribution priorities and made the roadmap evidence-driven.
+
 ## [0.1.0a1] — 2026-08-20
 
 ### Added

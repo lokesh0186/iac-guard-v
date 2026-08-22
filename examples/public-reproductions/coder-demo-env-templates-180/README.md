@@ -43,7 +43,7 @@ The canonical validated evidence is [report.json](report.json). [report.md](repo
 
 ## Reproduce
 
-Install the public `iac-guard-v==0.1.0a1` package and Checkov `3.3.0` using the repository's [source-independent alpha instructions](../../../README.md#source-independent-checkov-alpha-path). Then, from an empty working directory, reconstruct the exact target projections:
+Install the public `iac-guard-v==0.1.0a1` package and Checkov `3.3.0` using the repository's [advanced installation instructions](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/ADVANCED_INSTALLATION.md). Then, from an empty working directory, reconstruct the exact target projections:
 
 ```bash
 git clone https://github.com/coder/demo-env-templates.git coder-demo-env-templates

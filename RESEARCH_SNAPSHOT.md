@@ -205,8 +205,9 @@ for general use (audit F1–F4, plus F6), so it is quarantined:
 
 ## Known limitations of the artifact
 
-1. Results are Checkov-specific; multi-scanner behaviour was not evaluated
-   (`README.md:220`).
+1. Results are Checkov-specific; multi-scanner behaviour was not evaluated. The
+   current product boundary is documented in
+   [`docs/SUPPORTED_SCOPE.md`](docs/SUPPORTED_SCOPE.md).
 2. The 70 items derive from Checkov's own test suite and are not a random sample of
    production infrastructure code.
 3. Repair quality was assessed only by automated gates; there was no human review.

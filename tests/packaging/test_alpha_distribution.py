@@ -137,6 +137,9 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
     assert "LICENSE" in public_sdist_files
     assert any(name.endswith("docs/spec/THREAT_MODEL.md") for name in sdist_names)
     assert any(name.endswith("docs/ALPHA_RELEASE_CHECKLIST.md") for name in sdist_names)
+    assert any(name.endswith("docs/ADVANCED_INSTALLATION.md") for name in sdist_names)
+    assert any(name.endswith("docs/SECURITY_MODEL.md") for name in sdist_names)
+    assert any(name.endswith("docs/SUPPORTED_SCOPE.md") for name in sdist_names)
 
 
 def test_fresh_artifacts_have_stable_nonempty_hashes(alpha_artifacts) -> None:
@@ -226,22 +229,51 @@ def test_wheel_installs_and_runs_outside_source_checkout(
 def test_public_alpha_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
-        "Checkov-focused alpha",
+        "Verify that an infrastructure-as-code security fix actually fixed",
+        "python -m pip install iac-guard-v==0.1.0a1",
+        "iac-guard demo",
+        "Coder `demo-env-templates` PR #180",
+        "25cff91e2c039ddc648541a06191f4b9b9a813b7",
+        "technical alpha",
         "reduced-isolation",
-        "Hardened production container",
-        "There are no external-adoption",
-        "zero `EXACT` mappings",
-        "public identifier is still pending",
-        "PYTHONDONTWRITEBYTECODE=1",
         "trusted local input only",
-        "uv python find --managed-python 3.12",
         "may remain quiet for several minutes",
+        "docs/ADVANCED_INSTALLATION.md",
+        "docs/SUPPORTED_SCOPE.md",
+        "docs/SECURITY_MODEL.md",
+        "awaiting a public arXiv identifier",
     ):
         assert statement in readme
+    assert "After publication, replace the local wheel path" not in readme
+    assert "zero `EXACT` mappings" not in readme
+    assert "MANIFEST_ROOT" not in readme
+    assert "V7 consensus" not in readme
     assert "arXiv:ADD" not in readme
     assert "XXXX.XXXXX" not in readme
     assert "not yet a published release" not in readme
     assert "package version `0.1.0a1` is not published" not in readme
+
+    advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
+    for statement in (
+        "uv python find --managed-python 3.12",
+        "--copies --without-pip",
+        "PYTHONDONTWRITEBYTECODE=1",
+        "bc-python-hcl2",
+        "may remain quiet for several minutes",
+        "iac-guard-v==0.1.0a1",
+    ):
+        assert statement in advanced
+
+    supported = (ROOT / "docs/SUPPORTED_SCOPE.md").read_text(encoding="utf-8")
+    assert "zero `EXACT` mappings" in supported
+    assert "OpenTofu `.tofu` / `.tofu.json`" in supported
+    assert "production hostile-input support" in supported
+
+    security_model = (ROOT / "docs/SECURITY_MODEL.md").read_text(encoding="utf-8")
+    assert "V7 consensus is disconnected" in security_model
+    assert "There is no silent downgrade" in security_model
+    assert "no telemetry, model-provider SDK" in security_model
+
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "## [0.1.0a1] — 2026-08-20" in changelog
     assert "prepared, not published" not in changelog

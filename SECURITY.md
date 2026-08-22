@@ -3,6 +3,13 @@
 IaC-Guard-V `0.1.0a1` is an alpha with a Checkov-focused product boundary. It is
 not yet a production hardened-container release.
 
+## Supported versions
+
+| Version | Security support |
+| --- | --- |
+| `0.1.x` alpha | Yes, within the documented alpha boundary. |
+| Earlier or unreleased builds | No. Upgrade to the latest published `0.1.x` release. |
+
 ## Reporting a vulnerability
 
 Please use the repository's private GitHub security-advisory channel. Do not include
@@ -26,7 +33,8 @@ forwarded or published without the reporter's and project owner's authorization.
 - The project does not defend against arbitrary hostile Python already running in its
   trusted interpreter.
 
-The full boundary is documented in
+The accessible product summary is in
+[`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md); the normative detail is in
 [`docs/spec/THREAT_MODEL.md`](docs/spec/THREAT_MODEL.md).
 
 ## Sensitive data

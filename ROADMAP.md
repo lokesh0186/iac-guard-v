@@ -12,11 +12,26 @@ This roadmap records intent, not a delivery commitment.
 - Clean Python 3.10–3.13 wheel and source distribution.
 - Experimental Phase-E adapters and validators remain advisory.
 
-## Next alpha work
+## Candidate next-alpha work
 
-- Private scanner-case screening limited to `observation`, `semantic-difference`,
-  `blocked`, and `not-reproducible` until each path has decisive evidence.
-- Native-Linux UID/GID 65532 bind-mount portability proof.
+These candidates are prioritized by real-world compatibility findings, not
+promised release dates:
+
+- Strengthen Terraform lexical inventory for valid quoted-string content.
+- Add bounded Checkov CKV2/graph-finding evidence without weakening exact target
+  identity.
+- Improve diagnostics and performance for large Git materializations.
+- Evaluate a candidate-only/new-IaC review mode that reports introduced findings
+  without mislabelling a new module as a `FIXED` repair.
+- Evaluate OpenTofu `.tofu` support after a trusted Checkov release supports it
+  and additional external demand justifies the complete parser/evidence surface.
+- Investigate reproducible Helm materialization only with version, chart, values,
+  dependency, command, rendered-output, and source-identity provenance.
+- Complete the native-Linux UID/GID 65532 bind-mount portability proof.
+
+Private scanner-case screening remains limited to `observation`,
+`semantic-difference`, `blocked`, and `not-reproducible` until each path has
+decisive evidence.
 
 ## Before production container or Action release
 
