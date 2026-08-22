@@ -24,7 +24,7 @@ validates the resulting evidence graph before reporting a verdict.
 
 `VERIFIED` means every required protected predicate passed. Missing, partial,
 unsupported, inconsistent, or unverifiable evidence is `INCONCLUSIVE` or an
-operational error—never success.
+operational error, never success.
 
 Examples include:
 
@@ -92,4 +92,3 @@ index, branch, or worktree.
 Use the repository's private GitHub security-advisory channel and follow
 [SECURITY.md](../SECURITY.md). Do not publish credentials, private
 infrastructure, protected cache material, or undisclosed third-party cases.
-

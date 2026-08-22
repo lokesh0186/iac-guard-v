@@ -2,7 +2,7 @@
 
 This roadmap records intent, not a delivery commitment.
 
-## `0.1.0a1` — Checkov-focused alpha
+## `0.1.0a1` - Checkov-focused alpha
 
 - Hardened differential core and closed `report-v1` evidence graph.
 - Checkov 3.3.0 integration with explicit reduced-isolation semantics.

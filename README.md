@@ -7,7 +7,7 @@
 [![QRS 2026](https://img.shields.io/badge/QRS-2026-4b5563)](https://github.com/lokesh0186/iac-guard-v/blob/main/RESEARCH_SNAPSHOT.md)
 
 **Verify that an infrastructure-as-code security fix actually fixed the intended
-finding—without hiding evidence, deleting the target, or introducing a regression.**
+finding without hiding evidence, deleting the target, or introducing a regression.**
 
 IaC-Guard-V works with changes written by people, AI coding agents, and remediation
 tools. It binds scanner evidence to the exact before/after files and resources, then
@@ -108,7 +108,7 @@ IaC-Guard-V independently evaluated the privilege-hardening portion of
 | `CKV_K8S_20` · `kubernetes_deployment_v1.this` | failing | passing | `FIXED` |
 
 Scanner integrity, Terraform parsing, and target-scoped regression gates passed,
-producing `VERIFIED` with exit `0`. This is target-scoped evidence—not a whole-PR
+producing `VERIFIED` with exit `0`. This is target-scoped evidence, not a whole-PR
 certification. See the
 [immutable reproduction and report](https://github.com/lokesh0186/iac-guard-v/tree/25cff91e2c039ddc648541a06191f4b9b9a813b7/examples/public-reproductions/coder-demo-env-templates-180).
 

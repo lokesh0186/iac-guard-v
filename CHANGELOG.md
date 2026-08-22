@@ -13,7 +13,7 @@ artifact has its own immutable provenance and is not rewritten by this changelog
   documentation without weakening any alpha limitation.
 - Clarified contribution priorities and made the roadmap evidence-driven.
 
-## [0.1.0a1] — 2026-08-20
+## [0.1.0a1] - 2026-08-20
 
 ### Added
 

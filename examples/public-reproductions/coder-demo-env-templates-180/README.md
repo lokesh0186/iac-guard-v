@@ -16,8 +16,8 @@ This directory preserves independent IaC-Guard-V evidence for the privilege-hard
 
 Only these Checkov targets were adjudicated on Terraform resource `kubernetes_deployment_v1.this` in `deployments/ai.coder.com/coder/realworld/workspace.tf`:
 
-- `CKV_K8S_16` — privileged container
-- `CKV_K8S_20` — privilege escalation
+- `CKV_K8S_16`: privileged container
+- `CKV_K8S_20`: privilege escalation
 
 The complete resource block was extracted byte-for-byte from each verified commit. Its SHA-256 digests were:
 
