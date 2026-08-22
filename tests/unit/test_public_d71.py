@@ -276,19 +276,23 @@ def test_version_probe_success_and_failures(tmp_path: Path, monkeypatch) -> None
     executable = tmp_path / "checkov"; executable.write_text("x")
     observed = {}
     def successful_probe(*_args, **kwargs):
-        observed.update(kwargs["env"])
+        observed["environment"] = kwargs["env"]
+        observed["timeout"] = kwargs["timeout"]
         return SimpleNamespace(stdout="Checkov 3.3.0\n", stderr="", returncode=0)
     monkeypatch.setattr(CLI.subprocess, "run", successful_probe)
     assert CLI._version(executable) == "3.3.0"
-    assert observed["PYTHONDONTWRITEBYTECODE"] == "1"
-    assert observed["PYTHONNOUSERSITE"] == "1"
+    assert observed["environment"]["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert observed["environment"]["PYTHONNOUSERSITE"] == "1"
+    # A cold Checkov import can exceed ten seconds on a clean copied-file
+    # installation; the bounded probe still fails closed after 30 seconds.
+    assert observed["timeout"] == 30
     monkeypatch.setattr(CLI.subprocess, "run", lambda *a, **k: SimpleNamespace(
         stdout="", stderr="", returncode=1,
     ))
     with pytest.raises(DomainError):
         CLI._version(executable)
     monkeypatch.setattr(CLI.subprocess, "run", lambda *a, **k: (_ for _ in ()).throw(
-        subprocess.TimeoutExpired("checkov", 10)
+        subprocess.TimeoutExpired("checkov", 30)
     ))
     with pytest.raises(DomainError):
         CLI._version(executable)

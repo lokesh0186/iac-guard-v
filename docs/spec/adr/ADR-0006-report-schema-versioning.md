@@ -138,3 +138,17 @@ The schema now exposes the canonical scanner-environment component manifest. Run
 validation recomputes its aggregate digest and reconciles every component alias. The
 artifact graph includes typed rejected and out-of-scope classifications so unsafe or
 unresolved supported entries cannot disappear from a passing report.
+
+## Amendment, 2026-08-22: 0.1.0a2 graph-evidence compatibility
+
+`0.1.0a2` retains `report-v1` and adds optional `graph_evidence` and
+`inventory_completion_basis` members to its closed schema. Existing amendments
+establish that the alpha report name may be retained while the evidence required for
+fail-closed reconstruction is extended; the project has not promised an immutable
+field-for-field wire shape across `0.1.x` alpha releases.
+
+Because the schema deliberately rejects unknown members, a consumer using a vendored
+`0.1.0a1` schema will reject an a2 graph report. That consumer must update to the
+schema distributed with `0.1.0a2`. Non-graph reports emitted by `0.1.0a1` remain valid
+under the a2 schema. This compatibility rule does not permit consumers to ignore
+unknown evidence or accept a report without the executable semantic validator.

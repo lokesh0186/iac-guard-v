@@ -30,6 +30,106 @@ def test_every_nonfixed_outcome_is_rederived_from_evidence(
         validate_report_payload(payload)
 
 
+def test_ckv2_target_requires_complete_graph_evidence_on_both_roles(
+    verified_engine: VerificationResult,
+) -> None:
+    payload = _payload(verified_engine)
+    verification = payload["verification"]
+    target = verification["targets"][0]
+    target["identity"]["rule_id"] = "CKV2_AWS_6"
+    target["binding"]["identity"]["rule_id"] = "CKV2_AWS_6"
+    for role in ("baseline", "candidate"):
+        run = verification[f"{role}_run"]
+        for item in (*run["findings"], *run["evaluations"]):
+            item["rule_id"] = "CKV2_AWS_6"
+
+    assert REPORT._derive_target_outcome(verification, target)[0] == "INCONCLUSIVE"
+
+    baseline_evaluation = copy.deepcopy(
+        verification["candidate_run"]["evaluations"][0]
+    )
+    baseline_evaluation["native_result"] = "FAILED"
+    baseline_evaluation["source_bucket"] = "failed_checks"
+    verification["baseline_run"]["evaluations"] = [baseline_evaluation]
+    for role in ("baseline", "candidate"):
+        for item in verification[f"{role}_run"]["evaluations"]:
+            item["graph_evidence"] = {"status": "PASS"}
+    assert REPORT._derive_target_outcome(verification, target)[0] == "FIXED"
+
+
+def test_exact_terraform_summary_can_complete_non_evaluated_resource_inventory(
+    verified_engine: VerificationResult,
+) -> None:
+    payload = _payload(verified_engine)
+    verification = payload["verification"]
+    run = verification["candidate_run"]
+    snapshot = verification["candidate_snapshot"]
+    original = run["evaluations"][0]
+    original["rule_id"] = "CKV2_AWS_6"
+    primary_resource = snapshot["resources"][0]
+    participant = {
+        "file_path": primary_resource["file_path"],
+        "resource_address": primary_resource["resource_address"],
+        "artifact_kind": primary_resource["artifact_kind"],
+        "resource_type": primary_resource["resource_address"].split(".", 1)[0],
+    }
+    original["graph_evidence"] = {
+        "status": "PASS",
+        "reason_code": "GRAPH_EVIDENCE_COMPLETE",
+        "primary": copy.deepcopy(participant),
+        "participants": [copy.deepcopy(participant)],
+        "edges": [],
+        "input_manifest_sha256": REPORT._canonical_json_digest(run["input_files"]),
+        "source_snapshot_sha256": snapshot["snapshot_sha256"],
+        "policy_inventory_sha256": run["policy_inventory_digest"],
+        "policy_definition_sha256": "1" * 64,
+        "query_identity_sha256": "2" * 64,
+    }
+    missing = copy.deepcopy(primary_resource)
+    missing["resource_address"] = "aws_s3_bucket.not_evaluated"
+    missing["scanner_native_lookup"] = "aws_s3_bucket.not_evaluated"
+    snapshot["resources"].append(missing)
+    run["resource_coverage"].update({
+        "resources_expected": 2,
+        "resources_observed": 2,
+        "expected_resources_observed": 2,
+        "summary_resources_reported": 2,
+    })
+    run["resource_coverage"]["inventory_completion_basis"] = [
+        "terraform_summary_exact"
+    ]
+
+    REPORT._validate_scanner_run(
+        run, snapshot, "candidate", allow_private_test_registry=True
+    )
+
+    auxiliary = copy.deepcopy(original)
+    auxiliary["resource_address"] = "aws.default"
+    del auxiliary["graph_evidence"]
+    auxiliary["rule_id"] = "CKV_AWS_999"
+    run["evaluations"].append(auxiliary)
+    run["coverage"]["evaluations_reported"] = 2
+    REPORT._validate_scanner_run(
+        run, snapshot, "candidate", allow_private_test_registry=True
+    )
+
+    run["resource_coverage"]["inventory_completion_basis"] = []
+    with pytest.raises(DomainError, match="resource evidence"):
+        REPORT._validate_scanner_run(
+            run, snapshot, "candidate", allow_private_test_registry=True
+        )
+
+    run["resource_coverage"]["inventory_completion_basis"] = [
+        "terraform_summary_exact"
+    ]
+    run["evaluations"][1]["native_result"] = "FAILED"
+    run["evaluations"][1]["source_bucket"] = "failed_checks"
+    with pytest.raises(DomainError, match="resource evidence"):
+        REPORT._validate_scanner_run(
+            run, snapshot, "candidate", allow_private_test_registry=True
+        )
+
+
 @pytest.mark.parametrize(
     "outcome",
     [

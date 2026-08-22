@@ -19,7 +19,7 @@ from test_engine_d54 import _execute, _request_and_runs
         "_construct_unique_mapping",
         "_yaml_root_has_identity",
         "_strict_json_document",
-        "_terraform_resources",
+        "_terraform_resources_v2",
         "_read_detector_file",
     ],
 )

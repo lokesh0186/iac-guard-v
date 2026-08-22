@@ -1,15 +1,31 @@
-# PUBLIC.1 clean-build artifact record
+# PUBLIC.1 pre-publication clean-build candidate record
 
 This records the fresh local artifacts produced after removing `paper.pdf` from the
 current product tip and separating software release readiness from pending publication
-metadata. It is not a push, tag, upload, or publication authorization. The submitted
-manuscript's public arXiv identifier and the Springer Version of Record remain follow-up
-links; no placeholder identifier is present.
+metadata. It is not a push, tag, upload, or publication authorization. The hashes in
+the first table record the local pre-publication candidate build and are not the hashes
+of the artifacts later published to PyPI. The submitted manuscript's public arXiv
+identifier and the Springer Version of Record remain follow-up links; no placeholder
+identifier is present.
 
-| Artifact | Bytes | SHA-256 | Files |
+| Pre-publication candidate artifact | Bytes | SHA-256 | Files |
 | --- | ---: | --- | ---: |
 | `iac_guard_v-0.1.0a1-py3-none-any.whl` | 248617 | `7d81dbf71432d402845245212c5cebfbfb0f3452c5a113aa98af600f42ad5358` | 52 |
 | `iac_guard_v-0.1.0a1.tar.gz` | 240234 | `de683d77f53f1ef1b612c4f9dae617c1a56e6f91214057ec17fa5d4bf7c5c92c` | 65 |
+
+## Published `0.1.0a1` provenance
+
+The byte-identical GitHub Release and PyPI artifacts were subsequently built and
+published through the reviewed workflow at source commit
+`71177dc324bd691f09c85356484331c19a0ab190`. PyPI records:
+
+| Published artifact | SHA-256 |
+| --- | --- |
+| `iac_guard_v-0.1.0a1-py3-none-any.whl` | `cef195ecd950f12b8ef40c5f30c6d72761aa346902df3fc91c7e17b65ff5ce49` |
+| `iac_guard_v-0.1.0a1.tar.gz` | `2237087355d580c3d14a2a73d8bea21a958e6a4f31e9dbbb5e9684570d3db904` |
+
+These published hashes, not the candidate hashes above, are the authoritative
+`0.1.0a1` release identity.
 
 ## Wheel inventory
 

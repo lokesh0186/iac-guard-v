@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import inspect
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -136,6 +137,37 @@ def test_equivalent_roots_have_portable_config_identity(tmp_path: Path) -> None:
     assert str(tmp_path) not in str(configs[0].canonical_dict())
 
 
+def test_operator_roots_below_git_worktree_remain_portable(tmp_path: Path) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    subprocess.run(
+        ("git", "-C", str(repository), "init", "-q"),
+        check=True,
+        capture_output=True,
+    )
+    (repository / "services").mkdir()
+    executable = _executable(tmp_path / "shared-scanner")
+    baseline = _scan_request(repository / "services" / "base", executable)
+    candidate = _scan_request(repository / "services" / "head", executable)
+    (candidate.scan_root / "main.tf").write_text(
+        'resource "aws_x" "r" {\n  changed = true\n}\n', encoding="utf-8"
+    )
+
+    config = load_operator_verification_config(
+        baseline.request,
+        candidate.request,
+        required_gates=RequiredGates(("terraform_hcl_parse",)),
+    )
+    request = VerificationRequest(
+        baseline, candidate, (Target(IDENTITY, 1),), config
+    )
+
+    assert config.baseline_repository_relative_subpath == "."
+    assert config.candidate_repository_relative_subpath == "."
+    assert request.baseline_scan.sealed_snapshot.repository_relative_subpath == "."
+    assert request.candidate_scan.sealed_snapshot.repository_relative_subpath == "."
+
+
 def test_gate_identity_binds_parser_helpers(monkeypatch) -> None:
     original = ENGINE.production_gate_registry()
     dispatcher_only = hashlib.sha256(
@@ -147,7 +179,7 @@ def test_gate_identity_binds_parser_helpers(monkeypatch) -> None:
 
     def changed_source(value):
         source = real_getsource(value)
-        if value is ENGINE._terraform_resources:
+        if value is ENGINE._terraform_resources_v2:
             return source + "\n# security-relevant parser mutation\n"
         return source
 

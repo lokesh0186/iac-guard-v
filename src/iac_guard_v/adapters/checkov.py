@@ -12,6 +12,7 @@ import csv
 import io
 import json
 import os
+import re
 import shutil
 import stat
 import tempfile
@@ -31,6 +32,7 @@ from ..fingerprints import (
     canonicalize_scan_path,
     canonicalize_terraform_address,
 )
+from ..graph_evidence import GraphEvidenceContext, build_graph_evidence_context
 from ..models import (
     CoverageCounters,
     BoundInputFile,
@@ -39,6 +41,7 @@ from ..models import (
     ExpectedResource,
     Finding,
     FindingLocation,
+    GraphCheckEvidence,
     ResourceCoverage,
     ScannerEnvironmentComponents,
     ScannerRun,
@@ -61,6 +64,10 @@ CHECKOV_CONTRACT = ScannerContract(
     frameworks=("kubernetes", "terraform"),
     expected_exit_codes=(0, 1),
 )
+_GRAPH_CHECK_CLASS = "checkov.common.graph.checks_infra.base_check"
+_KUBERNETES_WORKLOAD_KINDS = frozenset({
+    "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob",
+})
 
 
 @dataclass(frozen=True, slots=True)
@@ -544,6 +551,7 @@ class CheckovScanRequest:
     expected_policy_inventory_sha256: str
     kubernetes_identities: tuple = ()
     expected_resources: tuple = ()
+    source_snapshot_sha256: str = ""
     timeout_seconds: int = 120
     max_output_bytes: int = 25 * 1024 * 1024
     max_eligible_files: int = 10_000
@@ -586,6 +594,10 @@ class CheckovScanRequest:
             raise DomainError("Checkov scanner environment digest does not match trusted configuration")
         if self.expected_policy_inventory_sha256 != distribution_identity.policy_inventory_digest:
             raise DomainError("Checkov policy inventory digest does not match trusted configuration")
+        if self.source_snapshot_sha256 and re.fullmatch(
+            r"[0-9a-f]{64}", self.source_snapshot_sha256
+        ) is None:
+            raise DomainError("Checkov source snapshot identity must be a SHA-256")
         if type(self.frameworks) is not tuple or not self.frameworks:
             raise DomainError("frameworks must be a nonempty exact tuple")
         frameworks = tuple(
@@ -927,11 +939,17 @@ def _resource_evidence(
     check_type: str,
     request: CheckovScanRequest,
     native_scan_root: Path,
+    graph_evidence: GraphCheckEvidence | None = None,
 ) -> tuple[str, str, ArtifactKind]:
     resource = canonical_identifier(check.get("resource"), "Checkov resource")
     file_path = _path_from_check(check, native_scan_root)
     if file_path not in request.files_eligible:
         raise DomainError("Checkov reported a path outside the independently eligible set")
+    if graph_evidence is not None:
+        primary = graph_evidence.primary
+        if primary.file_path != file_path:
+            raise DomainError("graph primary target file disagrees with scanner evidence")
+        return file_path, primary.resource_address, primary.artifact_kind
     if check_type == "terraform":
         return file_path, canonicalize_terraform_address(resource), ArtifactKind.TERRAFORM_HCL
     identities = {
@@ -958,14 +976,29 @@ def _evaluation(
     source_bucket: str,
     expected_result: CheckEvaluationResult,
     native_scan_root: Path,
+    graph_context: GraphEvidenceContext | None,
 ) -> CheckEvaluation:
     if type(check) is not dict:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
     check_result = check.get("check_result")
     if type(check_result) is not dict or check_result.get("result") != expected_result.value:
         raise DomainError(AdapterReason.INVALID_RESULTS_STRUCTURE.value)
+    native_file_path = _path_from_check(check, native_scan_root)
+    graph_evidence = (
+        graph_context.evidence_for(
+            framework=check_type,
+            file_path=native_file_path,
+            native_resource=canonical_identifier(
+                check.get("resource"), "Checkov resource"
+            ),
+            rule_id=canonical_identifier(check.get("check_id"), "Checkov check_id"),
+            check_class=check.get("check_class"),
+            native_result=expected_result,
+        )
+        if graph_context is not None else None
+    )
     file_path, resource_address, artifact_kind = _resource_evidence(
-        check, check_type, request, native_scan_root
+        check, check_type, request, native_scan_root, graph_evidence
     )
     evaluated_keys = _evaluated_keys(check)
     return CheckEvaluation(
@@ -983,6 +1016,7 @@ def _evaluation(
             resource_address, evaluated_keys,
             check.get("fingerprint") or "",
         ),
+        graph_evidence=graph_evidence,
     )
 
 
@@ -993,12 +1027,30 @@ def _finding(
     version: str,
     suppressed: bool,
     native_scan_root: Path,
+    graph_context: GraphEvidenceContext | None,
 ) -> Finding:
     if type(check) is not dict:
         raise DomainError("Checkov findings must be JSON objects")
     rule_id = canonical_identifier(check.get("check_id"), "Checkov check_id")
+    native_result = (
+        CheckEvaluationResult.SKIPPED if suppressed else CheckEvaluationResult.FAILED
+    )
+    native_file_path = _path_from_check(check, native_scan_root)
+    graph_evidence = (
+        graph_context.evidence_for(
+            framework=check_type,
+            file_path=native_file_path,
+            native_resource=canonical_identifier(
+                check.get("resource"), "Checkov resource"
+            ),
+            rule_id=rule_id,
+            check_class=check.get("check_class"),
+            native_result=native_result,
+        )
+        if graph_context is not None else None
+    )
     file_path, resource_address, artifact_kind = _resource_evidence(
-        check, check_type, request, native_scan_root
+        check, check_type, request, native_scan_root, graph_evidence
     )
     start, end = _line_range(check)
     rule_name_raw = check.get("check_name")
@@ -1088,7 +1140,43 @@ def _normalize(
     native_scan_root: Path,
 ) -> ScannerRun:
     documents = _decode_documents(raw_output)
+    graph_checks_present = any(
+        check.get("check_class") == _GRAPH_CHECK_CLASS
+        or (
+            type(check.get("check_id")) is str
+            and check["check_id"].startswith("CKV2_")
+        )
+        for document in documents
+        for check in (
+            item
+            for bucket in (
+                "passed_checks", "failed_checks", "skipped_checks", "unknown_checks"
+            )
+            for item in (
+                document.get("results", {}).get(bucket, [])
+                if type(document.get("results")) is dict
+                and type(document.get("results", {}).get(bucket, [])) is list
+                else []
+            )
+            if type(item) is dict
+        )
+    )
+    graph_context = (
+        build_graph_evidence_context(
+            executable=request.executable,
+            scan_root=native_scan_root,
+            frameworks=request.frameworks,
+            expected_resources=request.expected_resources,
+            input_files=request.eligible_file_evidence,
+            source_snapshot_sha256=request.source_snapshot_sha256,
+            policy_inventory_sha256=(
+                request._distribution_identity.policy_inventory_digest
+            ),
+        )
+        if graph_checks_present else None
+    )
     summaries: list[dict] = []
+    summaries_by_framework: dict[str, dict] = {}
     raw_findings: list[Finding] = []
     evaluations: list[CheckEvaluation] = []
     missing_results = False
@@ -1119,6 +1207,7 @@ def _normalize(
         if check_type in seen_frameworks:
             raise DomainError("Checkov returned duplicate framework documents")
         seen_frameworks.add(check_type)
+        summaries_by_framework[check_type] = summary
         known_buckets = {
             "passed_checks": ("passed", CheckEvaluationResult.PASSED),
             "failed_checks": ("failed", CheckEvaluationResult.FAILED),
@@ -1162,15 +1251,22 @@ def _normalize(
                         bucket,
                         native_result,
                         native_scan_root,
+                        graph_context,
                     )
                 )
                 if native_result is CheckEvaluationResult.FAILED:
                     raw_findings.append(
-                        _finding(check, check_type, request, version, False, native_scan_root)
+                        _finding(
+                            check, check_type, request, version, False,
+                            native_scan_root, graph_context,
+                        )
                     )
                 elif native_result is CheckEvaluationResult.SKIPPED:
                     raw_findings.append(
-                        _finding(check, check_type, request, version, True, native_scan_root)
+                        _finding(
+                            check, check_type, request, version, True,
+                            native_scan_root, graph_context,
+                        )
                     )
 
     evaluation_claims: dict[tuple, set[tuple[str, str]]] = {}
@@ -1191,12 +1287,67 @@ def _normalize(
     )
     eligible_count = len(request.files_eligible)
     failed_files = min(eligible_count, parse_errors)
-    observed_files = {item.file_path for item in evaluations}
-    missing_files = sorted(set(request.files_eligible) - observed_files)
-    observed_resources = {(item.file_path, item.resource_address) for item in evaluations}
+    graph_participants = {
+        (
+            participant.file_path,
+            participant.resource_address,
+        )
+        for evaluation in evaluations
+        if evaluation.graph_evidence is not None
+        for participant in evaluation.graph_evidence.participants
+    }
+    observed_files = {item.file_path for item in evaluations} | {
+        item[0] for item in graph_participants
+    }
+    auxiliary_identities = (
+        set(graph_context.auxiliary_identities) if graph_context is not None else set()
+    )
+    observed_resources = {
+        (item.file_path, item.resource_address) for item in evaluations
+        if (item.file_path, item.resource_address) not in auxiliary_identities
+        and not (item.rule_id.startswith("CKV2_") and item.graph_evidence is None)
+    } | graph_participants
     expected_resources = {
         (item.file_path, item.resource_address) for item in request.expected_resources
     }
+    terraform_expected = {
+        (item.file_path, item.resource_address)
+        for item in request.expected_resources
+        if item.artifact_kind is ArtifactKind.TERRAFORM_HCL
+    }
+    terraform_summary = summaries_by_framework.get("terraform")
+    terraform_inventory_complete = (
+        graph_checks_present
+        and terraform_summary is not None
+        and _strict_int(terraform_summary, "parsing_errors", "summary") == 0
+        and _strict_int(terraform_summary, "resource_count", "summary")
+        == len(terraform_expected)
+    )
+    if terraform_inventory_complete:
+        observed_resources.update(terraform_expected)
+    kubernetes_expected = {
+        (item.file_path, item.resource_address)
+        for item in request.expected_resources
+        if item.artifact_kind in {
+            ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON,
+        }
+    }
+    kubernetes_summary = summaries_by_framework.get("kubernetes")
+    kubernetes_graph_primary_aliases = {
+        evaluation.graph_evidence.primary.canonical_key
+        for evaluation in evaluations
+        if evaluation.graph_evidence is not None
+        and evaluation.graph_evidence.primary.resource_type
+        in _KUBERNETES_WORKLOAD_KINDS
+    }
+    kubernetes_graph_inventory_complete = (
+        graph_checks_present
+        and kubernetes_summary is not None
+        and _strict_int(kubernetes_summary, "parsing_errors", "summary") == 0
+        and _strict_int(kubernetes_summary, "resource_count", "summary")
+        == len(kubernetes_expected) + len(kubernetes_graph_primary_aliases)
+    )
+    missing_files = sorted(set(request.files_eligible) - observed_files)
     missing_resources = sorted(expected_resources - observed_resources)
     unexpected_resources = sorted(observed_resources - expected_resources)
     if resource_count < len(observed_resources):
@@ -1208,6 +1359,15 @@ def _normalize(
         expected_resources_missing=len(missing_resources),
         unexpected_resources_observed=len(unexpected_resources),
         summary_resources_reported=resource_count,
+        inventory_completion_basis=tuple(
+            basis for basis, enabled in (
+                ("terraform_summary_exact", terraform_inventory_complete),
+                (
+                    "kubernetes_graph_primary_aliases",
+                    kubernetes_graph_inventory_complete,
+                ),
+            ) if enabled
+        ),
     )
     coverage = CoverageCounters(
         files_eligible=eligible_count,
@@ -1271,11 +1431,27 @@ def _normalize(
         partial_diagnostics.extend(f"unknown result bucket: {item}" for item in sorted(unknown_buckets))
     if eligible_count and not expected_resources:
         partial_diagnostics.append(AdapterReason.RESOURCE_INVENTORY_MISSING.value)
-    if expected_resources and resource_count != len(expected_resources):
-        partial_diagnostics.append(AdapterReason.RESOURCE_COUNT_MISMATCH.value)
-        partial_diagnostics.append(
-            f"summary resource count: {resource_count}; expected: {len(expected_resources)}"
+    for framework, summary in sorted(summaries_by_framework.items()):
+        expected_framework_count = sum(
+            item.artifact_kind is ArtifactKind.TERRAFORM_HCL
+            if framework == "terraform"
+            else item.artifact_kind in {
+                ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON,
+            }
+            for item in request.expected_resources
         )
+        summary_framework_count = _strict_int(summary, "resource_count", "summary")
+        count_mismatch = (
+            summary_framework_count != expected_framework_count
+            if framework == "terraform" or not graph_checks_present
+            else summary_framework_count < expected_framework_count
+        )
+        if expected_framework_count and count_mismatch:
+            partial_diagnostics.append(AdapterReason.RESOURCE_COUNT_MISMATCH.value)
+            partial_diagnostics.append(
+                f"{framework} summary resource count: {summary_framework_count}; "
+                f"expected: {expected_framework_count}"
+            )
     if missing_files or missing_resources or unexpected_resources:
         partial_diagnostics.append(AdapterReason.COVERAGE_MISMATCH.value)
         partial_diagnostics.extend(f"missing evaluation file: {item}" for item in missing_files)
@@ -1341,6 +1517,16 @@ def evaluate_checkov_target(
         and item.resource_address == resource
         and (path is None or item.file_path == path)
     )
+    graph_evidence = tuple(item.graph_evidence for item in scoped)
+    if rule.startswith("CKV2_") and (
+        not graph_evidence
+        or any(item is None or item.status is not Status.PASS for item in graph_evidence)
+    ):
+        return _target_evidence(
+            Status.INCONCLUSIVE,
+            CheckTargetReason.TARGET_EVALUATION_UNKNOWN,
+            scoped,
+        )
     results = {item.native_result for item in scoped}
     if CheckEvaluationResult.FAILED in results:
         return _target_evidence(Status.FAIL, CheckTargetReason.TARGET_FAILED, scoped)

@@ -539,6 +539,33 @@ def test_terraform_detector_ignores_comment_and_string_lookalikes(tmp_path: Path
 
 
 @pytest.mark.parametrize(
+    "lexical_content",
+    [
+        'locals { value = "/*" }\n',
+        'locals { value = "*/" }\n',
+        'locals { value = "escaped \\"quote\\" and /*" }\n',
+        'locals { value = "prefix ${var.value} /*" }\n',
+        'locals { value = <<EOT\n/* heredoc text without a terminator token\nEOT\n}\n',
+        'locals { value = <<-EOT\n  */ indented multiline text\nEOT\n}\n',
+        'locals { value = "resource \\"aws_x\\" \\"string-only\\" { /*" }\n',
+    ],
+)
+def test_terraform_detector_uses_native_lexical_context(
+    tmp_path: Path, lexical_content: str
+) -> None:
+    raw = _scan_request(tmp_path / "candidate", _executable(tmp_path)).request
+    (raw.scan_root / "main.tf").write_text(
+        lexical_content
+        + 'resource "aws_x" "real" { tags = { nested = "safe" } }\n',
+        encoding="utf-8",
+    )
+
+    plan = attest_checkov_scan_plan(raw)
+
+    assert [item.resource_address for item in plan.resources] == ["aws_x.real"]
+
+
+@pytest.mark.parametrize(
     "source, message",
     [
         (b"\xff", "UTF-8"),

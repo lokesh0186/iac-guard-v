@@ -17,9 +17,15 @@ from iac_guard_v.adapters.checkov import (
     CheckovKubernetesIdentity,
     CheckovScanRequest,
     checkov_distribution_identity,
+    evaluate_checkov_target,
 )
 from iac_guard_v.enums import ArtifactKind, Status
-from iac_guard_v.models import DomainError, ExpectedResource
+from iac_guard_v.models import (
+    DomainError,
+    ExpectedResource,
+    GraphCheckEvidence,
+    GraphParticipant,
+)
 from iac_guard_v.process import CommandResult, ProcessReason
 
 
@@ -94,6 +100,7 @@ def request(tmp_path: Path, *, frameworks: tuple = ("terraform",), **overrides) 
         "expected_executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
         "expected_scanner_environment_sha256": distribution.scanner_environment_digest,
         "expected_policy_inventory_sha256": distribution.policy_inventory_digest,
+        "source_snapshot_sha256": "b" * 64,
         "kubernetes_identities": tuple(identities),
         "expected_resources": tuple(expected_resources),
     }
@@ -842,3 +849,134 @@ def test_raw_output_reader_rejects_symlink_oversize_and_missing(tmp_path: Path) 
         CheckovAdapter._read_raw_output(target, 1)
     with pytest.raises(DomainError, match="RAW_OUTPUT_MISSING"):
         CheckovAdapter._read_raw_output(tmp_path / "missing.json", 10)
+
+
+def test_ckv2_without_bound_policy_class_or_query_cannot_authorize_target(
+    tmp_path: Path,
+) -> None:
+    req = request(tmp_path)
+    item = check(check_id="CKV2_AWS_6")
+
+    run = normalize(req, document(failed=[item], passed=0), process(exit_code=1))
+
+    assert run.status is Status.PASS
+    assert len(run.evaluations) == 1
+    evidence = run.evaluations[0].graph_evidence
+    assert evidence is not None
+    assert evidence.status is Status.INCONCLUSIVE
+    assert evidence.reason_code == "GRAPH_POLICY_OR_CLASS_UNSUPPORTED"
+    target = evaluate_checkov_target(
+        run, "CKV2_AWS_6", "aws_s3_bucket.bad", "main.tf"
+    )
+    assert target.status is Status.INCONCLUSIVE
+
+
+def test_graph_scan_may_bind_exact_terraform_summary_inventory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    resources = (
+        ExpectedResource(
+            "main.tf", "aws_s3_bucket.bad", ArtifactKind.TERRAFORM_HCL,
+            "aws_s3_bucket.bad",
+        ),
+        ExpectedResource(
+            "main.tf", "aws_s3_bucket.not_evaluated", ArtifactKind.TERRAFORM_HCL,
+            "aws_s3_bucket.not_evaluated",
+        ),
+    )
+    req = request(tmp_path, expected_resources=resources)
+    participant = GraphParticipant(
+        "main.tf", "aws_s3_bucket.bad", ArtifactKind.TERRAFORM_HCL,
+        "aws_s3_bucket",
+    )
+
+    class Context:
+        auxiliary_identities = ()
+
+        @staticmethod
+        def evidence_for(**_kwargs):
+            return GraphCheckEvidence(
+                Status.PASS, "GRAPH_EVIDENCE_COMPLETE", participant,
+                (participant,), (), "1" * 64, "b" * 64, "2" * 64,
+                "3" * 64, "4" * 64,
+            )
+
+    monkeypatch.setattr(
+        "iac_guard_v.adapters.checkov.build_graph_evidence_context",
+        lambda **_kwargs: Context(),
+    )
+    item = check(check_id="CKV2_AWS_6")
+    item["check_class"] = "checkov.common.graph.checks_infra.base_check"
+    item["check_result"]["result"] = "PASSED"
+    payload = document(passed=0, resource_count=2)
+    payload["summary"]["passed"] = 1
+    payload["results"]["passed_checks"] = [item]
+
+    run = normalize(req, payload)
+
+    assert run.status is Status.PASS
+    assert run.resource_coverage.inventory_completion_basis == (
+        "terraform_summary_exact",
+    )
+    assert run.resource_coverage.expected_resources_missing == 0
+
+
+def test_kubernetes_graph_primary_alias_is_bound_in_summary_coverage(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    resource = ExpectedResource(
+        "pod.yaml",
+        "apps/v1/Deployment/default/demo",
+        ArtifactKind.KUBERNETES_YAML,
+        "Deployment.default.demo",
+    )
+    identity = CheckovKubernetesIdentity(
+        "pod.yaml", "Deployment.default.demo", "apps/v1", "Deployment",
+        "default", "demo",
+    )
+    req = request(
+        tmp_path,
+        frameworks=("kubernetes",),
+        expected_resources=(resource,),
+        kubernetes_identities=(identity,),
+    )
+    participant = GraphParticipant(
+        "pod.yaml", resource.resource_address, ArtifactKind.KUBERNETES_YAML,
+        "Deployment",
+    )
+
+    class Context:
+        auxiliary_identities = ()
+
+        @staticmethod
+        def evidence_for(**_kwargs):
+            return GraphCheckEvidence(
+                Status.PASS, "GRAPH_EVIDENCE_COMPLETE", participant,
+                (participant,), (), "1" * 64, "b" * 64, "2" * 64,
+                "3" * 64, "4" * 64,
+            )
+
+    monkeypatch.setattr(
+        "iac_guard_v.adapters.checkov.build_graph_evidence_context",
+        lambda **_kwargs: Context(),
+    )
+    item = check(
+        framework="kubernetes",
+        path="pod.yaml",
+        resource="Pod.default.demo.app-demo",
+        check_id="CKV2_K8S_6",
+    )
+    item["check_class"] = "checkov.common.graph.checks_infra.base_check"
+    item["check_result"]["result"] = "FAILED"
+    payload = document(framework="kubernetes", passed=0, resource_count=2)
+    payload["summary"]["failed"] = 1
+    payload["results"]["failed_checks"] = [item]
+
+    run = normalize(req, payload)
+
+    assert run.status is Status.PASS
+    assert run.resource_coverage.inventory_completion_basis == (
+        "kubernetes_graph_primary_aliases",
+    )
+    assert run.resource_coverage.summary_resources_reported == 2
+    assert run.resource_coverage.resources_observed == 1

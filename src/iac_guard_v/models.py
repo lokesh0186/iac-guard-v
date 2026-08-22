@@ -504,6 +504,203 @@ class Finding:
 
 
 @dataclass(frozen=True, slots=True)
+class GraphParticipant:
+    """One exact resource participating in a scanner graph evaluation."""
+
+    file_path: str
+    resource_address: str
+    artifact_kind: ArtifactKind
+    resource_type: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
+        object.__setattr__(
+            self,
+            "resource_address",
+            canonical_resource_scope(self.resource_address, "graph resource address"),
+        )
+        require_enum(self.artifact_kind, ArtifactKind, "graph artifact kind")
+        if self.artifact_kind is ArtifactKind.UNKNOWN:
+            raise DomainError("graph participant artifact kind cannot be UNKNOWN")
+        object.__setattr__(
+            self,
+            "resource_type",
+            canonical_identifier(self.resource_type, "graph resource type"),
+        )
+
+    @property
+    def canonical_key(self) -> tuple:
+        return (
+            self.file_path,
+            self.resource_address,
+            self.artifact_kind.value,
+            self.resource_type,
+        )
+
+    def canonical_dict(self) -> dict:
+        return {
+            "file_path": self.file_path,
+            "resource_address": self.resource_address,
+            "artifact_kind": self.artifact_kind.value,
+            "resource_type": self.resource_type,
+        }
+
+
+def _rebuild_graph_participant(value: GraphParticipant) -> GraphParticipant:
+    require_exact_type(value, GraphParticipant, "graph participant")
+    return GraphParticipant(
+        value.file_path,
+        value.resource_address,
+        ArtifactKind(value.artifact_kind.value),
+        value.resource_type,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class GraphEdgeEvidence:
+    """One canonical relationship edge between exact graph participants."""
+
+    source: GraphParticipant
+    target: GraphParticipant
+    relation_type: str
+    relation_key: str
+
+    def __post_init__(self) -> None:
+        for name in ("source", "target"):
+            value = getattr(self, name)
+            require_exact_type(value, GraphParticipant, f"graph edge {name}")
+            object.__setattr__(self, name, _rebuild_graph_participant(value))
+        object.__setattr__(
+            self,
+            "relation_type",
+            canonical_identifier(self.relation_type, "graph relation type"),
+        )
+        object.__setattr__(
+            self,
+            "relation_key",
+            canonical_resource_scope(self.relation_key, "graph relation key"),
+        )
+        if self.source.canonical_key == self.target.canonical_key:
+            raise DomainError("graph relationship edge cannot be self-referential")
+
+    @property
+    def canonical_key(self) -> tuple:
+        return (
+            self.source.canonical_key,
+            self.target.canonical_key,
+            self.relation_type,
+            self.relation_key,
+        )
+
+    def canonical_dict(self) -> dict:
+        return {
+            "source": self.source.canonical_dict(),
+            "target": self.target.canonical_dict(),
+            "relation_type": self.relation_type,
+            "relation_key": self.relation_key,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class GraphCheckEvidence:
+    """Bound evidence for one graph-native scanner evaluation.
+
+    `status=PASS` means the graph witness or absence proof is complete for the
+    supported query shape. It does not mean the policy check passed; that result
+    remains the separate scanner-native evaluation result.
+    """
+
+    status: Status
+    reason_code: str
+    primary: GraphParticipant
+    participants: tuple
+    edges: tuple
+    input_manifest_sha256: str
+    source_snapshot_sha256: str
+    policy_inventory_sha256: str
+    policy_definition_sha256: str
+    query_identity_sha256: str
+
+    def __post_init__(self) -> None:
+        require_enum(self.status, Status, "graph evidence status")
+        object.__setattr__(
+            self,
+            "reason_code",
+            canonical_identifier(self.reason_code, "graph evidence reason code"),
+        )
+        require_exact_type(self.primary, GraphParticipant, "graph primary participant")
+        object.__setattr__(self, "primary", _rebuild_graph_participant(self.primary))
+        if type(self.participants) is not tuple:
+            raise DomainError("graph participants must be an exact tuple")
+        participants = []
+        for item in self.participants:
+            require_exact_type(item, GraphParticipant, "graph participant")
+            participants.append(_rebuild_graph_participant(item))
+        participant_keys = [item.canonical_key for item in participants]
+        if len(participant_keys) != len(set(participant_keys)):
+            raise DomainError("graph participants contain duplicate identities")
+        if self.primary.canonical_key not in participant_keys:
+            raise DomainError("graph participants must include the primary target")
+        object.__setattr__(
+            self, "participants", tuple(sorted(participants, key=lambda item: item.canonical_key))
+        )
+        if type(self.edges) is not tuple:
+            raise DomainError("graph edges must be an exact tuple")
+        edges = []
+        for item in self.edges:
+            require_exact_type(item, GraphEdgeEvidence, "graph edge evidence")
+            rebuilt = GraphEdgeEvidence(
+                item.source, item.target, item.relation_type, item.relation_key
+            )
+            if (
+                rebuilt.source.canonical_key not in participant_keys
+                or rebuilt.target.canonical_key not in participant_keys
+            ):
+                raise DomainError("graph edge endpoints must be bound participants")
+            edges.append(rebuilt)
+        edge_keys = [item.canonical_key for item in edges]
+        if len(edge_keys) != len(set(edge_keys)):
+            raise DomainError("graph evidence contains duplicate edges")
+        object.__setattr__(
+            self, "edges", tuple(sorted(edges, key=lambda item: item.canonical_key))
+        )
+        for name in (
+            "input_manifest_sha256",
+            "source_snapshot_sha256",
+            "policy_inventory_sha256",
+            "policy_definition_sha256",
+            "query_identity_sha256",
+        ):
+            value = getattr(self, name)
+            if type(value) is not str or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+                raise DomainError(f"{name} must be a lowercase SHA-256")
+        if self.status is Status.PASS and self.reason_code != "GRAPH_EVIDENCE_COMPLETE":
+            raise DomainError("complete graph evidence requires GRAPH_EVIDENCE_COMPLETE")
+        if self.status is not Status.PASS and self.reason_code == "GRAPH_EVIDENCE_COMPLETE":
+            raise DomainError("incomplete graph evidence cannot claim completion")
+
+    @property
+    def canonical_sha256(self) -> str:
+        return hashlib.sha256(json.dumps(
+            self.canonical_dict(), sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+
+    def canonical_dict(self) -> dict:
+        return {
+            "status": self.status.value,
+            "reason_code": self.reason_code,
+            "primary": self.primary.canonical_dict(),
+            "participants": [item.canonical_dict() for item in self.participants],
+            "edges": [item.canonical_dict() for item in self.edges],
+            "input_manifest_sha256": self.input_manifest_sha256,
+            "source_snapshot_sha256": self.source_snapshot_sha256,
+            "policy_inventory_sha256": self.policy_inventory_sha256,
+            "policy_definition_sha256": self.policy_definition_sha256,
+            "query_identity_sha256": self.query_identity_sha256,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class CheckEvaluation:
     """One scanner-native rule/resource evaluation, including positive evidence."""
 
@@ -516,6 +713,7 @@ class CheckEvaluation:
     evaluated_keys: tuple = ()
     source_bucket: str = ""
     occurrence_token: str = ""
+    graph_evidence: GraphCheckEvidence | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "scanner", canonical_identifier(self.scanner, "scanner"))
@@ -554,6 +752,26 @@ class CheckEvaluation:
                 self, "occurrence_token",
                 canonical_identifier(self.occurrence_token, "occurrence_token"),
             )
+        if self.graph_evidence is not None:
+            require_exact_type(
+                self.graph_evidence, GraphCheckEvidence, "graph check evidence"
+            )
+            object.__setattr__(
+                self,
+                "graph_evidence",
+                GraphCheckEvidence(
+                    self.graph_evidence.status,
+                    self.graph_evidence.reason_code,
+                    self.graph_evidence.primary,
+                    self.graph_evidence.participants,
+                    self.graph_evidence.edges,
+                    self.graph_evidence.input_manifest_sha256,
+                    self.graph_evidence.source_snapshot_sha256,
+                    self.graph_evidence.policy_inventory_sha256,
+                    self.graph_evidence.policy_definition_sha256,
+                    self.graph_evidence.query_identity_sha256,
+                ),
+            )
 
     @property
     def canonical_key(self) -> tuple:
@@ -567,6 +785,10 @@ class CheckEvaluation:
             self.evaluated_keys,
             self.source_bucket,
             self.occurrence_token,
+            (
+                self.graph_evidence.canonical_sha256
+                if self.graph_evidence is not None else ""
+            ),
         )
 
     @property
@@ -582,7 +804,7 @@ class CheckEvaluation:
         )
 
     def canonical_dict(self) -> dict:
-        return {
+        result = {
             "scanner": self.scanner,
             "scanner_version": self.scanner_version,
             "rule_id": self.rule_id,
@@ -593,6 +815,9 @@ class CheckEvaluation:
             "source_bucket": self.source_bucket,
             "occurrence_token": self.occurrence_token,
         }
+        if self.graph_evidence is not None:
+            result["graph_evidence"] = self.graph_evidence.canonical_dict()
+        return result
 
 
 def _rebuild_finding(finding: Any) -> Finding:
@@ -646,6 +871,7 @@ class ResourceCoverage:
     expected_resources_missing: int = 0
     unexpected_resources_observed: int = 0
     summary_resources_reported: int = 0
+    inventory_completion_basis: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         names = (
@@ -667,9 +893,25 @@ class ResourceCoverage:
             self.expected_resources_observed + self.unexpected_resources_observed
         ):
             raise DomainError("observed resource coverage counters are inconsistent")
+        allowed_bases = {
+            "kubernetes_graph_primary_aliases",
+            "terraform_summary_exact",
+        }
+        if (
+            type(self.inventory_completion_basis) is not tuple
+            or len(self.inventory_completion_basis)
+            != len(set(self.inventory_completion_basis))
+            or not set(self.inventory_completion_basis) <= allowed_bases
+        ):
+            raise DomainError("resource inventory completion basis is invalid")
+        object.__setattr__(
+            self,
+            "inventory_completion_basis",
+            tuple(sorted(self.inventory_completion_basis)),
+        )
 
     def canonical_dict(self) -> dict:
-        return {
+        result = {
             name: getattr(self, name)
             for name in (
                 "resources_expected",
@@ -680,6 +922,10 @@ class ResourceCoverage:
                 "summary_resources_reported",
             )
         }
+        result["inventory_completion_basis"] = list(
+            self.inventory_completion_basis
+        )
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -813,6 +1059,7 @@ class ScannerRun:
                 evaluation.evaluated_keys,
                 evaluation.source_bucket,
                 evaluation.occurrence_token,
+                evaluation.graph_evidence,
             )
             if (
                 rebuilt_evaluation.scanner != self.scanner
@@ -1524,7 +1771,7 @@ def permission_rejection_reason(decision: TargetDecision, policy: ExceptionPolic
 #: Every persistent model, for the immutability test matrix.
 PERSISTENT_MODELS: tuple = (
     FindingLocation, BoundInputFile, ExpectedResource, ResolvedTargetBinding,
-    Finding, CheckEvaluation,
+    Finding, GraphParticipant, GraphEdgeEvidence, GraphCheckEvidence, CheckEvaluation,
     CoverageCounters, ResourceCoverage,
     ScannerEnvironmentComponents, ScannerRun, GateResult, RequiredGates,
     ExceptionRecord, ExceptionPolicy, TargetIdentity, Target, TargetDecision,
