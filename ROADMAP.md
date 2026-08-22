@@ -12,14 +12,22 @@ This roadmap records intent, not a delivery commitment.
 - Clean Python 3.10–3.13 wheel and source distribution.
 - Experimental Phase-E adapters and validators remain advisory.
 
+## `0.1.0a2` - Evidence correctness
+
+- Parse Terraform resource inventory with the protected native HCL2 parser so
+  comment-like text inside strings and heredocs cannot alter structural inventory.
+- Bind supported Checkov CKV2 connection-graph findings to exact participants,
+  relationships, files, policy definitions, scanner identity, and snapshots.
+- Keep missing, ambiguous, unsupported, or contradictory graph evidence
+  `INCONCLUSIVE`.
+- Design protected deterministic Helm materialization; implementation remains
+  deferred pending owner review.
+
 ## Candidate next-alpha work
 
 These candidates are prioritized by real-world compatibility findings, not
 promised release dates:
 
-- Strengthen Terraform lexical inventory for valid quoted-string content.
-- Add bounded Checkov CKV2/graph-finding evidence without weakening exact target
-  identity.
 - Stabilize protected-oracle implementation identity across fresh Python processes.
 - Improve diagnostics and performance for large Git materializations.
 - Evaluate a candidate-only/new-IaC review mode that reports introduced findings

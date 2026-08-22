@@ -957,7 +957,82 @@
         "summary_resources_reported": {
           "type": "integer",
           "minimum": 0
+        },
+        "inventory_completion_basis": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "kubernetes_graph_primary_aliases",
+              "terraform_summary_exact"
+            ]
+          }
         }
+      }
+    },
+    "graphParticipant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_path",
+        "resource_address",
+        "artifact_kind",
+        "resource_type"
+      ],
+      "properties": {
+        "file_path": {"type": "string", "minLength": 1},
+        "resource_address": {"type": "string", "minLength": 1},
+        "artifact_kind": {
+          "enum": ["terraform_hcl", "kubernetes_yaml", "kubernetes_json"]
+        },
+        "resource_type": {"type": "string", "minLength": 1}
+      }
+    },
+    "graphEdge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "target", "relation_type", "relation_key"],
+      "properties": {
+        "source": {"$ref": "#/$defs/graphParticipant"},
+        "target": {"$ref": "#/$defs/graphParticipant"},
+        "relation_type": {"type": "string", "minLength": 1},
+        "relation_key": {"type": "string", "minLength": 1}
+      }
+    },
+    "graphEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "reason_code",
+        "primary",
+        "participants",
+        "edges",
+        "input_manifest_sha256",
+        "source_snapshot_sha256",
+        "policy_inventory_sha256",
+        "policy_definition_sha256",
+        "query_identity_sha256"
+      ],
+      "properties": {
+        "status": {"enum": ["PASS", "INCONCLUSIVE"]},
+        "reason_code": {"type": "string", "minLength": 1},
+        "primary": {"$ref": "#/$defs/graphParticipant"},
+        "participants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/graphParticipant"}
+        },
+        "edges": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/graphEdge"}
+        },
+        "input_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_snapshot_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "policy_inventory_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "policy_definition_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "query_identity_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     },
     "evaluation": {
@@ -1009,6 +1084,9 @@
         },
         "occurrence_token": {
           "type": "string"
+        },
+        "graph_evidence": {
+          "$ref": "#/$defs/graphEvidence"
         }
       }
     },

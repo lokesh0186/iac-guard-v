@@ -1,4 +1,4 @@
-# IaC-Guard-V 0.1.0a1 release gate
+# IaC-Guard-V 0.1.0a2 release gate
 
 This checklist prepares reviewed artifacts; it does not authorize a push, tag, upload,
 or publication. Run it only from the owner-reviewed release commit with a clean tree.
@@ -17,7 +17,8 @@ not redistribute the Springer PDF unless the applicable publication licence perm
 
 ## Clean source gate
 
-- [ ] Confirm the branch is `adoption/phase-e-multiscanner`.
+- [ ] Confirm the build is from a clean checkout of the exact owner-reviewed commit
+      already merged to `main` and green in public CI.
 - [ ] Record and independently review the exact release HEAD.
 - [ ] Confirm `git status --short` is empty.
 - [ ] Confirm `paper.pdf` is absent from the current tree and the publication-status
@@ -38,7 +39,7 @@ python -m build --outdir dist
 ```
 
 - [ ] `dist/` was absent or empty immediately before `python -m build`.
-- [ ] Exactly one `0.1.0a1` wheel and one `0.1.0a1` sdist were created.
+- [ ] Exactly one `0.1.0a2` wheel and one `0.1.0a2` sdist were created.
 - [ ] Package-content tests pass against a separately created empty output directory.
 - [ ] The wheel contains workflow.py, all three reporters, both public schemas, the
       protected oracle policy, packaged demo fixture, the RECORD-bound no-bytecode
@@ -85,6 +86,9 @@ PY
       exact CKV_AWS_53 file/resource binding, visible reduced-isolation, and no private
       absolute paths. Their semantic views and Markdown projections are byte-identical;
       exact raw hashes and measured durations remain run-specific provenance.
+- [ ] Run one supported CKV2 connection-query verification and require decisive,
+      semantically valid graph evidence bound to participants, relationships, files,
+      policy/query identity, scanner identity, and both snapshots.
 - [ ] Run the direct Git `iac-guard pr --base-ref ... --head-ref ...
       --all-baseline-findings --changed-only` path against a temporary repository;
       require exit 0, valid SARIF, exact Checkov rule evidence, no private paths, and

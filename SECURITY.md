@@ -1,6 +1,6 @@
 # Security Policy
 
-IaC-Guard-V `0.1.0a1` is an alpha with a Checkov-focused product boundary. It is
+IaC-Guard-V `0.1.0a2` is an alpha with a Checkov-focused product boundary. It is
 not yet a production hardened-container release.
 
 ## Supported versions

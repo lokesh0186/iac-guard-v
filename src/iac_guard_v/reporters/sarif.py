@@ -1,6 +1,7 @@
 """Deterministic SARIF 2.1.0 projection of validated report-v1 evidence."""
 from __future__ import annotations
 
+from .. import __version__
 from ._shared import (
     canonical_json, decision_for, engine_events, gate_records, is_full_verification,
     remediation_for, report_identity, safe_text, sorted_targets, target_delta_classes,
@@ -151,7 +152,7 @@ def render_sarif(payload: dict) -> str:
         "tool": {"driver": {
             "name": "IaC-Guard-V",
             "rules": [{"id": rule_id, "name": rule_id} for rule_id in rule_ids],
-            "semanticVersion": "0.1.0a1",
+            "semanticVersion": __version__,
         }},
     }
     return canonical_json({"$schema": _SCHEMA, "runs": [run], "version": "2.1.0"})

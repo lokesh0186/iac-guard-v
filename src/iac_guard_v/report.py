@@ -419,6 +419,95 @@ def _evaluation_identity(item: dict) -> tuple:
     )
 
 
+def _validate_graph_evidence(
+    evaluation: dict, run: dict, snapshot: dict, role: str
+) -> None:
+    graph = evaluation.get("graph_evidence")
+    if graph is None:
+        return
+    if not evaluation["rule_id"].startswith("CKV2_"):
+        _semantic_error(f"{role} non-CKV2 evaluation contains graph evidence")
+    for name in (
+        "input_manifest_sha256",
+        "source_snapshot_sha256",
+        "policy_inventory_sha256",
+        "policy_definition_sha256",
+        "query_identity_sha256",
+    ):
+        _require_sha(graph[name], f"{role} graph {name}")
+    if graph["input_manifest_sha256"] != _canonical_json_digest(run["input_files"]):
+        _semantic_error(f"{role} graph evidence input manifest is not canonical")
+    if graph["source_snapshot_sha256"] != snapshot["snapshot_sha256"]:
+        _semantic_error(f"{role} graph evidence is bound to a different source snapshot")
+    if graph["policy_inventory_sha256"] != run["policy_inventory_digest"]:
+        _semantic_error(f"{role} graph evidence policy inventory is unbound")
+    primary = graph["primary"]
+    if (
+        primary["file_path"] != evaluation["file_path"]
+        or primary["resource_address"] != evaluation["resource_address"]
+    ):
+        _semantic_error(f"{role} graph primary target disagrees with evaluation")
+    resource_records = {
+        (item["file_path"], item["resource_address"], item["artifact_kind"]): item
+        for item in snapshot["resources"]
+    }
+    participants = graph["participants"]
+    participant_keys = [
+        (
+            item["file_path"], item["resource_address"], item["artifact_kind"],
+            item["resource_type"],
+        )
+        for item in participants
+    ]
+    if len(participant_keys) != len(set(participant_keys)):
+        _semantic_error(f"{role} graph participants contain duplicate identities")
+    if (
+        primary["file_path"], primary["resource_address"], primary["artifact_kind"],
+        primary["resource_type"],
+    ) not in participant_keys:
+        _semantic_error(f"{role} graph participants omit the primary target")
+    for participant in participants:
+        resource_key = (
+            participant["file_path"], participant["resource_address"],
+            participant["artifact_kind"],
+        )
+        resource = resource_records.get(resource_key)
+        if resource is None:
+            _semantic_error(
+                f"{role} graph participant is absent from the sealed snapshot"
+            )
+        expected_type = (
+            participant["resource_address"].split(".", 1)[0]
+            if participant["artifact_kind"] == "terraform_hcl"
+            else resource["scanner_native_lookup"].split(".", 1)[0]
+        )
+        if participant["resource_type"] != expected_type:
+            _semantic_error(f"{role} graph participant type is not canonical")
+    edge_keys = []
+    for edge in graph["edges"]:
+        source = edge["source"]
+        target = edge["target"]
+        source_key = (
+            source["file_path"], source["resource_address"], source["artifact_kind"],
+            source["resource_type"],
+        )
+        target_key = (
+            target["file_path"], target["resource_address"], target["artifact_kind"],
+            target["resource_type"],
+        )
+        if source_key not in participant_keys or target_key not in participant_keys:
+            _semantic_error(f"{role} graph edge endpoint is not a participant")
+        if source_key == target_key:
+            _semantic_error(f"{role} graph evidence contains a self edge")
+        edge_keys.append((source_key, target_key, edge["relation_type"], edge["relation_key"]))
+    if len(edge_keys) != len(set(edge_keys)):
+        _semantic_error(f"{role} graph evidence contains duplicate edges")
+    if (graph["status"] == "PASS") != (
+        graph["reason_code"] == "GRAPH_EVIDENCE_COMPLETE"
+    ):
+        _semantic_error(f"{role} graph completion status contradicts its reason")
+
+
 def _validate_scanner_run(
     run: dict, snapshot: dict, role: str, *, allow_private_test_registry: bool,
 ) -> None:
@@ -497,11 +586,30 @@ def _validate_scanner_run(
         resource["expected_resources_observed"] + resource["unexpected_resources_observed"]
     ):
         _semantic_error(f"{role} scanner resource counters are inconsistent")
+    completion_basis = set(resource.get("inventory_completion_basis", []))
+    kubernetes_graph_aliases = {
+        (
+            item["graph_evidence"]["primary"]["file_path"],
+            item["graph_evidence"]["primary"]["resource_address"],
+        )
+        for item in run["evaluations"]
+        if item.get("graph_evidence") is not None
+        and item["graph_evidence"]["primary"]["resource_type"]
+        in {"Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob"}
+    }
+    summary_coverage_complete = (
+        resource["summary_resources_reported"] == resource["resources_observed"]
+        or (
+            "kubernetes_graph_primary_aliases" in completion_basis
+            and resource["summary_resources_reported"]
+            == resource["resources_observed"] + len(kubernetes_graph_aliases)
+        )
+    )
     if run["status"] == "PASS" and (
         resource["expected_resources_missing"]
         or resource["unexpected_resources_observed"]
         or resource["resources_expected"] != len(snapshot["resources"])
-        or resource["summary_resources_reported"] != resource["resources_observed"]
+        or not summary_coverage_complete
     ):
         _semantic_error(f"{role} PASS scanner run lacks complete resource coverage")
 
@@ -533,18 +641,62 @@ def _validate_scanner_run(
         expected = _PASS_BUCKETS.get(item["source_bucket"])
         if expected is not None and item["native_result"] != expected:
             _semantic_error(f"{role} scanner evaluation bucket contradicts native result")
+        _validate_graph_evidence(item, run, snapshot, role)
     observed_resource_keys = {
         (item["location"]["file_path"], item["resource_address"])
         for item in findings.values()
     } | {
         (item["file_path"], item["resource_address"])
         for item in evaluations.values()
+    } | {
+        (participant["file_path"], participant["resource_address"])
+        for item in evaluations.values()
+        if item.get("graph_evidence") is not None
+        for participant in item["graph_evidence"]["participants"]
     }
-    expected_resource_keys = {
-        (item["file_path"], item["resource_address"])
+    expected_resource_kinds = {
+        (item["file_path"], item["resource_address"]): item["artifact_kind"]
         for item in snapshot["resources"]
     }
-    if run["status"] == "PASS" and expected_resource_keys != observed_resource_keys:
+    expected_resource_keys = set(expected_resource_kinds)
+    if completion_basis and not any(
+        item["rule_id"].startswith("CKV2_")
+        and item.get("graph_evidence") is not None
+        for item in evaluations.values()
+    ):
+        _semantic_error(
+            f"{role} scanner inventory completion basis lacks graph evidence"
+        )
+    missing_resource_keys = expected_resource_keys - observed_resource_keys
+    unexpected_evaluations = [
+        item for item in evaluations.values()
+        if (item["file_path"], item["resource_address"]) not in expected_resource_keys
+    ]
+    unexpected_findings = [
+        item for item in findings.values()
+        if (item["location"]["file_path"], item["resource_address"])
+        not in expected_resource_keys
+    ]
+    terraform_summary_covers_missing = (
+        "terraform_summary_exact" in completion_basis
+        and all(
+            expected_resource_kinds[key] == "terraform_hcl"
+            for key in missing_resource_keys
+        )
+    )
+    passed_auxiliary_only = (
+        "terraform_summary_exact" in completion_basis
+        and all(
+            item["native_result"] == "PASSED"
+            and item["file_path"].lower().endswith(".tf")
+            for item in unexpected_evaluations
+        )
+    )
+    if run["status"] == "PASS" and (
+        (missing_resource_keys and not terraform_summary_covers_missing)
+        or unexpected_findings
+        or (unexpected_evaluations and not passed_auxiliary_only)
+    ):
         _semantic_error(f"{role} PASS scanner resource evidence is incomplete or unexpected")
     if run["status"] == "PASS" and any((
         coverage["files_failed"], coverage["checks_failed_to_execute"],
@@ -900,6 +1052,25 @@ def _derive_target_outcome(verification: dict, target: dict) -> tuple[str, int, 
     candidate_count = len(candidate_findings)
     if baseline_count != binding["baseline_occurrences"]:
         return "INCONCLUSIVE", baseline_count, candidate_count
+    if target["identity"]["rule_id"].startswith("CKV2_"):
+        baseline_graph = [
+            item for item in baseline["evaluations"]
+            if _target_evaluation(item, target, baseline)
+            and item["native_result"] == "FAILED"
+        ]
+        candidate_graph = [
+            item for item in candidate["evaluations"]
+            if _target_evaluation(item, target, candidate)
+        ]
+        if (
+            len(baseline_graph) != baseline_count
+            or not candidate_graph
+            or any(
+                item.get("graph_evidence", {}).get("status") != "PASS"
+                for item in (*baseline_graph, *candidate_graph)
+            )
+        ):
+            return "INCONCLUSIVE", baseline_count, candidate_count
     if baseline["status"] != "PASS" or candidate["status"] != "PASS":
         return "SCANNER_ERROR", baseline_count, candidate_count
 

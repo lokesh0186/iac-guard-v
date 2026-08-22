@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a1`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a2`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -20,11 +20,27 @@ It includes:
   gates;
 - direct directory verification and exact Git base/head materialization;
 - validated `report-v1` evidence;
+- bounded evidence for supported Checkov CKV2 connection-graph findings, including
+  exact participants, relationships, files, policy bytes, and snapshots;
 - deterministic console, JSON, SARIF 2.1.0, Markdown, and JUnit projections.
 
 Native execution is `reduced-isolation` and supports only input controlled by
 the operator. A production hostile-input container and GitHub Action have not
 been released.
+
+## Report-v1 alpha compatibility
+
+`0.1.0a2` retains the `report-v1` name and extends its closed schema with optional
+`graph_evidence` and `inventory_completion_basis` members. The project did not promise
+an immutable field-for-field wire shape across `0.1.x` alpha releases; prior accepted
+report amendments also retained `report-v1` while adding evidence required for
+fail-closed validation.
+
+Because `report-v1` uses `additionalProperties: false`, a consumer validating an a2
+graph report with a vendored `0.1.0a1` schema will correctly reject the unknown fields.
+Such consumers must update to the schema distributed with `0.1.0a2`. Non-graph reports
+emitted by `0.1.0a1` remain valid under the a2 schema. This is additive alpha evolution,
+not permission for projections or consumers to ignore unknown evidence.
 
 ## Component status
 
@@ -37,7 +53,7 @@ been released.
 | kubeconform and TFLint | Experimental/advisory validation evidence. |
 | OpenTofu `.tofu` / `.tofu.json` | Not supported in the public alpha. |
 | Terraform `.tf.json` | Explicitly unsupported/inconclusive end to end. |
-| Checkov CKV2/graph findings | Candidate next-alpha work; not affirmatively verified today. |
+| Checkov CKV2/graph findings | Supported only for bounded connection-query shapes with complete participant and relationship evidence; every other shape remains inconclusive. |
 | Helm/Kustomize materialization | No general protected materialization contract yet. |
 | Multi-scanner consensus | Advisory only and disconnected from the final verdict. |
 | Hardened container and composite Action | Not released. |

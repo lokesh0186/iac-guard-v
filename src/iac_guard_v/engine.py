@@ -9,17 +9,13 @@ from __future__ import annotations
 
 import difflib
 import base64
-import contextlib
 import hashlib
-import importlib
 import inspect
 import json
 import ntpath
 import os
 import stat
 import sys
-import tempfile
-import threading
 from dataclasses import InitVar, dataclass, field
 from pathlib import Path
 from collections.abc import Callable, Mapping
@@ -47,6 +43,7 @@ from .adapters.base import AdapterReason
 from .diffing import FindingDiffResult, diff_findings, require_trusted_diff_result
 from .enums import (
     CheckTargetReason,
+    CheckEvaluationResult,
     ArtifactKind,
     DeltaClass,
     Outcome,
@@ -68,6 +65,9 @@ from .models import (
     require_exact_type,
     require_trusted_scanner_run,
 )
+from .terraform_parser import (
+    isolated_hcl2_parser_cache as _isolated_hcl2_parser_cache,
+)
 
 
 _TRUSTED_ENGINE_CONTEXT = object()
@@ -75,8 +75,6 @@ _TRUSTED_SCAN_PLAN_CONTEXT = object()
 _TRUSTED_CONFIG_CONTEXT = object()
 _TRUSTED_GATE_REGISTRY_CONTEXT = object()
 _TRUSTED_POLICY_AUTHORIZATION_CONTEXT = object()
-_HCL2_CACHE_LOCK = threading.Lock()
-_HCL2_SECURE_CACHE_READY = False
 _SHA256 = __import__("re").compile(r"^[0-9a-f]{64}$")
 _GOVERNED_FILE_NAMES = frozenset({
     ".iac-guard.yml", ".iac-guard.yaml", ".iac-guard.json",
@@ -425,7 +423,7 @@ def _production_gate_executor(
             relative = bound.file_path
             content = bound.content
             if gate_id == "terraform_hcl_parse":
-                _terraform_resources(relative, content)
+                _terraform_resources_v2(relative, content)
             elif path.suffix.lower() == ".json":
                 _kubernetes_json_resources(relative, content)
             else:
@@ -434,26 +432,6 @@ def _production_gate_executor(
     except DomainError as exc:
         return GateResult(gate_id, Status.FAIL, "ARTIFACT_SYNTAX_INVALID", str(exc))
     return GateResult(gate_id, Status.PASS, "VALIDATOR_COMPLETED", f"files={checked}")
-
-
-@contextlib.contextmanager
-def _isolated_hcl2_parser_cache():
-    """Keep python-hcl2's generated Lark cache outside its verified package tree."""
-    global _HCL2_SECURE_CACHE_READY
-    with _HCL2_CACHE_LOCK:
-        parser_module = importlib.import_module("hcl2.parser")
-        if _HCL2_SECURE_CACHE_READY:
-            yield
-            return
-        original = parser_module.PARSER_FILE
-        parser_module.parser.cache_clear()
-        with tempfile.TemporaryDirectory(prefix="iacgv-hcl2-cache-") as directory:
-            parser_module.PARSER_FILE = Path(directory) / "lark-cache.bin"
-            try:
-                yield
-                _HCL2_SECURE_CACHE_READY = True
-            finally:
-                parser_module.PARSER_FILE = original
 
 
 def _callable_behavior_digest(value: Callable) -> str:
@@ -679,7 +657,8 @@ def production_gate_registry() -> TrustedGateRegistry:
     implementation_sources = (
         _production_gate_executor,
         _isolated_hcl2_parser_cache,
-        _terraform_resources,
+        _terraform_parse_error_detail,
+        _terraform_resources_v2,
         _construct_unique_mapping,
         _kubernetes_identity,
         _resources_from_kubernetes_documents,
@@ -721,7 +700,10 @@ def production_gate_registry() -> TrustedGateRegistry:
     schema_loader_digest = hashlib.sha256(json.dumps({
         "json_depth": inspect.getsource(_strict_json_document),
         "yaml_loader": inspect.getsource(_bounded_yaml_documents),
-        "hcl_loader": inspect.getsource(_terraform_resources),
+        "hcl_loader": (
+            inspect.getsource(_terraform_parse_error_detail)
+            + inspect.getsource(_terraform_resources_v2)
+        ),
     }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return TrustedGateRegistry(
         "iac_guard_v_phase_d_registry_v4",
@@ -1110,8 +1092,17 @@ class TrustedVerificationConfigBundle:
         if self.governed_config and self.governed_config != observed_governed:
             raise DomainError("governed configuration evidence disagrees with source inventory")
         object.__setattr__(self, "governed_config", observed_governed)
-        baseline_subpath = _repository_relative_subpath(self.baseline_root)
-        candidate_subpath = _repository_relative_subpath(self.candidate_root)
+        if self.policy_source_authorization.mode is ExecutionMode.EXPLICIT_OPERATOR:
+            # An operator supplies two content roots, not trusted Git roles.  Treat
+            # each supplied directory as the root of its portable snapshot even
+            # when it happens to live below a Git worktree.  Git-aware verification
+            # reconstructs this bundle with PR_BASE authorization and retains the
+            # exact repository-relative subpaths below.
+            baseline_subpath = "."
+            candidate_subpath = "."
+        else:
+            baseline_subpath = _repository_relative_subpath(self.baseline_root)
+            candidate_subpath = _repository_relative_subpath(self.candidate_root)
         object.__setattr__(self, "baseline_repository_relative_subpath", baseline_subpath)
         object.__setattr__(self, "candidate_repository_relative_subpath", candidate_subpath)
         payload = self._identity_payload()
@@ -1758,6 +1749,60 @@ def _terraform_resources(relative: str, content: bytes) -> tuple[ExpectedResourc
     return tuple(sorted(resources, key=lambda item: item.canonical_key))
 
 
+def _terraform_parse_error_detail(exc: Exception) -> str:
+    """Preserve useful diagnostics using the native HCL parser's error context."""
+    token = getattr(exc, "token", None)
+    token_type = getattr(token, "type", "")
+    token_value = str(token) if token is not None else ""
+    expected = getattr(exc, "expected", ())
+    if token_type == "STRING_CHARS" and token_value.lstrip().startswith("/*"):
+        return "unterminated Terraform block comment"
+    if token_type == "$END" and "DBLQUOTE" in expected:
+        return "unterminated Terraform string"
+    return "Terraform HCL syntax is invalid"
+
+
+def _terraform_resources_v2(
+    relative: str, content: bytes
+) -> tuple[ExpectedResource, ...]:
+    """Current product parser using native HCL lexical context."""
+    try:
+        text = content.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise DomainError("Terraform source must be UTF-8") from exc
+    try:
+        with _isolated_hcl2_parser_cache():
+            document = hcl2.loads(text)
+    except Exception as exc:
+        raise DomainError(_terraform_parse_error_detail(exc)) from exc
+    if type(document) is not dict:
+        raise DomainError("Terraform HCL parser returned an invalid document")
+    resources: list[ExpectedResource] = []
+    seen: set[str] = set()
+    blocks = document.get("resource", [])
+    if type(blocks) is not list:
+        raise DomainError("Terraform resource structure is invalid")
+    for block in blocks:
+        if type(block) is not dict:
+            raise DomainError("Terraform resource block is invalid")
+        for resource_type, instances in block.items():
+            if type(resource_type) is not str or type(instances) is not dict:
+                raise DomainError("Terraform resource identity is invalid")
+            for resource_name in instances:
+                if type(resource_name) is not str:
+                    raise DomainError("Terraform resource name is invalid")
+                address = f"{resource_type}.{resource_name}"
+                if address in seen:
+                    raise DomainError("duplicate Terraform resource identity")
+                seen.add(address)
+                resources.append(
+                    ExpectedResource(
+                        relative, address, ArtifactKind.TERRAFORM_HCL, address
+                    )
+                )
+    return tuple(sorted(resources, key=lambda item: item.canonical_key))
+
+
 _MAX_YAML_DEPTH = 64
 _MAX_YAML_DOCUMENTS = 128
 _MAX_YAML_NODES = 10_000
@@ -2201,7 +2246,7 @@ def attest_checkov_scan_plan(
         classification = ""
         syntax_kind = ""
         if suffix == ".tf" and "terraform" in frameworks:
-            detected = _terraform_resources(relative, content)
+            detected = _terraform_resources_v2(relative, content)
             file_type = ArtifactKind.TERRAFORM_HCL.value
             classification = "TERRAFORM_RESOURCES"
             syntax_kind = "terraform_hcl"
@@ -2267,6 +2312,7 @@ def attest_checkov_scan_plan(
         expected_policy_inventory_sha256=(config.expected_policy_inventory_sha256 if config else untrusted.expected_policy_inventory_sha256),
         kubernetes_identities=tuple(kubernetes),
         expected_resources=tuple(resources),
+        source_snapshot_sha256=source_state,
         timeout_seconds=config.timeout_seconds if config else untrusted.timeout_seconds,
         max_output_bytes=config.max_output_bytes if config else untrusted.max_output_bytes,
         max_eligible_files=max_files,
@@ -2873,6 +2919,24 @@ def _target_observation(
         and f.location.file_path == target.file_path
         and f.artifact_kind is target.artifact_kind
     )
+    baseline_graph_evaluations = tuple(
+        item for item in baseline.evaluations
+        if item.rule_id == target.rule_id
+        and item.resource_address == target.scope
+        and item.file_path == target.file_path
+        and item.native_result is CheckEvaluationResult.FAILED
+    )
+    baseline_graph_complete = (
+        not target.rule_id.startswith("CKV2_")
+        or (
+            len(baseline_graph_evaluations) == len(baseline_findings)
+            and all(
+                item.graph_evidence is not None
+                and item.graph_evidence.status is Status.PASS
+                for item in baseline_graph_evaluations
+            )
+        )
+    )
     candidate_findings = tuple(
         f for f in candidate.findings
         if f.rule_id == target.rule_id and f.resource_address == target.scope and not f.suppressed
@@ -2923,7 +2987,10 @@ def _target_observation(
                and f.location.file_path == target.file_path
                and f.artifact_kind is target.artifact_kind)
     )
-    baseline_count_ok = len(baseline_findings) == target.baseline_occurrences
+    baseline_count_ok = (
+        len(baseline_findings) == target.baseline_occurrences
+        and baseline_graph_complete
+    )
     candidate_resource_paths = frozenset(item.file_path for item in target_resource_records)
     artifact_kinds = {item.artifact_kind for item in baseline_findings}
     candidate_artifact_kinds = {item.artifact_kind for item in target_resource_records}

@@ -91,7 +91,13 @@ def test_committed_json_and_markdown_match_canonical_analysis() -> None:
     markdown = render_markdown(result)
     committed = (REPO / "docs/spec/LEGACY_VS_HARDENED.md").read_text(encoding="utf-8")
     committed_json = CANONICAL_ANALYSIS.read_text(encoding="utf-8")
-    assert committed_json == json.dumps(result, sort_keys=True, separators=(",", ":")) + "\n"
+    frozen_result = json.loads(committed_json)
+    assert frozen_result["iac_guard_v_version"] == "0.1.0a1"
+    # D9 is a historical a1 record. A later product version must not rewrite
+    # that frozen metadata, while every substantive replay value still has to
+    # match the current deterministic comparison.
+    result["iac_guard_v_version"] = frozen_result["iac_guard_v_version"]
+    assert frozen_result == result
     assert committed == markdown
     for text in (
         "historical hardened-evidence sufficiency comparison",

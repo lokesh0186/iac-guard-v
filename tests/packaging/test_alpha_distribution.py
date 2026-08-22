@@ -1,4 +1,4 @@
-"""Public 0.1.0a1 distribution and clean-install boundary."""
+"""Public 0.1.0a2 distribution and clean-install boundary."""
 from __future__ import annotations
 
 import email
@@ -16,7 +16,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0a1"
+VERSION = "0.1.0a2"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -46,6 +46,8 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/schemas/report-v1.schema.json",
     "iac_guard_v/schemas/config-v1.schema.json",
     "iac_guard_v/oracles/policies.json",
+    "iac_guard_v/graph_evidence.py",
+    "iac_guard_v/terraform_parser.py",
     "iac_guard_v/examples/checkov-before-after/before.tf",
     "iac_guard_v/examples/checkov-before-after/after.tf",
     "iac_guard_v_no_bytecode.pth",
@@ -230,7 +232,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
         "Verify that an infrastructure-as-code security fix actually fixed",
-        "python -m pip install iac-guard-v==0.1.0a1",
+        "python -m pip install iac-guard-v==0.1.0a2",
         "iac-guard demo",
         "Coder `demo-env-templates` PR #180",
         "25cff91e2c039ddc648541a06191f4b9b9a813b7",
@@ -251,7 +253,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "arXiv:ADD" not in readme
     assert "XXXX.XXXXX" not in readme
     assert "not yet a published release" not in readme
-    assert "package version `0.1.0a1` is not published" not in readme
+    assert "package version `0.1.0a2` is not published" not in readme
 
     advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
     for statement in (
@@ -260,7 +262,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "PYTHONDONTWRITEBYTECODE=1",
         "bc-python-hcl2",
         "may remain quiet for several minutes",
-        "iac-guard-v==0.1.0a1",
+        "iac-guard-v==0.1.0a2",
     ):
         assert statement in advanced
 

@@ -72,7 +72,7 @@ def _version(executable: Path) -> str:
     try:
         completed = subprocess.run(
             [str(executable), "--version"], check=False, capture_output=True,
-            text=True, timeout=10, env={
+            text=True, timeout=30, env={
                 "PATH": "", "LANG": "C", "LC_ALL": "C",
                 "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1",
             },

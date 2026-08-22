@@ -5,6 +5,22 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [Unreleased]
 
+### Added
+
+- Bounded Checkov CKV2 connection-graph evidence binding primary targets,
+  participating resources, relationships, file identities, policy definitions,
+  scanner identity, and sealed snapshots.
+- Fail-closed graph evidence outcomes for missing nodes, ambiguous identities,
+  unsupported query shapes, and scanner/evidence contradictions.
+
+### Fixed
+
+- Terraform resource inventory now uses the protected native HCL2 parser, so valid
+  comment-like text inside quoted strings, escaped strings, interpolations, and
+  heredocs cannot change structural resource discovery.
+- The copied-file Checkov doctor probe keeps a bounded 30-second ceiling so a cold
+  Checkov 3.3.0 import is not misclassified by the former 10-second limit.
+
 ### Changed
 
 - Reorganized the README around value, installation, a real verification command,
@@ -14,6 +30,12 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 - Clarified contribution priorities and made the roadmap evidence-driven.
 - Added target-scoped DeepSec #112 evidence for Kubernetes privileged-workload
   matcher boundaries.
+- Exact operator-controlled verification roots remain portable when they are nested
+  beneath an unrelated Git worktree.
+- Retained `report-v1` for the alpha while extending its closed schema with optional
+  graph evidence and inventory-completion data. Consumers with a vendored `0.1.0a1`
+  schema must update before validating a2 graph reports; non-graph a1 reports remain
+  valid under the a2 schema.
 
 ## [0.1.0a1] - 2026-08-20
 
