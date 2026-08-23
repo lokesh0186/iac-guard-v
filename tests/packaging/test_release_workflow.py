@@ -1,4 +1,4 @@
-"""Publication workflow boundary for the reviewed 0.1.0a1 artifacts."""
+"""Publication workflow boundary for the reviewed 0.1.0a2 artifacts."""
 from pathlib import Path
 
 
@@ -15,10 +15,10 @@ def test_release_workflow_promotes_only_reviewed_artifacts() -> None:
     assert "environment:\n      name: pypi" in workflow
     assert "id-token: write" in workflow
     assert "contents: read" in workflow
-    assert "v0.1.0-alpha.1" in workflow
-    assert "8e654ab7e58aaa3e4010a4accc58e1f8e0352a10" in workflow
-    assert "cef195ecd950f12b8ef40c5f30c6d72761aa346902df3fc91c7e17b65ff5ce49" in workflow
-    assert "2237087355d580c3d14a2a73d8bea21a958e6a4f31e9dbbb5e9684570d3db904" in workflow
+    assert "v0.1.0-alpha.2" in workflow
+    assert "520bc60067e0d7e458fcd0bbc9cb09ea9f487e06" in workflow
+    assert "f97c474cfeb767ffa3dcec515f940553d95fd646829f77bf26ebe2cd102b35c9" in workflow
+    assert "ba2b10267cc03c5d0e394476a334d35a1dd3328d3b095594178f1220bb6935e7" in workflow
     assert "sha256sum --check --strict" in workflow
     assert "find dist -maxdepth 1 -type f" in workflow
     assert "python -m build" not in workflow
