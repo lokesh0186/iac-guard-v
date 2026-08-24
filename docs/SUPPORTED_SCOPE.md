@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a2`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a3`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -28,6 +28,17 @@ Native execution is `reduced-isolation` and supports only input controlled by
 the operator. A production hostile-input container and GitHub Action have not
 been released.
 
+### Terraform file-coverage contract
+
+Every supported `.tf` file is parsed and byte-bound. Parsed files containing a
+resource, data source, module, or provider block are `SCAN_EVIDENCE_BEARING` and must
+participate in scanner coverage. Parsed support-only files, including files containing
+only variable, output, terraform/version, or locals blocks, are `STRUCTURAL_ONLY`:
+they remain inside governed scope and the parser universe but do not need an invented
+scanner resource identity. Unsupported files remain unsupported, and unrecognized or
+ambiguous parsed structure remains `INCONCLUSIVE`. Classification follows content,
+not filenames.
+
 ## Report-v1 alpha compatibility
 
 `0.1.0a2` retains the `report-v1` name and extends its closed schema with optional
@@ -38,9 +49,11 @@ fail-closed validation.
 
 Because `report-v1` uses `additionalProperties: false`, a consumer validating an a2
 graph report with a vendored `0.1.0a1` schema will correctly reject the unknown fields.
-Such consumers must update to the schema distributed with `0.1.0a2`. Non-graph reports
-emitted by `0.1.0a1` remain valid under the a2 schema. This is additive alpha evolution,
-not permission for projections or consumers to ignore unknown evidence.
+Such consumers must update to the schema distributed with `0.1.0a2`. `0.1.0a3` adds
+the optional parsed file-coverage category described above; consumers using an older
+vendored schema must update before validating a3 reports. Older non-graph reports
+remain valid under the a3 schema. This is additive alpha evolution, not permission for
+projections or consumers to ignore unknown evidence.
 
 ## Component status
 

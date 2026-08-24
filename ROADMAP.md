@@ -23,6 +23,15 @@ This roadmap records intent, not a delivery commitment.
 - Design protected deterministic Helm materialization; implementation remains
   deferred pending owner review.
 
+## `0.1.0a3` - Terraform coverage correctness
+
+- Route initialization, direct and Git verification, validation planning, and scanner
+  preparation through one protected Terraform structural parser.
+- Classify Terraform files from parsed content rather than support-file names.
+- Keep resource-free support files byte-bound, parser-governed, and in scope without
+  inventing scanner resource identities.
+- Preserve fail-closed handling for unsupported or ambiguous structure.
+
 ## Candidate next-alpha work
 
 These candidates are prioritized by real-world compatibility findings, not

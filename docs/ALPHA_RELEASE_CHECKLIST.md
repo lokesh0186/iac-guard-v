@@ -1,4 +1,4 @@
-# IaC-Guard-V 0.1.0a2 release gate
+# IaC-Guard-V 0.1.0a3 release gate
 
 This checklist prepares reviewed artifacts; it does not authorize a push, tag, upload,
 or publication. Run it only from the owner-reviewed release commit with a clean tree.
@@ -39,7 +39,7 @@ python -m build --outdir dist
 ```
 
 - [ ] `dist/` was absent or empty immediately before `python -m build`.
-- [ ] Exactly one `0.1.0a2` wheel and one `0.1.0a2` sdist were created.
+- [ ] Exactly one `0.1.0a3` wheel and one `0.1.0a3` sdist were created.
 - [ ] Package-content tests pass against a separately created empty output directory.
 - [ ] The wheel contains workflow.py, all three reporters, both public schemas, the
       protected oracle policy, packaged demo fixture, the RECORD-bound no-bytecode

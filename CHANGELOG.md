@@ -5,6 +5,24 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [Unreleased]
 
+## [0.1.0a3] - Unreleased
+
+### Added
+
+- A parsed Terraform file-coverage contract that distinguishes scanner-evidence-bearing
+  files from structural-only support files without relying on filenames.
+- Byte-bound, parser-governed handling for resource-free variable, output,
+  terraform/version, locals, empty, and comments-only Terraform files.
+
+### Fixed
+
+- `init`, direct verification, Git verification, validation planning, and adapter
+  preparation now share the same protected native Terraform structural parser.
+- Resource, module, data, or provider constructs cannot be downgraded to support-only
+  coverage by placing them in files named `variables.tf`, `outputs.tf`, or `versions.tf`.
+
+## [0.1.0a2] - 2026-08-23
+
 ### Added
 
 - Bounded Checkov CKV2 connection-graph evidence binding primary targets,

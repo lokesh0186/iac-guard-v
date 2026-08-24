@@ -141,7 +141,7 @@ def test_current_adapter_contract_replaces_stale_phase_label(tmp_path: Path) -> 
     executable = _executable(tmp_path)
     plan = _scan_request(tmp_path / "repo", executable)
     source = inspect.getsource(CHECKOV._invocation_config_digest)
-    assert "checkov-adapter-contract-v3" in source
+    assert "checkov-adapter-contract-v4" in source
     assert "checkov-d4.2" not in source
     assert len(CHECKOV._invocation_config_digest(plan.request)) == 64
 

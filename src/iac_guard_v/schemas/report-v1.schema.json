@@ -262,6 +262,7 @@
         "classification": {
           "enum": [
             "TERRAFORM_RESOURCES",
+            "TERRAFORM_STRUCTURE",
             "KUBERNETES_RESOURCES",
             "NON_KUBERNETES_YAML",
             "NON_KUBERNETES_JSON",
@@ -277,6 +278,14 @@
         },
         "reason": {
           "type": "string"
+        },
+        "coverage_kind": {
+          "enum": [
+            "SCAN_EVIDENCE_BEARING",
+            "STRUCTURAL_ONLY",
+            "UNSUPPORTED",
+            "AMBIGUOUS"
+          ]
         }
       }
     },

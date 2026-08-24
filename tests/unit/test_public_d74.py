@@ -39,11 +39,11 @@ def _rehash_config(payload: dict) -> None:
 def _publicize(payload: dict) -> dict:
     """Replace private fixture evidence with a complete public contract graph."""
     config = payload["verification"]["verification_config"]
-    config["gate_registry_identity"] = "iac_guard_v_phase_d_registry_v4"
+    config["gate_registry_identity"] = "iac_guard_v_phase_d_registry_v5"
     config["source_provenance"] = "operator"
     for implementation in config["gate_implementations"]:
         implementation.update({
-            "version": "4", "contract_version": "4",
+            "version": "5", "contract_version": "5",
             "code_sha256": "e" * 64, "product_build_digest": "e" * 64,
             "dependency_identity": "d" * 64,
             "parser_dependency_digest": "d" * 64,

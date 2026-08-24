@@ -15,6 +15,74 @@ from test_policy import _outcome, _record, _verdict, verified_engine  # noqa: F4
 from test_public_d74 import _digest, _payload, _publicize, _rehash_config
 
 
+def test_artifact_coverage_fallback_preserves_pre_a3_reports() -> None:
+    resource = {"resource_address": "aws_s3_bucket.example"}
+    assert REPORT._artifact_coverage_kind({
+        "classification": "TERRAFORM_RESOURCES", "resources": [resource],
+    }) == "SCAN_EVIDENCE_BEARING"
+    assert REPORT._artifact_coverage_kind({
+        "classification": "REJECTED_ARTIFACT_ENTRY", "resources": [],
+    }) == "AMBIGUOUS"
+    assert REPORT._artifact_coverage_kind({
+        "classification": "NON_KUBERNETES_JSON", "resources": [],
+    }) == "UNSUPPORTED"
+
+
+def test_valid_explicit_artifact_coverage_shapes() -> None:
+    assert REPORT._validate_artifact_coverage({
+        "classification": "TERRAFORM_STRUCTURE", "resources": [], "reason": "",
+        "coverage_kind": "STRUCTURAL_ONLY",
+    }, "candidate") == "STRUCTURAL_ONLY"
+    assert REPORT._validate_artifact_coverage({
+        "classification": "TERRAFORM_STRUCTURE", "resources": [],
+        "reason": "provider block", "coverage_kind": "SCAN_EVIDENCE_BEARING",
+    }, "candidate") == "SCAN_EVIDENCE_BEARING"
+
+
+@pytest.mark.parametrize(
+    ("classification", "match"),
+    (
+        ({
+            "classification": "TERRAFORM_STRUCTURE", "resources": [], "reason": "",
+            "coverage_kind": "UNKNOWN",
+        }, "unsupported"),
+        ({
+            "classification": "NON_KUBERNETES_JSON", "resources": [], "reason": "",
+            "coverage_kind": "STRUCTURAL_ONLY",
+        }, "structural-only"),
+        ({
+            "classification": "TERRAFORM_STRUCTURE", "resources": [{}], "reason": "",
+            "coverage_kind": "STRUCTURAL_ONLY",
+        }, "structural-only"),
+        ({
+            "classification": "TERRAFORM_STRUCTURE", "resources": [], "reason": "",
+            "coverage_kind": "AMBIGUOUS",
+        }, "typed reason"),
+        ({
+            "classification": "NON_KUBERNETES_JSON", "resources": [], "reason": "",
+            "coverage_kind": "SCAN_EVIDENCE_BEARING",
+        }, "supported structure"),
+        ({
+            "classification": "TERRAFORM_RESOURCES", "resources": [{}], "reason": "",
+            "coverage_kind": "UNSUPPORTED",
+        }, "lacks scanner evidence"),
+        ({
+            "classification": "TERRAFORM_RESOURCES", "resources": [], "reason": "",
+            "coverage_kind": "SCAN_EVIDENCE_BEARING",
+        }, "lacks scanner evidence"),
+        ({
+            "classification": "TERRAFORM_STRUCTURE", "resources": [], "reason": "",
+            "coverage_kind": "UNSUPPORTED",
+        }, "incompatible file coverage"),
+    ),
+)
+def test_artifact_coverage_semantic_mutations_are_rejected(
+    classification: dict, match: str,
+) -> None:
+    with pytest.raises(DomainError, match=match):
+        REPORT._validate_artifact_coverage(classification, "candidate")
+
+
 @pytest.mark.parametrize(
     "outcome",
     [item for item in Outcome if item is not Outcome.FIXED],
@@ -207,7 +275,7 @@ def test_changing_only_private_registry_name_does_not_publicize_test_evidence(
     ).canonical_dict()
     payload["verification"]["verification_config"][
         "gate_registry_identity"
-    ] = "iac_guard_v_phase_d_registry_v4"
+    ] = "iac_guard_v_phase_d_registry_v5"
     _rehash_config(payload)
     with pytest.raises(DomainError, match="private test"):
         validate_report_payload(payload)
@@ -401,6 +469,7 @@ def test_snapshot_reconstruction_rejects_every_unsafe_evidence_edge(
             classification="REJECTED_ARTIFACT_ENTRY", size=0,
             sha256=_digest(entry), resources=[],
             reason="UNSUPPORTED_ARTIFACT_PATH_TYPE",
+            coverage_kind="AMBIGUOUS",
         )
         value["resources"] = []
         value["resource_inventory_sha256"] = _digest({

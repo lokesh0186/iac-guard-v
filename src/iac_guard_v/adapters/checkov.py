@@ -549,6 +549,7 @@ class CheckovScanRequest:
     expected_executable_sha256: str
     expected_scanner_environment_sha256: str
     expected_policy_inventory_sha256: str
+    supporting_files: tuple = ()
     kubernetes_identities: tuple = ()
     expected_resources: tuple = ()
     source_snapshot_sha256: str = ""
@@ -560,11 +561,13 @@ class CheckovScanRequest:
     _executable_identity: _FilesystemIdentity = field(init=False, repr=False, compare=False)
     _scan_root_identity: _FilesystemIdentity = field(init=False, repr=False, compare=False)
     _eligible_identities: tuple = field(init=False, repr=False, compare=False)
+    _supporting_identities: tuple = field(init=False, repr=False, compare=False)
     _executable_sha256: str = field(init=False, repr=False, compare=False)
     _distribution_identity: CheckovDistributionIdentity = field(
         init=False, repr=False, compare=False
     )
     eligible_file_evidence: tuple = field(init=False)
+    supporting_file_evidence: tuple = field(init=False)
 
     def __post_init__(self) -> None:
         if not isinstance(self.executable, Path):
@@ -616,7 +619,9 @@ class CheckovScanRequest:
             raise DomainError("max_file_bytes must be > 0")
         if require_int(self.max_total_eligible_bytes, "max_total_eligible_bytes") <= 0:
             raise DomainError("max_total_eligible_bytes must be > 0")
-        if len(self.files_eligible) > self.max_eligible_files:
+        if type(self.supporting_files) is not tuple:
+            raise DomainError("supporting_files must be an exact tuple")
+        if len(self.files_eligible) + len(self.supporting_files) > self.max_eligible_files:
             raise DomainError(AdapterReason.INPUT_FILE_COUNT_EXCEEDED.value)
         eligible: list[str] = []
         eligible_identities: list[_FilesystemIdentity] = []
@@ -642,6 +647,31 @@ class CheckovScanRequest:
             eligible_evidence.append(evidence)
         if len(eligible) != len(set(eligible)):
             raise DomainError("files_eligible must not contain duplicates")
+        supporting: list[str] = []
+        supporting_identities: list[_FilesystemIdentity] = []
+        supporting_evidence: list[CheckovEligibleFileEvidence] = []
+        for item in self.supporting_files:
+            relative = canonical_repo_path(item, "supporting file")
+            identity = _identity(scan_root / relative, "supporting file", directory=False)
+            if not _within(identity.resolved, scan_root):
+                raise DomainError("supporting file must be a regular file inside scan_root")
+            evidence = _stream_bound_file(
+                scan_root / relative,
+                relative,
+                max_bytes=self.max_file_bytes,
+            )
+            if (identity.device, identity.inode) != (evidence.device, evidence.inode):
+                raise DomainError("supporting file changed while binding request bytes")
+            eligible_total += evidence.size
+            if eligible_total > self.max_total_eligible_bytes:
+                raise DomainError(AdapterReason.INPUT_TOTAL_BYTES_EXCEEDED.value)
+            supporting.append(relative)
+            supporting_identities.append(identity)
+            supporting_evidence.append(evidence)
+        if len(supporting) != len(set(supporting)):
+            raise DomainError("supporting_files must not contain duplicates")
+        if set(eligible).intersection(supporting):
+            raise DomainError("eligible and supporting files must be disjoint")
         version = canonical_identifier(self.expected_version, "expected Checkov version")
         if version not in CHECKOV_CONTRACT.supported_versions:
             raise DomainError("expected Checkov version is outside the supported contract")
@@ -718,6 +748,7 @@ class CheckovScanRequest:
         object.__setattr__(self, "scan_root", scan_root)
         object.__setattr__(self, "frameworks", tuple(sorted(frameworks)))
         object.__setattr__(self, "files_eligible", tuple(sorted(eligible)))
+        object.__setattr__(self, "supporting_files", tuple(sorted(supporting)))
         identity_by_path = dict(zip(eligible, eligible_identities))
         object.__setattr__(self, "_executable_identity", executable_identity)
         object.__setattr__(self, "_executable_sha256", executable_sha256)
@@ -728,11 +759,27 @@ class CheckovScanRequest:
             "_eligible_identities",
             tuple(identity_by_path[path] for path in sorted(eligible)),
         )
+        supporting_identity_by_path = dict(zip(supporting, supporting_identities))
+        object.__setattr__(
+            self,
+            "_supporting_identities",
+            tuple(supporting_identity_by_path[path] for path in sorted(supporting)),
+        )
         evidence_by_path = {item.file_path: item for item in eligible_evidence}
         object.__setattr__(
             self,
             "eligible_file_evidence",
             tuple(evidence_by_path[path] for path in sorted(eligible)),
+        )
+        supporting_evidence_by_path = {
+            item.file_path: item for item in supporting_evidence
+        }
+        object.__setattr__(
+            self,
+            "supporting_file_evidence",
+            tuple(
+                supporting_evidence_by_path[path] for path in sorted(supporting)
+            ),
         )
         object.__setattr__(
             self,
@@ -748,7 +795,7 @@ class CheckovScanRequest:
 
 def _invocation_config_digest(request: CheckovScanRequest) -> str:
     payload = {
-        "adapter": "checkov-adapter-contract-v3",
+        "adapter": "checkov-adapter-contract-v4",
         "compact": True,
         "download_external_modules": False,
         "frameworks": list(request.frameworks),
@@ -1688,9 +1735,9 @@ class CheckovAdapter:
         if not _within(current_root.resolved, request.workspace_root):
             raise DomainError("scan_root no longer resolves inside workspace_root")
         for relative, expected, bound in zip(
-            request.files_eligible,
-            request._eligible_identities,
-            request.eligible_file_evidence,
+            request.files_eligible + request.supporting_files,
+            request._eligible_identities + request._supporting_identities,
+            request.eligible_file_evidence + request.supporting_file_evidence,
         ):
             current = _identity(
                 request.scan_root / relative, "eligible file", directory=False
@@ -1741,7 +1788,8 @@ class CheckovAdapter:
         destination.mkdir(mode=0o700)
         governed_names = {".checkov.yml", ".checkov.yaml"}
         for relative, bound in zip(
-            request.files_eligible, request.eligible_file_evidence
+            request.files_eligible + request.supporting_files,
+            request.eligible_file_evidence + request.supporting_file_evidence,
         ):
             if Path(relative).name in governed_names:
                 raise DomainError("candidate Checkov configuration cannot be an eligible artifact")

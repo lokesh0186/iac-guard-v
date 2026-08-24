@@ -25,7 +25,7 @@ def test_hcl2_behavior_mutation_changes_only_parser_dependency_identity(monkeypa
 
 def test_gate_records_separate_contract_build_dependency_and_loader_identity() -> None:
     record = ENGINE.production_gate_registry().implementations[0].canonical_dict()
-    assert record["contract_version"] == record["version"] == "4"
+    assert record["contract_version"] == record["version"] == "5"
     assert record["product_build_digest"] == record["code_sha256"]
     assert record["parser_dependency_digest"] == record["dependency_identity"]
     assert len(record["schema_loader_contract_digest"]) == 64

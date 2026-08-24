@@ -593,8 +593,17 @@ including checks and policies, instead of silently omitting them from an asserte
 identity. Mutable bytecode caches are excluded. Reports separate launcher, installed
 distribution, dependency-lock/runtime, built-in policy, disabled custom-check, and
 invocation-contract digests. The invocation contract is named
-`checkov-adapter-contract-v3`; parser, coverage, policy-input, artifact, invocation, or
+`checkov-adapter-contract-v4`; parser, coverage, policy-input, artifact, invocation, or
 normalisation changes require a version increment.
+
+Terraform inventory, `init` target binding, scan-plan attestation, graph preparation,
+and the packaged HCL gate share one protected native-parser boundary. Parsed files with
+resources, data sources, modules, or providers are scanner-evidence-bearing regardless
+of filename. Files containing only variables, outputs, `terraform` blocks, locals,
+comments, or no blocks are structural-only: their exact bytes remain in the source
+snapshot and isolated scan view, and the HCL gate parses them, but Checkov is not
+required to invent per-file evaluation records. Unknown top-level constructs are
+ambiguous and fail closed.
 
 YAML classification is two-stage. A bounded syntax-node pass checks structure and
 duplicate keys but applies Kubernetes-only tag and alias restrictions only to a root

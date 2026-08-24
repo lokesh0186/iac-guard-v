@@ -30,7 +30,7 @@ from .models import (
     canonical_identifier,
     canonical_repo_path,
 )
-from .terraform_parser import isolated_hcl2_parser_cache
+from .terraform_parser import TerraformParserError, parse_terraform_structure
 
 
 _GRAPH_CHECK_CLASS = "checkov.common.graph.checks_infra.base_check"
@@ -403,11 +403,12 @@ def _terraform_nodes_and_edges(
     auxiliary = []
     for file_path in sorted({item.file_path for item in terraform}):
         try:
-            with isolated_hcl2_parser_cache():
-                document = hcl2.loads(
-                    (scan_root / file_path).read_text(encoding="utf-8")
-                )
-        except (OSError, UnicodeDecodeError, ValueError, LarkError) as exc:
+            document = parse_terraform_structure(
+                (scan_root / file_path).read_bytes()
+            ).document
+        except TerraformParserError as exc:
+            raise DomainError(str(exc)) from exc
+        except (OSError, LarkError) as exc:
             raise DomainError("Terraform graph inventory could not parse bound source") from exc
         if type(document) is not dict:
             raise DomainError("Terraform graph parser returned an invalid document")
