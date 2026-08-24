@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use the software, cite this record; if you use the frozen research artifact, also cite the QRS 2026 paper below."
-title: "IaC-Guard-V: A Verification Framework for LLM-Generated Infrastructure-as-Code Repairs"
+title: IaC-Guard-V
 authors:
   - family-names: Chauhan
     given-names: Lokesh
@@ -8,20 +8,22 @@ authors:
     email: lokesh0186@gmail.com
     affiliation: "Independent Researcher"
 type: software
-version: 0.1.0a3
+version: 0.1.0a4
+date-released: 2026-08-24
 license: Apache-2.0
 repository-code: "https://github.com/lokesh0186/iac-guard-v"
 url: "https://github.com/lokesh0186/iac-guard-v"
-year: 2026
-abstract: "IaC-Guard-V is a verification framework for LLM-generated Infrastructure-as-Code repairs, evaluating syntactic validity, target-issue resolution, regression safety, and patch minimality across Terraform and Kubernetes artifacts."
+abstract: "IaC-Guard-V is a fail-closed verifier for infrastructure-as-code security repairs written by people, AI coding agents, or automation. It binds scanner, parser, source, resource, relationship, and before/after evidence for supported Terraform, Kubernetes, and deterministic local Helm workflows."
 keywords:
   - infrastructure-as-code
-  - large-language-models
-  - automated-program-repair
+  - devsecops
+  - security
   - verification
-  - software-reliability
   - terraform
   - kubernetes
+  - helm
+  - checkov
+  - ai-coding-agents
 preferred-citation:
   type: conference-paper
   title: "IaC-Guard-V: A Verification Framework for LLM-Generated Infrastructure-as-Code Repairs"
@@ -33,7 +35,7 @@ preferred-citation:
   conference:
     name: "26th International Conference on Software Quality, Reliability, and Security (QRS 2026)"
     city: Florence
-    country: Italy
+    country: IT
     date-start: 2026-07-22
     date-end: 2026-07-25
   collection-title: "Lecture Notes in Computer Science"

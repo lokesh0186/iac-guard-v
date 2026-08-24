@@ -38,15 +38,75 @@ _TERRAFORM_REFERENCE = re.compile(
     r"(?<![A-Za-z0-9_])([A-Za-z][A-Za-z0-9_]*\.[A-Za-z][A-Za-z0-9_-]*)(?:\.|\[)"
 )
 _KUBERNETES_WORKLOAD_KINDS = frozenset({
-    "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet", "Job", "CronJob",
+    "Deployment", "DeploymentConfig", "StatefulSet", "DaemonSet", "ReplicaSet",
+    "ReplicationController", "Job", "CronJob",
+})
+_CHECKOV_330_SYNTHETIC_POD_KINDS = frozenset({
+    "Deployment", "DeploymentConfig", "StatefulSet", "DaemonSet", "ReplicaSet",
+    "ReplicationController", "Job",
 })
 _SUPPORTED_GRAPH_FRAMEWORKS = frozenset({"terraform", "kubernetes"})
+_KUBERNETES_DNS_LABEL = re.compile(r"[a-z0-9](?:[-a-z0-9]*[a-z0-9])?")
+_KUBERNETES_DNS_SUBDOMAIN = re.compile(
+    r"[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?"
+)
 
 
 def _sha256_json(value: object) -> str:
     return hashlib.sha256(json.dumps(
         value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
     ).encode("utf-8")).hexdigest()
+
+
+def _synthetic_pod_aliases(
+    *,
+    namespace: str,
+    workload_name: str,
+    pod_name: str | None,
+    labels: dict[str, str] | None,
+) -> tuple[str, ...]:
+    """Return exact Checkov synthetic-Pod identities for one workload.
+
+    Checkov identifies a controller-derived Pod by an explicit template name,
+    or by the parent workload name plus template labels when that name is
+    absent.  Namespace, parent workload identity and the exact source file used
+    by ``GraphEvidenceContext._resolve`` remain authoritative.  Labels only
+    reproduce Checkov's scanner-native spelling and never establish an
+    equivalence on their own.
+    """
+    if (
+        type(namespace) is not str
+        or len(namespace) > 63
+        or _KUBERNETES_DNS_LABEL.fullmatch(namespace) is None
+    ):
+        raise DomainError("synthetic Pod namespace is not a canonical DNS label")
+    if (
+        type(workload_name) is not str
+        or len(workload_name) > 253
+        or _KUBERNETES_DNS_SUBDOMAIN.fullmatch(workload_name) is None
+    ):
+        raise DomainError("synthetic Pod workload name is not a canonical DNS subdomain")
+    if pod_name is not None:
+        if (
+            type(pod_name) is not str
+            or len(pod_name) > 253
+            or _KUBERNETES_DNS_SUBDOMAIN.fullmatch(pod_name) is None
+        ):
+            raise DomainError("synthetic Pod template name is not canonical")
+        return (f"Pod.{namespace}.{pod_name}",)
+    aliases = set()
+    if labels:
+        declared_suffix = "".join(
+            f".{key}-{value}" for key, value in labels.items()
+        )
+        canonical_suffix = "".join(
+            f".{key}-{value}" for key, value in sorted(labels.items())
+        )
+        aliases.update((
+            f"Pod.{namespace}.{workload_name}{declared_suffix}",
+            f"Pod.{namespace}.{workload_name}{canonical_suffix}",
+        ))
+    return tuple(sorted(aliases))
 
 
 def input_manifest_sha256(files: tuple[BoundInputFile, ...]) -> str:
@@ -549,22 +609,19 @@ def _kubernetes_nodes_and_edges(
             participant = GraphParticipant(file_path, address, item.artifact_kind, kind)
             graph_types = [kind]
             aliases = [item.scanner_native_lookup]
-            if kind in _KUBERNETES_WORKLOAD_KINDS:
+            if kind in _CHECKOV_330_SYNTHETIC_POD_KINDS:
+                metadata = _workload_metadata(document, kind)
                 labels = _workload_labels(document, kind)
-                if labels is not None:
+                pod_name = metadata.get("name") if type(metadata) is dict else None
+                synthetic_aliases = _synthetic_pod_aliases(
+                    namespace=namespace,
+                    workload_name=name,
+                    pod_name=pod_name,
+                    labels=labels,
+                )
+                if synthetic_aliases:
                     graph_types.append("Pod")
-                    declared_suffix = "".join(
-                        f".{key}-{value}" for key, value in labels.items()
-                    )
-                    canonical_suffix = "".join(
-                        f".{key}-{value}" for key, value in sorted(labels.items())
-                    )
-                    aliases.extend((
-                        f"Pod.{namespace}.{name}{declared_suffix}",
-                        f"Pod.{namespace}.{name}{canonical_suffix}",
-                    ))
-                else:
-                    selector_ambiguities.append((address, "Pod"))
+                    aliases.extend(synthetic_aliases)
             nodes.append(_GraphNode(
                 participant,
                 tuple(sorted(set(graph_types))),
@@ -602,16 +659,19 @@ def _kubernetes_nodes_and_edges(
     return nodes, list(unique_edges.values()), sorted(set(selector_ambiguities))
 
 
-def _workload_labels(document: dict, kind: str) -> dict[str, str] | None:
+def _workload_metadata(document: dict, kind: str) -> object:
     if kind == "Pod":
-        metadata = document.get("metadata")
+        return document.get("metadata")
     elif kind == "CronJob":
-        metadata = (
+        return (
             document.get("spec", {}).get("jobTemplate", {}).get("spec", {})
             .get("template", {}).get("metadata")
         )
-    else:
-        metadata = document.get("spec", {}).get("template", {}).get("metadata")
+    return document.get("spec", {}).get("template", {}).get("metadata")
+
+
+def _workload_labels(document: dict, kind: str) -> dict[str, str] | None:
+    metadata = _workload_metadata(document, kind)
     if type(metadata) is not dict:
         return None
     labels = metadata.get("labels", {})

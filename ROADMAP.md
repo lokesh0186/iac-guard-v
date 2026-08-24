@@ -32,6 +32,17 @@ This roadmap records intent, not a delivery commitment.
   inventing scanner resource identities.
 - Preserve fail-closed handling for unsupported or ambiguous structure.
 
+## `0.1.0a4` - Workload identity and bounded Helm materialization
+
+- Bind supported controller-derived synthetic Pods through exact structural workload
+  identity without fuzzy or label-only matching.
+- Render local charts twice in fresh, client-only Helm environments and require exact
+  byte, document, identity, source-provenance, and semantic agreement.
+- Consume only frozen local dependencies and reject cluster state, plugins,
+  post-renderers, remote charts, dependency negotiation, and arbitrary command tails.
+- Extend the closed alpha `report-v1` schema with optional Helm materialization
+  evidence while retaining compatibility for non-Helm reports.
+
 ## Candidate next-alpha work
 
 These candidates are prioritized by real-world compatibility findings, not
@@ -43,8 +54,6 @@ promised release dates:
   without mislabelling a new module as a `FIXED` repair.
 - Evaluate OpenTofu `.tofu` support after a trusted Checkov release supports it
   and additional external demand justifies the complete parser/evidence surface.
-- Investigate reproducible Helm materialization only with version, chart, values,
-  dependency, command, rendered-output, and source-identity provenance.
 - Complete the native-Linux UID/GID 65532 bind-mount portability proof.
 
 Private scanner-case screening remains limited to `observation`,

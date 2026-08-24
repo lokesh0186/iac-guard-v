@@ -57,6 +57,20 @@ released. Until the native-Linux UID/GID and read-only bind-mount gate passes,
 hostile pull-request input is out of scope. There is no silent downgrade from
 hardened-container mode to local-trusted mode.
 
+### Local Helm materialization
+
+`helm-verify` is also reduced isolation for operator-controlled charts. It invokes an
+exact local Helm executable with a fixed argument model and fresh cache, config, data,
+and plugin directories. It never connects to Kubernetes, accepts a remote chart,
+executes a plugin or post-renderer, runs a dependency update, or appends an arbitrary
+command tail.
+
+Every eligible chart is rendered twice. Chart or executable mutation, unequal output,
+reachable random/time helpers, `lookup`, unresolved dependencies, duplicate rendered
+identities, and missing source markers are `INCONCLUSIVE` or operational failure,
+never verification. A non-default release namespace must appear explicitly in
+rendered resource metadata so scanner and materializer identities cannot diverge.
+
 ## Scanner and validator authority
 
 Checkov `3.3.0` is the supported scanner path for this release. Experimental

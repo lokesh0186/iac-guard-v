@@ -5,7 +5,28 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [Unreleased]
 
-## [0.1.0a3] - Unreleased
+## [0.1.0a4] - Unreleased
+
+### Added
+
+- Bounded local, client-side Helm materialization with byte-bound charts, frozen local
+  dependencies, protected render inputs, isolated double rendering, exact source
+  markers, rendered-resource identities, and closed `report-v1` evidence.
+- A separate `helm-verify` command for deterministic before/after chart verification.
+
+### Fixed
+
+- Kubernetes controller findings now bind Checkov synthetic Pods through exact source
+  workload name, namespace, and file identity rather than requiring label-derived
+  suffixes.
+
+### Security
+
+- Helm lookup, reachable random/time helpers, mutable or unresolved dependencies,
+  render drift, duplicate identities, ambiguous source markers, cluster state,
+  plugins, post-renderers, and remote charts fail closed.
+
+## [0.1.0a3] - 2026-08-24
 
 ### Added
 

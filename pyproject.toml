@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iac-guard-v"
-version = "0.1.0a3"
+version = "0.1.0a4"
 description = "Differential verification for infrastructure-as-code changes: did the fix actually fix it?"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -83,6 +83,7 @@ include = [
   "docs/ALPHA_RELEASE_CHECKLIST.md",
   "docs/SECURITY_MODEL.md",
   "docs/SUPPORTED_SCOPE.md",
+  "docs/HELM_MATERIALIZATION.md",
   "docs/spec/THREAT_MODEL.md",
   "pyproject.toml",
 ]

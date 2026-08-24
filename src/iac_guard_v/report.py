@@ -16,7 +16,9 @@ from .enums import (
     ArtifactKind, DeltaClass, SEVERITY_ORDER, Severity, Status, Verdict,
 )
 from .engine import VerificationResult, require_trusted_verification_result
-from .models import DomainError, Finding, FindingLocation, TargetIdentity
+from .models import (
+    DomainError, Finding, FindingLocation, TargetIdentity, canonical_repo_path,
+)
 from .policy import PolicyResult, require_trusted_policy_result
 
 
@@ -75,6 +77,8 @@ def _validate_report_payload(payload: dict, *, allow_private_test_registry: bool
         _validate_verification_semantics(
             payload, allow_private_test_registry=allow_private_test_registry
         )
+        if "materialization" in payload:
+            _validate_helm_materialization(payload)
 
 
 def validate_report_payload(payload: dict) -> None:
@@ -170,6 +174,134 @@ def _require_sha(value: object, label: str, *, allow_empty: bool = False) -> Non
         return
     if type(value) is not str or _SHA256.fullmatch(value) is None:
         _semantic_error(f"{label} is not a canonical SHA-256")
+
+
+def _validate_helm_materialization(payload: dict) -> None:
+    comparison = payload["materialization"]
+    role_identities = []
+    for role in ("baseline", "candidate"):
+        evidence = comparison[role]
+        chart = evidence["chart"]
+        inputs = evidence["render_inputs"]
+        output = evidence["output"]
+        documents = evidence["documents"]
+        files = chart["files"]
+        _unique(files, lambda item: item["path"], f"{role} Helm chart path")
+        for item in files:
+            try:
+                if canonical_repo_path(item["path"], "Helm chart path") != item["path"]:
+                    _semantic_error(f"{role} Helm chart path is not canonical")
+            except DomainError as exc:
+                _semantic_error(f"{role} Helm chart path is unsafe: {exc}")
+            _require_sha(item["sha256"], f"{role} Helm chart file digest")
+        if _canonical_json_digest(files) != chart["inventory_root_sha256"]:
+            _semantic_error(f"{role} Helm chart inventory root is not canonical")
+        _require_sha(chart["chart_yaml_sha256"], f"{role} Helm Chart.yaml digest")
+        _require_sha(
+            chart["dependencies"]["chart_lock_sha256"],
+            f"{role} Helm Chart.lock digest",
+            allow_empty=True,
+        )
+        expanded_dependency_paths = set()
+        for artifact in chart["dependencies"]["artifacts"]:
+            if artifact["form"] == "archive":
+                _require_sha(artifact["sha256"], f"{role} Helm dependency archive digest")
+            for item in artifact["expanded_files"]:
+                try:
+                    if canonical_repo_path(
+                        item["path"], "expanded Helm dependency path"
+                    ) != item["path"]:
+                        _semantic_error(
+                            f"{role} expanded Helm dependency path is not canonical"
+                        )
+                except DomainError as exc:
+                    _semantic_error(
+                        f"{role} expanded Helm dependency path is unsafe: {exc}"
+                    )
+                _require_sha(item["sha256"], f"{role} expanded Helm dependency digest")
+                if item["path"] in expanded_dependency_paths:
+                    _semantic_error(
+                        f"duplicate authoritative {role} expanded Helm dependency path"
+                    )
+                expanded_dependency_paths.add(item["path"])
+        values_files = inputs["values_files"]
+        _unique(values_files, lambda item: item["path"], f"{role} Helm values path")
+        for item in values_files:
+            try:
+                if canonical_repo_path(item["path"], "Helm values path") != item["path"]:
+                    _semantic_error(f"{role} Helm values path is not canonical")
+            except DomainError as exc:
+                _semantic_error(f"{role} Helm values path is unsafe: {exc}")
+            _require_sha(item["sha256"], f"{role} Helm values digest")
+        override_keys = {}
+        for mode in ("set", "set_string"):
+            override_keys[mode] = set()
+            for item in inputs["overrides"][mode]:
+                override_keys[mode].add(item["key"])
+                _require_sha(item["value_sha256"], f"{role} Helm override digest")
+        if override_keys["set"] & override_keys["set_string"]:
+            _semantic_error(f"{role} Helm override types contain ambiguous keys")
+        if output["stdout_sha256"] != output["rendered_bundle_sha256"]:
+            _semantic_error(f"{role} Helm stdout and bundle identities disagree")
+        _require_sha(output["stderr_sha256"], f"{role} Helm stderr digest")
+        if output["resource_count"] != len(documents):
+            _semantic_error(f"{role} Helm document count is inconsistent")
+        _unique(
+            documents,
+            lambda item: item["resource_identity"],
+            f"{role} Helm rendered resource identity",
+        )
+        _unique(
+            documents,
+            lambda item: item["index"],
+            f"{role} Helm document index",
+        )
+        if _canonical_json_digest(documents) != output["document_inventory_sha256"]:
+            _semantic_error(f"{role} Helm document inventory is not canonical")
+        for document in documents:
+            _require_sha(document["sha256"], f"{role} Helm document digest")
+            try:
+                if canonical_repo_path(
+                    document["source_template"], "Helm source template"
+                ) != document["source_template"]:
+                    _semantic_error(f"{role} Helm source template is not canonical")
+            except DomainError as exc:
+                _semantic_error(f"{role} Helm source template is unsafe: {exc}")
+            if document["source_template"] not in (
+                {item["path"] for item in files} | expanded_dependency_paths
+            ):
+                _semantic_error(f"{role} Helm source template is outside chart inventory")
+        body = {
+            "executable": evidence["executable"],
+            "chart": chart,
+            "render_inputs": inputs,
+            "output": output,
+            "documents": documents,
+        }
+        if _canonical_json_digest(body) != evidence["materialization_identity"]:
+            _semantic_error(f"{role} Helm materialization identity is not canonical")
+        role_identities.append(evidence["materialization_identity"])
+        run = payload["verification"][f"{role}_run"]
+        rendered_inputs = [
+            item for item in run["input_files"] if item["file_path"] == "rendered.yaml"
+        ]
+        if (
+            len(rendered_inputs) != 1
+            or rendered_inputs[0]["sha256"] != output["rendered_bundle_sha256"]
+        ):
+            _semantic_error(f"{role} Helm bundle is not the exact scanner input")
+        document_identities = {item["resource_identity"] for item in documents}
+        for evaluation in run["evaluations"]:
+            graph = evaluation.get("graph_evidence")
+            if graph is not None and any(
+                item["resource_address"] not in document_identities
+                for item in graph["participants"]
+            ):
+                _semantic_error(f"{role} Helm graph participant is not rendered")
+    if _canonical_json_digest({
+        "baseline": role_identities[0], "candidate": role_identities[1]
+    }) != comparison["comparison_identity"]:
+        _semantic_error("Helm comparison identity is not canonical")
 
 
 def _validate_config_identity(config: dict) -> None:
@@ -1693,6 +1825,77 @@ class VerificationReportV1:
 
 
 @dataclass(frozen=True, slots=True)
+class HelmVerificationReportV1:
+    """A normal report-v1 with protected Helm source-to-rendered provenance."""
+
+    verification_report: VerificationReportV1
+    materialization: object
+
+    def __post_init__(self) -> None:
+        from .helm import HelmMaterializedPair
+
+        if type(self.verification_report) is not VerificationReportV1:
+            raise DomainError("Helm report requires an exact verification report")
+        if type(self.materialization) is not HelmMaterializedPair:
+            raise DomainError("Helm report requires protected comparison evidence")
+        for role, evidence, run in (
+            (
+                "baseline",
+                self.materialization.baseline,
+                self.verification_report.verification.baseline_run,
+            ),
+            (
+                "candidate",
+                self.materialization.candidate,
+                self.verification_report.verification.candidate_run,
+            ),
+        ):
+            files = tuple(
+                item for item in run.input_files if item.file_path == "rendered.yaml"
+            )
+            expected_digest = evidence.output["rendered_bundle_sha256"]
+            if len(files) != 1 or files[0].sha256 != expected_digest:
+                raise DomainError(
+                    f"Helm {role} materialization does not bind scanner input bytes"
+                )
+            identities = {item.resource_identity for item in evidence.documents}
+            for evaluation in run.evaluations:
+                graph = evaluation.graph_evidence
+                if graph is not None:
+                    if any(
+                        participant.resource_address not in identities
+                        for participant in graph.participants
+                    ):
+                        raise DomainError(
+                            f"Helm {role} graph evidence escapes rendered resources"
+                        )
+
+    @property
+    def verdict(self) -> Verdict:
+        return self.verification_report.verdict
+
+    @property
+    def exit_code(self) -> int:
+        return self.verification_report.exit_code
+
+    def canonical_dict(self) -> dict:
+        result = self.verification_report.canonical_dict()
+        result["materialization"] = self.materialization.canonical_dict()
+        validate_report_payload(result)
+        return result
+
+    def canonical_json(self) -> str:
+        return json.dumps(
+            self.canonical_dict(), sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False,
+        ) + "\n"
+
+    @property
+    def report_sha256(self) -> str:
+        return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
 class OperationalReportV1:
     reason_code: str
     detail: str
@@ -1840,6 +2043,6 @@ def render_console(report: VerificationReportV1 | OperationalReportV1 | Candidat
 
 __all__ = [
     "CandidateArtifactFailureReportV1", "ExecutionIsolationEvidence",
-    "OperationalReportV1", "VerificationReportV1", "render_console",
+    "HelmVerificationReportV1", "OperationalReportV1", "VerificationReportV1", "render_console",
     "validate_report_payload",
 ]
