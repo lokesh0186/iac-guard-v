@@ -80,6 +80,9 @@ The closed `ArtifactKind` values are `TERRAFORM`, `KUBERNETES_YAML`, and
 `KUBERNETES_JSON`. JSON-syntax Terraform (`.tf.json`) remains explicitly unsupported
 in Phase D and therefore has no successful artifact-kind value.
 
+The closed `ArtifactCoverageKind` values are `SCAN_EVIDENCE_BEARING`,
+`STRUCTURAL_ONLY`, `UNSUPPORTED`, and `AMBIGUOUS`.
+
 The closed `ScanRole` values are `DISCOVERY`, `BASELINE`, and `CANDIDATE`. A
 `DISCOVERY` plan is not differential evidence; a protected request re-attests it as the
 exact configured side. The closed `ExecutionMode` values are `PR_BASE`,
@@ -1255,7 +1258,7 @@ complete independent oracle.
 
 ## 15. D4.6 installed identity and mixed-repository YAML
 
-The adapter contract identifier is `checkov-adapter-contract-v3`. Scanner evidence
+The current adapter contract identifier is `checkov-adapter-contract-v4`. Scanner evidence
 separately records launcher, installed distribution, dependency/runtime lock, built-in
 policy, custom-check, combined environment, and invocation digests. Installed Checkov
 package/check/policy symlinks are invalid rather than excluded from the manifest;
@@ -1266,6 +1269,13 @@ Root-level syntax evidence decides whether Kubernetes semantics apply. Ordinary 
 may use anchors, aliases, custom domain tags, or nested `kind` fields and remains
 `NON_KUBERNETES_YAML`. A root Kubernetes object using unsafe syntax, or a complete
 Kubernetes identity embedded in an unsupported root shape, remains a typed failure.
+
+Terraform file coverage is derived from the shared protected HCL parse. A
+`SCAN_EVIDENCE_BEARING` file requires scanner evidence under the existing resource and
+graph contracts. A `STRUCTURAL_ONLY` file still requires exact snapshot bytes,
+successful HCL parsing, governed-scope accounting, and inclusion in the isolated scan
+view, but it does not require a nonexistent Checkov resource/finding identity.
+`UNSUPPORTED` and `AMBIGUOUS` classifications cannot support `VERIFIED`.
 
 ## 16. D5.4 one-snapshot evidence rule
 

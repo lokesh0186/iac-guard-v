@@ -398,9 +398,9 @@ as Kubernetes. Every inspected `.tf`, `.yaml`, `.yml`, and relevant `.json` file
 digest-bound classification record even when it is non-Kubernetes and therefore absent
 from the private Checkov view.
 
-## 8. Checkov adapter contract v3 (D4.6)
+## 8. Checkov adapter contract v4
 
-`checkov-adapter-contract-v3` changes whenever invocation flags, supported parser or
+`checkov-adapter-contract-v4` changes whenever invocation flags, supported parser or
 artifact semantics, coverage reconciliation, policy inputs, or output normalisation
 change. Identity fields are deliberately separate: resolved launcher digest, installed
 Checkov package manifest digest, dependency/runtime lock digest (verified wheel RECORD
@@ -414,6 +414,14 @@ anchors, domain tags, and nested `kind` fields in clearly non-Kubernetes documen
 not trigger Kubernetes-only restrictions. Root Kubernetes identity and unsupported
 nested complete identity remain fail-closed. Every inspected supported-extension file
 continues to retain its digest-bound `ArtifactClassification`.
+
+The v4 file-coverage contract separates scanner-evidence-bearing Terraform files from
+structural-only Terraform files using the parsed document, never its basename.
+Structural-only files are copied to Checkov's isolated view and remain in byte-exact
+snapshot and validator-universe accounting. They do not count as missing scanner files
+when Checkov correctly emits no resource evaluation for them. A resource, data source,
+module, or provider in `outputs.tf`, `variables.tf`, or any other filename prevents the
+file from being downgraded. Unknown parsed structures remain ambiguous and inconclusive.
 
 ## 9. Complete filesystem and native environment contract (D4.7)
 

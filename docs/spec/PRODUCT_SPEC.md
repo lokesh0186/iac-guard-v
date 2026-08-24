@@ -408,10 +408,14 @@ Phase D2.2 closes ten independently reproduced security defects in the process r
     Positive and failed Checkov evidence share one context-bound occurrence token.
 14. Checkov execution identity separately binds launcher bytes, the installed package
     manifest, dependency/runtime lock evidence, built-in policy inventory, custom-check
-    state, and `checkov-adapter-contract-v3`. Installed Checkov package/policy symlinks
+    state, and `checkov-adapter-contract-v4`. Installed Checkov package/policy symlinks
     are rejected. Kubernetes classification applies strict Kubernetes semantics only
     after root identity evidence; clearly non-Kubernetes aliases, custom tags, and
     nested `kind` properties remain visible non-Kubernetes classifications.
+    Parsed Terraform files are classified independently as scanner-evidence-bearing,
+    structural-only, unsupported, or ambiguous. Structural-only files remain byte-bound,
+    parser-validated, and present in the isolated scan view without requiring a scanner
+    finding identity that Checkov does not emit.
 15. One immutable, role-bound sealed snapshot supplies Checkov input binding, validators,
     oracles, target/resource presence, V4 metrics, policy-drift evidence, and the final
     canonical report. The mutable source roots are fully revalidated immediately before

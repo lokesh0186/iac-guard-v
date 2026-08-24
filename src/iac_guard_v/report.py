@@ -249,7 +249,8 @@ def _validate_gate_graph(verification: dict, *, allow_private_test_registry: boo
         ):
             _require_sha(implementation[name], f"gate {gate_id} {name}")
     allowed_registries = {
-        "iac_guard_v_phase_d_registry_v4", "iac_guard_v_private_test_registry_v1",
+        "iac_guard_v_phase_d_registry_v4", "iac_guard_v_phase_d_registry_v5",
+        "iac_guard_v_private_test_registry_v1",
     }
     if config["gate_registry_identity"] not in allowed_registries:
         _semantic_error("gate registry identity is not a closed packaged registry")
@@ -291,6 +292,57 @@ def _derived_entry_scope(path: str) -> tuple[bool, bool]:
     return supported, governed
 
 
+def _artifact_coverage_kind(classification: dict) -> str:
+    value = classification.get("coverage_kind")
+    if value is None:
+        return (
+            "SCAN_EVIDENCE_BEARING"
+            if classification["classification"] in {
+                "TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES",
+            }
+            else "AMBIGUOUS"
+            if classification["classification"] == "REJECTED_ARTIFACT_ENTRY"
+            else "UNSUPPORTED"
+        )
+    if value not in {
+        "SCAN_EVIDENCE_BEARING", "STRUCTURAL_ONLY", "UNSUPPORTED", "AMBIGUOUS",
+    }:
+        _semantic_error("artifact file-coverage classification is unsupported")
+    return value
+
+
+def _validate_artifact_coverage(classification: dict, role: str) -> str:
+    """Validate the closed parsed file-coverage contract for one artifact."""
+    coverage_kind = _artifact_coverage_kind(classification)
+    if coverage_kind == "STRUCTURAL_ONLY" and (
+        classification["classification"] != "TERRAFORM_STRUCTURE"
+        or classification["resources"]
+    ):
+        _semantic_error(
+            f"{role} structural-only coverage is not a resource-free Terraform file"
+        )
+    if coverage_kind == "AMBIGUOUS" and not classification["reason"]:
+        _semantic_error(f"{role} ambiguous coverage lacks a typed reason")
+    if coverage_kind == "SCAN_EVIDENCE_BEARING" and classification[
+        "classification"
+    ] not in {
+        "TERRAFORM_RESOURCES", "TERRAFORM_STRUCTURE", "KUBERNETES_RESOURCES",
+    }:
+        _semantic_error(f"{role} scanner-evidence coverage lacks supported structure")
+    if classification["classification"] in {
+        "TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES",
+    } and (coverage_kind != "SCAN_EVIDENCE_BEARING" or not classification["resources"]):
+        _semantic_error(f"{role} resource classification lacks scanner evidence")
+    if classification["classification"] == "TERRAFORM_STRUCTURE" and (
+        classification["resources"]
+        or coverage_kind not in {
+            "SCAN_EVIDENCE_BEARING", "STRUCTURAL_ONLY", "AMBIGUOUS",
+        }
+    ):
+        _semantic_error(f"{role} Terraform structure has incompatible file coverage")
+    return coverage_kind
+
+
 def _validate_snapshot(snapshot: dict, config: dict, role: str) -> tuple[dict[str, dict], bool]:
     if snapshot["role"] != role:
         _semantic_error(f"{role} snapshot carries the wrong role")
@@ -326,7 +378,7 @@ def _validate_snapshot(snapshot: dict, config: dict, role: str) -> tuple[dict[st
 
     eligible_classifications = {
         path: item for path, item in classifications.items()
-        if item["classification"] in {"TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES"}
+        if _artifact_coverage_kind(item) == "SCAN_EVIDENCE_BEARING"
     }
     if set(files) != set(eligible_classifications):
         _semantic_error(f"{role} eligible files disagree with artifact classifications")
@@ -354,6 +406,7 @@ def _validate_snapshot(snapshot: dict, config: dict, role: str) -> tuple[dict[st
 
     for path, classification in classifications.items():
         _require_sha(classification["sha256"], f"{role} classification digest")
+        _validate_artifact_coverage(classification, role)
         entry = entries.get(path)
         if entry is None:
             _semantic_error(f"{role} classified file lacks a filesystem entry")
@@ -1113,8 +1166,10 @@ def _derive_target_outcome(verification: dict, target: dict) -> tuple[str, int, 
     classification = classifications.get(binding["file_path"])
     eligible = (
         classification is not None
-        and classification["classification"]
-        in {"TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES"}
+        and _artifact_coverage_kind(classification) == "SCAN_EVIDENCE_BEARING"
+        and classification["classification"] in {
+            "TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES",
+        }
     )
     if not eligible:
         return "OUT_OF_SCOPE", baseline_count, candidate_count
@@ -1384,8 +1439,7 @@ def _validate_full_semantics(
     candidate_run = verification["candidate_run"]
     scanner_config = config["scanner_identity"]
     invocation = config["invocation_settings"]
-    invocation_digest = _canonical_json_digest({
-        "adapter": "checkov-adapter-contract-v3",
+    invocation_payload = {
         "compact": True,
         "download_external_modules": False,
         "frameworks": config["frameworks"],
@@ -1396,7 +1450,13 @@ def _validate_full_semantics(
         "max_eligible_files": invocation["max_eligible_files"],
         "max_file_bytes": invocation["max_file_bytes"],
         "max_total_eligible_bytes": invocation["max_total_eligible_bytes"],
-    })
+    }
+    invocation_digests = {
+        _canonical_json_digest({"adapter": contract, **invocation_payload})
+        for contract in (
+            "checkov-adapter-contract-v3", "checkov-adapter-contract-v4",
+        )
+    }
     for role, run in (("baseline", baseline_run), ("candidate", candidate_run)):
         if (
             run["scanner"] != scanner_config["scanner"]
@@ -1406,7 +1466,7 @@ def _validate_full_semantics(
             != scanner_config["scanner_environment_digest"]
             or run["policy_inventory_digest"]
             != scanner_config["policy_inventory_digest"]
-            or run["invocation_config_digest"] != invocation_digest
+            or run["invocation_config_digest"] not in invocation_digests
         ):
             _semantic_error(f"{role} scanner evidence disagrees with protected identity")
     if (baseline_run["scanner"], baseline_run["scanner_version"]) != (

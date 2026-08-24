@@ -91,7 +91,7 @@ def test_production_registry_binds_packaged_implementation_evidence() -> None:
         "terraform_hcl_parse", "kubernetes_yaml_parse"
     }
     assert all(len(item.code_sha256) == 64 for item in registry.implementations)
-    assert all(item.canonical_dict()["version"] == "4" for item in registry.implementations)
+    assert all(item.canonical_dict()["version"] == "5" for item in registry.implementations)
 
 
 @pytest.mark.parametrize(

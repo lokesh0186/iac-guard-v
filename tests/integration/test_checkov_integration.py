@@ -268,6 +268,51 @@ def test_pinned_checkov_330_missing_file_evaluation_is_partial(tmp_path: Path) -
     assert any("empty.tf" in item for item in run.diagnostics)
 
 
+def test_pinned_checkov_330_structural_files_are_bound_without_false_coverage(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "candidate"
+    root.mkdir()
+    (root / "main.tf").write_text(
+        'resource "aws_s3_bucket" "data" { bucket = var.bucket_name }\n'
+    )
+    (root / "variables.tf").write_text(
+        'variable "bucket_name" { default = "iacgv-support-file" }\n'
+    )
+    (root / "outputs.tf").write_text(
+        'output "bucket_id" { value = aws_s3_bucket.data.id }\n'
+    )
+    (root / "versions.tf").write_text(
+        'terraform { required_version = ">= 1.6" }\n'
+    )
+    executable = _checkov()
+    distribution = checkov_distribution_identity(executable, "3.3.0")
+    run = CheckovAdapter().scan(
+        CheckovScanRequest(
+            executable=executable,
+            scan_root=root,
+            workspace_root=root,
+            frameworks=("terraform",),
+            files_eligible=("main.tf",),
+            supporting_files=("outputs.tf", "variables.tf", "versions.tf"),
+            expected_version="3.3.0",
+            expected_executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+            expected_scanner_environment_sha256=distribution.scanner_environment_digest,
+            expected_policy_inventory_sha256=distribution.policy_inventory_digest,
+            expected_resources=(
+                ExpectedResource(
+                    "main.tf", "aws_s3_bucket.data",
+                    ArtifactKind.TERRAFORM_HCL, "aws_s3_bucket.data",
+                ),
+            ),
+        )
+    )
+    assert run.status is Status.PASS
+    assert run.coverage.files_eligible == 1
+    assert run.coverage.files_parsed == 1
+    assert tuple(item.file_path for item in run.input_files) == ("main.tf",)
+
+
 def test_pinned_checkov_330_in_place_rewrite_is_rejected(tmp_path: Path) -> None:
     root = tmp_path / "candidate"
     root.mkdir()

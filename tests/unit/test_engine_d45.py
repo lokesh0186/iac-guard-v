@@ -186,6 +186,10 @@ def test_artifact_classification_resource_predicates_are_closed() -> None:
         "pod.json", "v1/Pod/default/p", ArtifactKind.KUBERNETES_JSON,
         "Pod.default.p",
     )
+    terraform_resource = ExpectedResource(
+        "main.tf", "aws_s3_bucket.example", ArtifactKind.TERRAFORM_HCL,
+        "aws_s3_bucket.example",
+    )
     digest = hashlib.sha256(b"{}").hexdigest()
     with pytest.raises(Exception, match="requires resources"):
         ArtifactClassification(
@@ -194,6 +198,32 @@ def test_artifact_classification_resource_predicates_are_closed() -> None:
     with pytest.raises(Exception, match="cannot claim resources"):
         ArtifactClassification(
             "pod.json", digest, 2, "json", "NON_KUBERNETES_JSON", (resource,)
+        )
+    with pytest.raises(Exception, match="structural-only"):
+        ArtifactClassification(
+            "pod.json", digest, 2, "json", "NON_KUBERNETES_JSON",
+            coverage_kind="STRUCTURAL_ONLY",
+        )
+    with pytest.raises(Exception, match="cannot claim resources"):
+        ArtifactClassification(
+            "main.tf", digest, 2, "terraform_hcl", "TERRAFORM_STRUCTURE",
+            (resource,), coverage_kind="STRUCTURAL_ONLY",
+        )
+    with pytest.raises(Exception, match="ambiguous file coverage"):
+        ArtifactClassification(
+            "main.tf", digest, 2, "terraform_hcl", "TERRAFORM_STRUCTURE",
+            coverage_kind="AMBIGUOUS",
+        )
+    with pytest.raises(Exception, match="must bear scanner evidence"):
+        ArtifactClassification(
+            "main.tf", digest, 2, "terraform_hcl", "TERRAFORM_RESOURCES",
+            (terraform_resource,),
+            coverage_kind="UNSUPPORTED",
+        )
+    with pytest.raises(Exception, match="scanner-evidence coverage"):
+        ArtifactClassification(
+            "ordinary.json", digest, 2, "json", "NON_KUBERNETES_JSON",
+            coverage_kind="SCAN_EVIDENCE_BEARING",
         )
 
 

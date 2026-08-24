@@ -66,7 +66,15 @@ from .models import (
     require_trusted_scanner_run,
 )
 from .terraform_parser import (
+    AMBIGUOUS,
+    SCAN_EVIDENCE_BEARING,
+    STRUCTURAL_ONLY,
+    TERRAFORM_PARSER_CONTRACT,
+    UNSUPPORTED,
+    TerraformParserError,
+    _parse_error_detail as _terraform_parse_error_detail,
     isolated_hcl2_parser_cache as _isolated_hcl2_parser_cache,
+    parse_terraform_structure,
 )
 
 
@@ -416,12 +424,23 @@ def _production_gate_executor(
     )
     try:
         checked = 0
-        for bound in snapshot.files:
+        bound_inputs = (
+            tuple(
+                entry for entry in snapshot.filesystem_entries
+                if entry.kind == "REGULAR_FILE"
+                and Path(entry.file_path).suffix.lower() == ".tf"
+            )
+            if gate_id == "terraform_hcl_parse"
+            else snapshot.files
+        )
+        for bound in bound_inputs:
             path = Path(bound.file_path)
             if path.suffix.lower() not in suffixes:
                 continue
             relative = bound.file_path
             content = bound.content
+            if content is None:
+                raise DomainError("sealed artifact inventory omitted bound source bytes")
             if gate_id == "terraform_hcl_parse":
                 _terraform_resources_v2(relative, content)
             elif path.suffix.lower() == ".json":
@@ -658,6 +677,8 @@ def production_gate_registry() -> TrustedGateRegistry:
         _production_gate_executor,
         _isolated_hcl2_parser_cache,
         _terraform_parse_error_detail,
+        parse_terraform_structure,
+        _terraform_structure,
         _terraform_resources_v2,
         _construct_unique_mapping,
         _kubernetes_identity,
@@ -688,7 +709,8 @@ def production_gate_registry() -> TrustedGateRegistry:
         "yaml.load.behavior": _callable_behavior_digest(yaml.load),
     }
     payload = {
-        "contract": "phase-d-gate-implementation-v4",
+        "contract": "phase-d-gate-implementation-v5",
+        "terraform_parser_contract": TERRAFORM_PARSER_CONTRACT,
         "sources": [inspect.getsource(item) for item in implementation_sources],
     }
     code_digest = hashlib.sha256(json.dumps(
@@ -701,23 +723,26 @@ def production_gate_registry() -> TrustedGateRegistry:
         "json_depth": inspect.getsource(_strict_json_document),
         "yaml_loader": inspect.getsource(_bounded_yaml_documents),
         "hcl_loader": (
-            inspect.getsource(_terraform_parse_error_detail)
+            repr(TERRAFORM_PARSER_CONTRACT)
+            + inspect.getsource(_terraform_parse_error_detail)
+            + inspect.getsource(parse_terraform_structure)
+            + inspect.getsource(_terraform_structure)
             + inspect.getsource(_terraform_resources_v2)
         ),
     }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     return TrustedGateRegistry(
-        "iac_guard_v_phase_d_registry_v4",
+        "iac_guard_v_phase_d_registry_v5",
         ("kubernetes_yaml_parse", "terraform_hcl_parse"),
         (),
         (
             GateImplementation(
-                "kubernetes_yaml_parse", "validator", "4", code_digest,
+                "kubernetes_yaml_parse", "validator", "5", code_digest,
                 (ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON),
                 dependency_digest,
                 schema_loader_digest,
             ),
             GateImplementation(
-                "terraform_hcl_parse", "validator", "4", code_digest,
+                "terraform_hcl_parse", "validator", "5", code_digest,
                 (ArtifactKind.TERRAFORM_HCL,),
                 dependency_digest,
                 schema_loader_digest,
@@ -1364,6 +1389,7 @@ class ScanPlanFile:
 
 _ARTIFACT_CLASSIFICATIONS = frozenset({
     "TERRAFORM_RESOURCES",
+    "TERRAFORM_STRUCTURE",
     "KUBERNETES_RESOURCES",
     "NON_KUBERNETES_YAML",
     "NON_KUBERNETES_JSON",
@@ -1371,6 +1397,9 @@ _ARTIFACT_CLASSIFICATIONS = frozenset({
     "OUT_OF_SCOPE_ARTIFACT",
 })
 _ARTIFACT_SYNTAX_KINDS = frozenset({"terraform_hcl", "yaml", "json"})
+_FILE_COVERAGE_KINDS = frozenset({
+    SCAN_EVIDENCE_BEARING, STRUCTURAL_ONLY, UNSUPPORTED, AMBIGUOUS,
+})
 
 
 @dataclass(frozen=True, slots=True)
@@ -1384,6 +1413,7 @@ class ArtifactClassification:
     classification: str
     resources: tuple = ()
     reason: str = ""
+    coverage_kind: str = ""
 
     def __post_init__(self) -> None:
         from .models import canonical_repo_path
@@ -1396,12 +1426,30 @@ class ArtifactClassification:
             raise DomainError("artifact classification syntax kind is unsupported")
         if self.classification not in _ARTIFACT_CLASSIFICATIONS:
             raise DomainError("artifact classification is unsupported")
+        coverage_kind = self.coverage_kind
+        if not coverage_kind:
+            coverage_kind = (
+                SCAN_EVIDENCE_BEARING
+                if self.classification in {
+                    "TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES",
+                }
+                else AMBIGUOUS
+                if self.classification == "REJECTED_ARTIFACT_ENTRY"
+                else UNSUPPORTED
+            )
+            object.__setattr__(self, "coverage_kind", coverage_kind)
+        if coverage_kind not in _FILE_COVERAGE_KINDS:
+            raise DomainError("artifact file-coverage classification is unsupported")
         if type(self.resources) is not tuple or any(
             type(item) is not ExpectedResource for item in self.resources
         ):
             raise DomainError("artifact classification resources must be typed")
-        if self.classification == "KUBERNETES_RESOURCES" and not self.resources:
-            raise DomainError("Kubernetes resource classification requires resources")
+        if self.classification in {
+            "TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES",
+        } and not self.resources:
+            raise DomainError("resource classification requires resources")
+        if self.classification == "TERRAFORM_STRUCTURE" and self.resources:
+            raise DomainError("Terraform structure classification cannot claim resources")
         if self.classification in {
             "NON_KUBERNETES_YAML", "NON_KUBERNETES_JSON",
             "REJECTED_ARTIFACT_ENTRY",
@@ -1412,6 +1460,22 @@ class ArtifactClassification:
             raise DomainError("rejected artifact classification requires a reason")
         if self.classification == "OUT_OF_SCOPE_ARTIFACT" and not self.reason:
             raise DomainError("out-of-scope artifact classification requires a reason")
+        if coverage_kind == STRUCTURAL_ONLY and self.classification != "TERRAFORM_STRUCTURE":
+            raise DomainError("structural-only coverage requires Terraform structure")
+        if coverage_kind == SCAN_EVIDENCE_BEARING and self.classification not in {
+            "TERRAFORM_RESOURCES", "TERRAFORM_STRUCTURE", "KUBERNETES_RESOURCES",
+        }:
+            raise DomainError("scanner-evidence coverage requires supported structure")
+        if self.classification == "TERRAFORM_STRUCTURE" and coverage_kind not in {
+            SCAN_EVIDENCE_BEARING, STRUCTURAL_ONLY, AMBIGUOUS,
+        }:
+            raise DomainError("Terraform structure has incompatible file coverage")
+        if coverage_kind == AMBIGUOUS and not self.reason:
+            raise DomainError("ambiguous file coverage requires a reason")
+        if self.classification in {
+            "TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES",
+        } and coverage_kind != SCAN_EVIDENCE_BEARING:
+            raise DomainError("resource classification must bear scanner evidence")
         if type(self.reason) is not str:
             raise DomainError("artifact classification reason must be a string")
 
@@ -1424,6 +1488,7 @@ class ArtifactClassification:
             "classification": self.classification,
             "resources": [item.canonical_dict() for item in self.resources],
             "reason": self.reason,
+            "coverage_kind": self.coverage_kind,
         }
 
 
@@ -1571,7 +1636,7 @@ class TrustedScanPlan:
             raise DomainError("scan-plan inspected bytes disagree with classifications")
         classified_eligible = {
             item.file_path: item for item in self.classifications
-            if item.classification in {"TERRAFORM_RESOURCES", "KUBERNETES_RESOURCES"}
+            if item.coverage_kind == SCAN_EVIDENCE_BEARING
         }
         if set(files_by_path) != set(classified_eligible):
             raise DomainError("eligible scan-plan files disagree with classifications")
@@ -1697,6 +1762,23 @@ class TrustedScanPlan:
         }
 
 
+def _terraform_structure(
+    relative: str, content: bytes,
+) -> tuple[object, tuple[ExpectedResource, ...]]:
+    """Derive structure and resource identities through one protected parser."""
+    try:
+        structure = parse_terraform_structure(content)
+    except TerraformParserError as exc:
+        raise DomainError(str(exc)) from exc
+    resources = tuple(
+        ExpectedResource(relative, address, ArtifactKind.TERRAFORM_HCL, address)
+        for address in structure.resource_addresses
+    )
+    return structure, tuple(sorted(resources, key=lambda item: item.canonical_key))
+
+
+# Frozen D9 imports this exact historical a1 implementation by name. No supported
+# product entrypoint calls it; changing its source would rewrite the immutable replay.
 def _terraform_resources(relative: str, content: bytes) -> tuple[ExpectedResource, ...]:
     try:
         text = content.decode("utf-8", errors="strict")
@@ -1749,58 +1831,11 @@ def _terraform_resources(relative: str, content: bytes) -> tuple[ExpectedResourc
     return tuple(sorted(resources, key=lambda item: item.canonical_key))
 
 
-def _terraform_parse_error_detail(exc: Exception) -> str:
-    """Preserve useful diagnostics using the native HCL parser's error context."""
-    token = getattr(exc, "token", None)
-    token_type = getattr(token, "type", "")
-    token_value = str(token) if token is not None else ""
-    expected = getattr(exc, "expected", ())
-    if token_type == "STRING_CHARS" and token_value.lstrip().startswith("/*"):
-        return "unterminated Terraform block comment"
-    if token_type == "$END" and "DBLQUOTE" in expected:
-        return "unterminated Terraform string"
-    return "Terraform HCL syntax is invalid"
-
-
 def _terraform_resources_v2(
-    relative: str, content: bytes
+    relative: str, content: bytes,
 ) -> tuple[ExpectedResource, ...]:
-    """Current product parser using native HCL lexical context."""
-    try:
-        text = content.decode("utf-8", errors="strict")
-    except UnicodeDecodeError as exc:
-        raise DomainError("Terraform source must be UTF-8") from exc
-    try:
-        with _isolated_hcl2_parser_cache():
-            document = hcl2.loads(text)
-    except Exception as exc:
-        raise DomainError(_terraform_parse_error_detail(exc)) from exc
-    if type(document) is not dict:
-        raise DomainError("Terraform HCL parser returned an invalid document")
-    resources: list[ExpectedResource] = []
-    seen: set[str] = set()
-    blocks = document.get("resource", [])
-    if type(blocks) is not list:
-        raise DomainError("Terraform resource structure is invalid")
-    for block in blocks:
-        if type(block) is not dict:
-            raise DomainError("Terraform resource block is invalid")
-        for resource_type, instances in block.items():
-            if type(resource_type) is not str or type(instances) is not dict:
-                raise DomainError("Terraform resource identity is invalid")
-            for resource_name in instances:
-                if type(resource_name) is not str:
-                    raise DomainError("Terraform resource name is invalid")
-                address = f"{resource_type}.{resource_name}"
-                if address in seen:
-                    raise DomainError("duplicate Terraform resource identity")
-                seen.add(address)
-                resources.append(
-                    ExpectedResource(
-                        relative, address, ArtifactKind.TERRAFORM_HCL, address
-                    )
-                )
-    return tuple(sorted(resources, key=lambda item: item.canonical_key))
+    """Current product resource inventory from the unified protected parser."""
+    return _terraform_structure(relative, content)[1]
 
 
 _MAX_YAML_DEPTH = 64
@@ -2166,6 +2201,7 @@ def attest_checkov_scan_plan(
     resources: list[ExpectedResource] = []
     kubernetes: list[CheckovKubernetesIdentity] = []
     eligible: list[str] = []
+    supporting: list[str] = []
     classifications: list[ArtifactClassification] = []
     root = untrusted.scan_root
     source_state, governed_paths, filesystem_entries = _source_snapshot_state(
@@ -2245,10 +2281,20 @@ def attest_checkov_scan_plan(
         file_type = ""
         classification = ""
         syntax_kind = ""
+        coverage_kind = ""
         if suffix == ".tf" and "terraform" in frameworks:
-            detected = _terraform_resources_v2(relative, content)
-            file_type = ArtifactKind.TERRAFORM_HCL.value
-            classification = "TERRAFORM_RESOURCES"
+            structure, detected = _terraform_structure(relative, content)
+            coverage_kind = structure.coverage_kind
+            if coverage_kind == AMBIGUOUS:
+                raise DomainError(
+                    f"Terraform file coverage is ambiguous for {relative}: "
+                    f"{structure.reason}"
+                )
+            classification = (
+                "TERRAFORM_RESOURCES" if detected else "TERRAFORM_STRUCTURE"
+            )
+            if coverage_kind == SCAN_EVIDENCE_BEARING:
+                file_type = ArtifactKind.TERRAFORM_HCL.value
             syntax_kind = "terraform_hcl"
         elif suffix in {".yaml", ".yml"} and "kubernetes" in frameworks:
             detected, identities = _kubernetes_resources(relative, content)
@@ -2278,6 +2324,8 @@ def attest_checkov_scan_plan(
                 syntax_kind,
                 classification,
                 tuple(detected),
+                "",
+                coverage_kind,
             )
         )
         inspected_files.append(
@@ -2289,6 +2337,8 @@ def attest_checkov_scan_plan(
                 content,
             )
         )
+        if coverage_kind == STRUCTURAL_ONLY:
+            supporting.append(relative)
         if not file_type:
             continue
         if len(eligible) >= max_files:
@@ -2306,6 +2356,7 @@ def attest_checkov_scan_plan(
         workspace_root=untrusted.workspace_root,
         frameworks=frameworks,
         files_eligible=tuple(eligible),
+        supporting_files=tuple(supporting),
         expected_version=config.expected_version if config else untrusted.expected_version,
         expected_executable_sha256=(config.expected_executable_sha256 if config else untrusted.expected_executable_sha256),
         expected_scanner_environment_sha256=(config.expected_scanner_environment_sha256 if config else untrusted.expected_scanner_environment_sha256),
@@ -2326,6 +2377,16 @@ def attest_checkov_scan_plan(
         for item in files
     ):
         raise DomainError("source bytes changed during independent scan-plan attestation")
+    supporting_evidence = {
+        item.file_path: item for item in request.supporting_file_evidence
+    }
+    inspected_by_path = {item.file_path: item for item in inspected_files}
+    if any(
+        supporting_evidence[path].sha256 != inspected_by_path[path].sha256
+        or supporting_evidence[path].size != inspected_by_path[path].size
+        for path in supporting
+    ):
+        raise DomainError("supporting source bytes changed during scan-plan attestation")
     ordered_resources = tuple(sorted(resources, key=lambda item: item.canonical_key))
     ordered_classifications = tuple(
         sorted(classifications, key=lambda item: item.file_path)

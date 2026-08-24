@@ -13,7 +13,7 @@ IaC-Guard-V works with changes written by people, AI coding agents, and remediat
 tools. It binds scanner evidence to the exact before/after files and resources, then
 fails closed when the evidence is incomplete or unverifiable.
 
-> **Status:** `0.1.0a2` technical alpha · Checkov-focused · trusted local input only.
+> **Status:** `0.1.0a3` technical alpha · Checkov-focused · trusted local input only.
 > The hardened hostile-input container and GitHub Action are not released.
 
 ## Why IaC-Guard-V?
@@ -35,7 +35,7 @@ Uncertainty is reported as `INCONCLUSIVE`, never as success.
 Install the public package and run the deterministic offline demo:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a2
+python -m pip install iac-guard-v==0.1.0a3
 iac-guard --version
 iac-guard demo
 ```
@@ -162,10 +162,11 @@ reports. It includes bounded, fail-closed evidence for supported Checkov CKV2 gr
 findings. Native execution is `reduced-isolation` and must be used only with
 operator-controlled input.
 
-`0.1.0a2` extends the closed `report-v1` schema with optional graph evidence and
-inventory-completion data. Consumers using a vendored `0.1.0a1` schema must update to
-the schema shipped with `0.1.0a2` before consuming graph-evidence reports. Non-graph
-reports emitted by `0.1.0a1` remain valid under the `0.1.0a2` schema.
+`0.1.0a2` extended the closed `report-v1` schema with optional graph evidence and
+inventory-completion data. `0.1.0a3` adds an optional parsed file-coverage category so
+resource-free Terraform support files remain byte-bound and parser-governed without
+requiring a scanner resource identity. Consumers using a vendored older schema must
+update to the schema shipped with `0.1.0a3`. Older non-graph reports remain valid.
 
 KICS, Trivy, OpenTofu, kubeconform, TFLint, multi-scanner consensus, Helm
 materialization, and candidate-only new-IaC review remain experimental, advisory, or

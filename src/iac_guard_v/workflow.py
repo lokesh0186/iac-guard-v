@@ -20,7 +20,7 @@ from .engine import (
     _filesystem_inventory,
     _kubernetes_json_resources,
     _kubernetes_resources,
-    _terraform_resources,
+    _terraform_resources_v2 as _terraform_resources,
 )
 from .enums import ArtifactKind
 from .models import DomainError
