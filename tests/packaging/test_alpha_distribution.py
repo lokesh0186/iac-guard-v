@@ -388,6 +388,82 @@ def test_public_otterworks_evidence_is_sanitized_and_bound() -> None:
         assert forbidden not in public_bytes
 
 
+def test_public_teranode_evidence_is_sanitized_and_bound() -> None:
+    evidence = (
+        ROOT
+        / "examples/public-reproductions/"
+        "bsv-blockchain-teranode-1617"
+    )
+    report_path = evidence / "report.json"
+    report_bytes = report_path.read_bytes()
+    report = json.loads(report_bytes)
+
+    assert hashlib.sha256(report_bytes).hexdigest() == (
+        "a0f5b839e370430e2904096220c4d420e80e7e6d49b5c11096d7f3a02e5b8283"
+    )
+    assert report["schema_version"] == "report-v1"
+    assert report["verdict"] == "VERIFIED"
+    assert report["exit_code"] == 0
+    verification = report["verification"]
+    assert verification["scanner_integrity"]["status"] == "PASS"
+    assert verification["regression"]["status"] == "PASS"
+    assert verification["validators"] == [
+        {
+            "detail": "files=3",
+            "gate_id": "kubernetes_yaml_parse",
+            "reason_code": "VALIDATOR_COMPLETED",
+            "status": "PASS",
+        }
+    ]
+    target = verification["targets"][0]
+    assert target["identity"]["rule_id"] == "CKV2_K8S_6"
+    assert target["identity"]["scope"] == (
+        "apps/v1/Deployment/default/kafka-shared"
+    )
+    assert target["outcome"] == "FIXED"
+
+    candidate_evaluation = next(
+        evaluation
+        for evaluation in verification["candidate_run"]["evaluations"]
+        if evaluation["rule_id"] == "CKV2_K8S_6"
+        and evaluation["resource_address"]
+        == "apps/v1/Deployment/default/kafka-shared"
+        and evaluation["native_result"] == "PASSED"
+    )
+    graph = candidate_evaluation["graph_evidence"]
+    assert graph["status"] == "PASS"
+    assert graph["reason_code"] == "GRAPH_EVIDENCE_COMPLETE"
+    assert {item["resource_address"] for item in graph["participants"]} == {
+        "apps/v1/Deployment/default/kafka-shared",
+        "networking.k8s.io/v1/NetworkPolicy/default/kafka-shared",
+    }
+    assert len(graph["edges"]) == 1
+    edge = graph["edges"][0]
+    assert edge["relation_type"] == "kubernetes_network_policy_selector"
+    assert edge["source"]["resource_address"] == (
+        "networking.k8s.io/v1/NetworkPolicy/default/kafka-shared"
+    )
+    assert edge["target"]["resource_address"] == (
+        "apps/v1/Deployment/default/kafka-shared"
+    )
+
+    assert verification["baseline_run"]["coverage"]["files_parsed"] == 2
+    assert verification["baseline_run"]["coverage"]["files_eligible"] == 2
+    assert verification["candidate_run"]["coverage"]["files_parsed"] == 3
+    assert verification["candidate_run"]["coverage"]["files_eligible"] == 3
+
+    public_bytes = b"\n".join(
+        path.read_bytes() for path in evidence.rglob("*") if path.is_file()
+    )
+    for forbidden in (
+        b"/Users/",
+        b"/tmp/",
+        b"iac-guard-v-private-screening",
+        b"EB-1A",
+    ):
+        assert forbidden not in public_bytes
+
+
 def test_release_checklist_requires_paper_absence_without_fake_identifier() -> None:
     checklist = (ROOT / "docs/ALPHA_RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
     assert "rm -rf dist build" in checklist
