@@ -318,6 +318,76 @@ def test_public_deepsec_evidence_is_sanitized_and_bound() -> None:
         assert forbidden not in public_bytes
 
 
+def test_public_otterworks_evidence_is_sanitized_and_bound() -> None:
+    evidence = (
+        ROOT
+        / "examples/public-reproductions/"
+        "cognition-partner-workshops-otterworks-977"
+    )
+    report_path = evidence / "report.json"
+    report_bytes = report_path.read_bytes()
+    report = json.loads(report_bytes)
+
+    assert hashlib.sha256(report_bytes).hexdigest() == (
+        "51cc99498b6762461abc14b20f205a2ba2f76ad00d7d87ad6274201b8c96bc19"
+    )
+    assert report["schema_version"] == "report-v1"
+    assert report["verdict"] == "VERIFIED"
+    assert report["exit_code"] == 0
+    verification = report["verification"]
+    assert verification["scanner_integrity"]["status"] == "PASS"
+    assert verification["regression"]["status"] == "PASS"
+    assert verification["targets"][0]["identity"]["rule_id"] == "CKV2_AWS_6"
+    assert verification["targets"][0]["identity"]["scope"] == (
+        "aws_s3_bucket.audit_archive"
+    )
+    assert verification["targets"][0]["outcome"] == "FIXED"
+
+    expected_files = {
+        "audit_archive.tf",
+        "cron-cleanup.tf",
+        "main.tf",
+        "outputs.tf",
+        "variables.tf",
+        "versions.tf",
+    }
+    for role in ("baseline", "candidate"):
+        classifications = verification[f"{role}_snapshot"]["classifications"]
+        by_path = {item["file_path"]: item for item in classifications}
+        assert set(by_path) == expected_files
+        for path in ("outputs.tf", "variables.tf", "versions.tf"):
+            assert by_path[path]["coverage_kind"] == "STRUCTURAL_ONLY"
+
+    candidate_evaluation = next(
+        evaluation
+        for evaluation in verification["candidate_run"]["evaluations"]
+        if evaluation["rule_id"] == "CKV2_AWS_6"
+        and evaluation["resource_address"] == "aws_s3_bucket.audit_archive"
+        and evaluation["native_result"] == "PASSED"
+    )
+    graph = candidate_evaluation["graph_evidence"]
+    assert graph["status"] == "PASS"
+    assert graph["reason_code"] == "GRAPH_EVIDENCE_COMPLETE"
+    assert {item["resource_address"] for item in graph["participants"]} == {
+        "aws_s3_bucket.audit_archive",
+        "aws_s3_bucket_public_access_block.audit_archive",
+    }
+    assert graph["edges"][0]["relation_key"] == (
+        "resource.bucket:aws_s3_bucket.audit_archive"
+    )
+
+    public_bytes = b"\n".join(
+        path.read_bytes() for path in evidence.rglob("*") if path.is_file()
+    )
+    for forbidden in (
+        b"/Users/",
+        b"/tmp/",
+        b"iac-guard-v-private-screening",
+        b"EB-1A",
+    ):
+        assert forbidden not in public_bytes
+
+
 def test_release_checklist_requires_paper_absence_without_fake_identifier() -> None:
     checklist = (ROOT / "docs/ALPHA_RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
     assert "rm -rf dist build" in checklist
