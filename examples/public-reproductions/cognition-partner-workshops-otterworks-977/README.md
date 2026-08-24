@@ -88,7 +88,7 @@ Run [reproduce.sh](reproduce.sh) from an empty working directory with Git,
 Python 3.11, and a host `pip` supporting `--python`:
 
 ```bash
-curl -LO https://raw.githubusercontent.com/lokesh0186/iac-guard-v/REPLACE_WITH_IMMUTABLE_COMMIT/examples/public-reproductions/cognition-partner-workshops-otterworks-977/reproduce.sh
+curl -LO https://raw.githubusercontent.com/lokesh0186/iac-guard-v/0fa5c32787b9a414bf6866a9c8982d9f6837ed08/examples/public-reproductions/cognition-partner-workshops-otterworks-977/reproduce.sh
 chmod +x reproduce.sh
 ./reproduce.sh
 ```
