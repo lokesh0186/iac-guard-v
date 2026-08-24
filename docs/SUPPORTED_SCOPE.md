@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a3`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a4`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -23,6 +23,8 @@ It includes:
 - bounded evidence for supported Checkov CKV2 connection-graph findings, including
   exact participants, relationships, files, policy bytes, and snapshots;
 - deterministic console, JSON, SARIF 2.1.0, Markdown, and JUnit projections.
+- deterministic local, client-side Helm rendering under the closed contract described
+  in [Helm materialization](HELM_MATERIALIZATION.md).
 
 Native execution is `reduced-isolation` and supports only input controlled by
 the operator. A production hostile-input container and GitHub Action have not
@@ -55,6 +57,10 @@ vendored schema must update before validating a3 reports. Older non-graph report
 remain valid under the a3 schema. This is additive alpha evolution, not permission for
 projections or consumers to ignore unknown evidence.
 
+`0.1.0a4` adds optional Helm comparison/materialization evidence to `report-v1`.
+Consumers using a vendored older schema must update before validating Helm reports.
+Non-Helm reports accepted by the a3 schema remain valid under the a4 schema.
+
 ## Component status
 
 | Area | Status |
@@ -67,7 +73,8 @@ projections or consumers to ignore unknown evidence.
 | OpenTofu `.tofu` / `.tofu.json` | Not supported in the public alpha. |
 | Terraform `.tf.json` | Explicitly unsupported/inconclusive end to end. |
 | Checkov CKV2/graph findings | Supported only for bounded connection-query shapes with complete participant and relationship evidence; every other shape remains inconclusive. |
-| Helm/Kustomize materialization | No general protected materialization contract yet. |
+| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded a4 contract. |
+| Kustomize materialization | No protected materialization contract yet. |
 | Multi-scanner consensus | Advisory only and disconnected from the final verdict. |
 | Hardened container and composite Action | Not released. |
 

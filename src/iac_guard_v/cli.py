@@ -20,10 +20,13 @@ from .api import (
     _verify_git,
     discover_baseline_targets,
     verify,
+    verify_helm,
 )
 from .config import (
-    ExecutionIsolation, PublicTarget, PublicVerificationRequest, load_public_config,
+    ExecutionIsolation, PublicHelmVerificationRequest, PublicTarget,
+    PublicVerificationRequest, load_public_config,
 )
+from .helm import HelmRenderSpec
 from .models import DomainError
 from .report import OperationalReportV1, render_console, validate_report_payload
 from .redaction import redact_detail
@@ -241,6 +244,34 @@ def _parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
     verify_parser.add_argument("--output", type=Path)
     verify_parser.add_argument("--quiet", action="store_true")
+    helm_parser = subcommands.add_parser(
+        "helm-verify",
+        help="deterministically render and verify one local Helm chart repair",
+        description=(
+            "Render exact local before/after charts twice in fresh client-only Helm "
+            "environments, then verify the source-bound Kubernetes result."
+        ),
+    )
+    helm_parser.add_argument("--before-chart", required=True, type=Path)
+    helm_parser.add_argument("--after-chart", required=True, type=Path)
+    helm_targets = helm_parser.add_mutually_exclusive_group(required=True)
+    helm_targets.add_argument("--target", action="append")
+    helm_targets.add_argument("--all-baseline-findings", action="store_true")
+    helm_parser.add_argument("--helm-executable", type=Path)
+    helm_parser.add_argument("--helm-release-name", default="iac-guard-review")
+    helm_parser.add_argument("--helm-namespace", default="default")
+    helm_parser.add_argument("--helm-kube-version", required=True)
+    helm_parser.add_argument("--helm-api-version", action="append")
+    helm_parser.add_argument("--helm-values", action="append")
+    helm_parser.add_argument("--helm-set", action="append")
+    helm_parser.add_argument("--helm-set-string", action="append")
+    helm_parser.add_argument("--helm-include-crds", action="store_true")
+    helm_parser.add_argument("--helm-include-tests", action="store_true")
+    helm_parser.add_argument("--local-trusted", action="store_true")
+    helm_parser.add_argument("--checkov-executable", type=Path)
+    helm_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
+    helm_parser.add_argument("--output", type=Path)
+    helm_parser.add_argument("--quiet", action="store_true")
     doctor_parser = subcommands.add_parser(
         "doctor", help="diagnose readiness for one selected isolation mode"
     )
@@ -339,6 +370,78 @@ def _parse_target_selector(value: str) -> PublicTarget:
                 "file-qualified target selector must use RULE_ID=RESOURCE_ADDRESS@FILE"
             )
     return PublicTarget(rule_id.strip(), resource_address.strip(), file_path.strip())
+
+
+def _parse_helm_override(value: str) -> tuple[str, str]:
+    if type(value) is not str or "=" not in value:
+        raise DomainError("Helm override must use KEY=VALUE")
+    key, content = value.split("=", 1)
+    if not key or not content:
+        raise DomainError("Helm override must contain a nonblank key and value")
+    return key, content
+
+
+def _helm_request(args) -> PublicHelmVerificationRequest | OperationalReportV1:
+    if not args.local_trusted:
+        if args.helm_executable is not None or args.checkov_executable is not None:
+            raise DomainError("explicit executables require --local-trusted")
+        return OperationalReportV1(
+            "HARDENED_HELM_UNAVAILABLE",
+            "The alpha Helm materializer supports trusted local client-side input only.",
+            "Rerun with --local-trusted for operator-controlled local charts.",
+        )
+    helm = args.helm_executable
+    if helm is None:
+        discovered_helm = shutil.which("helm")
+        if discovered_helm is None:
+            return OperationalReportV1(
+                "HELM_ENVIRONMENT_INCOMPLETE",
+                "The Helm executable was not found.",
+                "Install Helm and select its exact executable path.",
+            )
+        helm = Path(discovered_helm)
+    checkov = args.checkov_executable
+    if checkov is None:
+        discovered_checkov = shutil.which("checkov")
+        if discovered_checkov is None:
+            return OperationalReportV1(
+                "CHECKOV_NOT_FOUND",
+                "The locked Checkov executable was not found.",
+                "Install Checkov 3.3.0 and select its exact executable path.",
+            )
+        checkov = Path(discovered_checkov)
+    selectors = tuple(
+        (
+            target.rule_id,
+            target.resource_address,
+            target.file_path,
+        )
+        for target in (
+            _parse_target_selector(value) for value in (args.target or ())
+        )
+    )
+    shared = {
+        "helm_executable": helm,
+        "release_name": args.helm_release_name,
+        "namespace": args.helm_namespace,
+        "kube_version": args.helm_kube_version,
+        "values_files": tuple(args.helm_values or ()),
+        "set_values": tuple(_parse_helm_override(item) for item in (args.helm_set or ())),
+        "set_strings": tuple(
+            _parse_helm_override(item) for item in (args.helm_set_string or ())
+        ),
+        "api_versions": tuple(args.helm_api_version or ()),
+        "include_crds": args.helm_include_crds,
+        "include_tests": args.helm_include_tests,
+    }
+    return PublicHelmVerificationRequest(
+        HelmRenderSpec(chart_root=args.before_chart, **shared),
+        HelmRenderSpec(chart_root=args.after_chart, **shared),
+        selectors,
+        args.all_baseline_findings,
+        ExecutionIsolation.REDUCED_ISOLATION,
+        checkov,
+    )
 
 
 def _direct_request(args) -> PublicVerificationRequest | OperationalReportV1:
@@ -811,6 +914,16 @@ def main(argv: list[str] | None = None) -> int:
                     )
             report = verify(request)
             return _write_report(report, args.format, args.output, quiet=args.quiet)
+        if args.command == "helm-verify":
+            helm_request = _helm_request(args)
+            report = (
+                helm_request
+                if type(helm_request) is OperationalReportV1
+                else verify_helm(helm_request)
+            )
+            return _write_report(
+                report, args.format, args.output, quiet=args.quiet
+            )
         if args.command == "pr":
             if args.config is not None:
                 if any((

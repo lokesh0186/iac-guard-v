@@ -1,0 +1,7 @@
+apiVersion: v2
+name: parent
+version: 0.1.0
+dependencies:
+  - name: child
+    version: 1.2.3
+    repository: file://../dependency-child

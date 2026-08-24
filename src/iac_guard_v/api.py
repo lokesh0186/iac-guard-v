@@ -9,7 +9,12 @@ from .adapters.checkov import (
     CheckovScanRequest,
     checkov_distribution_identity,
 )
-from .config import ExecutionIsolation, PublicTarget, PublicVerificationRequest
+from .config import (
+    ExecutionIsolation,
+    PublicHelmVerificationRequest,
+    PublicTarget,
+    PublicVerificationRequest,
+)
 from .enums import ArtifactKind, Status
 from .engine import (
     VerificationRequest,
@@ -18,6 +23,7 @@ from .engine import (
     load_operator_verification_config,
     run_checkov_verification,
 )
+from .helm import HelmMaterializationError, materialize_helm_comparison
 from .models import DomainError, RequiredGates, require_trusted_scanner_run
 from .policy import (
     PolicyRequest,
@@ -29,7 +35,7 @@ from .policy import (
 )
 from .report import (
     CandidateArtifactFailureReportV1, ExecutionIsolationEvidence,
-    OperationalReportV1, VerificationReportV1,
+    HelmVerificationReportV1, OperationalReportV1, VerificationReportV1,
 )
 from .workflow import GitVerificationMaterialization
 
@@ -68,6 +74,85 @@ def verify(
 ) -> VerificationReportV1 | OperationalReportV1:
     """Run one public verification without accepting precomputed or trusted evidence."""
     return _verify_request(request)
+
+
+def _graph_verification_has_excluded_crds(
+    result: VerificationReportV1, materialization: object
+) -> bool:
+    graph_evidence_present = any(
+        evaluation.graph_evidence is not None
+        for run in (
+            result.verification.baseline_run,
+            result.verification.candidate_run,
+        )
+        for evaluation in run.evaluations
+    )
+    return graph_evidence_present and any(
+        evidence.render_inputs["crds"] == "exclude"
+        and any(
+            item["path"].startswith("crds/")
+            for item in evidence.chart["files"]
+        )
+        for evidence in (
+            materialization.baseline,
+            materialization.candidate,
+        )
+    )
+
+
+def verify_helm(
+    request: PublicHelmVerificationRequest,
+) -> VerificationReportV1 | HelmVerificationReportV1 | OperationalReportV1:
+    """Render an exact local chart pair, then run the ordinary Kubernetes verifier."""
+    if type(request) is not PublicHelmVerificationRequest:
+        raise TypeError("verify_helm requires an exact PublicHelmVerificationRequest")
+    try:
+        with materialize_helm_comparison(
+            request.baseline, request.candidate
+        ) as materialization:
+            try:
+                targets = discover_baseline_targets(
+                    materialization.baseline_root,
+                    request.checkov_executable,
+                    ("kubernetes",),
+                    request.selectors,
+                    all_findings=request.all_baseline_findings,
+                )
+            except BaselineDiscoveryUnavailable as exc:
+                return OperationalReportV1(
+                    "BASELINE_TARGET_DISCOVERY_UNAVAILABLE",
+                    str(exc),
+                    "Repair the protected Checkov environment or provide a failing chart.",
+                )
+            if not targets:
+                return OperationalReportV1(
+                    "NO_BASELINE_TARGETS",
+                    "The deterministic baseline render produced no selectable failed findings.",
+                    "Provide an explicit failing baseline chart or review scanner scope.",
+                )
+            result = _verify_request(PublicVerificationRequest(
+                materialization.baseline_root,
+                materialization.candidate_root,
+                targets,
+                request.execution_isolation,
+                request.checkov_executable,
+                ("kubernetes",),
+            ))
+            if type(result) is VerificationReportV1:
+                if _graph_verification_has_excluded_crds(result, materialization):
+                    return OperationalReportV1(
+                        "INCOMPLETE_RENDERED_COVERAGE",
+                        "Graph verification cannot exclude chart CRDs authoritatively.",
+                        "Rerun with --helm-include-crds and review the complete graph.",
+                    )
+                return HelmVerificationReportV1(result, materialization)
+            return result
+    except HelmMaterializationError as exc:
+        return OperationalReportV1(
+            exc.reason_code,
+            exc.safe_detail,
+            "Make the local Helm inputs deterministic and fully source-bound, then rerun.",
+        )
 
 
 def _verify_git(
@@ -308,4 +393,9 @@ class BaselineDiscoveryUnavailable(DomainError):
     """The locked baseline scanner could not provide complete discovery evidence."""
 
 
-__all__ = ["BaselineDiscoveryUnavailable", "discover_baseline_targets", "verify"]
+__all__ = [
+    "BaselineDiscoveryUnavailable",
+    "discover_baseline_targets",
+    "verify",
+    "verify_helm",
+]

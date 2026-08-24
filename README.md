@@ -13,7 +13,7 @@ IaC-Guard-V works with changes written by people, AI coding agents, and remediat
 tools. It binds scanner evidence to the exact before/after files and resources, then
 fails closed when the evidence is incomplete or unverifiable.
 
-> **Status:** `0.1.0a3` technical alpha · Checkov-focused · trusted local input only.
+> **Status:** `0.1.0a4` technical alpha · Checkov-focused · trusted local input only.
 > The hardened hostile-input container and GitHub Action are not released.
 
 ## Why IaC-Guard-V?
@@ -35,7 +35,7 @@ Uncertainty is reported as `INCONCLUSIVE`, never as success.
 Install the public package and run the deterministic offline demo:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a3
+python -m pip install iac-guard-v==0.1.0a4
 iac-guard --version
 iac-guard demo
 ```
@@ -120,6 +120,7 @@ certification. See the
 | `iac-guard demo --real --local-trusted ...` | Run the packaged Checkov before/after fixture. |
 | `iac-guard doctor --mode local-trusted ...` | Check whether the selected local verification environment is usable. |
 | `iac-guard verify ...` | Verify exact before/after directories. |
+| `iac-guard helm-verify ...` | Deterministically render and verify local Helm charts. |
 | `iac-guard pr ...` | Materialize exact Git base/head objects and verify changed targets. |
 | `iac-guard explain report.json` | Validate and explain an existing `report-v1`. |
 
@@ -159,18 +160,20 @@ source-independent real demo are documented in
 The supported path verifies Terraform and Kubernetes-related changes with the locked
 Checkov 3.3.0 environment and emits validated JSON, console, SARIF, Markdown, or JUnit
 reports. It includes bounded, fail-closed evidence for supported Checkov CKV2 graph
-findings. Native execution is `reduced-isolation` and must be used only with
+findings and local client-side Helm rendering. Native execution is
+`reduced-isolation` and must be used only with
 operator-controlled input.
 
 `0.1.0a2` extended the closed `report-v1` schema with optional graph evidence and
 inventory-completion data. `0.1.0a3` adds an optional parsed file-coverage category so
 resource-free Terraform support files remain byte-bound and parser-governed without
-requiring a scanner resource identity. Consumers using a vendored older schema must
-update to the schema shipped with `0.1.0a3`. Older non-graph reports remain valid.
+requiring a scanner resource identity. `0.1.0a4` adds optional Helm materialization
+evidence. Consumers using a vendored older schema must update to the schema shipped
+with `0.1.0a4` before validating Helm reports. Older non-Helm reports remain valid.
 
-KICS, Trivy, OpenTofu, kubeconform, TFLint, multi-scanner consensus, Helm
-materialization, and candidate-only new-IaC review remain experimental, advisory, or
-future work. They cannot silently change the final verdict.
+KICS, Trivy, OpenTofu, kubeconform, TFLint, multi-scanner consensus, and candidate-only
+new-IaC review remain experimental, advisory, or future work. They cannot silently
+change the final verdict.
 
 See [Supported scope and limitations](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORTED_SCOPE.md)
 for exact boundaries and [Security model](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SECURITY_MODEL.md)
@@ -181,6 +184,7 @@ for the fail-closed trust architecture.
 - [Advanced installation and workflows](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/ADVANCED_INSTALLATION.md)
 - [Supported scope and limitations](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORTED_SCOPE.md)
 - [Security model](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SECURITY_MODEL.md)
+- [Helm materialization](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/HELM_MATERIALIZATION.md)
 - [Example walkthrough](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/EXAMPLE_WALKTHROUGH.md)
 - [Security policy](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md)
 - [Contributing](https://github.com/lokesh0186/iac-guard-v/blob/main/CONTRIBUTING.md)

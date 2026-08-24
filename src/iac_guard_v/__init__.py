@@ -10,7 +10,7 @@ identity/matching, and the locked/offline Checkov adapter. No model-provider pat
 """
 from __future__ import annotations
 
-__version__ = "0.1.0a3"
+__version__ = "0.1.0a4"
 
 from . import (  # noqa: F401
     api,

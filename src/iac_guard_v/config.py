@@ -9,6 +9,7 @@ from enum import Enum
 from pathlib import Path
 
 from .enums import ArtifactKind
+from .helm import HelmRenderSpec
 from .models import DomainError, Target, TargetIdentity, canonical_identifier
 
 
@@ -95,6 +96,40 @@ class PublicVerificationRequest:
                 raise DomainError("reduced-isolation requires an explicit Checkov executable")
         elif self.checkov_executable is not None:
             raise DomainError("hardened-container input cannot provide a native executable")
+
+
+@dataclass(frozen=True, slots=True)
+class PublicHelmVerificationRequest:
+    baseline: HelmRenderSpec
+    candidate: HelmRenderSpec
+    selectors: tuple[tuple[str, str, str], ...]
+    all_baseline_findings: bool
+    execution_isolation: ExecutionIsolation
+    checkov_executable: Path
+
+    def __post_init__(self) -> None:
+        if type(self.baseline) is not HelmRenderSpec or type(self.candidate) is not HelmRenderSpec:
+            raise DomainError("Helm verification requires exact render specifications")
+        if type(self.selectors) is not tuple or any(
+            type(item) is not tuple
+            or len(item) != 3
+            or any(type(value) is not str for value in item)
+            for item in self.selectors
+        ):
+            raise DomainError("Helm selectors must be exact rule/resource/file tuples")
+        if type(self.all_baseline_findings) is not bool:
+            raise DomainError("Helm all-baseline-findings must be a Boolean")
+        if self.all_baseline_findings == bool(self.selectors):
+            raise DomainError("Helm verification requires explicit targets or all findings")
+        if self.execution_isolation is not ExecutionIsolation.REDUCED_ISOLATION:
+            raise DomainError("Helm alpha supports only explicit local-trusted execution")
+        if not isinstance(self.checkov_executable, Path):
+            raise DomainError("Helm verification requires an explicit Checkov executable")
+        try:
+            executable = self.checkov_executable.resolve(strict=True)
+        except OSError as exc:
+            raise DomainError("Helm Checkov executable is unavailable") from exc
+        object.__setattr__(self, "checkov_executable", executable)
 
 
 _CONFIG_FIELDS = frozenset({
@@ -193,6 +228,7 @@ def load_public_config(path: Path) -> PublicVerificationRequest:
 
 
 __all__ = [
-    "ExecutionIsolation", "PublicTarget", "PublicVerificationRequest",
+    "ExecutionIsolation", "PublicHelmVerificationRequest", "PublicTarget",
+    "PublicVerificationRequest",
     "load_public_config",
 ]

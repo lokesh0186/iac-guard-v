@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: deployment, namespace: default}
+spec:
+  selector: {matchLabels: {group: synthetic}}
+  template:
+    metadata: {name: deployment-pod, labels: {group: synthetic}}
+    spec: {containers: [{name: app, image: nginx}]}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata: {name: stateful, namespace: default}
+spec:
+  selector: {matchLabels: {group: synthetic}}
+  serviceName: stateful
+  template:
+    metadata: {labels: {group: synthetic}}
+    spec: {containers: [{name: app, image: nginx}]}
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata: {name: daemon, namespace: default}
+spec:
+  selector: {matchLabels: {group: synthetic}}
+  template:
+    metadata: {labels: {group: synthetic}}
+    spec: {containers: [{name: app, image: nginx}]}
+---
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata: {name: replica, namespace: default}
+spec:
+  selector: {matchLabels: {group: synthetic}}
+  template:
+    metadata: {labels: {group: synthetic}}
+    spec: {containers: [{name: app, image: nginx}]}
+---
+apiVersion: v1
+kind: ReplicationController
+metadata: {name: replication, namespace: default}
+spec:
+  selector: {group: synthetic}
+  template:
+    metadata: {labels: {group: synthetic}}
+    spec: {containers: [{name: app, image: nginx}]}
+---
+apiVersion: batch/v1
+kind: Job
+metadata: {name: job, namespace: default}
+spec:
+  template:
+    metadata: {labels: {group: synthetic}}
+    spec:
+      restartPolicy: Never
+      containers: [{name: app, image: nginx}]
+---
+apiVersion: apps.openshift.io/v1
+kind: DeploymentConfig
+metadata: {name: deployment-config, namespace: default}
+spec:
+  selector: {group: synthetic}
+  template:
+    metadata: {labels: {group: synthetic}}
+    spec: {containers: [{name: app, image: nginx}]}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: {name: cron, namespace: default}
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata: {labels: {group: synthetic}}
+        spec:
+          restartPolicy: Never
+          containers: [{name: app, image: nginx}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: synthetic, namespace: default}
+spec:
+  podSelector: {matchLabels: {group: synthetic}}
+  policyTypes: [Ingress]

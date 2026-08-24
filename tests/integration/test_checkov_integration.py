@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import shutil
 import hashlib
+import json
+import os
+import subprocess
 from pathlib import Path
 
 from iac_guard_v.adapters.checkov import (
@@ -136,6 +139,52 @@ def test_pinned_checkov_330_kubernetes_contract(tmp_path: Path) -> None:
     assert evaluate_checkov_target(
         run, passed.rule_id, passed.resource_address, passed.file_path
     ).status is Status.PASS
+
+
+def test_pinned_checkov_330_synthetic_pod_identity_matrix() -> None:
+    fixture = (
+        Path(__file__).parents[1]
+        / "fixtures/kubernetes/synthetic-pod-controllers.yaml"
+    )
+    environment = {
+        "PATH": os.environ.get("PATH", ""),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "LANG": "C",
+        "LC_ALL": "C",
+    }
+    completed = subprocess.run(
+        (
+            str(_checkov()),
+            "-f",
+            str(fixture),
+            "--framework",
+            "kubernetes",
+            "--check",
+            "CKV2_K8S_6",
+            "-o",
+            "json",
+        ),
+        check=False,
+        capture_output=True,
+        env=environment,
+        timeout=60,
+    )
+    assert completed.returncode == 0, completed.stderr.decode("utf-8", errors="replace")
+    payload = json.loads(completed.stdout)
+    results = payload["results"]["passed_checks"] + payload["results"]["failed_checks"]
+    identities = {item["resource"] for item in results}
+
+    assert identities == {
+        "Pod.default.deployment-pod",
+        "Pod.default.stateful.group-synthetic",
+        "Pod.default.daemon.group-synthetic",
+        "Pod.default.replica.group-synthetic",
+        "Pod.default.replication.group-synthetic",
+        "Pod.default.job.group-synthetic",
+        "Pod.default.deployment-config.group-synthetic",
+    }
+    assert all(item["check_result"]["result"] == "PASSED" for item in results)
+    assert not any("cron" in identity for identity in identities)
 
 
 def test_pinned_checkov_330_kubernetes_json_contract(tmp_path: Path) -> None:

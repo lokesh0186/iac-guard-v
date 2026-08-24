@@ -396,6 +396,233 @@ def test_kubernetes_generated_pod_alias_preserves_declared_label_order(
     assert evidence.primary.resource_address == "apps/v1/Deployment/default/app"
 
 
+@pytest.mark.parametrize(
+    ("namespace", "name", "pod_name", "labels", "expected"),
+    (
+        (
+            "monitoring",
+            "mysql-exporter",
+            "mysql-exporter",
+            {"k8s-app": "mysql-exporter"},
+            ("Pod.monitoring.mysql-exporter",),
+        ),
+        (
+            "default",
+            "worker",
+            None,
+            {"z": "last", "app": "worker"},
+            (
+                "Pod.default.worker.app-worker.z-last",
+                "Pod.default.worker.z-last.app-worker",
+            ),
+        ),
+        ("default", "worker", None, None, ()),
+    ),
+)
+def test_synthetic_pod_aliases_bind_structure_and_treat_labels_as_compatibility(
+    namespace: str,
+    name: str,
+    pod_name: str | None,
+    labels: dict[str, str] | None,
+    expected: tuple[str, ...],
+) -> None:
+    assert GRAPH._synthetic_pod_aliases(
+        namespace=namespace, workload_name=name, pod_name=pod_name, labels=labels
+    ) == tuple(sorted(expected))
+
+
+def test_synthetic_pod_aliases_do_not_equate_same_labels_across_namespaces_or_names(
+) -> None:
+    labels = {"app": "shared"}
+    first = set(GRAPH._synthetic_pod_aliases(
+        namespace="first", workload_name="one", pod_name=None, labels=labels
+    ))
+    different_namespace = set(GRAPH._synthetic_pod_aliases(
+        namespace="second", workload_name="one", pod_name=None, labels=labels
+    ))
+    different_name = set(GRAPH._synthetic_pod_aliases(
+        namespace="first", workload_name="two", pod_name=None, labels=labels
+    ))
+
+    assert first.isdisjoint(different_namespace)
+    assert first.isdisjoint(different_name)
+
+
+def test_kubernetes_structural_synthetic_pod_alias_survives_label_change(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    policies = tmp_path / "policies"
+    _write_policy(policies, "kubernetes", "policy.json", KUBERNETES_POLICY)
+    resources = (
+        ExpectedResource(
+            "deployment.yaml",
+            "apps/v1/Deployment/monitoring/mysql-exporter",
+            ArtifactKind.KUBERNETES_YAML,
+            "Deployment.monitoring.mysql-exporter",
+        ),
+        ExpectedResource(
+            "deployment.yaml",
+            "networking.k8s.io/v1/NetworkPolicy/monitoring/mysql-exporter",
+            ArtifactKind.KUBERNETES_YAML,
+            "NetworkPolicy.monitoring.mysql-exporter",
+        ),
+    )
+    for suffix, label in (("base", "old"), ("candidate", "new")):
+        root = tmp_path / suffix
+        root.mkdir()
+        (root / "deployment.yaml").write_text(
+            "apiVersion: apps/v1\nkind: Deployment\n"
+            "metadata: {name: mysql-exporter, namespace: monitoring}\n"
+            "spec:\n  template:\n    metadata:\n      labels:\n"
+            f"        app: {label}\n"
+            "      name: mysql-exporter\n"
+            "    spec:\n      containers:\n"
+            "      - {name: exporter, image: exporter}\n"
+            "      - {name: sidecar, image: sidecar}\n"
+            "      initContainers:\n      - {name: init, image: init}\n"
+            "---\napiVersion: networking.k8s.io/v1\nkind: NetworkPolicy\n"
+            "metadata: {name: mysql-exporter, namespace: monitoring}\n"
+            "spec:\n  podSelector:\n    matchLabels:\n"
+            f"      app: {label}\n",
+            encoding="utf-8",
+        )
+        context = _context(
+            monkeypatch, root, policies, ("kubernetes",), resources
+        )
+        evidence = context.evidence_for(
+            framework="kubernetes",
+            file_path="deployment.yaml",
+            native_resource="Pod.monitoring.mysql-exporter",
+            rule_id="CKV2_K8S_TEST",
+            check_class=GRAPH._GRAPH_CHECK_CLASS,
+            native_result=CheckEvaluationResult.PASSED,
+        )
+
+        assert evidence is not None and evidence.status is Status.PASS
+        assert evidence.primary.resource_address == (
+            "apps/v1/Deployment/monitoring/mysql-exporter"
+        )
+        assert len(evidence.edges) == 1
+
+
+@pytest.mark.parametrize(
+    ("api_version", "kind", "spec"),
+    (
+        ("apps/v1", "Deployment", "template"),
+        ("apps/v1", "StatefulSet", "template"),
+        ("apps/v1", "DaemonSet", "template"),
+        ("apps/v1", "ReplicaSet", "template"),
+        ("batch/v1", "Job", "template"),
+        ("v1", "ReplicationController", "template"),
+        ("apps.openshift.io/v1", "DeploymentConfig", "template"),
+    ),
+)
+def test_supported_controller_kinds_bind_exact_structural_synthetic_pod_alias(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    api_version: str,
+    kind: str,
+    spec: str,
+) -> None:
+    policies = tmp_path / "policies"
+    _write_policy(policies, "kubernetes", "policy.json", KUBERNETES_POLICY)
+    root = tmp_path / "source"
+    root.mkdir()
+    if spec == "jobTemplate":
+        nested = (
+            "  jobTemplate:\n    spec:\n      template:\n        metadata: {}\n"
+            "        spec:\n          containers:\n          - {name: app, image: app}\n"
+            "          restartPolicy: Never\n"
+        )
+    else:
+        nested = (
+            "  template:\n    metadata: {name: worker}\n"
+            "    spec:\n      containers:\n"
+            "      - {name: app, image: app}\n      restartPolicy: Never\n"
+        )
+    (root / "workload.yaml").write_text(
+        f"apiVersion: {api_version}\nkind: {kind}\n"
+        "metadata: {name: worker, namespace: jobs}\n"
+        f"spec:\n{nested}",
+        encoding="utf-8",
+    )
+    resource = ExpectedResource(
+        "workload.yaml",
+        f"{api_version}/{kind}/jobs/worker",
+        ArtifactKind.KUBERNETES_YAML,
+        f"{kind}.jobs.worker",
+    )
+    context = _context(
+        monkeypatch, root, policies, ("kubernetes",), (resource,)
+    )
+
+    resolved = context._resolve("workload.yaml", "Pod.jobs.worker")
+
+    assert resolved is not None
+    assert resolved.participant.resource_address == resource.resource_address
+    assert resolved.participant.resource_type == kind
+
+
+def test_cronjob_is_not_promoted_to_a_checkov_330_synthetic_pod(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    policies = tmp_path / "policies"
+    _write_policy(policies, "kubernetes", "policy.json", KUBERNETES_POLICY)
+    root = tmp_path / "source"
+    root.mkdir()
+    (root / "cronjob.yaml").write_text(
+        "apiVersion: batch/v1\nkind: CronJob\n"
+        "metadata: {name: worker, namespace: jobs}\n"
+        "spec:\n  jobTemplate:\n    spec:\n      template:\n"
+        "        metadata: {labels: {app: worker}}\n"
+        "        spec:\n          containers:\n"
+        "          - {name: app, image: app}\n          restartPolicy: Never\n",
+        encoding="utf-8",
+    )
+    resource = ExpectedResource(
+        "cronjob.yaml",
+        "batch/v1/CronJob/jobs/worker",
+        ArtifactKind.KUBERNETES_YAML,
+        "CronJob.jobs.worker",
+    )
+    context = _context(monkeypatch, root, policies, ("kubernetes",), (resource,))
+
+    assert context._resolve("cronjob.yaml", "Pod.jobs.worker") is None
+
+
+def test_structural_synthetic_pod_alias_is_inconclusive_when_two_workloads_collide(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    policies = tmp_path / "policies"
+    _write_policy(policies, "kubernetes", "policy.json", KUBERNETES_POLICY)
+    root = tmp_path / "source"
+    root.mkdir()
+    documents = []
+    resources = []
+    for kind in ("Deployment", "StatefulSet"):
+        documents.append(
+            f"apiVersion: apps/v1\nkind: {kind}\n"
+            "metadata: {name: shared, namespace: same}\n"
+            "spec:\n  template:\n    metadata: {labels: {app: shared}}\n"
+            "    spec:\n      containers:\n      - {name: app, image: app}\n"
+        )
+        resources.append(ExpectedResource(
+            "workloads.yaml",
+            f"apps/v1/{kind}/same/shared",
+            ArtifactKind.KUBERNETES_YAML,
+            f"{kind}.same.shared",
+        ))
+    (root / "workloads.yaml").write_text(
+        "---\n".join(documents), encoding="utf-8"
+    )
+    context = _context(
+        monkeypatch, root, policies, ("kubernetes",), tuple(resources)
+    )
+
+    with pytest.raises(DomainError, match="missing or ambiguous"):
+        context._resolve("workloads.yaml", "Pod.same.shared.app-shared")
+
+
 def test_unsupported_graph_policy_is_typed_inconclusive(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
