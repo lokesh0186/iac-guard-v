@@ -11,13 +11,19 @@ from pathlib import Path
 
 import jsonschema
 
+from .acceptance import CandidateEvidenceUniverses
 from .diffing import diff_findings
 from .enums import (
-    ArtifactKind, DeltaClass, SEVERITY_ORDER, Severity, Status, Verdict,
+    ArtifactKind, CheckEvaluationResult, DeltaClass, SEVERITY_ORDER, Severity,
+    Status, Verdict,
 )
-from .engine import VerificationResult, require_trusted_verification_result
+from .engine import (
+    TrustedScanPlan, VerificationResult, require_trusted_verification_result,
+)
 from .models import (
-    DomainError, Finding, FindingLocation, TargetIdentity, canonical_repo_path,
+    CheckEvaluation, DomainError, ExpectedResource, Finding, FindingLocation,
+    ScannerRun, TargetIdentity, canonical_repo_path, canonical_identifier,
+    require_trusted_scanner_run,
 )
 from .policy import PolicyResult, require_trusted_policy_result
 
@@ -79,6 +85,8 @@ def _validate_report_payload(payload: dict, *, allow_private_test_registry: bool
         )
         if "materialization" in payload:
             _validate_helm_materialization(payload)
+    elif payload["result_kind"] == "candidate_acceptance":
+        _validate_candidate_acceptance(payload)
 
 
 def validate_report_payload(payload: dict) -> None:
@@ -302,6 +310,385 @@ def _validate_helm_materialization(payload: dict) -> None:
         "baseline": role_identities[0], "candidate": role_identities[1]
     }) != comparison["comparison_identity"]:
         _semantic_error("Helm comparison identity is not canonical")
+
+
+def _validate_helm_universe(payload: dict) -> None:
+    universe = payload["materialization"]
+    charts = universe["charts"]
+    ownership = universe["resource_ownership"]
+    output = universe["combined_output"]
+    _unique(charts, lambda item: item["universe_key"], "Helm universe chart key")
+    if output["chart_count"] != len(charts):
+        _semantic_error("Helm universe chart count is inconsistent")
+    if output["resource_count"] != len(ownership):
+        _semantic_error("Helm universe resource count is inconsistent")
+    if _canonical_json_digest(ownership) != output["document_inventory_sha256"]:
+        _semantic_error("Helm universe document inventory is not canonical")
+    ownership_by_key = {item["universe_key"] for item in ownership}
+    chart_keys = {item["universe_key"] for item in charts}
+    if not ownership_by_key <= chart_keys:
+        _semantic_error("Helm universe resource has no participating chart owner")
+    _unique(
+        ownership,
+        lambda item: item["document"]["resource_identity"],
+        "Helm universe rendered resource identity",
+    )
+    materialization_ids = []
+    for item in charts:
+        evidence = item["materialization"]
+        chart = evidence["chart"]
+        files = chart["files"]
+        documents = evidence["documents"]
+        _unique(files, lambda value: value["path"], "Helm universe chart path")
+        if _canonical_json_digest(files) != chart["inventory_root_sha256"]:
+            _semantic_error("Helm universe chart inventory root is not canonical")
+        if _canonical_json_digest(documents) != evidence["output"]["document_inventory_sha256"]:
+            _semantic_error("Helm universe chart document inventory is not canonical")
+        body = {
+            "executable": evidence["executable"],
+            "chart": chart,
+            "render_inputs": evidence["render_inputs"],
+            "output": evidence["output"],
+            "documents": documents,
+        }
+        if _canonical_json_digest(body) != evidence["materialization_identity"]:
+            _semantic_error("Helm universe chart materialization is not canonical")
+        owned = [
+            value["document"] for value in ownership
+            if value["universe_key"] == item["universe_key"]
+        ]
+        if owned != documents:
+            _semantic_error("Helm universe resource ownership is incomplete")
+        materialization_ids.append({
+            "universe_key": item["universe_key"],
+            "materialization_identity": evidence["materialization_identity"],
+        })
+    identity_body = {
+        "ordered_materialization_ids": materialization_ids,
+        "combined_output": output,
+        "resource_ownership": ownership,
+    }
+    if _canonical_json_digest(identity_body) != universe["universe_identity"]:
+        _semantic_error("Helm universe identity is not canonical")
+    run = payload["acceptance"]["scanner_run"]
+    rendered_inputs = [
+        item for item in run["input_files"] if item["file_path"] == "rendered.yaml"
+    ]
+    if (
+        len(rendered_inputs) != 1
+        or rendered_inputs[0]["sha256"] != output["rendered_bundle_sha256"]
+    ):
+        _semantic_error("Helm universe is not the exact scanner input")
+    identities = {
+        item["document"]["resource_identity"] for item in ownership
+    }
+    for evaluation in run["evaluations"]:
+        graph = evaluation.get("graph_evidence")
+        if graph is not None and any(
+            participant["resource_address"] not in identities
+            for participant in graph["participants"]
+        ):
+            _semantic_error("Helm universe graph participant is not rendered")
+
+
+def _validate_candidate_acceptance(payload: dict) -> None:
+    acceptance = payload["acceptance"]
+    snapshot = acceptance["candidate_snapshot"]
+    _require_sha(snapshot["snapshot_sha256"], "candidate acceptance snapshot")
+    _require_sha(snapshot["artifact_manifest_sha256"], "candidate artifact manifest")
+    _unique(
+        snapshot["classifications"],
+        lambda item: item["file_path"],
+        "candidate artifact classification path",
+    )
+    properties = acceptance["properties"]
+    outcomes = [item["outcome"] for item in properties]
+    expected = (
+        ("INCONCLUSIVE", 3)
+        if "INCONCLUSIVE" in outcomes
+        else ("FAILED", 1)
+        if "VIOLATED" in outcomes
+        else ("VERIFIED", 0)
+    )
+    if (payload["verdict"], payload["exit_code"]) != expected:
+        _semantic_error("candidate acceptance verdict disagrees with property outcomes")
+    if acceptance["scope_accounting"]["requested_property_count"] != len(properties):
+        _semantic_error("candidate acceptance property count is inconsistent")
+    resources = snapshot["expected_resources"]
+    if _canonical_json_digest({
+        "resources": resources,
+        "classifications": snapshot["classifications"],
+    }) != snapshot["resource_inventory_sha256"]:
+        _semantic_error("candidate resource inventory identity is not canonical")
+    resource_keys = {
+        (
+            item["file_path"], item["resource_address"], item["artifact_kind"],
+            item["scanner_native_lookup"],
+        )
+        for item in resources
+    }
+    universes = acceptance["evidence_universes"]
+    if universes["contract"] != "candidate-evidence-universes-v1":
+        _semantic_error("candidate evidence universe contract is unsupported")
+    governed = universes["governed_resource_universe"]
+    if (
+        governed["resources"] != sorted(
+            resources,
+            key=lambda item: (
+                item["file_path"], item["resource_address"],
+                item["artifact_kind"], item["scanner_native_lookup"],
+            ),
+        )
+        or governed["count"] != len(resources)
+        or governed["sha256"] != _canonical_json_digest(governed["resources"])
+    ):
+        _semantic_error("governed resource universe is not the protected inventory")
+    addressable = universes["scanner_addressable_universe"]
+    accounting = addressable["resource_accounting"]
+    _unique(
+        accounting,
+        lambda item: (
+            item["resource"]["file_path"], item["resource"]["resource_address"],
+            item["resource"]["artifact_kind"],
+            item["resource"]["scanner_native_lookup"],
+        ),
+        "scanner addressability resource",
+    )
+    accounting_keys = {
+        (
+            item["resource"]["file_path"], item["resource"]["resource_address"],
+            item["resource"]["artifact_kind"],
+            item["resource"]["scanner_native_lookup"],
+        )
+        for item in accounting
+    }
+    if accounting_keys != resource_keys:
+        _semantic_error("scanner addressability does not account for every governed resource")
+    addressability_buckets = {
+        "primary": {
+            "SCANNER_PRIMARY_ADDRESSABLE", "CONSERVATIVE_SCANNER_ADDRESSABLE",
+        },
+        "relationship_participant": {"TARGET_RELEVANT_GRAPH_PARTICIPANT"},
+        "governed_unaddressed": {"GOVERNED_NON_TARGET_SCANNER_UNADDRESSED"},
+    }
+    for prefix, classifications in addressability_buckets.items():
+        values = [
+            item["resource"] for item in accounting
+            if item["classification"] in classifications
+        ]
+        if (
+            addressable[f"{prefix}_count"] != len(values)
+            or addressable[f"{prefix}_sha256"] != _canonical_json_digest(values)
+        ):
+            _semantic_error(f"candidate {prefix} addressability identity is inconsistent")
+    missing = addressable["missing_standalone_evaluations"]
+    missing_keys = {
+        (
+            item["file_path"], item["resource_address"], item["artifact_kind"],
+            item["scanner_native_lookup"],
+        )
+        for item in missing
+    }
+    if (
+        len(missing_keys) != len(missing)
+        or not missing_keys <= resource_keys
+        or addressable["missing_standalone_evaluation_count"] != len(missing)
+        or addressable["missing_standalone_evaluations_sha256"]
+        != _canonical_json_digest(missing)
+    ):
+        _semantic_error("missing standalone evaluation accounting is inconsistent")
+    target_universes = universes["target_relevant_evidence_universe"]
+    if len(target_universes) != len(properties):
+        _semantic_error("target-relevant universe count is inconsistent")
+    if universes["status"] == "PASS" and any(
+        item["status"] != "PASS" for item in target_universes
+    ):
+        _semantic_error("complete candidate universe contains an incomplete target")
+    selected = set()
+    for item, target_universe in zip(properties, target_universes, strict=True):
+        resource = item["resource"]
+        evaluation = item["evaluation"]
+        if resource is not None:
+            key = (
+                resource["file_path"], resource["resource_address"],
+                resource["artifact_kind"], resource["scanner_native_lookup"],
+            )
+            if key not in resource_keys:
+                _semantic_error("candidate acceptance property escapes resource inventory")
+            selected.add(key)
+        if item["outcome"] == "SATISFIED" and (
+            evaluation is None or evaluation["native_result"] != "PASSED"
+        ):
+            _semantic_error("SATISFIED lacks a native passed evaluation")
+        if item["outcome"] == "VIOLATED" and (
+            evaluation is None or evaluation["native_result"] != "FAILED"
+        ):
+            _semantic_error("VIOLATED lacks a native failed evaluation")
+        if item["selector"]["rule_id"].startswith("CKV2_") and item["outcome"] != "INCONCLUSIVE":
+            graph = evaluation.get("graph_evidence") if evaluation is not None else None
+            if graph is None or graph["status"] != "PASS":
+                _semantic_error("decisive graph acceptance lacks complete graph evidence")
+            if (
+                graph["source_snapshot_sha256"] != snapshot["snapshot_sha256"]
+                or graph["policy_inventory_sha256"]
+                != acceptance["scanner_run"]["policy_inventory_digest"]
+            ):
+                _semantic_error("candidate graph provenance disagrees with protected evidence")
+        target_selector = target_universe["selector"]
+        if (
+            target_selector["rule_id"] != item["selector"]["rule_id"]
+            or target_selector["resource_address"]
+            != item["selector"]["resource_address"]
+            or target_selector["file_path"] != item["selector"]["file_path"]
+            or (target_universe["primary"] != resource)
+        ):
+            _semantic_error("target-relevant universe does not bind its requested property")
+        relationship_count = (
+            len(target_universe["participants"])
+            + len(target_universe["irrelevant_relationship_resources"])
+            + target_universe["unresolved_relationship_resource_count"]
+        )
+        if target_universe["relationship_resource_count"] != relationship_count:
+            _semantic_error("target relationship universe accounting is incomplete")
+        if target_universe["status"] == "PASS" and (
+            target_universe["unresolved_relationship_resource_count"] != 0
+            or resource is None
+        ):
+            _semantic_error("complete target universe contains unresolved evidence")
+        for participant in target_universe["participants"]:
+            participant_key = (
+                participant["file_path"], participant["resource_address"],
+                participant["artifact_kind"], participant["scanner_native_lookup"],
+            )
+            if participant_key not in resource_keys:
+                _semantic_error("target participant escapes governed resource universe")
+        for proof in target_universe["irrelevant_relationship_resources"]:
+            if proof["target"] != resource:
+                _semantic_error("irrelevance proof does not bind the requested target")
+            proof_key = (
+                proof["resource"]["file_path"], proof["resource"]["resource_address"],
+                proof["resource"]["artifact_kind"],
+                proof["resource"]["scanner_native_lookup"],
+            )
+            if proof_key not in resource_keys:
+                _semantic_error("irrelevance proof escapes governed resource universe")
+            _require_sha(proof["selector_sha256"], "irrelevance selector")
+            _require_sha(proof["target_labels_sha256"], "irrelevance target labels")
+        if item["outcome"] != "INCONCLUSIVE":
+            if target_universe["status"] != "PASS":
+                _semantic_error("decisive property lacks a complete target universe")
+            if (
+                item["selector"]["rule_id"].startswith("CKV2_")
+                and target_universe["policy_definition_sha256"] != "0" * 64
+            ):
+                expected_participants = {
+                    (resource["file_path"], resource["resource_address"]),
+                    *((part["file_path"], part["resource_address"])
+                      for part in target_universe["participants"]),
+                }
+                actual_participants = {
+                    (part["file_path"], part["resource_address"])
+                    for part in evaluation["graph_evidence"]["participants"]
+                }
+                if expected_participants != actual_participants:
+                    _semantic_error("target universe disagrees with scanner graph participants")
+                if (
+                    target_universe["policy_definition_sha256"]
+                    != evaluation["graph_evidence"]["policy_definition_sha256"]
+                    or target_universe["query_identity_sha256"]
+                    != evaluation["graph_evidence"]["query_identity_sha256"]
+                ):
+                    _semantic_error("target universe disagrees with scanner graph contract")
+    if acceptance["scope_accounting"]["selected_resource_count"] != len(selected):
+        _semantic_error("candidate acceptance selected resource count is inconsistent")
+    scanner = acceptance["scanner_run"]
+    selected_evaluations = {
+        (
+            item["evaluation"]["rule_id"],
+            item["evaluation"]["resource_address"],
+            item["evaluation"]["file_path"],
+        )
+        for item in properties if item["evaluation"] is not None
+    }
+    unselected = [
+        finding for finding in scanner["findings"]
+        if (
+            finding["rule_id"],
+            finding["resource_address"],
+            finding["location"]["file_path"],
+        ) not in selected_evaluations
+    ]
+    scope = acceptance["scope_accounting"]
+    if (
+        scope["unselected_failed_finding_count"] != len(unselected)
+        or scope["unselected_failed_findings_sha256"] != _canonical_json_digest(unselected)
+    ):
+        _semantic_error("candidate acceptance remaining-finding accounting is inconsistent")
+    gate = acceptance["scanner_integrity"]
+    eligible_paths = {
+        item["file_path"]
+        for item in acceptance["candidate_snapshot"]["classifications"]
+        if item["coverage_kind"] == "SCAN_EVIDENCE_BEARING"
+    }
+    coverage = scanner["coverage"]
+    resource_coverage = scanner["resource_coverage"]
+    base_scanner_health = (
+        scanner["ruleset_integrity"] == "PASS"
+        and coverage["files_eligible"] == len(eligible_paths)
+        and coverage["files_discovered"] == len(eligible_paths)
+        and coverage["files_parsed"] == len(eligible_paths)
+        and coverage["files_failed"] == 0
+        and coverage["checks_failed_to_execute"] == 0
+        and coverage["parse_errors"] == 0
+        and resource_coverage["resources_expected"] == len(resources)
+        and resource_coverage["unexpected_resources_observed"] == 0
+        and {item["file_path"] for item in scanner["input_files"]} == eligible_paths
+    )
+    scanner_complete = base_scanner_health and universes["status"] == "PASS"
+    if resource_coverage["expected_resources_missing"] != len(missing):
+        _semantic_error("scanner missing-resource count disagrees with addressability evidence")
+    classifications_by_key = {
+        (
+            item["resource"]["file_path"], item["resource"]["resource_address"],
+            item["resource"]["artifact_kind"],
+            item["resource"]["scanner_native_lookup"],
+        ): item["classification"]
+        for item in accounting
+    }
+    if any(
+        classifications_by_key[key] != "GOVERNED_NON_TARGET_SCANNER_UNADDRESSED"
+        for key in missing_keys
+    ):
+        _semantic_error("missing scanner records are not proven non-target unaddressed")
+    if scanner["status"] == "PARTIAL" and scanner_complete:
+        expected_diagnostics = {
+            "COVERAGE_MISMATCH",
+            *(f"missing evaluation resource: {item['file_path']}@{item['resource_address']}"
+              for item in missing),
+        }
+        if (
+            not universes["raw_scanner_status_accepted"]
+            or set(scanner["diagnostics"]) != expected_diagnostics
+            or not missing
+        ):
+            _semantic_error("partial scanner result lacks exact protected justification")
+    elif scanner_complete and (
+        scanner["status"] != "PASS"
+        or universes["raw_scanner_status_accepted"]
+        or missing
+    ):
+        _semantic_error("candidate scanner status acceptance is inconsistent")
+    if (gate["status"] == "PASS") != scanner_complete:
+        _semantic_error("candidate scanner integrity gate disagrees with scanner evidence")
+    if payload["verdict"] in {"VERIFIED", "FAILED"} and (
+        not scanner_complete
+        or any(item["status"] != "PASS" for item in acceptance["parser_gates"])
+    ):
+        _semantic_error(
+            "decisive candidate acceptance requires complete scanner and parser evidence"
+        )
+    if "materialization" in payload:
+        _validate_helm_universe(payload)
 
 
 def _validate_config_identity(config: dict) -> None:
@@ -1896,6 +2283,246 @@ class HelmVerificationReportV1:
 
 
 @dataclass(frozen=True, slots=True)
+class CandidateAcceptancePropertyEvidence:
+    rule_id: str
+    resource: ExpectedResource | None
+    requested_resource_address: str
+    requested_file_path: str
+    outcome: str
+    reason_code: str
+    evaluation: CheckEvaluation | None = None
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "rule_id", canonical_identifier(self.rule_id, "rule id"))
+        if type(self.requested_resource_address) is not str or not self.requested_resource_address:
+            raise DomainError("candidate property requires a resource address")
+        if type(self.requested_file_path) is not str:
+            raise DomainError("candidate property file path must be a string")
+        if self.requested_file_path:
+            object.__setattr__(
+                self,
+                "requested_file_path",
+                canonical_repo_path(self.requested_file_path, "candidate property file path"),
+            )
+        if self.resource is not None and type(self.resource) is not ExpectedResource:
+            raise DomainError("candidate property resource must be independently bound")
+        if self.outcome not in {"SATISFIED", "VIOLATED", "INCONCLUSIVE"}:
+            raise DomainError("candidate property outcome is unsupported")
+        object.__setattr__(
+            self,
+            "reason_code",
+            canonical_identifier(self.reason_code, "candidate property reason code"),
+        )
+        if self.evaluation is not None and type(self.evaluation) is not CheckEvaluation:
+            raise DomainError("candidate property evaluation must be exact scanner evidence")
+        if self.outcome == "SATISFIED" and (
+            self.resource is None
+            or self.evaluation is None
+            or self.evaluation.native_result is not CheckEvaluationResult.PASSED
+        ):
+            raise DomainError("SATISFIED requires an exact native passed evaluation")
+        if self.outcome == "VIOLATED" and (
+            self.resource is None
+            or self.evaluation is None
+            or self.evaluation.native_result is not CheckEvaluationResult.FAILED
+        ):
+            raise DomainError("VIOLATED requires an exact native failed evaluation")
+        if self.outcome != "INCONCLUSIVE" and self.rule_id.startswith("CKV2_"):
+            graph = self.evaluation.graph_evidence
+            if graph is None or graph.status is not Status.PASS:
+                raise DomainError("decisive graph acceptance requires complete graph evidence")
+
+    def canonical_dict(self) -> dict:
+        result = {
+            "selector": {
+                "rule_id": self.rule_id,
+                "resource_address": self.requested_resource_address,
+                "file_path": self.requested_file_path,
+            },
+            "outcome": self.outcome,
+            "reason_code": self.reason_code,
+            "resource": None if self.resource is None else self.resource.canonical_dict(),
+            "evaluation": (
+                None if self.evaluation is None else self.evaluation.canonical_dict()
+            ),
+        }
+        return result
+
+
+@dataclass(frozen=True, slots=True)
+class CandidateAcceptanceReportV1:
+    """Closed head-only evidence for explicitly requested security properties."""
+
+    plan: TrustedScanPlan
+    scanner_run: ScannerRun
+    properties: tuple[CandidateAcceptancePropertyEvidence, ...]
+    execution_isolation: ExecutionIsolationEvidence
+    materialization: object | None = None
+    evidence_universes: CandidateEvidenceUniverses | None = None
+
+    def __post_init__(self) -> None:
+        if type(self.plan) is not TrustedScanPlan or not self.plan._trusted:
+            raise DomainError("candidate acceptance requires a protected scan plan")
+        require_trusted_scanner_run(self.scanner_run)
+        if type(self.properties) is not tuple or not self.properties or any(
+            type(item) is not CandidateAcceptancePropertyEvidence
+            for item in self.properties
+        ):
+            raise DomainError("candidate acceptance requires typed property evidence")
+        if type(self.execution_isolation) is not ExecutionIsolationEvidence:
+            raise DomainError("candidate acceptance requires isolation evidence")
+        if (
+            type(self.evidence_universes) is not CandidateEvidenceUniverses
+            or not self.evidence_universes._trusted
+        ):
+            raise DomainError("candidate acceptance requires protected evidence universes")
+        plan_resources = {item.canonical_key for item in self.plan.resources}
+        for item in self.properties:
+            if item.resource is not None and item.resource.canonical_key not in plan_resources:
+                raise DomainError("candidate property escapes the protected resource universe")
+            if item.evaluation is not None and item.evaluation not in self.scanner_run.evaluations:
+                raise DomainError("candidate property evaluation escapes its scanner run")
+        if self.materialization is not None:
+            from .helm import HelmMaterializedUniverse
+
+            if type(self.materialization) is not HelmMaterializedUniverse:
+                raise DomainError("candidate acceptance materialization is unsupported")
+            bound_inputs = [
+                item for item in self.scanner_run.input_files
+                if item.file_path == "rendered.yaml"
+            ]
+            expected_digest = self.materialization.combined_output[
+                "rendered_bundle_sha256"
+            ]
+            if len(bound_inputs) != 1 or bound_inputs[0].sha256 != expected_digest:
+                raise DomainError("Helm universe does not bind exact scanner input bytes")
+            rendered = {
+                document.resource_identity
+                for _key, document in self.materialization.resource_ownership
+            }
+            for evaluation in self.scanner_run.evaluations:
+                if evaluation.graph_evidence is not None and any(
+                    participant.resource_address not in rendered
+                    for participant in evaluation.graph_evidence.participants
+                ):
+                    raise DomainError("Helm universe graph evidence escapes rendered resources")
+
+    @property
+    def verdict(self) -> Verdict:
+        if any(item.outcome == "INCONCLUSIVE" for item in self.properties):
+            return Verdict.INCONCLUSIVE
+        if any(item.outcome == "VIOLATED" for item in self.properties):
+            return Verdict.FAILED
+        return Verdict.VERIFIED
+
+    @property
+    def exit_code(self) -> int:
+        return {
+            Verdict.VERIFIED: 0,
+            Verdict.FAILED: 1,
+            Verdict.INCONCLUSIVE: 3,
+        }[self.verdict]
+
+    def canonical_dict(self) -> dict:
+        selected = {
+            (
+                item.evaluation.rule_id,
+                item.evaluation.resource_address,
+                item.evaluation.file_path,
+            )
+            for item in self.properties
+            if item.evaluation is not None
+        }
+        unselected_failures = [
+            finding.canonical_dict()
+            for finding in self.scanner_run.findings
+            if (
+                finding.rule_id,
+                finding.resource_address,
+                finding.location.file_path,
+            ) not in selected
+        ]
+        parser_gates = [
+            {
+                "gate_id": (
+                    "terraform_hcl_parse"
+                    if framework == "terraform"
+                    else "kubernetes_yaml_parse"
+                ),
+                "status": "PASS",
+                "reason_code": "PROTECTED_CANDIDATE_PARSE_COMPLETE",
+                "detail": "",
+            }
+            for framework in self.plan.request.frameworks
+        ]
+        scanner_status = self.evidence_universes.status.value
+        result = {
+            "schema_version": "report-v1",
+            "result_kind": "candidate_acceptance",
+            "verification_mode": "candidate_acceptance",
+            "verdict": self.verdict.value,
+            "exit_code": self.exit_code,
+            "execution_isolation": self.execution_isolation.canonical_dict(),
+            "acceptance": {
+                "candidate_snapshot": {
+                    "snapshot_sha256": self.plan.request.source_snapshot_sha256,
+                    "artifact_manifest_sha256": self.plan.artifact_manifest_sha256,
+                    "resource_inventory_sha256": self.plan.inventory_sha256,
+                    "governed_path_count": len(self.plan.governed_paths),
+                    "classifications": [
+                        item.canonical_dict() for item in self.plan.classifications
+                    ],
+                    "expected_resources": [
+                        item.canonical_dict() for item in self.plan.resources
+                    ],
+                },
+                "parser_gates": parser_gates,
+                "scanner_integrity": {
+                    "gate_id": "scanner_integrity",
+                    "status": scanner_status,
+                    "reason_code": (
+                        "SCANNER_EVIDENCE_COMPLETE"
+                        if scanner_status == "PASS"
+                        else "SCANNER_EVIDENCE_INCOMPLETE"
+                    ),
+                    "detail": "",
+                },
+                "scanner_run": self.scanner_run.canonical_dict(),
+                "evidence_universes": self.evidence_universes.canonical_dict(),
+                "properties": [item.canonical_dict() for item in self.properties],
+                "scope_accounting": {
+                    "requested_property_count": len(self.properties),
+                    "selected_resource_count": len({
+                        item.resource.canonical_key
+                        for item in self.properties
+                        if item.resource is not None
+                    }),
+                    "unselected_failed_finding_count": len(unselected_failures),
+                    "unselected_failed_findings_sha256": hashlib.sha256(json.dumps(
+                        unselected_failures,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")).hexdigest(),
+                },
+            },
+        }
+        if self.materialization is not None:
+            result["materialization"] = self.materialization.canonical_dict()
+        validate_report_payload(result)
+        return result
+
+    def canonical_json(self) -> str:
+        return json.dumps(
+            self.canonical_dict(), sort_keys=True, separators=(",", ":"),
+            ensure_ascii=False,
+        ) + "\n"
+
+    @property
+    def report_sha256(self) -> str:
+        return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
 class OperationalReportV1:
     reason_code: str
     detail: str
@@ -2000,7 +2627,10 @@ class CandidateArtifactFailureReportV1:
     def canonical_json(self) -> str:
         return json.dumps(self.canonical_dict(), sort_keys=True, separators=(",", ":")) + "\n"
 
-def render_console(report: VerificationReportV1 | OperationalReportV1 | CandidateArtifactFailureReportV1) -> str:
+def render_console(
+    report: VerificationReportV1 | CandidateAcceptanceReportV1
+    | OperationalReportV1 | CandidateArtifactFailureReportV1,
+) -> str:
     """Human projection of report-v1; it introduces no new evidence."""
     value = report.canonical_dict()
     lines = [
@@ -2014,6 +2644,18 @@ def render_console(report: VerificationReportV1 | OperationalReportV1 | Candidat
             f"detail: {diagnostic['detail']}",
             f"remediation: {diagnostic['remediation']}",
         ))
+    elif value["result_kind"] == "candidate_acceptance":
+        lines.append("mode: candidate_acceptance")
+        lines.append("properties:")
+        for property_ in value["acceptance"]["properties"]:
+            selector = property_["selector"]
+            lines.append(
+                f"  {selector['rule_id']} {selector['resource_address']}: "
+                f"{property_['outcome']}"
+            )
+        lines.append(
+            f"scanner integrity: {value['acceptance']['scanner_integrity']['status']}"
+        )
     else:
         verification = value["verification"]
         targets = verification.get("targets", [])
@@ -2042,6 +2684,7 @@ def render_console(report: VerificationReportV1 | OperationalReportV1 | Candidat
 
 
 __all__ = [
+    "CandidateAcceptancePropertyEvidence", "CandidateAcceptanceReportV1",
     "CandidateArtifactFailureReportV1", "ExecutionIsolationEvidence",
     "HelmVerificationReportV1", "OperationalReportV1", "VerificationReportV1", "render_console",
     "validate_report_payload",

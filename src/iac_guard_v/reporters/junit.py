@@ -23,7 +23,12 @@ def render_junit(payload: dict) -> str:
     """Render JUnit where uncertainty is skipped/error, never a passing test."""
     report = validated_snapshot(payload)
     targets = sorted_targets(report)
-    total = 1 + len(targets)
+    acceptance_properties = (
+        report["acceptance"]["properties"]
+        if report["result_kind"] == "candidate_acceptance"
+        else []
+    )
+    total = 1 + len(targets) + len(acceptance_properties)
     failures = 1 if report["verdict"] == "FAILED" else 0
     errors = 1 if report["result_kind"] == "operational_uncertainty" else 0
     skipped = 1 if (
@@ -59,6 +64,13 @@ def render_junit(payload: dict) -> str:
         _mark(final, "error", diagnostic["reason_code"], diagnostic["detail"])
         output = ET.SubElement(final, "system-out")
         output.text = f"remediation: {remediation_for(report)}"
+    elif report["verdict"] == "FAILED" and report["result_kind"] == "candidate_acceptance":
+        _mark(
+            final,
+            "failure",
+            "IaC-Guard-V candidate acceptance failed",
+            "One or more explicitly requested candidate properties are violated.",
+        )
     elif report["verdict"] == "FAILED":
         detail = (
             report["verification"].get("failure_reason", "POLICY_VERDICT_FAILED")
@@ -90,6 +102,18 @@ def render_junit(payload: dict) -> str:
             failures += 1
         else:
             _mark(case, "skipped", target["outcome"], detail)
+            skipped += 1
+    for property_ in acceptance_properties:
+        selector = property_["selector"]
+        case = ET.SubElement(suite, "testcase", {
+            "classname": f"checkov.{selector['rule_id']}",
+            "name": selector["resource_address"],
+        })
+        if property_["outcome"] == "VIOLATED":
+            _mark(case, "failure", property_["reason_code"], "VIOLATED")
+            failures += 1
+        elif property_["outcome"] == "INCONCLUSIVE":
+            _mark(case, "skipped", property_["reason_code"], "INCONCLUSIVE")
             skipped += 1
     suite.set("failures", str(failures))
     suite.set("skipped", str(skipped))

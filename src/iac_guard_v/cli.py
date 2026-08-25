@@ -20,11 +20,15 @@ from .api import (
     _verify_git,
     discover_baseline_targets,
     verify,
+    verify_candidate,
     verify_helm,
+    verify_helm_candidate,
 )
 from .config import (
-    ExecutionIsolation, PublicHelmVerificationRequest, PublicTarget,
+    ExecutionIsolation, PublicAcceptanceProperty,
+    PublicCandidateAcceptanceRequest, PublicHelmVerificationRequest, PublicTarget,
     PublicVerificationRequest, load_public_config,
+    load_public_helm_acceptance_config,
 )
 from .helm import HelmRenderSpec
 from .models import DomainError
@@ -244,6 +248,24 @@ def _parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
     verify_parser.add_argument("--output", type=Path)
     verify_parser.add_argument("--quiet", action="store_true")
+    accept_parser = subcommands.add_parser(
+        "accept",
+        help="verify explicit security properties on one candidate snapshot",
+        description=(
+            "Evaluate selected properties on one complete candidate snapshot without "
+            "claiming that a baseline finding was fixed."
+        ),
+    )
+    accept_parser.add_argument("--candidate", required=True, type=Path)
+    accept_parser.add_argument("--property", required=True, action="append")
+    accept_parser.add_argument(
+        "--framework", choices=("terraform", "kubernetes"), action="append"
+    )
+    accept_parser.add_argument("--local-trusted", action="store_true")
+    accept_parser.add_argument("--checkov-executable", type=Path)
+    accept_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
+    accept_parser.add_argument("--output", type=Path)
+    accept_parser.add_argument("--quiet", action="store_true")
     helm_parser = subcommands.add_parser(
         "helm-verify",
         help="deterministically render and verify one local Helm chart repair",
@@ -272,6 +294,17 @@ def _parser() -> argparse.ArgumentParser:
     helm_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
     helm_parser.add_argument("--output", type=Path)
     helm_parser.add_argument("--quiet", action="store_true")
+    helm_accept_parser = subcommands.add_parser(
+        "helm-accept",
+        help="verify properties across one protected local Helm chart universe",
+    )
+    helm_accept_parser.add_argument("--config", required=True, type=Path)
+    helm_accept_parser.add_argument("--local-trusted", action="store_true")
+    helm_accept_parser.add_argument(
+        "--format", choices=_REPORT_FORMATS, default="console"
+    )
+    helm_accept_parser.add_argument("--output", type=Path)
+    helm_accept_parser.add_argument("--quiet", action="store_true")
     doctor_parser = subcommands.add_parser(
         "doctor", help="diagnose readiness for one selected isolation mode"
     )
@@ -370,6 +403,16 @@ def _parse_target_selector(value: str) -> PublicTarget:
                 "file-qualified target selector must use RULE_ID=RESOURCE_ADDRESS@FILE"
             )
     return PublicTarget(rule_id.strip(), resource_address.strip(), file_path.strip())
+
+
+def _parse_acceptance_selector(value: str) -> PublicAcceptanceProperty:
+    target = _parse_target_selector(value)
+    return PublicAcceptanceProperty(
+        target.rule_id,
+        target.resource_address,
+        target.file_path,
+        target.artifact_kind,
+    )
 
 
 def _parse_helm_override(value: str) -> tuple[str, str]:
@@ -505,6 +548,36 @@ def _direct_request(args) -> PublicVerificationRequest | OperationalReportV1:
         ExecutionIsolation.REDUCED_ISOLATION,
         configured,
         frameworks,
+    )
+
+
+def _acceptance_request(
+    args,
+) -> PublicCandidateAcceptanceRequest | OperationalReportV1:
+    if not args.local_trusted:
+        if args.checkov_executable is not None:
+            raise DomainError("explicit Checkov executable requires --local-trusted")
+        return OperationalReportV1(
+            "HARDENED_CONTAINER_UNAVAILABLE",
+            "Candidate acceptance currently supports trusted local execution only.",
+            "Rerun with --local-trusted for operator-controlled candidate content.",
+        )
+    checkov = args.checkov_executable
+    if checkov is None:
+        discovered = shutil.which("checkov")
+        if discovered is None:
+            return OperationalReportV1(
+                "CHECKOV_NOT_FOUND",
+                "The locked Checkov executable was not found.",
+                "Install Checkov 3.3.0 and select its exact executable path.",
+            )
+        checkov = Path(discovered)
+    return PublicCandidateAcceptanceRequest(
+        args.candidate,
+        tuple(_parse_acceptance_selector(value) for value in args.property),
+        ExecutionIsolation.REDUCED_ISOLATION,
+        checkov,
+        tuple(args.framework or ("kubernetes", "terraform")),
     )
 
 
@@ -729,6 +802,29 @@ def _explain_report(value: dict) -> str:
             f"remediation: {diagnostic['remediation']}",
         ))
         return "\n".join(lines) + "\n"
+    if value["result_kind"] == "candidate_acceptance":
+        acceptance = value["acceptance"]
+        lines.extend((
+            "mode: candidate_acceptance",
+            f"isolation: {value['execution_isolation']['mode']}",
+            "properties:",
+        ))
+        for property_ in acceptance["properties"]:
+            selector = property_["selector"]
+            lines.append(
+                f"  {selector['rule_id']} {selector['resource_address']}: "
+                f"{property_['outcome']} ({property_['reason_code']})"
+            )
+        lines.append(
+            "scanner integrity: "
+            f"{acceptance['scanner_integrity']['status']} "
+            f"({acceptance['scanner_integrity']['reason_code']})"
+        )
+        lines.append(
+            "interpretation: VERIFIED means only that the explicitly requested "
+            "candidate properties are satisfied; no repair claim was evaluated"
+        )
+        return "\n".join(lines) + "\n"
     isolation = value["execution_isolation"]
     verification = value["verification"]
     policy = value["policy"]
@@ -914,6 +1010,14 @@ def main(argv: list[str] | None = None) -> int:
                     )
             report = verify(request)
             return _write_report(report, args.format, args.output, quiet=args.quiet)
+        if args.command == "accept":
+            request = _acceptance_request(args)
+            report = (
+                request
+                if type(request) is OperationalReportV1
+                else verify_candidate(request)
+            )
+            return _write_report(report, args.format, args.output, quiet=args.quiet)
         if args.command == "helm-verify":
             helm_request = _helm_request(args)
             report = (
@@ -924,6 +1028,22 @@ def main(argv: list[str] | None = None) -> int:
             return _write_report(
                 report, args.format, args.output, quiet=args.quiet
             )
+        if args.command == "helm-accept":
+            if not args.local_trusted:
+                return _write_report(
+                    OperationalReportV1(
+                        "HARDENED_HELM_UNAVAILABLE",
+                        "Helm acceptance supports trusted local client-side input only.",
+                        "Rerun with --local-trusted for operator-controlled charts.",
+                    ),
+                    args.format,
+                    args.output,
+                    quiet=args.quiet,
+                )
+            report = verify_helm_candidate(
+                load_public_helm_acceptance_config(args.config)
+            )
+            return _write_report(report, args.format, args.output, quiet=args.quiet)
         if args.command == "pr":
             if args.config is not None:
                 if any((

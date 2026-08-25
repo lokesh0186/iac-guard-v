@@ -152,3 +152,20 @@ Because the schema deliberately rejects unknown members, a consumer using a vend
 schema distributed with `0.1.0a2`. Non-graph reports emitted by `0.1.0a1` remain valid
 under the a2 schema. This compatibility rule does not permit consumers to ignore
 unknown evidence or accept a report without the executable semantic validator.
+
+## Amendment, 2026-08-24: 0.1.0a5 candidate acceptance
+
+Candidate acceptance is represented by the new closed
+`result_kind=candidate_acceptance` branch in `report-v1`. It does not reinterpret the
+existing repair-mode `verification` branch: requested candidate properties use only
+`SATISFIED`, `VIOLATED`, and `INCONCLUSIVE`, and can never report `FIXED`.
+
+The same additive alpha amendment adds optional `helm-universe-v1` materialization
+evidence. Consumers using a vendored pre-a5 schema must update before consuming either
+new branch. Existing repair and operational reports retain their established meaning.
+
+The final a5 contract also adds `candidate-evidence-universes-v1` to the candidate
+branch. Its governed, scanner-addressable, and per-target relevant universes make any
+bounded acceptance of a raw scanner `PARTIAL` result reconstructible. This is not a
+meaning change to repair-mode scanner integrity. Pre-a5 schemas cannot consume this
+closed evidence object and must update before validating candidate-acceptance reports.

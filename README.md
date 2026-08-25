@@ -13,7 +13,7 @@ IaC-Guard-V works with changes written by people, AI coding agents, and remediat
 tools. It binds scanner evidence to the exact before/after files and resources, then
 fails closed when the evidence is incomplete or unverifiable.
 
-> **Status:** `0.1.0a4` technical alpha · Checkov-focused · trusted local input only.
+> **Status:** `0.1.0a5` technical alpha · Checkov-focused · trusted local input only.
 > The hardened hostile-input container and GitHub Action are not released.
 
 ## Why IaC-Guard-V?
@@ -35,7 +35,7 @@ Uncertainty is reported as `INCONCLUSIVE`, never as success.
 Install the public package and run the deterministic offline demo:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a4
+python -m pip install iac-guard-v==0.1.0a5
 iac-guard --version
 iac-guard demo
 ```
@@ -120,7 +120,9 @@ certification. See the
 | `iac-guard demo --real --local-trusted ...` | Run the packaged Checkov before/after fixture. |
 | `iac-guard doctor --mode local-trusted ...` | Check whether the selected local verification environment is usable. |
 | `iac-guard verify ...` | Verify exact before/after directories. |
+| `iac-guard accept ...` | Evaluate explicit properties on one candidate without claiming a repair. |
 | `iac-guard helm-verify ...` | Deterministically render and verify local Helm charts. |
+| `iac-guard helm-accept --config ...` | Evaluate properties across one protected multi-chart Helm universe. |
 | `iac-guard pr ...` | Materialize exact Git base/head objects and verify changed targets. |
 | `iac-guard explain report.json` | Validate and explain an existing `report-v1`. |
 
@@ -169,10 +171,17 @@ inventory-completion data. `0.1.0a3` adds an optional parsed file-coverage categ
 resource-free Terraform support files remain byte-bound and parser-governed without
 requiring a scanner resource identity. `0.1.0a4` adds optional Helm materialization
 evidence. Consumers using a vendored older schema must update to the schema shipped
-with `0.1.0a4` before validating Helm reports. Older non-Helm reports remain valid.
+with `0.1.0a4` before validating Helm reports. `0.1.0a5` adds a distinct
+`candidate_acceptance` result and multi-chart Helm-universe evidence. It uses
+`SATISFIED`, `VIOLATED`, or `INCONCLUSIVE` properties and never labels a head-only
+result `FIXED`. Its closed evidence distinguishes the complete governed inventory from
+scanner-primary addresses and the resources relevant to each requested property. Older
+repair reports retain their existing semantics.
 
-KICS, Trivy, OpenTofu, kubeconform, TFLint, multi-scanner consensus, and candidate-only
-new-IaC review remain experimental, advisory, or future work. They cannot silently
+KICS, Trivy, OpenTofu, kubeconform, TFLint, and multi-scanner consensus remain
+experimental, advisory, or future work. Candidate acceptance is limited to explicitly
+selected properties under a complete protected universe; it is not a generic claim
+that newly introduced infrastructure is safe. These boundaries cannot silently
 change the final verdict.
 
 See [Supported scope and limitations](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORTED_SCOPE.md)
@@ -185,6 +194,7 @@ for the fail-closed trust architecture.
 - [Supported scope and limitations](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORTED_SCOPE.md)
 - [Security model](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SECURITY_MODEL.md)
 - [Helm materialization](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/HELM_MATERIALIZATION.md)
+- [Candidate acceptance](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/CANDIDATE_ACCEPTANCE.md)
 - [Example walkthrough](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/EXAMPLE_WALKTHROUGH.md)
 - [Public reproduction packet guidance](https://github.com/lokesh0186/iac-guard-v/blob/main/examples/public-reproductions/README.md)
 - [Security policy](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md)

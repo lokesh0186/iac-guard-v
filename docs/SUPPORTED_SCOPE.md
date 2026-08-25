@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a4`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a5`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -25,6 +25,10 @@ It includes:
 - deterministic console, JSON, SARIF 2.1.0, Markdown, and JUnit projections.
 - deterministic local, client-side Helm rendering under the closed contract described
   in [Helm materialization](HELM_MATERIALIZATION.md).
+- candidate/head-only acceptance for explicitly selected properties, with
+  `SATISFIED`, `VIOLATED`, or `INCONCLUSIVE` outcomes and no baseline repair claim;
+- ordered multi-chart Helm universes that preserve per-chart source provenance while
+  allowing exact cross-chart graph relationships.
 
 Native execution is `reduced-isolation` and supports only input controlled by
 the operator. A production hostile-input container and GitHub Action have not
@@ -61,6 +65,10 @@ projections or consumers to ignore unknown evidence.
 Consumers using a vendored older schema must update before validating Helm reports.
 Non-Helm reports accepted by the a3 schema remain valid under the a4 schema.
 
+`0.1.0a5` adds the closed `candidate_acceptance` result kind and optional Helm-universe
+evidence. A vendored older schema must be updated before consuming these reports.
+Repair-mode and prior non-acceptance reports retain their original semantics.
+
 ## Component status
 
 | Area | Status |
@@ -73,7 +81,8 @@ Non-Helm reports accepted by the a3 schema remain valid under the a4 schema.
 | OpenTofu `.tofu` / `.tofu.json` | Not supported in the public alpha. |
 | Terraform `.tf.json` | Explicitly unsupported/inconclusive end to end. |
 | Checkov CKV2/graph findings | Supported only for bounded connection-query shapes with complete participant and relationship evidence; every other shape remains inconclusive. |
-| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded a4 contract. |
+| Candidate acceptance | Supported only for explicitly selected properties under complete governed, scanner-addressable, and target-relevant evidence universes; it never claims `FIXED`. |
+| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded contract, including ordered multi-chart candidate universes. |
 | Kustomize materialization | No protected materialization contract yet. |
 | Multi-scanner consensus | Advisory only and disconnected from the final verdict. |
 | Hardened container and composite Action | Not released. |
@@ -84,7 +93,9 @@ IaC-Guard-V does not call a change `VERIFIED` when:
 
 - there are no baseline targets;
 - file/resource binding is ambiguous;
-- the scanner run is partial, unsupported, malformed, or unverifiable;
+- the scanner run is unsupported, malformed, unverifiable, or partially covered
+  without the exact bounded target-relevance justification described in
+  [Candidate acceptance](CANDIDATE_ACCEPTANCE.md);
 - parser or validation coverage is incomplete;
 - a target is deleted, suppressed, or replaced rather than repaired;
 - an exact supported predicate is unavailable;

@@ -38,6 +38,11 @@ Examples include:
 Validated reporters consume only canonical `report-v1`. They cannot weaken an
 outcome or recalculate policy permissively.
 
+Candidate acceptance is a separate closed report branch. `VERIFIED` in that branch
+means only that every explicitly requested property is `SATISFIED` on the bound
+candidate snapshot. It does not mean a baseline defect was fixed and does not certify
+unselected properties or the whole candidate.
+
 ## Execution modes
 
 ### Local trusted mode
@@ -59,7 +64,7 @@ hardened-container mode to local-trusted mode.
 
 ### Local Helm materialization
 
-`helm-verify` is also reduced isolation for operator-controlled charts. It invokes an
+`helm-verify` and `helm-accept` are also reduced isolation for operator-controlled charts. They invoke an
 exact local Helm executable with a fixed argument model and fresh cache, config, data,
 and plugin directories. It never connects to Kubernetes, accepts a remote chart,
 executes a plugin or post-renderer, runs a dependency update, or appends an arbitrary
@@ -70,6 +75,20 @@ reachable random/time helpers, `lookup`, unresolved dependencies, duplicate rend
 identities, and missing source markers are `INCONCLUSIVE` or operational failure,
 never verification. A non-default release namespace must appear explicitly in
 rendered resource metadata so scanner and materializer identities cannot diverge.
+
+In a multi-chart universe, each chart is materialized and source-bound independently.
+The combined identity records chart order and resource ownership. Duplicate canonical
+resources, incompatible protected render inputs, or an incomplete participating chart
+fail closed before a cross-chart relationship can be accepted.
+
+Candidate acceptance keeps governance, scanner addressability, and target relevance
+separate. Every resource remains governed. A selected graph property is decisive only
+when all resources capable of changing its truth are source-bound and accounted for.
+For the bounded `CKV2_K8S_6` contract, an unrelated NetworkPolicy may lack a standalone
+scanner record only after namespace/selector analysis proves it cannot select the
+requested workload. Unknown selectors and unexplained scanner omissions remain
+`INCONCLUSIVE`; filenames, chart ownership, ordering, and absent output are never
+irrelevance evidence.
 
 ## Scanner and validator authority
 

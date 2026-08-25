@@ -1,8 +1,9 @@
-"""IaC-Guard-V: differential verification for infrastructure-as-code changes.
+"""IaC-Guard-V: bounded verification for infrastructure-as-code changes.
 
 Scanners report what they observe. This tool decides whether a proposed change actually
-fixed what it claimed to fix, without hiding findings, deleting the resource, losing
-scanner coverage, or turning a scanner failure into a pass.
+fixed what it claimed to fix, or whether explicitly selected candidate properties hold,
+without hiding findings, deleting the resource, losing scanner coverage, or turning a
+scanner failure into a pass.
 
 The public API is deliberately small and is added as each phase lands. Through Review 2
 it includes the typed domain, hardened native process boundary, deterministic finding
@@ -10,7 +11,7 @@ identity/matching, and the locked/offline Checkov adapter. No model-provider pat
 """
 from __future__ import annotations
 
-__version__ = "0.1.0a4"
+__version__ = "0.1.0a5"
 
 from . import (  # noqa: F401
     api,

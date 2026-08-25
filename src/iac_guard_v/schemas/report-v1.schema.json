@@ -14,6 +14,9 @@
     },
     {
       "$ref": "#/$defs/operationalReport"
+    },
+    {
+      "$ref": "#/$defs/candidateAcceptanceReport"
     }
   ],
   "$defs": {
@@ -2133,6 +2136,9 @@
               "properties": {
                 "count": {"type": "integer", "minimum": 0},
                 "chart_lock_sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+                "chart_lock_relevance": {
+                  "enum": ["ABSENT", "NON_PARTICIPATING", "PARTICIPATING"]
+                },
                 "artifacts": {
                   "type": "array",
                   "items": {
@@ -2243,6 +2249,330 @@
         "baseline": {"$ref": "#/$defs/helmMaterialization"},
         "candidate": {"$ref": "#/$defs/helmMaterialization"},
         "comparison_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmUniverse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract", "status", "reason_code", "charts", "combined_output",
+        "resource_ownership", "universe_identity"
+      ],
+      "properties": {
+        "contract": {"const": "helm-universe-v1"},
+        "status": {"const": "PASS"},
+        "reason_code": {"const": "DETERMINISTIC_MULTI_CHART_UNIVERSE_BOUND"},
+        "charts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["universe_key", "materialization"],
+            "properties": {
+              "universe_key": {"type": "string", "minLength": 1},
+              "materialization": {"$ref": "#/$defs/helmMaterialization"}
+            }
+          }
+        },
+        "combined_output": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rendered_bundle_path", "rendered_bundle_sha256",
+            "rendered_bundle_bytes", "document_inventory_sha256",
+            "chart_count", "resource_count"
+          ],
+          "properties": {
+            "rendered_bundle_path": {"const": "rendered.yaml"},
+            "rendered_bundle_sha256": {"$ref": "#/$defs/sha256"},
+            "rendered_bundle_bytes": {"type": "integer", "minimum": 1},
+            "document_inventory_sha256": {"$ref": "#/$defs/sha256"},
+            "chart_count": {"type": "integer", "minimum": 1, "maximum": 32},
+            "resource_count": {"type": "integer", "minimum": 1}
+          }
+        },
+        "resource_ownership": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["universe_key", "document"],
+            "properties": {
+              "universe_key": {"type": "string", "minLength": 1},
+              "document": {"$ref": "#/$defs/helmRenderedDocument"}
+            }
+          }
+        },
+        "universe_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "artifactClassification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_path", "sha256", "size", "syntax_kind", "classification",
+        "resources", "reason", "coverage_kind"
+      ],
+      "properties": {
+        "file_path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "size": {"type": "integer", "minimum": 0},
+        "syntax_kind": {"type": "string", "minLength": 1},
+        "classification": {"type": "string", "minLength": 1},
+        "resources": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/expectedResource"}
+        },
+        "reason": {"type": "string"},
+        "coverage_kind": {
+          "enum": ["SCAN_EVIDENCE_BEARING", "STRUCTURAL_ONLY", "UNSUPPORTED", "AMBIGUOUS"]
+        }
+      }
+    },
+    "resourceAddressabilityEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource", "classification", "reason_code", "rule_ids"],
+      "properties": {
+        "resource": {"$ref": "#/$defs/expectedResource"},
+        "classification": {
+          "enum": [
+            "SCANNER_PRIMARY_ADDRESSABLE",
+            "TARGET_RELEVANT_GRAPH_PARTICIPANT",
+            "GOVERNED_NON_TARGET_SCANNER_UNADDRESSED",
+            "CONSERVATIVE_SCANNER_ADDRESSABLE"
+          ]
+        },
+        "reason_code": {"type": "string", "minLength": 1},
+        "rule_ids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "structuralIrrelevanceEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target", "resource", "reason_code", "selector_sha256",
+        "target_labels_sha256"
+      ],
+      "properties": {
+        "target": {"$ref": "#/$defs/expectedResource"},
+        "resource": {"$ref": "#/$defs/expectedResource"},
+        "reason_code": {"enum": ["NAMESPACE_DISJOINT", "SELECTOR_DISJOINT"]},
+        "selector_sha256": {"$ref": "#/$defs/sha256"},
+        "target_labels_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "candidatePropertySelectorWithArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rule_id", "resource_address", "file_path", "artifact_kind"],
+      "properties": {
+        "rule_id": {"type": "string", "minLength": 1},
+        "resource_address": {"type": "string", "minLength": 1},
+        "file_path": {"type": "string"},
+        "artifact_kind": {
+          "enum": [
+            "terraform_hcl", "terraform_plan_json", "opentofu_hcl",
+            "kubernetes_yaml", "kubernetes_json", "helm_rendered_yaml",
+            "cloudformation", "unknown"
+          ]
+        }
+      }
+    },
+    "targetRelevantEvidenceUniverse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "selector", "primary", "participants", "irrelevant_relationship_resources",
+        "relationship_resource_count", "unresolved_relationship_resource_count",
+        "policy_definition_sha256", "query_identity_sha256", "status", "reason_code"
+      ],
+      "properties": {
+        "selector": {"$ref": "#/$defs/candidatePropertySelectorWithArtifact"},
+        "primary": {
+          "oneOf": [{"$ref": "#/$defs/expectedResource"}, {"type": "null"}]
+        },
+        "participants": {
+          "type": "array", "items": {"$ref": "#/$defs/expectedResource"}
+        },
+        "irrelevant_relationship_resources": {
+          "type": "array", "items": {"$ref": "#/$defs/structuralIrrelevanceEvidence"}
+        },
+        "relationship_resource_count": {"type": "integer", "minimum": 0},
+        "unresolved_relationship_resource_count": {"type": "integer", "minimum": 0},
+        "policy_definition_sha256": {"$ref": "#/$defs/sha256"},
+        "query_identity_sha256": {"$ref": "#/$defs/sha256"},
+        "status": {"enum": ["PASS", "INCONCLUSIVE"]},
+        "reason_code": {"type": "string", "minLength": 1}
+      }
+    },
+    "candidateEvidenceUniverses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract", "status", "reason_code", "raw_scanner_status_accepted",
+        "governed_resource_universe", "scanner_addressable_universe",
+        "target_relevant_evidence_universe"
+      ],
+      "properties": {
+        "contract": {"const": "candidate-evidence-universes-v1"},
+        "status": {"enum": ["PASS", "INCONCLUSIVE"]},
+        "reason_code": {"type": "string", "minLength": 1},
+        "raw_scanner_status_accepted": {"type": "boolean"},
+        "governed_resource_universe": {
+          "type": "object", "additionalProperties": false,
+          "required": ["count", "sha256", "resources"],
+          "properties": {
+            "count": {"type": "integer", "minimum": 0},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "resources": {"type": "array", "items": {"$ref": "#/$defs/expectedResource"}}
+          }
+        },
+        "scanner_addressable_universe": {
+          "type": "object", "additionalProperties": false,
+          "required": [
+            "resource_accounting", "primary_count", "primary_sha256",
+            "relationship_participant_count", "relationship_participant_sha256",
+            "governed_unaddressed_count", "governed_unaddressed_sha256",
+            "missing_standalone_evaluation_count", "missing_standalone_evaluations",
+            "missing_standalone_evaluations_sha256"
+          ],
+          "properties": {
+            "resource_accounting": {
+              "type": "array", "items": {"$ref": "#/$defs/resourceAddressabilityEvidence"}
+            },
+            "primary_count": {"type": "integer", "minimum": 0},
+            "primary_sha256": {"$ref": "#/$defs/sha256"},
+            "relationship_participant_count": {"type": "integer", "minimum": 0},
+            "relationship_participant_sha256": {"$ref": "#/$defs/sha256"},
+            "governed_unaddressed_count": {"type": "integer", "minimum": 0},
+            "governed_unaddressed_sha256": {"$ref": "#/$defs/sha256"},
+            "missing_standalone_evaluation_count": {"type": "integer", "minimum": 0},
+            "missing_standalone_evaluations": {
+              "type": "array", "items": {"$ref": "#/$defs/expectedResource"}
+            },
+            "missing_standalone_evaluations_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "target_relevant_evidence_universe": {
+          "type": "array", "minItems": 1,
+          "items": {"$ref": "#/$defs/targetRelevantEvidenceUniverse"}
+        }
+      }
+    },
+    "candidateAcceptanceProperty": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selector", "outcome", "reason_code", "resource", "evaluation"],
+      "properties": {
+        "selector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["rule_id", "resource_address", "file_path"],
+          "properties": {
+            "rule_id": {"type": "string", "minLength": 1},
+            "resource_address": {"type": "string", "minLength": 1},
+            "file_path": {"type": "string"}
+          }
+        },
+        "outcome": {"enum": ["SATISFIED", "VIOLATED", "INCONCLUSIVE"]},
+        "reason_code": {"type": "string", "minLength": 1},
+        "resource": {
+          "oneOf": [
+            {"$ref": "#/$defs/expectedResource"},
+            {"type": "null"}
+          ]
+        },
+        "evaluation": {
+          "oneOf": [
+            {"$ref": "#/$defs/evaluation"},
+            {"type": "null"}
+          ]
+        }
+      }
+    },
+    "candidateAcceptanceReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version", "result_kind", "verification_mode", "verdict",
+        "exit_code", "execution_isolation", "acceptance"
+      ],
+      "properties": {
+        "schema_version": {"const": "report-v1"},
+        "result_kind": {"const": "candidate_acceptance"},
+        "verification_mode": {"const": "candidate_acceptance"},
+        "verdict": {"enum": ["VERIFIED", "FAILED", "INCONCLUSIVE"]},
+        "exit_code": {"enum": [0, 1, 3]},
+        "execution_isolation": {"$ref": "#/$defs/isolation"},
+        "acceptance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "candidate_snapshot", "parser_gates", "scanner_integrity",
+            "scanner_run", "evidence_universes", "properties", "scope_accounting"
+          ],
+          "properties": {
+            "candidate_snapshot": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "snapshot_sha256", "artifact_manifest_sha256",
+                "resource_inventory_sha256", "governed_path_count",
+                "classifications", "expected_resources"
+              ],
+              "properties": {
+                "snapshot_sha256": {"$ref": "#/$defs/sha256"},
+                "artifact_manifest_sha256": {"$ref": "#/$defs/sha256"},
+                "resource_inventory_sha256": {"$ref": "#/$defs/sha256"},
+                "governed_path_count": {"type": "integer", "minimum": 0},
+                "classifications": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/artifactClassification"}
+                },
+                "expected_resources": {
+                  "type": "array",
+                  "items": {"$ref": "#/$defs/expectedResource"}
+                }
+              }
+            },
+            "parser_gates": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/gate"}
+            },
+            "scanner_integrity": {"$ref": "#/$defs/gate"},
+            "scanner_run": {"$ref": "#/$defs/scannerRun"},
+            "evidence_universes": {"$ref": "#/$defs/candidateEvidenceUniverses"},
+            "properties": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"$ref": "#/$defs/candidateAcceptanceProperty"}
+            },
+            "scope_accounting": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "requested_property_count", "selected_resource_count",
+                "unselected_failed_finding_count",
+                "unselected_failed_findings_sha256"
+              ],
+              "properties": {
+                "requested_property_count": {"type": "integer", "minimum": 1},
+                "selected_resource_count": {"type": "integer", "minimum": 0},
+                "unselected_failed_finding_count": {"type": "integer", "minimum": 0},
+                "unselected_failed_findings_sha256": {"$ref": "#/$defs/sha256"}
+              }
+            }
+          }
+        },
+        "materialization": {"$ref": "#/$defs/helmUniverse"}
       }
     },
     "verificationBase": {

@@ -9,7 +9,7 @@ from enum import Enum
 from pathlib import Path
 
 from .enums import ArtifactKind
-from .helm import HelmRenderSpec
+from .helm import HelmRenderSpec, HelmUniverseChart
 from .models import DomainError, Target, TargetIdentity, canonical_identifier
 
 
@@ -132,6 +132,119 @@ class PublicHelmVerificationRequest:
         object.__setattr__(self, "checkov_executable", executable)
 
 
+@dataclass(frozen=True, slots=True)
+class PublicAcceptanceProperty:
+    rule_id: str
+    resource_address: str
+    file_path: str = ""
+    artifact_kind: ArtifactKind = ArtifactKind.UNKNOWN
+
+    def __post_init__(self) -> None:
+        if type(self.artifact_kind) is not ArtifactKind:
+            raise DomainError("acceptance property artifact_kind must be an ArtifactKind")
+        Target(
+            TargetIdentity("checkov", self.rule_id, self.resource_address),
+            1,
+            self.file_path,
+            self.artifact_kind,
+            "",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class PublicCandidateAcceptanceRequest:
+    candidate_root: Path
+    properties: tuple[PublicAcceptanceProperty, ...]
+    execution_isolation: ExecutionIsolation = ExecutionIsolation.HARDENED_CONTAINER
+    checkov_executable: Path | None = None
+    frameworks: tuple[str, ...] = ("kubernetes", "terraform")
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.candidate_root, Path):
+            raise DomainError("candidate_root must be pathlib.Path")
+        try:
+            candidate = self.candidate_root.resolve(strict=True)
+        except OSError as exc:
+            raise DomainError("candidate_root does not exist") from exc
+        if not candidate.is_dir():
+            raise DomainError("candidate_root must be a directory")
+        object.__setattr__(self, "candidate_root", candidate)
+        if (
+            type(self.properties) is not tuple
+            or not self.properties
+            or any(type(item) is not PublicAcceptanceProperty for item in self.properties)
+        ):
+            raise DomainError("properties must be a nonempty exact tuple")
+        identities = [
+            (item.rule_id, item.resource_address, item.file_path, item.artifact_kind.value)
+            for item in self.properties
+        ]
+        if len(identities) != len(set(identities)):
+            raise DomainError("candidate acceptance properties must be unique")
+        if type(self.frameworks) is not tuple or not self.frameworks:
+            raise DomainError("frameworks must be a nonempty exact tuple")
+        frameworks = tuple(
+            sorted(canonical_identifier(item, "framework") for item in self.frameworks)
+        )
+        if len(frameworks) != len(set(frameworks)) or set(frameworks) - {
+            "terraform", "kubernetes"
+        }:
+            raise DomainError("frameworks must be unique supported Checkov frameworks")
+        object.__setattr__(self, "frameworks", frameworks)
+        if type(self.execution_isolation) is not ExecutionIsolation:
+            raise DomainError("execution_isolation must be a closed enum value")
+        if self.execution_isolation is ExecutionIsolation.REDUCED_ISOLATION:
+            if not isinstance(self.checkov_executable, Path):
+                raise DomainError("reduced-isolation requires an explicit Checkov executable")
+            try:
+                executable = self.checkov_executable.resolve(strict=True)
+            except OSError as exc:
+                raise DomainError("Checkov executable is unavailable") from exc
+            object.__setattr__(self, "checkov_executable", executable)
+        elif self.checkov_executable is not None:
+            raise DomainError("hardened-container input cannot provide a native executable")
+
+
+@dataclass(frozen=True, slots=True)
+class PublicHelmAcceptanceRequest:
+    charts: tuple[HelmUniverseChart, ...]
+    properties: tuple[PublicAcceptanceProperty, ...]
+    execution_isolation: ExecutionIsolation
+    checkov_executable: Path
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.charts) is not tuple
+            or not self.charts
+            or any(type(item) is not HelmUniverseChart for item in self.charts)
+        ):
+            raise DomainError("Helm acceptance requires exact universe charts")
+        if (
+            type(self.properties) is not tuple
+            or not self.properties
+            or any(type(item) is not PublicAcceptanceProperty for item in self.properties)
+        ):
+            raise DomainError("Helm acceptance requires exact properties")
+        chart_keys = [item.universe_key for item in self.charts]
+        if len(chart_keys) != len(set(chart_keys)):
+            raise DomainError("Helm acceptance chart keys must be unique")
+        property_keys = [
+            (item.rule_id, item.resource_address, item.file_path, item.artifact_kind.value)
+            for item in self.properties
+        ]
+        if len(property_keys) != len(set(property_keys)):
+            raise DomainError("Helm acceptance properties must be unique")
+        if self.execution_isolation is not ExecutionIsolation.REDUCED_ISOLATION:
+            raise DomainError("Helm alpha supports only explicit local-trusted execution")
+        if not isinstance(self.checkov_executable, Path):
+            raise DomainError("Helm acceptance requires an explicit Checkov executable")
+        try:
+            executable = self.checkov_executable.resolve(strict=True)
+        except OSError as exc:
+            raise DomainError("Helm Checkov executable is unavailable") from exc
+        object.__setattr__(self, "checkov_executable", executable)
+
+
 _CONFIG_FIELDS = frozenset({
     "schema_version", "execution_mode", "baseline", "candidate", "targets",
     "checkov_executable", "frameworks",
@@ -227,8 +340,113 @@ def load_public_config(path: Path) -> PublicVerificationRequest:
     )
 
 
+_HELM_ACCEPTANCE_FIELDS = frozenset({
+    "schema_version", "checkov_executable", "charts", "properties",
+})
+_HELM_CHART_FIELDS = frozenset({
+    "universe_key", "chart_root", "helm_executable", "release_name", "namespace",
+    "kube_version", "values_files", "set", "set_string", "api_versions",
+    "include_crds", "include_tests",
+})
+_ACCEPTANCE_PROPERTY_FIELDS = frozenset({
+    "rule_id", "resource_address", "file_path", "artifact_kind",
+})
+
+
+def _acceptance_property(value: object) -> PublicAcceptanceProperty:
+    if type(value) is not dict or set(value) - _ACCEPTANCE_PROPERTY_FIELDS:
+        raise DomainError("acceptance property contains unknown fields")
+    if "rule_id" not in value or "resource_address" not in value:
+        raise DomainError("acceptance property requires rule_id and resource_address")
+    for name in ("rule_id", "resource_address", "file_path", "artifact_kind"):
+        if name in value and type(value[name]) is not str:
+            raise DomainError(f"acceptance property {name} must be a string")
+    try:
+        kind = ArtifactKind(value.get("artifact_kind", "unknown"))
+    except ValueError as exc:
+        raise DomainError("acceptance property artifact_kind is unsupported") from exc
+    return PublicAcceptanceProperty(
+        value["rule_id"], value["resource_address"], value.get("file_path", ""), kind
+    )
+
+
+def _string_list(value: object, label: str) -> tuple[str, ...]:
+    if type(value) is not list or any(type(item) is not str for item in value):
+        raise DomainError(f"{label} must be a JSON string array")
+    return tuple(value)
+
+
+def _overrides(value: object, label: str) -> tuple[tuple[str, str], ...]:
+    if type(value) is not list:
+        raise DomainError(f"{label} must be a JSON array")
+    result = []
+    for item in value:
+        if type(item) is not dict or set(item) != {"key", "value"}:
+            raise DomainError(f"{label} entries require only key and value")
+        if type(item["key"]) is not str or type(item["value"]) is not str:
+            raise DomainError(f"{label} key and value must be strings")
+        result.append((item["key"], item["value"]))
+    return tuple(result)
+
+
+def load_public_helm_acceptance_config(path: Path) -> PublicHelmAcceptanceRequest:
+    """Load one closed local Helm universe request from strict JSON."""
+    payload = _read_config(path)
+    if set(payload) - _HELM_ACCEPTANCE_FIELDS:
+        raise DomainError("helm-acceptance-v1 contains unknown fields")
+    if payload.get("schema_version") != "helm-acceptance-v1":
+        raise DomainError("Helm acceptance schema_version must be helm-acceptance-v1")
+    if type(payload.get("checkov_executable")) is not str:
+        raise DomainError("Helm acceptance requires checkov_executable")
+    raw_charts = payload.get("charts")
+    if type(raw_charts) is not list or not raw_charts:
+        raise DomainError("Helm acceptance charts must be a nonempty array")
+    charts = []
+    for value in raw_charts:
+        if type(value) is not dict or set(value) - _HELM_CHART_FIELDS:
+            raise DomainError("Helm acceptance chart contains unknown fields")
+        required = {
+            "universe_key", "chart_root", "helm_executable", "release_name",
+            "namespace", "kube_version",
+        }
+        if not required <= set(value):
+            raise DomainError("Helm acceptance chart is missing required fields")
+        for name in required:
+            if type(value[name]) is not str or not value[name]:
+                raise DomainError(f"Helm acceptance chart {name} must be nonblank")
+        for name in ("include_crds", "include_tests"):
+            if name in value and type(value[name]) is not bool:
+                raise DomainError(f"Helm acceptance chart {name} must be Boolean")
+        charts.append(HelmUniverseChart(
+            value["universe_key"],
+            HelmRenderSpec(
+                Path(value["chart_root"]),
+                Path(value["helm_executable"]),
+                value["release_name"],
+                value["namespace"],
+                value["kube_version"],
+                _string_list(value.get("values_files", []), "values_files"),
+                _overrides(value.get("set", []), "set"),
+                _overrides(value.get("set_string", []), "set_string"),
+                _string_list(value.get("api_versions", []), "api_versions"),
+                value.get("include_crds", False),
+                value.get("include_tests", False),
+            ),
+        ))
+    raw_properties = payload.get("properties")
+    if type(raw_properties) is not list or not raw_properties:
+        raise DomainError("Helm acceptance properties must be a nonempty array")
+    return PublicHelmAcceptanceRequest(
+        tuple(charts),
+        tuple(_acceptance_property(item) for item in raw_properties),
+        ExecutionIsolation.REDUCED_ISOLATION,
+        Path(payload["checkov_executable"]),
+    )
+
+
 __all__ = [
-    "ExecutionIsolation", "PublicHelmVerificationRequest", "PublicTarget",
-    "PublicVerificationRequest",
-    "load_public_config",
+    "ExecutionIsolation", "PublicAcceptanceProperty",
+    "PublicCandidateAcceptanceRequest", "PublicHelmAcceptanceRequest",
+    "PublicHelmVerificationRequest", "PublicTarget", "PublicVerificationRequest",
+    "load_public_config", "load_public_helm_acceptance_config",
 ]

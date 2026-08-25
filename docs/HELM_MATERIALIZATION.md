@@ -1,7 +1,9 @@
 # Helm materialization
 
-IaC-Guard-V `0.1.0a4` can verify before/after changes in local Helm charts when the
-render is deterministic, client-side, and completely source-bound.
+IaC-Guard-V can verify before/after changes in local Helm charts when the render is
+deterministic, client-side, and completely source-bound. Candidate acceptance can also
+evaluate selected properties across an ordered universe of independently rendered
+local charts.
 
 ## Example
 
@@ -24,6 +26,12 @@ The same release name, namespace, values, overrides, Kubernetes version, API ver
 CRD mode, and test mode are required for the before and after renders. Chart bytes may
 change because those bytes are the change being verified.
 
+For candidate/head-only evaluation and cross-chart relationships, use the closed
+[`helm-accept` request](CANDIDATE_ACCEPTANCE.md). Each chart retains its own protected
+materialization identity. A separate combined-universe identity binds chart order,
+rendered bytes, resource ownership, and cross-chart graph participants without
+flattening source provenance.
+
 ## Protected evidence
 
 The report binds:
@@ -44,6 +52,11 @@ Verification consumes only dependency bytes already present in the local chart. 
 unpacked local subchart is accepted. A remote dependency is accepted only when its
 matching artifact is vendored and `Chart.lock` is valid. IaC-Guard-V never runs
 `helm dependency update`, resolves a mutable HTTP/OCI chart, or negotiates a version.
+
+Dependency relevance follows `Chart.yaml` and actual content under `charts/`. When
+both declare no dependency state, a stray `Chart.lock` remains byte-bound chart content
+but does not manufacture a dependency contract. A malformed lock remains fatal when
+declared or vendored dependency state is present.
 
 ## Fail-closed boundary
 

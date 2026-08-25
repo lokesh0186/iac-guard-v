@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iac-guard-v.invalid/schemas/helm-acceptance-v1.schema.json",
+  "title": "IaC-Guard-V helm-acceptance-v1 request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "checkov_executable", "charts", "properties"],
+  "properties": {
+    "schema_version": {"const": "helm-acceptance-v1"},
+    "checkov_executable": {"type": "string", "minLength": 1},
+    "charts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "universe_key", "chart_root", "helm_executable", "release_name",
+          "namespace", "kube_version"
+        ],
+        "properties": {
+          "universe_key": {"type": "string", "minLength": 1},
+          "chart_root": {"type": "string", "minLength": 1},
+          "helm_executable": {"type": "string", "minLength": 1},
+          "release_name": {"type": "string", "minLength": 1},
+          "namespace": {"type": "string", "minLength": 1},
+          "kube_version": {
+            "type": "string",
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+          },
+          "values_files": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "set": {"$ref": "#/$defs/overrides"},
+          "set_string": {"$ref": "#/$defs/overrides"},
+          "api_versions": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "include_crds": {"type": "boolean"},
+          "include_tests": {"type": "boolean"}
+        }
+      }
+    },
+    "properties": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rule_id", "resource_address"],
+        "properties": {
+          "rule_id": {"type": "string", "minLength": 1},
+          "resource_address": {"type": "string", "minLength": 1},
+          "file_path": {"type": "string"},
+          "artifact_kind": {
+            "enum": [
+              "terraform_hcl", "terraform_plan_json", "opentofu_hcl",
+              "kubernetes_yaml", "kubernetes_json", "helm_rendered_yaml",
+              "cloudformation", "unknown"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "overrides": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "value"],
+        "properties": {
+          "key": {"type": "string", "minLength": 1},
+          "value": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  }
+}
