@@ -13,6 +13,11 @@ date-released: 2026-08-24
 license: Apache-2.0
 repository-code: "https://github.com/lokesh0186/iac-guard-v"
 url: "https://github.com/lokesh0186/iac-guard-v"
+doi: "10.5281/zenodo.22088272"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.22088273"
+    description: "Archived software version DOI for IaC-Guard-V 0.1.0a4."
 abstract: "IaC-Guard-V is a fail-closed verifier for infrastructure-as-code security repairs written by people, AI coding agents, or automation. It binds scanner, parser, source, resource, relationship, and before/after evidence for supported Terraform, Kubernetes, and deterministic local Helm workflows."
 keywords:
   - infrastructure-as-code

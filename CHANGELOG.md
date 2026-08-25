@@ -5,7 +5,14 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [Unreleased]
 
-## [0.1.0a4] - Unreleased
+## [0.1.0a4] - 2026-08-24
+
+### Archive
+
+- Archived IaC-Guard-V `0.1.0a4` under Version DOI
+  [`10.5281/zenodo.22088273`](https://doi.org/10.5281/zenodo.22088273). The evolving
+  software project uses Concept DOI
+  [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
 ### Added
 

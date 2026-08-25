@@ -1,10 +1,10 @@
 # IaC-Guard-V
 
 [![PyPI](https://img.shields.io/pypi/v/iac-guard-v)](https://pypi.org/project/iac-guard-v/)
-[![Python](https://img.shields.io/pypi/pyversions/iac-guard-v)](https://pypi.org/project/iac-guard-v/)
 [![Python compatibility](https://github.com/lokesh0186/iac-guard-v/actions/workflows/python-compat.yml/badge.svg?branch=main)](https://github.com/lokesh0186/iac-guard-v/actions/workflows/python-compat.yml)
+[![Python](https://img.shields.io/pypi/pyversions/iac-guard-v)](https://pypi.org/project/iac-guard-v/)
 [![License](https://img.shields.io/pypi/l/iac-guard-v)](https://github.com/lokesh0186/iac-guard-v/blob/main/LICENSE)
-[![QRS 2026](https://img.shields.io/badge/QRS-2026-4b5563)](https://github.com/lokesh0186/iac-guard-v/blob/main/RESEARCH_SNAPSHOT.md)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22088272.svg)](https://doi.org/10.5281/zenodo.22088272)
 
 **Verify that an infrastructure-as-code security fix actually fixed the intended
 finding without hiding evidence, deleting the target, or introducing a regression.**
@@ -186,10 +186,22 @@ for the fail-closed trust architecture.
 - [Security model](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SECURITY_MODEL.md)
 - [Helm materialization](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/HELM_MATERIALIZATION.md)
 - [Example walkthrough](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/EXAMPLE_WALKTHROUGH.md)
+- [Public reproduction packet guidance](https://github.com/lokesh0186/iac-guard-v/blob/main/examples/public-reproductions/README.md)
 - [Security policy](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md)
 - [Contributing](https://github.com/lokesh0186/iac-guard-v/blob/main/CONTRIBUTING.md)
 - [Roadmap](https://github.com/lokesh0186/iac-guard-v/blob/main/ROADMAP.md)
 - [Changelog](https://github.com/lokesh0186/iac-guard-v/blob/main/CHANGELOG.md)
+
+## Cite IaC-Guard-V
+
+For the evolving software project, cite the
+[Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
+
+For results produced specifically with IaC-Guard-V `0.1.0a4`, cite the archived
+[Version DOI `10.5281/zenodo.22088273`](https://doi.org/10.5281/zenodo.22088273).
+
+Machine-readable citation metadata is available in
+[CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).
 
 ## Research snapshot
 
@@ -208,6 +220,5 @@ published.
 Small, test-backed documentation, compatibility, fixture, and adapter contributions are
 welcome. Start with [CONTRIBUTING.md](https://github.com/lokesh0186/iac-guard-v/blob/main/CONTRIBUTING.md).
 
-Citation metadata is in [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).
 IaC-Guard-V is licensed under the [Apache License 2.0](https://github.com/lokesh0186/iac-guard-v/blob/main/LICENSE).
 Third-party tools are not bundled and retain their own licences and trademarks.
