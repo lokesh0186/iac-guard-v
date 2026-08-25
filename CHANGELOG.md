@@ -5,6 +5,35 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [Unreleased]
 
+## [0.1.0a6] - 2026-08-25
+
+### Added
+
+- Protected namespace provenance for default and non-default Helm releases, including
+  exact release, emitted, values-derived, static-helper, resource-scope, source, and
+  materialization identities.
+- Bounded Helm action-reachability evidence for exact protected `if`/`else`, `with`,
+  `range`, and static named-template paths.
+- Digest-only bounded `tpl` evidence for exact literal and protected-values template
+  strings, including nested analysis, recursion/resource limits, and redacted values.
+- Exact bounded dynamic `include`/`template` resolution for restricted literal and
+  `.Template.BasePath` `print`/`printf` expressions, with protected target hashes,
+  call-graph edges, and strict recursion/resource limits.
+
+### Security
+
+- Reachable lookup remains `CLUSTER_STATE_REQUIRED`; reachable random, password,
+  UUID, or time generation remains `NONDETERMINISTIC_RENDER`; unknown or dynamic
+  reachability remains `AMBIGUOUS_TEMPLATE_ACTION_GRAPH`.
+- Computed or unsupported `tpl` arguments remain ambiguous; deterministic rendered
+  bytes cannot override dangerous nested `tpl` actions.
+- Missing, duplicate, escaped, cyclic, or unsupported dynamic include targets remain
+  ambiguous. Dangerous actions reached through an exact target retain their stronger
+  typed fail-closed outcome.
+- Cluster-scoped resources cannot carry `metadata.namespace`. Custom-resource scope
+  requires exact local CRD evidence; namespace contradictions and unproven scope fail
+  closed.
+
 ## [0.1.0a5] - 2026-08-25
 
 ### Archive

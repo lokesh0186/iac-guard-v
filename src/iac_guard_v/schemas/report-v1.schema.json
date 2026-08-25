@@ -2078,7 +2078,239 @@
         "name": {"type": "string", "minLength": 1},
         "resource_identity": {"type": "string", "minLength": 1},
         "source_template": {"type": "string", "minLength": 1},
-        "source_chart": {"type": "string", "minLength": 1}
+        "source_chart": {"type": "string", "minLength": 1},
+        "namespace_provenance": {"$ref": "#/$defs/helmNamespaceProvenance"}
+      }
+    },
+    "helmNamespaceProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract", "request_namespace", "helm_argument_namespace",
+        "release_namespace", "emitted_metadata_namespace", "effective_namespace",
+        "resolution", "source_template", "source_expression_sha256", "value_path",
+        "value_sha256", "contradiction", "provenance_identity"
+      ],
+      "properties": {
+        "contract": {"const": "helm-namespace-provenance-v1"},
+        "request_namespace": {"type": "string", "minLength": 1},
+        "helm_argument_namespace": {"type": "string", "minLength": 1},
+        "release_namespace": {"type": "string", "minLength": 1},
+        "emitted_metadata_namespace": {"type": ["string", "null"]},
+        "effective_namespace": {"type": ["string", "null"]},
+        "resolution": {
+          "enum": [
+            "CLUSTER_SCOPED", "HELM_RELEASE_NAMESPACE_DEFAULT",
+            "EXPLICIT_RENDERED_NAMESPACE", "RELEASE_NAMESPACE_EXPRESSION",
+            "VALUES_NAMESPACE_EXPRESSION", "VALUES_DEFAULT_RELEASE_NAMESPACE_EXPRESSION",
+            "LITERAL_NAMESPACE_EXPRESSION", "STATIC_NAMED_NAMESPACE_TEMPLATE"
+          ]
+        },
+        "source_template": {"type": "string", "minLength": 1},
+        "source_expression_sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+        "value_path": {"type": "string"},
+        "value_sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+        "contradiction": {
+          "enum": [
+            "NONE", "EXPLICIT_NAMESPACE_OVERRIDES_RELEASE_NAMESPACE",
+            "RELEASE_NAMESPACE_EXPRESSION_CONTRADICTS_RENDER"
+          ]
+        },
+        "provenance_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmActionReachability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract", "status", "reason_code", "protected_values_sha256",
+        "participating_source_templates", "reachable_named_templates",
+        "excluded_dangerous_actions", "excluded_dangerous_action_count",
+        "analysis_identity"
+      ],
+      "properties": {
+        "contract": {"const": "helm-template-action-reachability-v1"},
+        "status": {"const": "PASS"},
+        "reason_code": {"const": "BOUNDED_TEMPLATE_ACTION_REACHABILITY_PROVEN"},
+        "protected_values_sha256": {"$ref": "#/$defs/sha256"},
+        "participating_source_templates": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "reachable_named_templates": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "excluded_dangerous_actions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["source_template", "action_class", "action_sha256"],
+            "properties": {
+              "source_template": {"type": "string", "minLength": 1},
+              "action_class": {"enum": ["lookup", "nondeterministic"]},
+              "action_sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        },
+        "excluded_dangerous_action_count": {"type": "integer", "minimum": 0},
+        "tpl_evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source_template", "callsite_action_sha256",
+              "callsite_action_index", "tpl_ordinal", "callsite_identity",
+              "parent_callsite_identity",
+              "template_string_source", "template_string_path",
+              "template_string_sha256", "protected_values_sha256",
+              "nesting_depth", "expanded_template_bytes",
+              "nested_action_sha256", "nested_action_count",
+              "reached_dangerous_actions", "excluded_dangerous_actions",
+              "nested_action_graph_identity"
+            ],
+            "properties": {
+              "source_template": {"type": "string", "minLength": 1},
+              "callsite_action_sha256": {"$ref": "#/$defs/sha256"},
+              "callsite_action_index": {"type": "integer", "minimum": 0},
+              "tpl_ordinal": {"type": "integer", "minimum": 1},
+              "callsite_identity": {"$ref": "#/$defs/sha256"},
+              "parent_callsite_identity": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+              "template_string_source": {
+                "enum": ["LITERAL", "PROTECTED_VALUES_PATH", "PROTECTED_VALUES_DEFAULT"]
+              },
+              "template_string_path": {"type": "string"},
+              "template_string_sha256": {"$ref": "#/$defs/sha256"},
+              "protected_values_sha256": {"$ref": "#/$defs/sha256"},
+              "nesting_depth": {"type": "integer", "minimum": 1, "maximum": 4},
+              "expanded_template_bytes": {"type": "integer", "minimum": 0, "maximum": 65536},
+              "nested_action_sha256": {
+                "type": "array", "maxItems": 256,
+                "items": {"$ref": "#/$defs/sha256"}
+              },
+              "nested_action_count": {"type": "integer", "minimum": 0, "maximum": 256},
+              "reached_dangerous_actions": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/helmDangerousAction"}
+              },
+              "excluded_dangerous_actions": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/helmDangerousAction"}
+              },
+              "nested_action_graph_identity": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        },
+        "tpl_evidence_count": {"type": "integer", "minimum": 0},
+        "tpl_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maximum_nesting_depth", "maximum_expanded_template_bytes",
+            "maximum_nested_actions", "maximum_named_template_call_depth"
+          ],
+          "properties": {
+            "maximum_nesting_depth": {"const": 4},
+            "maximum_expanded_template_bytes": {"const": 65536},
+            "maximum_nested_actions": {"const": 256},
+            "maximum_named_template_call_depth": {"const": 32}
+          }
+        },
+        "dynamic_include_evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/helmDynamicIncludeEvidence"}
+        },
+        "dynamic_include_evidence_count": {"type": "integer", "minimum": 0},
+        "dynamic_include_limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maximum_resolution_depth", "maximum_call_graph_nodes",
+            "maximum_parsed_action_bytes", "maximum_resolved_targets"
+          ],
+          "properties": {
+            "maximum_resolution_depth": {"const": 16},
+            "maximum_call_graph_nodes": {"const": 256},
+            "maximum_parsed_action_bytes": {"const": 262144},
+            "maximum_resolved_targets": {"const": 128}
+          }
+        },
+        "analysis_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmDynamicIncludeOperand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "identity_sha256"],
+      "properties": {
+        "kind": {"enum": ["LITERAL", "TEMPLATE_BASE_PATH"]},
+        "identity_sha256": {"$ref": "#/$defs/sha256"},
+        "protected_path": {"type": "string", "minLength": 1},
+        "chart_identity": {"type": "string", "minLength": 1}
+      }
+    },
+    "helmDynamicIncludeEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_template", "callsite_action_sha256", "callsite_action_index",
+        "include_ordinal", "call_function", "callsite_identity",
+        "parent_callsite_identity", "original_expression_sha256",
+        "resolved_expression_type", "operand_identities",
+        "resolved_target_string", "resolved_target_kind",
+        "resolved_target_identity", "target_source_template",
+        "target_source_sha256", "recursion_depth",
+        "reached_dangerous_actions", "excluded_dangerous_actions",
+        "child_callsite_identities", "resolution_identity"
+      ],
+      "properties": {
+        "source_template": {"type": "string", "minLength": 1},
+        "callsite_action_sha256": {"$ref": "#/$defs/sha256"},
+        "callsite_action_index": {"type": "integer", "minimum": 0},
+        "include_ordinal": {"type": "integer", "minimum": 1},
+        "call_function": {"enum": ["include", "template"]},
+        "callsite_identity": {"$ref": "#/$defs/sha256"},
+        "parent_callsite_identity": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+        "original_expression_sha256": {"$ref": "#/$defs/sha256"},
+        "resolved_expression_type": {
+          "enum": [
+            "PRINT_LITERALS", "PRINT_TEMPLATE_BASE_PATH",
+            "PRINTF_LITERALS", "PRINTF_TEMPLATE_BASE_PATH"
+          ]
+        },
+        "operand_identities": {
+          "type": "array", "minItems": 1,
+          "items": {"$ref": "#/$defs/helmDynamicIncludeOperand"}
+        },
+        "resolved_target_string": {"type": "string", "minLength": 1, "maxLength": 4096},
+        "resolved_target_kind": {"enum": ["NAMED_TEMPLATE", "SOURCE_TEMPLATE"]},
+        "resolved_target_identity": {"type": "string", "minLength": 1},
+        "target_source_template": {"type": "string", "minLength": 1},
+        "target_source_sha256": {"$ref": "#/$defs/sha256"},
+        "recursion_depth": {"type": "integer", "minimum": 1, "maximum": 16},
+        "reached_dangerous_actions": {
+          "type": "array", "items": {"$ref": "#/$defs/helmDangerousAction"}
+        },
+        "excluded_dangerous_actions": {
+          "type": "array", "items": {"$ref": "#/$defs/helmDangerousAction"}
+        },
+        "child_callsite_identities": {
+          "type": "array", "uniqueItems": true,
+          "items": {"$ref": "#/$defs/sha256"}
+        },
+        "resolution_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmDangerousAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_template", "action_class", "action_sha256"],
+      "properties": {
+        "source_template": {"type": "string", "minLength": 1},
+        "action_class": {"enum": ["lookup", "nondeterministic"]},
+        "action_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "helmOverride": {
@@ -2209,7 +2441,8 @@
             "tests": {"enum": ["include", "exclude"]},
             "argv": {"type": "array", "minItems": 1, "items": {"type": "string"}},
             "argv_sha256": {"$ref": "#/$defs/sha256"},
-            "environment_sha256": {"$ref": "#/$defs/sha256"}
+            "environment_sha256": {"$ref": "#/$defs/sha256"},
+            "template_action_reachability": {"$ref": "#/$defs/helmActionReachability"}
           }
         },
         "output": {

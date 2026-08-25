@@ -184,6 +184,251 @@ def _require_sha(value: object, label: str, *, allow_empty: bool = False) -> Non
         _semantic_error(f"{label} is not a canonical SHA-256")
 
 
+def _validate_helm_a6_extensions(evidence: dict, label: str) -> None:
+    inputs = evidence["render_inputs"]
+    file_sha256 = {
+        item["path"]: item["sha256"] for item in evidence["chart"]["files"]
+    }
+    file_sha256.update({
+        expanded["path"]: expanded["sha256"]
+        for artifact in evidence["chart"]["dependencies"]["artifacts"]
+        for expanded in artifact["expanded_files"]
+    })
+    files = {item["path"] for item in evidence["chart"]["files"]}
+    files.update(
+        expanded["path"]
+        for artifact in evidence["chart"]["dependencies"]["artifacts"]
+        for expanded in artifact["expanded_files"]
+    )
+    documents = evidence["documents"]
+    action = inputs.get("template_action_reachability")
+    if action is not None:
+        excluded = action["excluded_dangerous_actions"]
+        if action["excluded_dangerous_action_count"] != len(excluded):
+            _semantic_error(f"{label} Helm excluded-action count is inconsistent")
+        if action["participating_source_templates"] != sorted(
+            set(action["participating_source_templates"])
+        ):
+            _semantic_error(f"{label} Helm participating action sources are not canonical")
+        expected_sources = sorted({item["source_template"] for item in documents})
+        if action["participating_source_templates"] != expected_sources:
+            _semantic_error(f"{label} Helm action sources do not bind rendered documents")
+        if action["reachable_named_templates"] != sorted(
+            set(action["reachable_named_templates"])
+        ):
+            _semantic_error(f"{label} Helm reachable templates are not canonical")
+        for item in excluded:
+            if item["source_template"] not in files:
+                _semantic_error(f"{label} Helm excluded action escapes chart inventory")
+            _require_sha(item["action_sha256"], f"{label} Helm excluded action digest")
+        tpl_evidence = action.get("tpl_evidence", [])
+        if action.get("tpl_evidence_count", len(tpl_evidence)) != len(tpl_evidence):
+            _semantic_error(f"{label} Helm tpl-evidence count is inconsistent")
+        callsites: set[str] = set()
+        for item in tpl_evidence:
+            if item["source_template"] not in files:
+                _semantic_error(f"{label} Helm tpl callsite escapes chart inventory")
+            if item["protected_values_sha256"] != action["protected_values_sha256"]:
+                _semantic_error(f"{label} Helm tpl values identity is contradictory")
+            for field in (
+                "callsite_action_sha256", "callsite_identity",
+                "template_string_sha256", "nested_action_graph_identity",
+            ):
+                _require_sha(item[field], f"{label} Helm tpl {field}")
+            if item["nested_action_count"] != len(item["nested_action_sha256"]):
+                _semantic_error(f"{label} Helm tpl nested-action count is inconsistent")
+            for digest in item["nested_action_sha256"]:
+                _require_sha(digest, f"{label} Helm tpl nested action digest")
+            callsite_body = {
+                "source_template": item["source_template"],
+                "callsite_action_sha256": item["callsite_action_sha256"],
+                "callsite_action_index": item["callsite_action_index"],
+                "tpl_ordinal": item["tpl_ordinal"],
+                "template_string_source": item["template_string_source"],
+                "template_string_path": item["template_string_path"],
+                "nesting_depth": item["nesting_depth"],
+                "parent_callsite_identity": item["parent_callsite_identity"],
+            }
+            if _canonical_json_digest(callsite_body) != item["callsite_identity"]:
+                _semantic_error(f"{label} Helm tpl callsite identity is not canonical")
+            for action_record in (
+                item["reached_dangerous_actions"]
+                + item["excluded_dangerous_actions"]
+            ):
+                if action_record["source_template"] not in files:
+                    _semantic_error(f"{label} Helm tpl action escapes chart inventory")
+                _require_sha(
+                    action_record["action_sha256"], f"{label} Helm tpl action digest"
+                )
+            graph_body = {
+                "callsite_identity": item["callsite_identity"],
+                "template_string_sha256": item["template_string_sha256"],
+                "nesting_depth": item["nesting_depth"],
+                "nested_action_sha256": item["nested_action_sha256"],
+                "reached_dangerous_actions": item["reached_dangerous_actions"],
+                "excluded_dangerous_actions": item["excluded_dangerous_actions"],
+            }
+            if _canonical_json_digest(graph_body) != item["nested_action_graph_identity"]:
+                _semantic_error(f"{label} Helm tpl action graph is not canonical")
+            if item["callsite_identity"] in callsites:
+                _semantic_error(f"{label} Helm tpl callsite identity is duplicated")
+            callsites.add(item["callsite_identity"])
+        dynamic_evidence = action.get("dynamic_include_evidence", [])
+        if action.get(
+            "dynamic_include_evidence_count", len(dynamic_evidence)
+        ) != len(dynamic_evidence):
+            _semantic_error(
+                f"{label} Helm dynamic-include evidence count is inconsistent"
+            )
+        dynamic_callsites: set[str] = set()
+        for item in dynamic_evidence:
+            if (
+                item["source_template"] not in files
+                or item["target_source_template"] not in files
+            ):
+                _semantic_error(
+                    f"{label} Helm dynamic include escapes chart inventory"
+                )
+            for field in (
+                "callsite_action_sha256", "callsite_identity",
+                "original_expression_sha256", "target_source_sha256",
+                "resolution_identity",
+            ):
+                _require_sha(item[field], f"{label} Helm dynamic include {field}")
+            if file_sha256[item["target_source_template"]] != item["target_source_sha256"]:
+                _semantic_error(
+                    f"{label} Helm dynamic include target hash is contradictory"
+                )
+            if "/" in item["resolved_target_string"]:
+                try:
+                    canonical_repo_path(
+                        item["resolved_target_string"],
+                        f"{label} Helm resolved include target",
+                    )
+                except DomainError as exc:
+                    _semantic_error(
+                        f"{label} Helm resolved include target is not protected-relative"
+                    )
+            for operand in item["operand_identities"]:
+                _require_sha(
+                    operand["identity_sha256"],
+                    f"{label} Helm dynamic include operand identity",
+                )
+                if operand["kind"] == "LITERAL" and set(operand) != {
+                    "kind", "identity_sha256"
+                }:
+                    _semantic_error(
+                        f"{label} Helm literal include operand contains extra evidence"
+                    )
+                if operand["kind"] == "TEMPLATE_BASE_PATH" and set(operand) != {
+                    "kind", "identity_sha256", "protected_path", "chart_identity"
+                }:
+                    _semantic_error(
+                        f"{label} Helm BasePath operand identity is incomplete"
+                    )
+            callsite_body = {
+                "source_template": item["source_template"],
+                "callsite_action_sha256": item["callsite_action_sha256"],
+                "callsite_action_index": item["callsite_action_index"],
+                "include_ordinal": item["include_ordinal"],
+                "call_function": item["call_function"],
+                "resolved_expression_type": item["resolved_expression_type"],
+                "resolved_target_identity": item["resolved_target_identity"],
+                "recursion_depth": item["recursion_depth"],
+                "parent_callsite_identity": item["parent_callsite_identity"],
+            }
+            if _canonical_json_digest(callsite_body) != item["callsite_identity"]:
+                _semantic_error(
+                    f"{label} Helm dynamic include callsite identity is not canonical"
+                )
+            for action_record in (
+                item["reached_dangerous_actions"]
+                + item["excluded_dangerous_actions"]
+            ):
+                if action_record["source_template"] not in files:
+                    _semantic_error(
+                        f"{label} Helm dynamic include action escapes chart inventory"
+                    )
+                _require_sha(
+                    action_record["action_sha256"],
+                    f"{label} Helm dynamic include action digest",
+                )
+            for child in item["child_callsite_identities"]:
+                _require_sha(child, f"{label} Helm dynamic include child identity")
+            resolution_body = {
+                "callsite_identity": item["callsite_identity"],
+                "original_expression_sha256": item["original_expression_sha256"],
+                "resolved_expression_type": item["resolved_expression_type"],
+                "operand_identities": item["operand_identities"],
+                "resolved_target_string": item["resolved_target_string"],
+                "resolved_target_kind": item["resolved_target_kind"],
+                "resolved_target_identity": item["resolved_target_identity"],
+                "target_source_template": item["target_source_template"],
+                "target_source_sha256": item["target_source_sha256"],
+                "recursion_depth": item["recursion_depth"],
+                "reached_dangerous_actions": item["reached_dangerous_actions"],
+                "excluded_dangerous_actions": item["excluded_dangerous_actions"],
+                "child_callsite_identities": item["child_callsite_identities"],
+            }
+            if _canonical_json_digest(resolution_body) != item["resolution_identity"]:
+                _semantic_error(
+                    f"{label} Helm dynamic include resolution is not canonical"
+                )
+            if item["callsite_identity"] in dynamic_callsites:
+                _semantic_error(
+                    f"{label} Helm dynamic include callsite identity is duplicated"
+                )
+            dynamic_callsites.add(item["callsite_identity"])
+        for item in dynamic_evidence:
+            parent = item["parent_callsite_identity"]
+            if parent and parent not in dynamic_callsites:
+                _semantic_error(
+                    f"{label} Helm dynamic include parent callsite is unavailable"
+                )
+            actual_children = {
+                child["callsite_identity"]
+                for child in dynamic_evidence
+                if child["parent_callsite_identity"] == item["callsite_identity"]
+            }
+            if set(item["child_callsite_identities"]) != actual_children:
+                _semantic_error(
+                    f"{label} Helm dynamic include call graph is inconsistent"
+                )
+        body = dict(action)
+        identity = body.pop("analysis_identity")
+        if _canonical_json_digest(body) != identity:
+            _semantic_error(f"{label} Helm action analysis identity is not canonical")
+    for document in documents:
+        provenance = document.get("namespace_provenance")
+        if provenance is None:
+            continue
+        if any(
+            provenance[item] != inputs["namespace"]
+            for item in (
+                "request_namespace", "helm_argument_namespace", "release_namespace"
+            )
+        ):
+            _semantic_error(f"{label} Helm namespace inputs are contradictory")
+        if provenance["source_template"] != document["source_template"]:
+            _semantic_error(f"{label} Helm namespace source is contradictory")
+        if provenance["resolution"] == "CLUSTER_SCOPED":
+            if (
+                provenance["emitted_metadata_namespace"] is not None
+                or provenance["effective_namespace"] is not None
+            ):
+                _semantic_error(f"{label} cluster-scoped namespace is not absent")
+        elif provenance["effective_namespace"] != document["namespace"]:
+            _semantic_error(f"{label} Helm effective namespace is contradictory")
+        for field in ("source_expression_sha256", "value_sha256"):
+            _require_sha(
+                provenance[field], f"{label} Helm namespace {field}", allow_empty=True
+            )
+        body = dict(provenance)
+        identity = body.pop("provenance_identity")
+        if _canonical_json_digest(body) != identity:
+            _semantic_error(f"{label} Helm namespace provenance is not canonical")
+
+
 def _validate_helm_materialization(payload: dict) -> None:
     comparison = payload["materialization"]
     role_identities = []
@@ -279,6 +524,7 @@ def _validate_helm_materialization(payload: dict) -> None:
                 {item["path"] for item in files} | expanded_dependency_paths
             ):
                 _semantic_error(f"{role} Helm source template is outside chart inventory")
+        _validate_helm_a6_extensions(evidence, role)
         body = {
             "executable": evidence["executable"],
             "chart": chart,
@@ -339,6 +585,7 @@ def _validate_helm_universe(payload: dict) -> None:
         chart = evidence["chart"]
         files = chart["files"]
         documents = evidence["documents"]
+        _validate_helm_a6_extensions(evidence, "universe")
         _unique(files, lambda value: value["path"], "Helm universe chart path")
         if _canonical_json_digest(files) != chart["inventory_root_sha256"]:
             _semantic_error("Helm universe chart inventory root is not canonical")

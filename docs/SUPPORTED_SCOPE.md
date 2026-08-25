@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a5`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a6`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -69,6 +69,12 @@ Non-Helm reports accepted by the a3 schema remain valid under the a4 schema.
 evidence. A vendored older schema must be updated before consuming these reports.
 Repair-mode and prior non-acceptance reports retain their original semantics.
 
+`0.1.0a6` adds optional closed namespace-provenance and template-action evidence,
+including bounded `tpl` and exactly resolvable dynamic include/template targets. A
+vendored older schema must be updated before validating those Helm reports. Unknown
+expressions, target ambiguity, cycles, path escape, and unmodeled scanner addressability
+remain fail-closed.
+
 ## Component status
 
 | Area | Status |
@@ -82,7 +88,7 @@ Repair-mode and prior non-acceptance reports retain their original semantics.
 | Terraform `.tf.json` | Explicitly unsupported/inconclusive end to end. |
 | Checkov CKV2/graph findings | Supported only for bounded connection-query shapes with complete participant and relationship evidence; every other shape remains inconclusive. |
 | Candidate acceptance | Supported only for explicitly selected properties under complete governed, scanner-addressable, and target-relevant evidence universes; it never claims `FIXED`. |
-| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded contract, including ordered multi-chart candidate universes. |
+| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded contract, including ordered multi-chart candidate universes, protected namespace provenance, bounded action/`tpl` analysis, and exactly resolvable dynamic include/template targets. |
 | Kustomize materialization | No protected materialization contract yet. |
 | Multi-scanner consensus | Advisory only and disconnected from the final verdict. |
 | Hardened container and composite Action | Not released. |

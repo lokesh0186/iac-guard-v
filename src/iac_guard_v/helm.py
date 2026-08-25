@@ -13,11 +13,12 @@ import json
 import os
 import platform
 import re
+import shlex
 import stat
 import tarfile
 import tempfile
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Iterator
@@ -39,8 +40,15 @@ _MAX_RENDER_BYTES = 32 * 1024 * 1024
 _MAX_RENDER_DOCUMENTS = 5_000
 _MAX_ARCHIVE_MEMBERS = 10_000
 _MAX_ARCHIVE_EXPANDED_BYTES = 64 * 1024 * 1024
+_MAX_TPL_NESTING_DEPTH = 4
+_MAX_TPL_EXPANDED_BYTES = 64 * 1024
+_MAX_TPL_NESTED_ACTIONS = 256
+_MAX_TEMPLATE_CALL_DEPTH = 32
+_MAX_DYNAMIC_INCLUDE_DEPTH = 16
+_MAX_DYNAMIC_INCLUDE_NODES = 256
+_MAX_DYNAMIC_INCLUDE_ACTION_BYTES = 256 * 1024
+_MAX_DYNAMIC_INCLUDE_TARGETS = 128
 _HELM_VERSION = re.compile(r"v?([0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?)")
-_ACTION = re.compile(r"{{-?(.*?)-?}}", re.DOTALL)
 _TEMPLATE_COMMENT = re.compile(r"^\s*/\*.*\*/\s*$", re.DOTALL)
 _RANDOM_FUNCTION = re.compile(
     r"(?<![A-Za-z0-9_])("
@@ -49,6 +57,7 @@ _RANDOM_FUNCTION = re.compile(
     r")(?![A-Za-z0-9_])"
 )
 _LOOKUP_FUNCTION = re.compile(r"(?<![A-Za-z0-9_])lookup(?![A-Za-z0-9_])")
+_TPL_FUNCTION = re.compile(r"(?:^|[\s(|])tpl(?=\s|$)")
 _NAMED_TEMPLATE_CALL = re.compile(
     r'(?:^|[\s(|])(?:include|template)\s+"([^"\r\n]+)"'
 )
@@ -56,10 +65,52 @@ _NAMED_TEMPLATE_ANY = re.compile(r"(?:^|[\s(|])(?:include|template)(?=\s)")
 _DEFINE_ACTION = re.compile(r'^\s*define\s+"([^"\r\n]+)"')
 _CONTROL_START = re.compile(r"^\s*(?:if|range|with|block)(?:\s|$)")
 _CONTROL_END = re.compile(r"^\s*end(?:\s|$)")
+_CONTROL_ELSE = re.compile(r"^\s*else(?:\s+if\s+(.+))?\s*$", re.DOTALL)
+_VALUES_PATH = re.compile(r"^\.Values(?:\.([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*))?$")
+_NAMESPACE_LINE = re.compile(r"^\s*namespace\s*:\s*(.*?)\s*$", re.MULTILINE)
 _SOURCE_MARKER = re.compile(r"^# Source: ([^\r\n]+)$", re.MULTILINE)
 _DNS_LABEL = re.compile(r"[a-z0-9](?:[-a-z0-9]*[a-z0-9])?")
 _DNS_SUBDOMAIN = re.compile(r"[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?")
 _SET_KEY = re.compile(r"[A-Za-z0-9_.\[\]-]+")
+_CLUSTER_SCOPED_GROUP_KINDS = frozenset({
+    ("", "Namespace"),
+    ("", "Node"),
+    ("", "PersistentVolume"),
+    ("admissionregistration.k8s.io", "MutatingWebhookConfiguration"),
+    ("admissionregistration.k8s.io", "ValidatingAdmissionPolicy"),
+    ("admissionregistration.k8s.io", "ValidatingAdmissionPolicyBinding"),
+    ("admissionregistration.k8s.io", "ValidatingWebhookConfiguration"),
+    ("apiregistration.k8s.io", "APIService"),
+    ("apiextensions.k8s.io", "CustomResourceDefinition"),
+    ("certificates.k8s.io", "CertificateSigningRequest"),
+    ("flowcontrol.apiserver.k8s.io", "FlowSchema"),
+    ("flowcontrol.apiserver.k8s.io", "PriorityLevelConfiguration"),
+    ("networking.k8s.io", "IngressClass"),
+    ("node.k8s.io", "RuntimeClass"),
+    ("policy", "PodSecurityPolicy"),
+    ("rbac.authorization.k8s.io", "ClusterRole"),
+    ("rbac.authorization.k8s.io", "ClusterRoleBinding"),
+    ("scheduling.k8s.io", "PriorityClass"),
+    ("storage.k8s.io", "CSIDriver"),
+    ("storage.k8s.io", "CSINode"),
+    ("storage.k8s.io", "StorageClass"),
+    ("storage.k8s.io", "VolumeAttachment"),
+})
+
+_NAMESPACED_GROUPS = frozenset({
+    "",
+    "apps",
+    "autoscaling",
+    "batch",
+    "coordination.k8s.io",
+    "discovery.k8s.io",
+    "events.k8s.io",
+    "extensions",
+    "networking.k8s.io",
+    "policy",
+    "rbac.authorization.k8s.io",
+    "storage.k8s.io",
+})
 
 
 class _StrictSafeLoader(yaml.SafeLoader):
@@ -112,15 +163,42 @@ class HelmMaterializationError(DomainError):
 
 @dataclass(frozen=True, slots=True)
 class _TemplateActionScope:
-    functions: frozenset[str]
-    calls: frozenset[str]
-    dynamic_call: bool
+    source_path: str
+    actions: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class _TemplateActionIndex:
     roots: dict[str, _TemplateActionScope]
     definitions: dict[str, _TemplateActionScope]
+    sources: dict[str, str]
+    source_base_paths: dict[str, tuple[str, str, str]] = field(default_factory=dict)
+    source_template_names: dict[str, tuple[str, ...]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class _ActionToken:
+    text: str
+    quoted: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _TplArgument:
+    content: str
+    source_kind: str
+    source_path: str
+
+
+@dataclass(frozen=True, slots=True)
+class _ResolvedIncludeTarget:
+    call_function: str
+    expression_type: str
+    operands: tuple[dict, ...]
+    target_string: str
+    target_kind: str
+    target_identity: str
+    target_scope: _TemplateActionScope
+    target_source_sha256: str
 
 
 def _sha256(payload: bytes) -> str:
@@ -269,6 +347,7 @@ class HelmRenderedDocument:
     resource_identity: str
     source_template: str
     source_chart: str
+    namespace_provenance: MappingProxyType
 
     def canonical_dict(self) -> dict:
         return {
@@ -281,6 +360,7 @@ class HelmRenderedDocument:
             "resource_identity": self.resource_identity,
             "source_template": self.source_template,
             "source_chart": self.source_chart,
+            "namespace_provenance": dict(self.namespace_provenance),
         }
 
 
@@ -755,6 +835,145 @@ def _unquoted_action(action: str) -> str:
     return "".join(output)
 
 
+def _iter_template_actions(text: str) -> tuple[str, ...]:
+    """Return Go-template actions without treating delimiters in strings as syntax."""
+    result: list[str] = []
+    cursor = 0
+    while True:
+        start = text.find("{{", cursor)
+        if start < 0:
+            return tuple(result)
+        index = start + 2
+        if index < len(text) and text[index] == "-":
+            index += 1
+        content_start = index
+        comment_start = index
+        while comment_start < len(text) and text[comment_start].isspace():
+            comment_start += 1
+        if text.startswith("/*", comment_start):
+            comment_end = text.find("*/", comment_start + 2)
+            if comment_end < 0:
+                raise HelmMaterializationError(
+                    "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+                    "Helm template comment is not closed",
+                )
+            closing_start = comment_end + 2
+            while closing_start < len(text) and text[closing_start].isspace():
+                closing_start += 1
+            if text.startswith("-}}", closing_start):
+                closing = 3
+            elif text.startswith("}}", closing_start):
+                closing = 2
+            else:
+                raise HelmMaterializationError(
+                    "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+                    "Helm template comment has an ambiguous closing delimiter",
+                )
+            result.append(text[content_start:comment_end + 2].strip())
+            cursor = closing_start + closing
+            continue
+        quote = ""
+        escaped = False
+        while index < len(text):
+            char = text[index]
+            if quote:
+                if escaped:
+                    escaped = False
+                elif quote == '"' and char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = ""
+                index += 1
+                continue
+            if char in ('"', "'", "`"):
+                quote = char
+                index += 1
+                continue
+            if text.startswith("}}", index) or text.startswith("-}}", index):
+                end = index
+                closing = 3 if text.startswith("-}}", index) else 2
+                result.append(text[content_start:end].strip())
+                cursor = index + closing
+                break
+            index += 1
+        else:
+            raise HelmMaterializationError(
+                "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+                "Helm template action delimiter is not closed",
+            )
+
+
+def _action_tokens(action: str) -> tuple[_ActionToken, ...] | None:
+    tokens: list[_ActionToken] = []
+    index = 0
+    while index < len(action):
+        if action[index].isspace():
+            index += 1
+            continue
+        if action[index] in "()|":
+            tokens.append(_ActionToken(action[index]))
+            index += 1
+            continue
+        if action[index] in ('"', "'", "`"):
+            quote = action[index]
+            start = index
+            index += 1
+            escaped = False
+            value: list[str] = []
+            while index < len(action):
+                char = action[index]
+                if escaped:
+                    value.append(char)
+                    escaped = False
+                elif quote == '"' and char == "\\":
+                    escaped = True
+                elif char == quote:
+                    break
+                else:
+                    value.append(char)
+                index += 1
+            if index >= len(action) or action[index] != quote:
+                return None
+            raw_value = "".join(value)
+            if quote == '"':
+                try:
+                    decoded = json.loads(action[start:index + 1])
+                except (TypeError, ValueError, json.JSONDecodeError):
+                    return None
+                if type(decoded) is not str:
+                    return None
+                raw_value = decoded
+            elif quote == "'":
+                # Go templates do not define single-quoted string literals.
+                return None
+            tokens.append(_ActionToken(raw_value, quoted=True))
+            index += 1
+            continue
+        start = index
+        while (
+            index < len(action)
+            and not action[index].isspace()
+            and action[index] not in "()|"
+        ):
+            index += 1
+        tokens.append(_ActionToken(action[start:index]))
+    return tuple(tokens)
+
+
+def _matching_parenthesis(tokens: tuple[_ActionToken, ...], start: int) -> int | None:
+    if start >= len(tokens) or tokens[start].text != "(":
+        return None
+    depth = 0
+    for index in range(start, len(tokens)):
+        if tokens[index].text == "(":
+            depth += 1
+        elif tokens[index].text == ")":
+            depth -= 1
+            if depth == 0:
+                return index
+    return None
+
+
 def _template_sources(root: Path, dependencies: dict) -> tuple[tuple[str, str], ...]:
     result = []
     for path in sorted(root.rglob("*")):
@@ -812,80 +1031,1277 @@ def _template_sources(root: Path, dependencies: dict) -> tuple[tuple[str, str], 
 
 
 def _template_actions(root: Path, dependencies: dict) -> _TemplateActionIndex:
-    root_state: dict[str, tuple[set[str], set[str], bool]] = {}
-    definition_state: dict[str, tuple[set[str], set[str], bool]] = {}
-    for path, text in _template_sources(root, dependencies):
-        root_functions: set[str] = set()
-        root_calls: set[str] = set()
-        root_dynamic = False
+    roots: dict[str, _TemplateActionScope] = {}
+    definitions: dict[str, _TemplateActionScope] = {}
+    sources = dict(_template_sources(root, dependencies))
+    root_chart = _strict_yaml(root / "Chart.yaml", "Chart.yaml")
+    root_chart_name = root_chart.get("name")
+    if type(root_chart_name) is not str or not root_chart_name:
+        raise HelmMaterializationError(
+            "CHART_INVENTORY_UNAVAILABLE", "Chart.yaml identity is incomplete"
+        )
+    source_base_paths: dict[str, tuple[str, str, str]] = {}
+    source_template_names: dict[str, list[str]] = {}
+    for path, text in sources.items():
+        parts = PurePosixPath(path).parts
+        template_positions = [
+            position for position, part in enumerate(parts) if part == "templates"
+        ]
+        if not template_positions:
+            # CRDs are governed source bytes but are not Helm include targets.
+            source_chart_name = root_chart_name
+            protected_base = "crds"
+            actual_base = f"{root_chart_name}/crds"
+        else:
+            template_position = template_positions[-1]
+            protected_base = PurePosixPath(*parts[:template_position + 1]).as_posix()
+            chart_positions = [
+                position for position in range(template_position)
+                if parts[position] == "charts" and position + 1 < template_position
+            ]
+            if chart_positions:
+                source_chart_name = parts[chart_positions[-1] + 1]
+            else:
+                source_chart_name = root_chart_name
+            actual_base = f"{source_chart_name}/templates"
+            suffix = PurePosixPath(*parts[template_position + 1:]).as_posix()
+            actual_name = f"{actual_base}/{suffix}"
+            source_template_names.setdefault(actual_name, []).append(path)
+        source_base_paths[path] = (
+            actual_base,
+            protected_base,
+            f"{source_chart_name}@{protected_base}",
+        )
+        root_actions: list[str] = []
         current_name: str | None = None
-        current_functions: set[str] | None = None
-        current_calls: set[str] | None = None
-        current_dynamic = False
+        current_actions: list[str] | None = None
         definition_depth = 0
-        for match in _ACTION.finditer(text):
-            action = match.group(1)
+        for action in _iter_template_actions(text):
             if _TEMPLATE_COMMENT.fullmatch(action):
                 continue
             definition = _DEFINE_ACTION.match(action)
             if definition is not None:
-                if current_name is not None or definition.group(1) in definition_state:
+                if current_name is not None or definition.group(1) in definitions:
                     raise HelmMaterializationError(
                         "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
                         "named Helm template definition is duplicated or nested",
                     )
                 current_name = definition.group(1)
-                current_functions = set()
-                current_calls = set()
-                current_dynamic = False
+                current_actions = []
                 definition_depth = 1
                 continue
-            code = _unquoted_action(action)
-            functions = {
-                item.group(1) for item in _RANDOM_FUNCTION.finditer(code)
-            }
-            if _LOOKUP_FUNCTION.search(code):
-                functions.add("lookup")
-            calls = set(_NAMED_TEMPLATE_CALL.findall(action))
-            dynamic = bool(_NAMED_TEMPLATE_ANY.search(code)) and not calls
             if current_name is None:
-                root_functions.update(functions)
-                root_calls.update(calls)
-                root_dynamic = root_dynamic or dynamic
+                root_actions.append(action)
             else:
-                assert current_functions is not None and current_calls is not None
-                current_functions.update(functions)
-                current_calls.update(calls)
-                current_dynamic = current_dynamic or dynamic
+                assert current_actions is not None
+                code = _unquoted_action(action)
                 if _CONTROL_START.match(code):
                     definition_depth += 1
                 if _CONTROL_END.match(code):
                     definition_depth -= 1
                     if definition_depth == 0:
-                        definition_state[current_name] = (
-                            current_functions,
-                            current_calls,
-                            current_dynamic,
+                        definitions[current_name] = _TemplateActionScope(
+                            path, tuple(current_actions)
                         )
                         current_name = None
-                        current_functions = None
-                        current_calls = None
-                        current_dynamic = False
+                        current_actions = None
+                        continue
+                current_actions.append(action)
         if current_name is not None:
             raise HelmMaterializationError(
                 "AMBIGUOUS_TEMPLATE_ACTION_GRAPH", "named Helm template is not closed"
             )
-        root_state[path] = (root_functions, root_calls, root_dynamic)
+        roots[path] = _TemplateActionScope(path, tuple(root_actions))
     return _TemplateActionIndex(
-        roots={
-            path: _TemplateActionScope(frozenset(functions), frozenset(calls), dynamic)
-            for path, (functions, calls, dynamic) in root_state.items()
-        },
-        definitions={
-            name: _TemplateActionScope(frozenset(functions), frozenset(calls), dynamic)
-            for name, (functions, calls, dynamic) in definition_state.items()
-        },
+        roots,
+        definitions,
+        sources,
+        source_base_paths,
+        {name: tuple(sorted(paths)) for name, paths in source_template_names.items()},
     )
+
+
+_UNKNOWN = object()
+_UNMODELED_VALUES = object()
+_SUBCHART_VALUES = object()
+
+
+def _merge_values(target: dict, update: dict) -> dict:
+    result = dict(target)
+    for key, value in update.items():
+        if type(key) is not str:
+            raise HelmMaterializationError(
+                "UNMODELED_RENDER_INPUT", "Helm values keys must be strings"
+            )
+        if type(value) is dict and type(result.get(key)) is dict:
+            result[key] = _merge_values(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
+def _load_values_file(path: Path) -> dict:
+    try:
+        value = yaml.load(path.read_text(encoding="utf-8"), Loader=_StrictSafeLoader)
+    except (OSError, UnicodeError, yaml.YAMLError) as exc:
+        raise HelmMaterializationError(
+            "UNMODELED_RENDER_INPUT", "Helm values are not valid UTF-8 YAML"
+        ) from exc
+    if value is None:
+        return {}
+    if type(value) is not dict:
+        raise HelmMaterializationError(
+            "UNMODELED_RENDER_INPUT", "Helm values root must be a mapping"
+        )
+    return value
+
+
+def _set_value_path(values: dict, path: str, value: object) -> bool:
+    # The bounded proof model accepts simple dotted maps. Helm's richer --set
+    # index/escape grammar remains rendered and hashed but cannot establish a
+    # branch proof.
+    if re.fullmatch(r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*", path) is None:
+        return False
+    parts = path.split(".")
+    current = values
+    for part in parts[:-1]:
+        child = current.get(part)
+        if type(child) is not dict:
+            child = {}
+            current[part] = child
+        current = child
+    current[parts[-1]] = value
+    return True
+
+
+def _protected_values(spec: HelmRenderSpec) -> tuple[dict, str]:
+    values: dict = {}
+    identity: list[dict] = []
+    default_values = spec.chart_root / "values.yaml"
+    if default_values.is_file() and not default_values.is_symlink():
+        values = _merge_values(values, _load_values_file(default_values))
+        identity.append({"source": "chart-default", "sha256": _sha256(default_values.read_bytes())})
+    for relative in spec.values_files:
+        path = spec.chart_root / relative
+        values = _merge_values(values, _load_values_file(path))
+        identity.append({"source": relative, "sha256": _sha256(path.read_bytes())})
+    for key, raw in spec.set_values:
+        try:
+            value = yaml.load(raw, Loader=_StrictSafeLoader)
+        except yaml.YAMLError as exc:
+            raise HelmMaterializationError(
+                "UNMODELED_RENDER_INPUT", "typed Helm override cannot be modeled exactly"
+            ) from exc
+        if not _set_value_path(values, key, value):
+            values[_UNMODELED_VALUES] = True
+        identity.append({
+            "source": "set", "key": key, "value_sha256": _sha256(raw.encode("utf-8"))
+        })
+    for key, raw in spec.set_strings:
+        if not _set_value_path(values, key, raw):
+            values[_UNMODELED_VALUES] = True
+        identity.append({
+            "source": "set-string", "key": key,
+            "value_sha256": _sha256(raw.encode("utf-8")),
+        })
+    subcharts: dict[str, dict] = {}
+    charts_root = spec.chart_root / "charts"
+    if charts_root.is_dir():
+        for child in sorted(charts_root.iterdir(), key=lambda item: item.name):
+            if not child.is_dir() or child.is_symlink():
+                continue
+            child_values: dict = {}
+            child_default = child / "values.yaml"
+            if child_default.is_file() and not child_default.is_symlink():
+                child_values = _load_values_file(child_default)
+            parent_values = values.get(child.name, {})
+            if type(parent_values) is dict:
+                child_values = _merge_values(child_values, parent_values)
+            else:
+                child_values[_UNMODELED_VALUES] = True
+            subcharts[child.name] = child_values
+    values[_SUBCHART_VALUES] = subcharts
+    return values, _canonical_sha(identity)
+
+
+def _values_for_source(values: dict, source_template: str) -> dict:
+    parts = PurePosixPath(source_template).parts
+    if len(parts) >= 3 and parts[0] == "charts":
+        context = values.get(_SUBCHART_VALUES, {}).get(parts[1])
+        if type(context) is dict:
+            return context
+        return {_UNMODELED_VALUES: True}
+    return values
+
+
+def _value_at(values: object, expression: str) -> object:
+    match = _VALUES_PATH.fullmatch(expression.strip())
+    if match is None:
+        return _UNKNOWN
+    if type(values) is dict and values.get(_UNMODELED_VALUES) is True:
+        return _UNKNOWN
+    path = match.group(1)
+    if path is None:
+        return values
+    current = values
+    for part in path.split("."):
+        if type(current) is not dict or part not in current:
+            return _UNKNOWN
+        current = current[part]
+    return current
+
+
+def _exact_value_at(values: object, expression: str) -> tuple[bool, object]:
+    match = _VALUES_PATH.fullmatch(expression.strip())
+    if match is None or type(values) is not dict or values.get(_UNMODELED_VALUES) is True:
+        return False, None
+    current: object = values
+    path = match.group(1)
+    if path is None:
+        return True, current
+    for part in path.split("."):
+        if type(current) is not dict or part not in current:
+            return False, None
+        current = current[part]
+    return True, current
+
+
+def _strip_outer_parentheses(
+    tokens: tuple[_ActionToken, ...],
+) -> tuple[_ActionToken, ...]:
+    result = tokens
+    while len(result) >= 2 and result[0].text == "(":
+        end = _matching_parenthesis(result, 0)
+        if end != len(result) - 1:
+            break
+        result = result[1:-1]
+    return result
+
+
+def _resolve_tpl_expression(
+    tokens: tuple[_ActionToken, ...], values: dict
+) -> _TplArgument | None:
+    expression = _strip_outer_parentheses(tokens)
+    if len(expression) == 1:
+        token = expression[0]
+        if token.quoted:
+            return _TplArgument(token.text, "LITERAL", "")
+        found, value = _exact_value_at(values, token.text)
+        if found and type(value) is str:
+            match = _VALUES_PATH.fullmatch(token.text)
+            assert match is not None and match.group(1) is not None
+            return _TplArgument(value, "PROTECTED_VALUES_PATH", match.group(1))
+        return None
+    if len(expression) == 3 and expression[0].text == "default":
+        fallback = expression[1]
+        requested = expression[2]
+        if not fallback.quoted:
+            return None
+        found, value = _exact_value_at(values, requested.text)
+        selected = value if found and _truth(value) else fallback.text
+        if type(selected) is not str:
+            return None
+        match = _VALUES_PATH.fullmatch(requested.text)
+        if match is None or match.group(1) is None:
+            return None
+        return _TplArgument(selected, "PROTECTED_VALUES_DEFAULT", match.group(1))
+    return None
+
+
+def _resolve_tpl_call(
+    tokens: tuple[_ActionToken, ...], start: int, values: dict
+) -> tuple[_TplArgument, int] | None:
+    if start >= len(tokens) or tokens[start].quoted or tokens[start].text != "tpl":
+        return None
+    argument_start = start + 1
+    if argument_start >= len(tokens):
+        return None
+    if tokens[argument_start].text == "(":
+        argument_end = _matching_parenthesis(tokens, argument_start)
+        if argument_end is None:
+            return None
+        argument_tokens = tokens[argument_start + 1:argument_end]
+        context_index = argument_end + 1
+    else:
+        argument_tokens = tokens[argument_start:argument_start + 1]
+        context_index = argument_start + 1
+    argument = _resolve_tpl_expression(argument_tokens, values)
+    if (
+        argument is None
+        or context_index >= len(tokens)
+        or tokens[context_index].quoted
+        or tokens[context_index].text not in {".", "$"}
+    ):
+        return None
+    return argument, context_index + 1
+
+
+def _tpl_condition_value(expression: str, values: dict) -> object:
+    tokens = _action_tokens(expression)
+    if tokens is None:
+        return _UNKNOWN
+    tokens = _strip_outer_parentheses(tokens)
+    resolved = _resolve_tpl_call(tokens, 0, values)
+    if resolved is None or resolved[1] != len(tokens):
+        return _UNKNOWN
+    argument = resolved[0]
+    if _iter_template_actions(argument.content):
+        return _UNKNOWN
+    return argument.content
+
+
+def _literal_or_value(token: str, values: dict) -> object:
+    value = _value_at(values, token)
+    if value is not _UNKNOWN:
+        return value
+    lowered = token.lower()
+    if lowered == "true":
+        return True
+    if lowered == "false":
+        return False
+    if lowered in {"nil", "null"}:
+        return None
+    if re.fullmatch(r"-?[0-9]+", token):
+        return int(token)
+    if re.fullmatch(r"-?[0-9]+\.[0-9]+", token):
+        return float(token)
+    # shlex has already removed quotes, so an unrecognized bare token is not
+    # distinguishable from a literal. Only strings in an equality operand are
+    # admitted by the caller.
+    return _UNKNOWN
+
+
+def _truth(value: object) -> bool | None:
+    if value is _UNKNOWN:
+        return None
+    if value is None or value is False:
+        return False
+    if value == 0 or value == "" or value == [] or value == {}:
+        return False
+    return True
+
+
+def _condition(expression: str, values: dict) -> bool | None:
+    expression = expression.strip()
+    while expression.startswith("(") and expression.endswith(")"):
+        expression = expression[1:-1].strip()
+    if "|" in expression:
+        return None
+    tpl_value = _tpl_condition_value(expression, values)
+    if tpl_value is not _UNKNOWN:
+        return _truth(tpl_value)
+    try:
+        tokens = shlex.split(expression, posix=True)
+    except ValueError:
+        return None
+    if not tokens:
+        return None
+    if len(tokens) == 1:
+        return _truth(_literal_or_value(tokens[0], values))
+    if len(tokens) == 2 and tokens[0] == "not":
+        inner = _condition(tokens[1], values)
+        return None if inner is None else not inner
+    if len(tokens) == 3 and tokens[0] in {"eq", "ne"}:
+        left = _literal_or_value(tokens[1], values)
+        right = _literal_or_value(tokens[2], values)
+        # Quoted strings lose their delimiters under shlex. Treat an operand as
+        # a literal only when the original expression contains its quoted form.
+        if left is _UNKNOWN and re.search(rf"(['\"])\s*{re.escape(tokens[1])}\s*\1", expression):
+            left = tokens[1]
+        if right is _UNKNOWN and re.search(rf"(['\"])\s*{re.escape(tokens[2])}\s*\1", expression):
+            right = tokens[2]
+        if left is _UNKNOWN or right is _UNKNOWN:
+            return None
+        result = left == right
+        return result if tokens[0] == "eq" else not result
+    return None
+
+
+def _combine(parent: bool | None, child: bool | None) -> bool | None:
+    if parent is False or child is False:
+        return False
+    if parent is True and child is True:
+        return True
+    return None
+
+
+@dataclass(slots=True)
+class _ActionState:
+    reachable_functions: set[str]
+    reached_definitions: set[str]
+    excluded: list[dict]
+    ambiguous: bool = False
+    tpl_evidence: list[dict] | None = None
+    protected_values_sha256: str = ""
+    tpl_expanded_bytes: int = 0
+    tpl_nested_actions: int = 0
+    reachable_details: list[dict] | None = None
+    dynamic_include_evidence: list[dict] | None = None
+    dynamic_include_nodes: int = 0
+    dynamic_include_action_bytes: int = 0
+    dynamic_include_targets: int = 0
+
+    def __post_init__(self) -> None:
+        if self.tpl_evidence is None:
+            self.tpl_evidence = []
+        if self.reachable_details is None:
+            self.reachable_details = []
+        if self.dynamic_include_evidence is None:
+            self.dynamic_include_evidence = []
+
+
+def _action_parts(action: str) -> tuple[set[str], set[str], bool]:
+    code = _unquoted_action(action)
+    functions = {item.group(1) for item in _RANDOM_FUNCTION.finditer(code)}
+    if _LOOKUP_FUNCTION.search(code):
+        functions.add("lookup")
+    calls = set(_NAMED_TEMPLATE_CALL.findall(action))
+    tokens = _action_tokens(action)
+    dynamic = tokens is None and bool(_NAMED_TEMPLATE_ANY.search(code))
+    if tokens is not None:
+        dynamic = any(
+            not token.quoted
+            and token.text in {"include", "template"}
+            and position + 1 < len(tokens)
+            and not tokens[position + 1].quoted
+            for position, token in enumerate(tokens)
+        )
+    return functions, calls, dynamic
+
+
+def _all_dangerous(
+    scope: _TemplateActionScope,
+    index: _TemplateActionIndex,
+    visited: set[str] | None = None,
+) -> tuple[tuple[str, str, str], ...]:
+    visited = set() if visited is None else visited
+    result: list[tuple[str, str, str]] = []
+    for action in scope.actions:
+        functions, calls, _dynamic = _action_parts(action)
+        result.extend((scope.source_path, item, _sha256(action.encode())) for item in functions)
+        for name in calls:
+            if name in visited:
+                continue
+            visited.add(name)
+            called = index.definitions.get(name)
+            if called is not None:
+                result.extend(_all_dangerous(called, index, visited))
+    return tuple(result)
+
+
+def _scope_has_action_risk(
+    scope: _TemplateActionScope,
+    index: _TemplateActionIndex,
+    visited: set[str] | None = None,
+) -> bool:
+    visited = set() if visited is None else visited
+    for action in scope.actions:
+        functions, calls, dynamic = _action_parts(action)
+        if functions or dynamic or _TPL_FUNCTION.search(_unquoted_action(action)):
+            return True
+        for name in calls:
+            if name in visited:
+                continue
+            called = index.definitions.get(name)
+            if called is None:
+                return True
+            visited.add(name)
+            if _scope_has_action_risk(called, index, visited):
+                return True
+    return False
+
+
+def _record_excluded(
+    state: _ActionState,
+    scope: _TemplateActionScope,
+    action: str,
+    functions: set[str],
+    calls: set[str],
+    index: _TemplateActionIndex,
+) -> None:
+    records = [(scope.source_path, item, _sha256(action.encode())) for item in functions]
+    for name in calls:
+        called = index.definitions.get(name)
+        if called is not None:
+            records.extend(_all_dangerous(called, index, {name}))
+    for source, function, digest in records:
+        record = {
+            "source_template": source,
+            "action_class": "lookup" if function == "lookup" else "nondeterministic",
+            "action_sha256": digest,
+        }
+        if record not in state.excluded:
+            state.excluded.append(record)
+
+
+def _record_reachable(
+    state: _ActionState,
+    scope: _TemplateActionScope,
+    action: str,
+    functions: set[str],
+) -> None:
+    assert state.reachable_details is not None
+    for function in sorted(functions):
+        record = {
+            "source_template": scope.source_path,
+            "action_class": "lookup" if function == "lookup" else "nondeterministic",
+            "action_sha256": _sha256(action.encode("utf-8")),
+        }
+        if record not in state.reachable_details:
+            state.reachable_details.append(record)
+
+
+def _nested_action_is_bounded(action: str, values: dict) -> bool:
+    code = _unquoted_action(action).strip()
+    if not code:
+        return True
+    if _CONTROL_END.match(code) or _CONTROL_ELSE.match(code):
+        alternate = _CONTROL_ELSE.match(code)
+        return alternate is None or alternate.group(1) is None or (
+            _condition(alternate.group(1), values) is not None
+        )
+    start = re.match(r"^(if|with|range)(?:\s+(.*))?$", action.strip(), re.DOTALL)
+    if start is not None:
+        return _condition((start.group(2) or "").strip(), values) is not None
+    if _CONTROL_START.match(code):
+        return False
+    functions, calls, dynamic = _action_parts(action)
+    if functions or calls or dynamic or _TPL_FUNCTION.search(code):
+        return True
+    tokens = _action_tokens(action)
+    if tokens is None or "|" in {item.text for item in tokens}:
+        return False
+    if len(tokens) != 1:
+        return False
+    token = tokens[0]
+    if token.quoted or token.text in {".", "$", ".Release.Namespace"}:
+        return True
+    found, _value = _exact_value_at(values, token.text)
+    return found
+
+
+def _dynamic_include_operand(
+    token: _ActionToken,
+    scope: _TemplateActionScope,
+    index: _TemplateActionIndex,
+) -> tuple[str, dict] | None:
+    if token.quoted:
+        return token.text, {
+            "kind": "LITERAL",
+            "identity_sha256": _sha256(token.text.encode("utf-8")),
+        }
+    if token.text not in {".Template.BasePath", "$.Template.BasePath"}:
+        return None
+    base = index.source_base_paths.get(scope.source_path)
+    if base is None:
+        return None
+    actual_base, protected_base, chart_identity = base
+    return actual_base, {
+        "kind": "TEMPLATE_BASE_PATH",
+        "protected_path": protected_base,
+        "chart_identity": chart_identity,
+        "identity_sha256": _canonical_sha({
+            "kind": "TEMPLATE_BASE_PATH",
+            "source_template": scope.source_path,
+            "actual_base_sha256": _sha256(actual_base.encode("utf-8")),
+            "protected_path": protected_base,
+            "chart_identity": chart_identity,
+        }),
+    }
+
+
+def _bounded_printf(format_string: str, operands: tuple[str, ...]) -> str | None:
+    output: list[str] = []
+    operand_index = 0
+    index = 0
+    while index < len(format_string):
+        if format_string[index] != "%":
+            output.append(format_string[index])
+            index += 1
+            continue
+        if index + 1 >= len(format_string):
+            return None
+        verb = format_string[index + 1]
+        if verb == "%":
+            output.append("%")
+        elif verb == "s" and operand_index < len(operands):
+            output.append(operands[operand_index])
+            operand_index += 1
+        else:
+            return None
+        index += 2
+    if operand_index != len(operands):
+        return None
+    return "".join(output)
+
+
+def _resolve_dynamic_include_expression(
+    tokens: tuple[_ActionToken, ...],
+    scope: _TemplateActionScope,
+    index: _TemplateActionIndex,
+) -> tuple[str, tuple[dict, ...], str] | None:
+    while (
+        len(tokens) >= 2
+        and tokens[0].text == "("
+        and _matching_parenthesis(tokens, 0) == len(tokens) - 1
+    ):
+        tokens = tokens[1:-1]
+    if len(tokens) < 2 or tokens[0].quoted:
+        return None
+    function = tokens[0].text
+    if function not in {"print", "printf"}:
+        return None
+    values: list[str] = []
+    identities: list[dict] = []
+    for token in tokens[1:]:
+        if token.text in {"(", ")", "|"}:
+            return None
+        operand = _dynamic_include_operand(token, scope, index)
+        if operand is None:
+            return None
+        value, identity = operand
+        values.append(value)
+        identities.append(identity)
+    if function == "print":
+        target = "".join(values)
+        expression_type = (
+            "PRINT_TEMPLATE_BASE_PATH"
+            if any(item["kind"] == "TEMPLATE_BASE_PATH" for item in identities)
+            else "PRINT_LITERALS"
+        )
+    else:
+        if not tokens[1].quoted:
+            return None
+        target = _bounded_printf(values[0], tuple(values[1:]))
+        if target is None:
+            return None
+        expression_type = (
+            "PRINTF_TEMPLATE_BASE_PATH"
+            if any(item["kind"] == "TEMPLATE_BASE_PATH" for item in identities[1:])
+            else "PRINTF_LITERALS"
+        )
+    if (
+        not target
+        or len(target.encode("utf-8")) > 4096
+        or "\x00" in target
+        or any(ord(character) < 32 for character in target)
+    ):
+        return None
+    return target, tuple(identities), expression_type
+
+
+def _map_dynamic_include_target(
+    call_function: str,
+    target: str,
+    expression_type: str,
+    operands: tuple[dict, ...],
+    index: _TemplateActionIndex,
+) -> _ResolvedIncludeTarget | None:
+    if "/" in target:
+        path = PurePosixPath(target)
+        if path.is_absolute() or ".." in path.parts:
+            return None
+    candidates: list[tuple[str, str, _TemplateActionScope]] = []
+    definition = index.definitions.get(target)
+    if definition is not None:
+        candidates.append(("NAMED_TEMPLATE", f"named-template:{target}", definition))
+    for source in index.source_template_names.get(target, ()):
+        scope = index.roots.get(source)
+        if scope is not None:
+            candidates.append(("SOURCE_TEMPLATE", f"source-template:{source}", scope))
+    if len(candidates) != 1:
+        return None
+    target_kind, target_identity, target_scope = candidates[0]
+    source_text = index.sources.get(target_scope.source_path)
+    if source_text is None:
+        return None
+    return _ResolvedIncludeTarget(
+        call_function,
+        expression_type,
+        operands,
+        target,
+        target_kind,
+        target_identity,
+        target_scope,
+        _sha256(source_text.encode("utf-8")),
+    )
+
+
+def _resolved_dynamic_include_calls(
+    action: str,
+    scope: _TemplateActionScope,
+    index: _TemplateActionIndex,
+) -> tuple[_ResolvedIncludeTarget, ...] | None:
+    tokens = _action_tokens(action)
+    if tokens is None:
+        return None
+    dynamic_positions = [
+        position for position, token in enumerate(tokens)
+        if not token.quoted
+        and token.text in {"include", "template"}
+        and position + 1 < len(tokens)
+        and not tokens[position + 1].quoted
+    ]
+    if not dynamic_positions:
+        return ()
+    if len(dynamic_positions) != 1:
+        return None
+    position = dynamic_positions[0]
+    expression_start = position + 1
+    if tokens[expression_start].text != "(":
+        return None
+    expression_end = _matching_parenthesis(tokens, expression_start)
+    if expression_end is None or expression_end + 1 >= len(tokens):
+        return None
+    context = tokens[expression_end + 1]
+    if context.quoted or context.text not in {".", "$"}:
+        return None
+    tail = tuple(item.text for item in tokens[expression_end + 2:])
+    if tail not in {(), ("|", "sha256sum")}:
+        return None
+    expression = _resolve_dynamic_include_expression(
+        tokens[expression_start:expression_end + 1], scope, index
+    )
+    if expression is None:
+        return None
+    target, operands, expression_type = expression
+    resolved = _map_dynamic_include_target(
+        tokens[position].text, target, expression_type, operands, index
+    )
+    if resolved is None:
+        return None
+    return (resolved,)
+
+
+def _dynamic_include_callsite_identity(
+    scope: _TemplateActionScope,
+    action: str,
+    action_index: int,
+    include_ordinal: int,
+    target: _ResolvedIncludeTarget,
+    recursion_depth: int,
+    parent_callsite_identity: str,
+) -> str:
+    return _canonical_sha({
+        "source_template": scope.source_path,
+        "callsite_action_sha256": _sha256(action.encode("utf-8")),
+        "callsite_action_index": action_index,
+        "include_ordinal": include_ordinal,
+        "call_function": target.call_function,
+        "resolved_expression_type": target.expression_type,
+        "resolved_target_identity": target.target_identity,
+        "recursion_depth": recursion_depth,
+        "parent_callsite_identity": parent_callsite_identity,
+    })
+
+
+def _analyze_dynamic_include_calls(
+    action: str,
+    scope: _TemplateActionScope,
+    action_index: int,
+    index: _TemplateActionIndex,
+    values: dict,
+    state: _ActionState,
+    execution_state: bool | None,
+    call_stack: tuple[str, ...],
+    tpl_depth: int,
+    tpl_stack: tuple[str, ...],
+    tpl_call_stack: tuple[str, ...],
+    dynamic_target_stack: tuple[str, ...],
+    dynamic_callsite_stack: tuple[str, ...],
+    nested_contract: bool,
+) -> bool:
+    if not _action_parts(action)[2]:
+        return True
+    resolved = _resolved_dynamic_include_calls(action, scope, index)
+    if resolved is None:
+        state.ambiguous = True
+        return False
+    for include_ordinal, target in enumerate(resolved, start=1):
+        recursion_depth = len(dynamic_target_stack) + 1
+        action_bytes = sum(
+            len(item.encode("utf-8")) for item in target.target_scope.actions
+        )
+        if (
+            recursion_depth > _MAX_DYNAMIC_INCLUDE_DEPTH
+            or target.target_identity in dynamic_target_stack
+            or state.dynamic_include_nodes + 1 > _MAX_DYNAMIC_INCLUDE_NODES
+            or state.dynamic_include_targets + 1 > _MAX_DYNAMIC_INCLUDE_TARGETS
+            or state.dynamic_include_action_bytes + action_bytes
+            > _MAX_DYNAMIC_INCLUDE_ACTION_BYTES
+        ):
+            state.ambiguous = True
+            return False
+        state.dynamic_include_nodes += 1
+        state.dynamic_include_targets += 1
+        state.dynamic_include_action_bytes += action_bytes
+        parent_callsite = dynamic_callsite_stack[-1] if dynamic_callsite_stack else ""
+        callsite_identity = _dynamic_include_callsite_identity(
+            scope,
+            action,
+            action_index,
+            include_ordinal,
+            target,
+            recursion_depth,
+            parent_callsite,
+        )
+        record = {
+            "source_template": scope.source_path,
+            "callsite_action_sha256": _sha256(action.encode("utf-8")),
+            "callsite_action_index": action_index,
+            "include_ordinal": include_ordinal,
+            "call_function": target.call_function,
+            "callsite_identity": callsite_identity,
+            "parent_callsite_identity": parent_callsite,
+            "original_expression_sha256": _sha256(action.encode("utf-8")),
+            "resolved_expression_type": target.expression_type,
+            "operand_identities": [dict(item) for item in target.operands],
+            "resolved_target_string": target.target_string,
+            "resolved_target_kind": target.target_kind,
+            "resolved_target_identity": target.target_identity,
+            "target_source_template": target.target_scope.source_path,
+            "target_source_sha256": target.target_source_sha256,
+            "recursion_depth": recursion_depth,
+            "reached_dangerous_actions": [],
+            "excluded_dangerous_actions": [],
+            "child_callsite_identities": [],
+            "resolution_identity": "",
+        }
+        assert state.dynamic_include_evidence is not None
+        state.dynamic_include_evidence.append(record)
+        evidence_start = len(state.dynamic_include_evidence)
+        excluded_start = len(state.excluded)
+        assert state.reachable_details is not None
+        reachable_start = len(state.reachable_details)
+        if execution_state is True:
+            if target.target_kind == "NAMED_TEMPLATE":
+                state.reached_definitions.add(target.target_string)
+            _evaluate_scope(
+                target.target_scope,
+                index,
+                values,
+                state,
+                initial=True,
+                call_stack=call_stack,
+                tpl_depth=tpl_depth,
+                tpl_stack=tpl_stack,
+                tpl_call_stack=tpl_call_stack,
+                dynamic_target_stack=(*dynamic_target_stack, target.target_identity),
+                dynamic_callsite_stack=(*dynamic_callsite_stack, callsite_identity),
+                nested_contract=nested_contract,
+            )
+        elif execution_state is None:
+            if _scope_has_action_risk(target.target_scope, index, {target.target_identity}):
+                state.ambiguous = True
+        else:
+            _record_excluded(
+                state,
+                target.target_scope,
+                action,
+                set(),
+                set(),
+                index,
+            )
+            for source, function, digest in _all_dangerous(
+                target.target_scope, index, {target.target_identity}
+            ):
+                excluded_record = {
+                    "source_template": source,
+                    "action_class": (
+                        "lookup" if function == "lookup" else "nondeterministic"
+                    ),
+                    "action_sha256": digest,
+                }
+                if excluded_record not in state.excluded:
+                    state.excluded.append(excluded_record)
+        record["reached_dangerous_actions"] = [
+            dict(item) for item in state.reachable_details[reachable_start:]
+        ]
+        record["excluded_dangerous_actions"] = [
+            dict(item) for item in state.excluded[excluded_start:]
+        ]
+        record["child_callsite_identities"] = [
+            item["callsite_identity"]
+            for item in state.dynamic_include_evidence[evidence_start:]
+            if item["parent_callsite_identity"] == callsite_identity
+        ]
+        resolution_body = {
+            "callsite_identity": callsite_identity,
+            "original_expression_sha256": record["original_expression_sha256"],
+            "resolved_expression_type": target.expression_type,
+            "operand_identities": record["operand_identities"],
+            "resolved_target_string": target.target_string,
+            "resolved_target_kind": target.target_kind,
+            "resolved_target_identity": target.target_identity,
+            "target_source_template": target.target_scope.source_path,
+            "target_source_sha256": target.target_source_sha256,
+            "recursion_depth": recursion_depth,
+            "reached_dangerous_actions": record["reached_dangerous_actions"],
+            "excluded_dangerous_actions": record["excluded_dangerous_actions"],
+            "child_callsite_identities": record["child_callsite_identities"],
+        }
+        record["resolution_identity"] = _canonical_sha(resolution_body)
+    return True
+
+
+def _tpl_callsite_identity(
+    scope: _TemplateActionScope,
+    action: str,
+    action_index: int,
+    tpl_ordinal: int,
+    argument: _TplArgument,
+    nesting_depth: int,
+    parent_callsite_identity: str,
+) -> str:
+    return _canonical_sha({
+        "source_template": scope.source_path,
+        "callsite_action_sha256": _sha256(action.encode("utf-8")),
+        "callsite_action_index": action_index,
+        "tpl_ordinal": tpl_ordinal,
+        "template_string_source": argument.source_kind,
+        "template_string_path": argument.source_path,
+        "nesting_depth": nesting_depth,
+        "parent_callsite_identity": parent_callsite_identity,
+    })
+
+
+def _analyze_tpl_calls(
+    action: str,
+    scope: _TemplateActionScope,
+    action_index: int,
+    index: _TemplateActionIndex,
+    values: dict,
+    state: _ActionState,
+    execution_state: bool | None,
+    call_stack: tuple[str, ...],
+    tpl_depth: int,
+    tpl_stack: tuple[str, ...],
+    tpl_call_stack: tuple[str, ...],
+    dynamic_target_stack: tuple[str, ...],
+    dynamic_callsite_stack: tuple[str, ...],
+) -> None:
+    code = _unquoted_action(action)
+    if _TPL_FUNCTION.search(code) is None or execution_state is False:
+        return
+    tokens = _action_tokens(action)
+    if tokens is None:
+        state.ambiguous = True
+        return
+    cursor = 0
+    tpl_ordinal = 0
+    while cursor < len(tokens):
+        token = tokens[cursor]
+        if token.quoted or token.text != "tpl":
+            cursor += 1
+            continue
+        tpl_ordinal += 1
+        resolved = _resolve_tpl_call(tokens, cursor, values)
+        if resolved is None:
+            state.ambiguous = True
+            cursor += 1
+            continue
+        argument, cursor = resolved
+        nesting_depth = tpl_depth + 1
+        content_bytes = argument.content.encode("utf-8")
+        content_sha256 = _sha256(content_bytes)
+        if (
+            nesting_depth > _MAX_TPL_NESTING_DEPTH
+            or content_sha256 in tpl_stack
+            or len(content_bytes) > _MAX_TPL_EXPANDED_BYTES
+            or state.tpl_expanded_bytes + len(content_bytes) > _MAX_TPL_EXPANDED_BYTES
+        ):
+            state.ambiguous = True
+            continue
+        try:
+            nested_actions = _iter_template_actions(argument.content)
+        except HelmMaterializationError:
+            state.ambiguous = True
+            continue
+        if (
+            len(nested_actions) > _MAX_TPL_NESTED_ACTIONS
+            or state.tpl_nested_actions + len(nested_actions) > _MAX_TPL_NESTED_ACTIONS
+        ):
+            state.ambiguous = True
+            continue
+        state.tpl_expanded_bytes += len(content_bytes)
+        state.tpl_nested_actions += len(nested_actions)
+        parent_callsite_identity = (
+            tpl_call_stack[-1]
+            if tpl_call_stack
+            else dynamic_callsite_stack[-1]
+            if dynamic_callsite_stack
+            else ""
+        )
+        callsite_identity = _tpl_callsite_identity(
+            scope,
+            action,
+            action_index,
+            tpl_ordinal,
+            argument,
+            nesting_depth,
+            parent_callsite_identity,
+        )
+        nested_action_sha256 = [
+            _sha256(item.encode("utf-8")) for item in nested_actions
+        ]
+        record = {
+            "source_template": scope.source_path,
+            "callsite_action_sha256": _sha256(action.encode("utf-8")),
+            "callsite_action_index": action_index,
+            "tpl_ordinal": tpl_ordinal,
+            "callsite_identity": callsite_identity,
+            "parent_callsite_identity": parent_callsite_identity,
+            "template_string_source": argument.source_kind,
+            "template_string_path": argument.source_path,
+            "template_string_sha256": content_sha256,
+            "protected_values_sha256": state.protected_values_sha256,
+            "nesting_depth": nesting_depth,
+            "expanded_template_bytes": len(content_bytes),
+            "nested_action_sha256": nested_action_sha256,
+            "nested_action_count": len(nested_actions),
+            "reached_dangerous_actions": [],
+            "excluded_dangerous_actions": [],
+            "nested_action_graph_identity": "",
+        }
+        assert state.tpl_evidence is not None
+        state.tpl_evidence.append(record)
+        excluded_start = len(state.excluded)
+        assert state.reachable_details is not None
+        reachable_start = len(state.reachable_details)
+        if nested_actions:
+            _evaluate_scope(
+                _TemplateActionScope(scope.source_path, nested_actions),
+                index,
+                values,
+                state,
+                initial=execution_state,
+                call_stack=call_stack,
+                tpl_depth=nesting_depth,
+                tpl_stack=(*tpl_stack, content_sha256),
+                tpl_call_stack=(*tpl_call_stack, callsite_identity),
+                dynamic_target_stack=dynamic_target_stack,
+                dynamic_callsite_stack=dynamic_callsite_stack,
+                nested_contract=True,
+            )
+        record["reached_dangerous_actions"] = [
+            dict(item) for item in state.reachable_details[reachable_start:]
+        ]
+        record["excluded_dangerous_actions"] = [
+            dict(item) for item in state.excluded[excluded_start:]
+        ]
+        graph_body = {
+            "callsite_identity": callsite_identity,
+            "template_string_sha256": content_sha256,
+            "nesting_depth": nesting_depth,
+            "nested_action_sha256": nested_action_sha256,
+            "reached_dangerous_actions": record["reached_dangerous_actions"],
+            "excluded_dangerous_actions": record["excluded_dangerous_actions"],
+        }
+        record["nested_action_graph_identity"] = _canonical_sha(graph_body)
+
+
+def _evaluate_scope(
+    scope: _TemplateActionScope,
+    index: _TemplateActionIndex,
+    values: dict,
+    state: _ActionState,
+    *,
+    initial: bool | None = True,
+    call_stack: tuple[str, ...] = (),
+    tpl_depth: int = 0,
+    tpl_stack: tuple[str, ...] = (),
+    tpl_call_stack: tuple[str, ...] = (),
+    dynamic_target_stack: tuple[str, ...] = (),
+    dynamic_callsite_stack: tuple[str, ...] = (),
+    nested_contract: bool = False,
+) -> None:
+    active = initial
+    controls: list[tuple[bool | None, bool | None]] = []
+    for action_index, action in enumerate(scope.actions):
+        code = _unquoted_action(action).strip()
+        functions, calls, dynamic = _action_parts(action)
+        # Control expressions execute under the parent state, before the body
+        # reachability is selected.
+        execution_state = active
+        if _CONTROL_ELSE.match(code) or _CONTROL_END.match(code):
+            execution_state = False
+        if execution_state is not False and nested_contract and not _nested_action_is_bounded(
+            action, values
+        ):
+            state.ambiguous = True
+        _analyze_tpl_calls(
+            action,
+            scope,
+            action_index,
+            index,
+            values,
+            state,
+            execution_state,
+            call_stack,
+            tpl_depth,
+            tpl_stack,
+            tpl_call_stack,
+            dynamic_target_stack,
+            dynamic_callsite_stack,
+        )
+        dynamic_resolved = _analyze_dynamic_include_calls(
+            action,
+            scope,
+            action_index,
+            index,
+            values,
+            state,
+            execution_state,
+            call_stack,
+            tpl_depth,
+            tpl_stack,
+            tpl_call_stack,
+            dynamic_target_stack,
+            dynamic_callsite_stack,
+            nested_contract,
+        )
+        if execution_state is True:
+            state.reachable_functions.update(functions)
+            _record_reachable(state, scope, action, functions)
+            state.ambiguous = state.ambiguous or (dynamic and not dynamic_resolved)
+        elif execution_state is None:
+            if functions or (dynamic and not dynamic_resolved):
+                state.ambiguous = True
+            for name in calls:
+                called = index.definitions.get(name)
+                if called is None or _scope_has_action_risk(called, index, {name}):
+                    state.ambiguous = True
+        elif execution_state is False:
+            _record_excluded(state, scope, action, functions, calls, index)
+        if execution_state is True:
+            for name in sorted(calls):
+                called = index.definitions.get(name)
+                if called is None:
+                    state.ambiguous = True
+                    continue
+                if name in call_stack:
+                    continue
+                if len(call_stack) >= _MAX_TEMPLATE_CALL_DEPTH:
+                    state.ambiguous = True
+                    continue
+                state.reached_definitions.add(name)
+                _evaluate_scope(
+                    called, index, values, state,
+                    initial=True, call_stack=(*call_stack, name),
+                    tpl_depth=tpl_depth, tpl_stack=tpl_stack,
+                    tpl_call_stack=tpl_call_stack,
+                    dynamic_target_stack=dynamic_target_stack,
+                    dynamic_callsite_stack=dynamic_callsite_stack,
+                    nested_contract=nested_contract,
+                )
+
+        start = re.match(
+            r"^(if|with|range|block)(?:\s+(.*))?$", action.strip(), re.DOTALL
+        )
+        if start is not None:
+            expression = (start.group(2) or "").strip()
+            selected = None if start.group(1) == "block" else _condition(expression, values)
+            controls.append((active, selected))
+            active = _combine(active, selected)
+            continue
+        alternate = _CONTROL_ELSE.match(action.strip())
+        if alternate is not None:
+            if not controls:
+                state.ambiguous = True
+                continue
+            parent, selected = controls[-1]
+            if alternate.group(1) is None:
+                inverse = None if selected is None else not selected
+                active = _combine(parent, inverse)
+            else:
+                inverse = None if selected is None else not selected
+                active = _combine(_combine(parent, inverse), _condition(alternate.group(1), values))
+            continue
+        if _CONTROL_END.match(code):
+            if not controls:
+                state.ambiguous = True
+            else:
+                active, _selected = controls.pop()
+            continue
+
+        if active is False:
+            _record_excluded(state, scope, action, functions, calls, index)
+    if controls:
+        state.ambiguous = True
+
+
+def _participating_action_analysis(
+    actions: _TemplateActionIndex,
+    documents: tuple[HelmRenderedDocument, ...],
+    values: dict,
+    values_sha256: str,
+) -> tuple[str | None, dict]:
+    sources = tuple(sorted({item.source_template for item in documents}))
+    state = _ActionState(
+        set(), set(), [], protected_values_sha256=values_sha256
+    )
+    for path in sources:
+        scope = actions.roots.get(path)
+        if scope is None:
+            state.ambiguous = True
+            continue
+        _evaluate_scope(scope, actions, _values_for_source(values, path), state)
+    if "lookup" in state.reachable_functions:
+        return "CLUSTER_STATE_REQUIRED", {}
+    if state.reachable_functions:
+        return "NONDETERMINISTIC_RENDER", {}
+    if state.ambiguous:
+        raise HelmMaterializationError(
+            "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+            "participating Helm template action reachability is not exactly provable",
+        )
+    excluded = sorted(
+        state.excluded,
+        key=lambda item: (
+            item["source_template"], item["action_class"], item["action_sha256"]
+        ),
+    )
+    tpl_by_callsite: dict[str, dict] = {}
+    tpl_evidence: list[dict] = []
+    for item in state.tpl_evidence or []:
+        callsite = item["callsite_identity"]
+        existing = tpl_by_callsite.get(callsite)
+        if existing is not None and existing != item:
+            raise HelmMaterializationError(
+                "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+                "a Helm tpl source callsite has contradictory bounded evidence",
+            )
+        if existing is None:
+            tpl_evidence.append(item)
+        tpl_by_callsite[callsite] = item
+    body = {
+        "contract": "helm-template-action-reachability-v1",
+        "status": "PASS",
+        "reason_code": "BOUNDED_TEMPLATE_ACTION_REACHABILITY_PROVEN",
+        "protected_values_sha256": values_sha256,
+        "participating_source_templates": list(sources),
+        "reachable_named_templates": sorted(state.reached_definitions),
+        "excluded_dangerous_actions": excluded,
+        "excluded_dangerous_action_count": len(excluded),
+        "tpl_evidence": tpl_evidence,
+        "tpl_evidence_count": len(tpl_evidence),
+        "tpl_limits": {
+            "maximum_nesting_depth": _MAX_TPL_NESTING_DEPTH,
+            "maximum_expanded_template_bytes": _MAX_TPL_EXPANDED_BYTES,
+            "maximum_nested_actions": _MAX_TPL_NESTED_ACTIONS,
+            "maximum_named_template_call_depth": _MAX_TEMPLATE_CALL_DEPTH,
+        },
+        "dynamic_include_evidence": state.dynamic_include_evidence,
+        "dynamic_include_evidence_count": len(state.dynamic_include_evidence or []),
+        "dynamic_include_limits": {
+            "maximum_resolution_depth": _MAX_DYNAMIC_INCLUDE_DEPTH,
+            "maximum_call_graph_nodes": _MAX_DYNAMIC_INCLUDE_NODES,
+            "maximum_parsed_action_bytes": _MAX_DYNAMIC_INCLUDE_ACTION_BYTES,
+            "maximum_resolved_targets": _MAX_DYNAMIC_INCLUDE_TARGETS,
+        },
+    }
+    body["analysis_identity"] = _canonical_sha(body)
+    return None, body
 
 
 def _helm_identity(executable: Path, chart_root: Path) -> dict:
@@ -1037,17 +2453,338 @@ def _source_path(marker: str, chart_name: str, files: set[str]) -> tuple[str, st
     return relative, source_chart
 
 
+def _namespace_expression(source: str) -> str | None:
+    declarations = []
+    for item in _NAMESPACE_LINE.findall(source):
+        compact = item.strip()
+        if (
+            len(compact) >= 2
+            and compact[0] == compact[-1]
+            and compact[0] in {"'", '"'}
+        ):
+            compact = compact[1:-1].strip()
+        if re.fullmatch(
+            r"{{-?\s*\$?\.Release\.Namespace(?:\s*\|\s*quote)?\s*-?}}",
+            compact,
+        ):
+            compact = "{{ .Release.Namespace }}"
+        include = re.fullmatch(
+            r'{{-?\s*include\s+"([^"\r\n]+)"\s+[.$]\s*-?}}', compact
+        )
+        if include is not None:
+            compact = f'{{{{ include "{include.group(1)}" . }}}}'
+        declarations.append(compact)
+    if not declarations:
+        return None
+    unique = tuple(dict.fromkeys(declarations))
+    if len(unique) != 1:
+        raise HelmMaterializationError(
+            "AMBIGUOUS_NAMESPACE_PROVENANCE",
+            "source template contains contradictory namespace declarations",
+        )
+    return unique[0]
+
+
+def _namespace_helper_value(
+    scope: _TemplateActionScope, values: dict, release_namespace: str
+) -> str | None:
+    active: bool | None = True
+    controls: list[tuple[bool | None, bool | None]] = []
+    outputs: list[str] = []
+    for action in scope.actions:
+        code = _unquoted_action(action).strip()
+        start = re.match(r"^(if|with|range)(?:\s+(.*))?$", action.strip(), re.DOTALL)
+        if start is not None:
+            selected = _condition((start.group(2) or "").strip(), values)
+            controls.append((active, selected))
+            active = _combine(active, selected)
+            continue
+        alternate = _CONTROL_ELSE.match(action.strip())
+        if alternate is not None:
+            if not controls:
+                return None
+            parent, selected = controls[-1]
+            inverse = None if selected is None else not selected
+            if alternate.group(1) is not None:
+                inverse = _combine(inverse, _condition(alternate.group(1), values))
+            active = _combine(parent, inverse)
+            continue
+        if _CONTROL_END.match(code):
+            if not controls:
+                return None
+            active, _selected = controls.pop()
+            continue
+        if active is False:
+            continue
+        if active is None:
+            return None
+        compact = action.strip()
+        if compact == ".Release.Namespace" or compact == "$.Release.Namespace":
+            outputs.append(release_namespace)
+            continue
+        value = _value_at(values, compact)
+        if type(value) is str:
+            outputs.append(value)
+            continue
+        # Assignments and comments do not emit a namespace. Any other action is
+        # outside this deliberately small namespace-helper evaluator.
+        if re.match(r"^\$[A-Za-z0-9_]+\s*:?=", compact):
+            continue
+        return None
+    if controls or len(outputs) != 1:
+        return None
+    return outputs[0]
+
+
+def _custom_resource_scopes(sources: dict[str, str]) -> dict[tuple[str, str], str]:
+    """Derive custom-resource scope only from exact local CRD source bytes."""
+    result: dict[tuple[str, str], str] = {}
+    for path, text in sources.items():
+        if "crds" not in PurePosixPath(path).parts:
+            continue
+        try:
+            documents = tuple(
+                yaml.load_all(text, Loader=_StrictSafeLoader)
+            )
+        except yaml.YAMLError:
+            # Templated or otherwise non-static CRDs cannot prove resource scope.
+            continue
+        for document in documents:
+            if type(document) is not dict or document.get("kind") != "CustomResourceDefinition":
+                continue
+            specification = document.get("spec")
+            if type(specification) is not dict:
+                continue
+            names = specification.get("names")
+            group = specification.get("group")
+            scope = specification.get("scope")
+            kind = names.get("kind") if type(names) is dict else None
+            if (
+                type(group) is not str
+                or type(kind) is not str
+                or scope not in {"Cluster", "Namespaced"}
+            ):
+                continue
+            key = (group, kind)
+            prior = result.get(key)
+            if prior is not None and prior != scope:
+                raise HelmMaterializationError(
+                    "AMBIGUOUS_NAMESPACE_PROVENANCE",
+                    "local CRD sources contradict resource scope",
+                )
+            result[key] = scope
+    return result
+
+
+def _resource_scope(
+    api_version: str,
+    kind: str,
+    custom_scopes: dict[tuple[str, str], str],
+) -> str:
+    group = api_version.split("/", 1)[0] if "/" in api_version else ""
+    key = (group, kind)
+    if key in _CLUSTER_SCOPED_GROUP_KINDS:
+        return "Cluster"
+    if group in _NAMESPACED_GROUPS:
+        return "Namespaced"
+    scope = custom_scopes.get(key)
+    if scope is None:
+        raise HelmMaterializationError(
+            "AMBIGUOUS_NAMESPACE_PROVENANCE",
+            "rendered custom-resource scope is not proven by local CRD evidence",
+        )
+    return scope
+
+
+def _namespace_provenance(
+    *,
+    api_version: str,
+    kind: str,
+    explicit_namespace: object,
+    release_namespace: str,
+    source_template: str,
+    source_text: str,
+    values: dict,
+    actions: _TemplateActionIndex,
+    custom_scopes: dict[tuple[str, str], str],
+) -> tuple[str, MappingProxyType]:
+    if explicit_namespace == "":
+        explicit_namespace = None
+    if explicit_namespace is not None and type(explicit_namespace) is not str:
+        raise HelmMaterializationError(
+            "MISSING_RENDERED_RESOURCE_IDENTITY", "rendered namespace is not a string"
+        )
+    scope = _resource_scope(api_version, kind, custom_scopes)
+    if scope == "Cluster":
+        if explicit_namespace is not None:
+            raise HelmMaterializationError(
+                "CONTRADICTORY_NAMESPACE_PROVENANCE",
+                "cluster-scoped rendered resource contains metadata.namespace",
+            )
+        effective = None
+        resolution = "CLUSTER_SCOPED"
+        value_path = ""
+        value_sha = ""
+        expression = ""
+        contradiction = "NONE"
+        # Keep the scanner-facing historical canonical address stable while the
+        # protected namespace evidence records that namespace is absent.
+        canonical_namespace = "default"
+    elif explicit_namespace is None:
+        effective = release_namespace
+        resolution = "HELM_RELEASE_NAMESPACE_DEFAULT"
+        value_path = ""
+        value_sha = ""
+        expression = ""
+        contradiction = "NONE"
+        canonical_namespace = release_namespace
+    else:
+        effective = explicit_namespace
+        canonical_namespace = explicit_namespace
+        expression = _namespace_expression(source_text)
+        value_path = ""
+        value_sha = ""
+        contradiction = (
+            "NONE" if explicit_namespace == release_namespace
+            else "EXPLICIT_NAMESPACE_OVERRIDES_RELEASE_NAMESPACE"
+        )
+        if expression is None:
+            resolution = "EXPLICIT_RENDERED_NAMESPACE"
+            expression = ""
+        else:
+            compact = expression.strip()
+            if (
+                len(compact) >= 2
+                and compact[0] == compact[-1]
+                and compact[0] in {"'", '"'}
+            ):
+                compact = compact[1:-1].strip()
+            release_match = re.fullmatch(
+                r"{{-?\s*\$?\.Release\.Namespace(?:\s*\|\s*quote)?\s*-?}}", compact
+            )
+            value_match = re.fullmatch(
+                r"{{-?\s*\.Values\.([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)"
+                r"(?:\s*\|\s*quote)?\s*-?}}",
+                compact,
+            )
+            value_default_release_match = re.fullmatch(
+                r"{{-?\s*\.Values\.([A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*)"
+                r"\s*\|\s*default\s+\.Release\.Namespace(?:\s*\|\s*quote)?\s*-?}}",
+                compact,
+            )
+            include_match = re.fullmatch(
+                r'{{-?\s*include\s+"([^"\r\n]+)"\s+[.$]\s*-?}}', compact
+            )
+            if release_match is not None:
+                resolution = "RELEASE_NAMESPACE_EXPRESSION"
+                if explicit_namespace != release_namespace:
+                    contradiction = "RELEASE_NAMESPACE_EXPRESSION_CONTRADICTS_RENDER"
+            elif include_match is not None:
+                definition = actions.definitions.get(include_match.group(1))
+                resolved = (
+                    None if definition is None
+                    else _namespace_helper_value(definition, values, release_namespace)
+                )
+                if resolved is None:
+                    raise HelmMaterializationError(
+                        "AMBIGUOUS_NAMESPACE_PROVENANCE",
+                        "named namespace template is outside the bounded proof contract",
+                    )
+                if resolved != explicit_namespace:
+                    raise HelmMaterializationError(
+                        "CONTRADICTORY_NAMESPACE_PROVENANCE",
+                        "named namespace template contradicts rendered metadata",
+                    )
+                resolution = "STATIC_NAMED_NAMESPACE_TEMPLATE"
+                value_path = include_match.group(1)
+                value_sha = _sha256(resolved.encode("utf-8"))
+            elif value_default_release_match is not None:
+                resolution = "VALUES_DEFAULT_RELEASE_NAMESPACE_EXPRESSION"
+                value_path = value_default_release_match.group(1)
+                protected = _value_at(values, f".Values.{value_path}")
+                if protected is _UNKNOWN:
+                    raise HelmMaterializationError(
+                        "AMBIGUOUS_NAMESPACE_PROVENANCE",
+                        "values-derived namespace default lacks an exact protected value",
+                    )
+                selected = release_namespace if not _truth(protected) else protected
+                if type(selected) is not str:
+                    raise HelmMaterializationError(
+                        "AMBIGUOUS_NAMESPACE_PROVENANCE",
+                        "values-derived namespace default is not an exact string",
+                    )
+                value_sha = _canonical_sha(protected)
+                if selected != explicit_namespace:
+                    raise HelmMaterializationError(
+                        "CONTRADICTORY_NAMESPACE_PROVENANCE",
+                        "values-derived namespace default contradicts rendered metadata",
+                    )
+            elif value_match is not None:
+                resolution = "VALUES_NAMESPACE_EXPRESSION"
+                value_path = value_match.group(1)
+                protected = _value_at(values, f".Values.{value_path}")
+                if type(protected) is not str:
+                    raise HelmMaterializationError(
+                        "AMBIGUOUS_NAMESPACE_PROVENANCE",
+                        "values-derived namespace is not an exact protected string",
+                    )
+                value_sha = _sha256(protected.encode("utf-8"))
+                if protected != explicit_namespace:
+                    raise HelmMaterializationError(
+                        "CONTRADICTORY_NAMESPACE_PROVENANCE",
+                        "values-derived namespace contradicts rendered metadata",
+                    )
+            elif "{{" in compact or "}}" in compact:
+                raise HelmMaterializationError(
+                    "AMBIGUOUS_NAMESPACE_PROVENANCE",
+                    "dynamic namespace construction is outside the bounded proof contract",
+                )
+            else:
+                try:
+                    literal = yaml.load(compact, Loader=_StrictSafeLoader)
+                except yaml.YAMLError as exc:
+                    raise HelmMaterializationError(
+                        "AMBIGUOUS_NAMESPACE_PROVENANCE",
+                        "literal namespace source cannot be parsed",
+                    ) from exc
+                if literal != explicit_namespace:
+                    raise HelmMaterializationError(
+                        "CONTRADICTORY_NAMESPACE_PROVENANCE",
+                        "literal namespace source contradicts rendered metadata",
+                    )
+                resolution = "LITERAL_NAMESPACE_EXPRESSION"
+    body = {
+        "contract": "helm-namespace-provenance-v1",
+        "request_namespace": release_namespace,
+        "helm_argument_namespace": release_namespace,
+        "release_namespace": release_namespace,
+        "emitted_metadata_namespace": explicit_namespace,
+        "effective_namespace": effective,
+        "resolution": resolution,
+        "source_template": source_template,
+        "source_expression_sha256": _sha256(expression.encode("utf-8")) if expression else "",
+        "value_path": value_path,
+        "value_sha256": value_sha,
+        "contradiction": contradiction,
+    }
+    body["provenance_identity"] = _canonical_sha(body)
+    return canonical_namespace, MappingProxyType(body)
+
+
 def _documents(
     stdout: bytes,
     *,
     chart_name: str,
     chart_files: tuple[HelmChartFile, ...],
     expanded_dependency_files: tuple[str, ...],
-    default_namespace: str,
+    release_namespace: str,
+    template_actions: _TemplateActionIndex,
+    protected_values: dict,
 ) -> tuple[HelmRenderedDocument, ...]:
     result = []
     identities = set()
     files = {item.path for item in chart_files} | set(expanded_dependency_files)
+    custom_scopes = _custom_resource_scopes(template_actions.sources)
     for index, raw in enumerate(_split_documents(stdout), start=1):
         try:
             text = raw.decode("utf-8", errors="strict")
@@ -1083,17 +2820,23 @@ def _documents(
             raise HelmMaterializationError(
                 "MISSING_RENDERED_RESOURCE_IDENTITY", "rendered resource has no stable name"
             )
-        explicit_namespace = metadata.get("namespace")
-        if explicit_namespace in (None, "") and default_namespace != "default":
+        source_text = template_actions.sources.get(source)
+        if source_text is None:
             raise HelmMaterializationError(
-                "UNMODELED_RENDER_INPUT",
-                "a non-default render namespace is absent from rendered resource metadata",
+                "AMBIGUOUS_SOURCE_PROVENANCE", "source template text is unavailable"
             )
-        namespace = explicit_namespace or default_namespace
-        if type(namespace) is not str:
-            raise HelmMaterializationError(
-                "MISSING_RENDERED_RESOURCE_IDENTITY", "rendered namespace is not a string"
-            )
+        source_values = _values_for_source(protected_values, source)
+        namespace, namespace_provenance = _namespace_provenance(
+            api_version=api_version,
+            kind=kind,
+            explicit_namespace=metadata.get("namespace"),
+            release_namespace=release_namespace,
+            source_template=source,
+            source_text=source_text,
+            values=source_values,
+            actions=template_actions,
+            custom_scopes=custom_scopes,
+        )
         identity = f"{api_version}/{kind}/{namespace}/{name}"
         if identity in identities:
             raise HelmMaterializationError(
@@ -1110,53 +2853,13 @@ def _documents(
             identity,
             source,
             source_chart,
+            namespace_provenance,
         ))
     if not result:
         raise HelmMaterializationError(
             "MISSING_RENDERED_RESOURCE_IDENTITY", "Helm rendered no Kubernetes resources"
         )
     return tuple(result)
-
-
-def _participating_action_failure(
-    actions: _TemplateActionIndex,
-    documents: tuple[HelmRenderedDocument, ...],
-) -> str | None:
-    sources = {item.source_template for item in documents}
-    active_functions = set()
-    pending = set()
-    ambiguous = False
-    for path in sources:
-        scope = actions.roots.get(path)
-        if scope is None:
-            ambiguous = True
-            continue
-        ambiguous = ambiguous or scope.dynamic_call
-        active_functions.update(scope.functions)
-        pending.update(scope.calls)
-    visited = set()
-    while pending:
-        name = pending.pop()
-        if name in visited:
-            continue
-        visited.add(name)
-        scope = actions.definitions.get(name)
-        if scope is None:
-            ambiguous = True
-            continue
-        ambiguous = ambiguous or scope.dynamic_call
-        active_functions.update(scope.functions)
-        pending.update(scope.calls - visited)
-    if "lookup" in active_functions:
-        return "CLUSTER_STATE_REQUIRED"
-    if active_functions:
-        return "NONDETERMINISTIC_RENDER"
-    if ambiguous:
-        raise HelmMaterializationError(
-            "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
-            "participating Helm template action identity is incomplete",
-        )
-    return None
 
 
 def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializationEvidence:
@@ -1185,6 +2888,7 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
         for item in artifact["expanded_files"]
     )
     actions = _template_actions(spec.chart_root, dependencies)
+    protected_values, protected_values_sha = _protected_values(spec)
     executable = _helm_identity(spec.helm_executable, spec.chart_root)
     with tempfile.TemporaryDirectory(prefix="iacgv-helm-renders-") as temporary:
         temp = Path(temporary)
@@ -1198,9 +2902,13 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
             chart_name=chart_name,
             chart_files=chart_files,
             expanded_dependency_files=expanded_dependency_files,
-            default_namespace=spec.namespace,
+            release_namespace=spec.namespace,
+            template_actions=actions,
+            protected_values=protected_values,
         )
-        action_failure = _participating_action_failure(actions, first_documents)
+        action_failure, action_reachability = _participating_action_analysis(
+            actions, first_documents, protected_values, protected_values_sha
+        )
         if action_failure == "CLUSTER_STATE_REQUIRED":
             raise HelmMaterializationError(
                 action_failure, "a participating Helm template requires live cluster lookup"
@@ -1217,7 +2925,9 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
             chart_name=chart_name,
             chart_files=chart_files,
             expanded_dependency_files=expanded_dependency_files,
-            default_namespace=spec.namespace,
+            release_namespace=spec.namespace,
+            template_actions=actions,
+            protected_values=protected_values,
         )
     current_files, current_root_sha = _inventory(spec.chart_root)
     if current_files != chart_files or current_root_sha != chart_root_sha:
@@ -1287,6 +2997,7 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
             "LANG": "C", "LC_ALL": "C", "TZ": "UTC",
             "helm_homes": "fresh-per-render", "kubeconfig": "unavailable",
         }),
+        "template_action_reachability": action_reachability,
     }
     chart_evidence = {
         "name": chart_name,

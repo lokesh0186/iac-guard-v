@@ -55,6 +55,22 @@ This roadmap records intent, not a delivery commitment.
   unrelated relationship resource does not require a fictional standalone check result
   and cannot disappear from complete governance.
 
+## Candidate `0.1.0a6` - Helm namespace and action provenance
+
+- Bind default, explicit non-default, values-derived, and statically selected Helm
+  namespaces to exact protected inputs, source templates, resource scope, and
+  materialization identity.
+- Prove non-reachability of dangerous Helm actions only for bounded exact-value
+  control flow and static template calls.
+- Resolve `tpl` only from an exact protected literal or values path, bind digest-only
+  nested evidence, and preserve bounded recursion/action/byte limits.
+- Resolve only exact dynamic `include`/`template` targets composed from literals and
+  protected `.Template.BasePath`, preserving source hashes and bounded call-graph
+  evidence without introducing general Go-template evaluation.
+- Preserve `CLUSTER_STATE_REQUIRED`, `NONDETERMINISTIC_RENDER`, and
+  `AMBIGUOUS_TEMPLATE_ACTION_GRAPH` whenever the corresponding action is reachable or
+  its reachability cannot be proven.
+
 ## Candidate next-alpha work
 
 These candidates are prioritized by real-world compatibility findings, not

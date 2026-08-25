@@ -44,6 +44,15 @@ The report binds:
 - two fresh render attempts with isolated Helm state;
 - stdout, stderr, rendered document, and rendered bundle digests;
 - one exact `# Source:` marker and Kubernetes identity for each rendered document;
+- a per-resource namespace proof binding the protected release namespace, emitted
+  `metadata.namespace`, values or static helper source where applicable, resource
+  scope, and materialization identity;
+- a bounded action-reachability proof for dangerous Helm actions excluded by exact
+  protected values;
+- digest-only `tpl` evidence when the template string is an exact literal, protected
+  values path, or bounded literal default of a protected values path;
+- exact dynamic `include`/`template` target evidence when restricted `print` or
+  `%s`-only `printf` operands resolve to one protected named template or source file;
 - source chart/template to rendered resource to Checkov finding and graph relationship.
 
 ## Supported dependency boundary
@@ -60,11 +69,13 @@ declared or vendored dependency state is present.
 
 ## Fail-closed boundary
 
-The initial materializer does not support:
+The materializer does not support:
 
 - server-side dry runs or Kubernetes connectivity;
-- `lookup` or another security-relevant dependency on live cluster state;
-- reachable random or time-dependent helpers;
+- reachable `lookup` or another security-relevant dependency on live cluster state;
+- reachable random, password, UUID, or time-dependent helpers;
+- dynamic template names, computed or unbound `tpl` inputs, or complex function
+  pipelines whose branch reachability cannot be proven exactly;
 - plugins, post-renderers, or arbitrary command arguments;
 - remote chart locations or dependency downloads;
 - ambiguous/missing source markers or duplicate rendered identities;
@@ -75,9 +86,38 @@ These conditions produce a typed operational or `INCONCLUSIVE` result. They are 
 silently ignored. Helm stderr is retained by digest and byte count, not copied into the
 canonical materialization evidence.
 
-For this alpha, resources rendered without `metadata.namespace` are authoritative only
-under the `default` render namespace. A non-default namespace must be explicit in the
-rendered document so Checkov and materialization identities cannot disagree.
+For a namespaced resource that omits `metadata.namespace`, the protected Helm release
+namespace is the effective namespace. Explicit literal, `.Release.Namespace`, bounded
+values-derived, and bounded static named-helper namespaces retain their source proof.
+Cluster-scoped resources must omit `metadata.namespace`. A custom-resource scope must
+be established by exact local CRD bytes; an unavailable, dynamic, or contradictory
+scope is inconclusive.
+
+Action reachability is intentionally not a Go-template interpreter. It can exclude a
+dangerous action only under exact protected values for bounded `if`/`else`, `with`,
+`range`, and static named-template calls. Reachable dangerous actions keep their typed
+fail-closed outcomes. Unknown reachability remains
+`AMBIGUOUS_TEMPLATE_ACTION_GRAPH`; repeated deterministic output alone is not a proof
+that a random or cluster-dependent branch is safe.
+
+Bounded `tpl` analysis accepts only an exact quoted literal, an exact protected
+`.Values` path, or a literal `default` applied to an exact protected values path.
+Parenthesized equivalents are accepted. The resolved template string is never copied
+into evidence; its digest, source path/class, callsite, protected-values identity,
+nesting depth, nested-action digests, and reached/excluded dangerous-action identities
+are bound instead. Nested content is evaluated by the same bounded action rules.
+Unknown computed arguments, unsupported nested functions/pipelines, recursion, or
+resource-limit exhaustion remain `AMBIGUOUS_TEMPLATE_ACTION_GRAPH`. Reachable lookup
+and nondeterministic actions retain their stronger typed outcomes.
+
+Bounded dynamic target resolution accepts only exact literals and the protected
+`.Template.BasePath` built-in. Restricted `print` concatenation and `%s`-only `printf`
+may resolve one named-template or chart-source identity. The callsite, operand digests,
+normalized target string, protected target path/hash, parent/child edge, and bounded
+resolution identity are recorded. A missing or duplicate target, path escape,
+unsupported operand/pipeline, recursion, or resource-limit exhaustion remains
+`AMBIGUOUS_TEMPLATE_ACTION_GRAPH`. Resolved targets are analyzed by the same bounded
+action and `tpl` rules; deterministic output never overrides dangerous actions.
 
 This command remains reduced isolation and is suitable only for charts controlled by
 the operator. It is not a hostile pull-request sandbox.

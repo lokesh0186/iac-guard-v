@@ -296,7 +296,10 @@ def _dependency_chart(root: Path) -> Path:
     return chart
 
 
-def _semantic_payload(tmp_path: Path, *, dependencies: bool = False) -> dict:
+def _semantic_payload(
+    tmp_path: Path, *, dependencies: bool = False, tpl: bool = False,
+    dynamic_include: bool = False,
+) -> dict:
     index = sum(1 for item in tmp_path.iterdir() if item.name.startswith("semantic-"))
     semantic_root = tmp_path / f"semantic-{index}"
     semantic_root.mkdir()
@@ -304,16 +307,40 @@ def _semantic_payload(tmp_path: Path, *, dependencies: bool = False) -> dict:
     candidate_root = semantic_root / "candidate"
     baseline_root.mkdir()
     candidate_root.mkdir()
-    baseline = (
-        _spec(baseline_root, chart_root=_dependency_chart(baseline_root))
-        if dependencies
-        else _spec(baseline_root)
-    )
-    candidate = (
-        _spec(candidate_root, chart_root=_dependency_chart(candidate_root))
-        if dependencies
-        else _spec(candidate_root)
-    )
+    if dependencies:
+        baseline = _spec(baseline_root, chart_root=_dependency_chart(baseline_root))
+        candidate = _spec(candidate_root, chart_root=_dependency_chart(candidate_root))
+    elif tpl:
+        baseline_chart = _chart(
+            baseline_root, template="{{ tpl .Values.templateText . }}"
+        )
+        candidate_chart = _chart(
+            candidate_root, template="{{ tpl .Values.templateText . }}"
+        )
+        for chart in (baseline_chart, candidate_chart):
+            (chart / "values.yaml").write_text(
+                "templateText: '{{ .Values.value }}'\nvalue: safe\n",
+                encoding="utf-8",
+            )
+        baseline = _spec(baseline_root, chart_root=baseline_chart)
+        candidate = _spec(candidate_root, chart_root=candidate_chart)
+    elif dynamic_include:
+        action = '{{ include (print $.Template.BasePath "/configmap.yaml") . }}'
+        baseline_chart = _chart(baseline_root, template=action)
+        candidate_chart = _chart(candidate_root, template=action)
+        for chart in (baseline_chart, candidate_chart):
+            (chart / "templates" / "configmap.yaml").write_text(
+                "{{ tpl .Values.templateText . }}", encoding="utf-8"
+            )
+            (chart / "values.yaml").write_text(
+                "templateText: '{{ .Values.value }}'\nvalue: safe\n",
+                encoding="utf-8",
+            )
+        baseline = _spec(baseline_root, chart_root=baseline_chart)
+        candidate = _spec(candidate_root, chart_root=candidate_chart)
+    else:
+        baseline = _spec(baseline_root)
+        candidate = _spec(candidate_root)
     with HELM.materialize_helm_comparison(baseline, candidate) as pair:
         comparison = pair.canonical_dict()
     verification = {}
@@ -339,6 +366,229 @@ def test_helm_semantic_validator_binds_archive_and_expanded_dependency_bytes(
 ) -> None:
     payload = _semantic_payload(tmp_path, dependencies=True)
     REPORT._validate_helm_materialization(payload)
+
+
+def test_helm_semantic_validator_binds_bounded_tpl_evidence(tmp_path: Path) -> None:
+    payload = _semantic_payload(tmp_path, tpl=True)
+    REPORT._validate_helm_materialization(payload)
+
+
+def test_helm_semantic_validator_binds_dynamic_include_evidence(
+    tmp_path: Path,
+) -> None:
+    payload = _semantic_payload(tmp_path, dynamic_include=True)
+    REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("callsite_identity", "0" * 64, "dynamic include callsite identity"),
+        ("resolution_identity", "0" * 64, "dynamic include resolution"),
+        ("target_source_sha256", "0" * 64, "target hash"),
+        ("target_source_template", "templates/escape.yaml", "escapes chart inventory"),
+    ),
+)
+def test_helm_semantic_validator_rejects_dynamic_include_mutation(
+    tmp_path: Path, field: str, value: object, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path, dynamic_include=True))
+    proof = payload["materialization"]["baseline"]["render_inputs"][
+        "template_action_reachability"
+    ]
+    proof["dynamic_include_evidence"][0][field] = value
+    body = dict(proof)
+    body.pop("analysis_identity")
+    proof["analysis_identity"] = REPORT._canonical_json_digest(body)
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("count", "dynamic-include evidence count"),
+        ("duplicate", "callsite identity is duplicated"),
+        ("orphan", "callsite identity is not canonical"),
+        ("children", "resolution is not canonical"),
+        ("operand", "literal include operand contains extra evidence"),
+    ),
+)
+def test_helm_semantic_validator_rejects_dynamic_include_structure_mutation(
+    tmp_path: Path, mutation: str, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path, dynamic_include=True))
+    proof = payload["materialization"]["baseline"]["render_inputs"][
+        "template_action_reachability"
+    ]
+    record = proof["dynamic_include_evidence"][0]
+    if mutation == "count":
+        proof["dynamic_include_evidence_count"] += 1
+    elif mutation == "duplicate":
+        proof["dynamic_include_evidence"].append(copy.deepcopy(record))
+        proof["dynamic_include_evidence_count"] += 1
+    elif mutation == "orphan":
+        record["parent_callsite_identity"] = "1" * 64
+    elif mutation == "children":
+        record["child_callsite_identities"] = ["1" * 64]
+    else:
+        literal = next(
+            item for item in record["operand_identities"] if item["kind"] == "LITERAL"
+        )
+        literal["protected_path"] = "templates"
+    body = dict(proof)
+    body.pop("analysis_identity")
+    proof["analysis_identity"] = REPORT._canonical_json_digest(body)
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("callsite_identity", "0" * 64, "tpl callsite identity"),
+        ("nested_action_graph_identity", "0" * 64, "tpl action graph"),
+        ("protected_values_sha256", "0" * 64, "tpl values identity"),
+    ),
+)
+def test_helm_semantic_validator_rejects_tpl_evidence_mutation(
+    tmp_path: Path, field: str, value: object, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path, tpl=True))
+    proof = payload["materialization"]["baseline"]["render_inputs"][
+        "template_action_reachability"
+    ]
+    proof["tpl_evidence"][0][field] = value
+    body = dict(proof)
+    body.pop("analysis_identity")
+    proof["analysis_identity"] = REPORT._canonical_json_digest(body)
+
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("count", "tpl-evidence count"),
+        ("source", "tpl callsite escapes"),
+        ("nested-count", "nested-action count"),
+        ("nested-digest", "nested action digest"),
+        ("duplicate", "tpl callsite identity is duplicated"),
+    ),
+)
+def test_helm_semantic_validator_rejects_tpl_structure_mutation(
+    tmp_path: Path, mutation: str, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path, tpl=True))
+    proof = payload["materialization"]["baseline"]["render_inputs"][
+        "template_action_reachability"
+    ]
+    record = proof["tpl_evidence"][0]
+    if mutation == "count":
+        proof["tpl_evidence_count"] = 2
+    elif mutation == "source":
+        record["source_template"] = "templates/escape.yaml"
+    elif mutation == "nested-count":
+        record["nested_action_count"] += 1
+    elif mutation == "nested-digest":
+        record["nested_action_sha256"][0] = "not-a-digest"
+    else:
+        proof["tpl_evidence"].append(copy.deepcopy(record))
+        proof["tpl_evidence_count"] = 2
+    body = dict(proof)
+    body.pop("analysis_identity")
+    proof["analysis_identity"] = REPORT._canonical_json_digest(body)
+
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "message"),
+    (
+        ("analysis_identity", "action analysis identity"),
+        ("protected_values_sha256", "action analysis identity"),
+    ),
+)
+def test_helm_semantic_validator_rejects_a6_action_proof_mutation(
+    tmp_path: Path, field: str, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path))
+    proof = payload["materialization"]["baseline"]["render_inputs"][
+        "template_action_reachability"
+    ]
+    proof[field] = "0" * 64
+
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("excluded_dangerous_action_count", 1, "excluded-action count"),
+        ("participating_source_templates", [], "do not bind rendered documents"),
+        ("reachable_named_templates", ["same", "same"], "not canonical"),
+    ),
+)
+def test_helm_semantic_validator_rejects_a6_action_structure_mutation(
+    tmp_path: Path, field: str, value: object, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path))
+    proof = payload["materialization"]["baseline"]["render_inputs"][
+        "template_action_reachability"
+    ]
+    proof[field] = value
+
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("provenance_identity", "0" * 64, "namespace provenance"),
+        ("effective_namespace", "escape", "effective namespace"),
+        ("source_template", "templates/escape.yaml", "namespace source"),
+    ),
+)
+def test_helm_semantic_validator_rejects_a6_namespace_proof_mutation(
+    tmp_path: Path, field: str, value: str, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path))
+    proof = payload["materialization"]["baseline"]["documents"][0][
+        "namespace_provenance"
+    ]
+    proof[field] = value
+    baseline = payload["materialization"]["baseline"]
+    baseline["output"]["document_inventory_sha256"] = REPORT._canonical_json_digest(
+        baseline["documents"]
+    )
+
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("request_namespace", "escape", "namespace inputs"),
+        ("resolution", "CLUSTER_SCOPED", "cluster-scoped namespace"),
+    ),
+)
+def test_helm_semantic_validator_rejects_a6_namespace_structure_mutation(
+    tmp_path: Path, field: str, value: str, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path))
+    baseline = payload["materialization"]["baseline"]
+    baseline["documents"][0]["namespace_provenance"][field] = value
+    baseline["output"]["document_inventory_sha256"] = REPORT._canonical_json_digest(
+        baseline["documents"]
+    )
+
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
 
 
 @pytest.mark.parametrize(
