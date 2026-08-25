@@ -1,4 +1,4 @@
-"""Public 0.1.0a5 distribution and clean-install boundary."""
+"""Public 0.1.0a6 distribution and clean-install boundary."""
 from __future__ import annotations
 
 import email
@@ -16,7 +16,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0a5"
+VERSION = "0.1.0a6"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -235,7 +235,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
         "Verify that an infrastructure-as-code security fix actually fixed",
-        "python -m pip install iac-guard-v==0.1.0a5",
+        "python -m pip install iac-guard-v==0.1.0a6",
         "iac-guard demo",
         "Coder `demo-env-templates` PR #180",
         "25cff91e2c039ddc648541a06191f4b9b9a813b7",
@@ -256,7 +256,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "arXiv:ADD" not in readme
     assert "XXXX.XXXXX" not in readme
     assert "not yet a published release" not in readme
-    assert "package version `0.1.0a5` is not published" not in readme
+    assert "package version `0.1.0a6` is not published" not in readme
 
     advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
     for statement in (
@@ -265,7 +265,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "PYTHONDONTWRITEBYTECODE=1",
         "bc-python-hcl2",
         "may remain quiet for several minutes",
-        "iac-guard-v==0.1.0a5",
+        "iac-guard-v==0.1.0a6",
     ):
         assert statement in advanced
 

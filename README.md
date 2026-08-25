@@ -13,7 +13,7 @@ IaC-Guard-V works with changes written by people, AI coding agents, and remediat
 tools. It binds scanner evidence to the exact before/after files and resources, then
 fails closed when the evidence is incomplete or unverifiable.
 
-> **Status:** `0.1.0a5` technical alpha · Checkov-focused · trusted local input only.
+> **Status:** `0.1.0a6` technical alpha · Checkov-focused · trusted local input only.
 > The hardened hostile-input container and GitHub Action are not released.
 
 ## Why IaC-Guard-V?
@@ -35,7 +35,7 @@ Uncertainty is reported as `INCONCLUSIVE`, never as success.
 Install the public package and run the deterministic offline demo:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a5
+python -m pip install iac-guard-v==0.1.0a6
 iac-guard --version
 iac-guard demo
 ```
@@ -176,7 +176,10 @@ with `0.1.0a4` before validating Helm reports. `0.1.0a5` adds a distinct
 `SATISFIED`, `VIOLATED`, or `INCONCLUSIVE` properties and never labels a head-only
 result `FIXED`. Its closed evidence distinguishes the complete governed inventory from
 scanner-primary addresses and the resources relevant to each requested property. Older
-repair reports retain their existing semantics.
+repair reports retain their existing semantics. `0.1.0a6` adds protected Helm namespace
+provenance plus bounded action, `tpl`, and exactly resolvable dynamic include/template
+evidence. Unsupported expressions and unresolved scanner addressability remain
+fail-closed and `INCONCLUSIVE`.
 
 KICS, Trivy, OpenTofu, kubeconform, TFLint, and multi-scanner consensus remain
 experimental, advisory, or future work. Candidate acceptance is limited to explicitly

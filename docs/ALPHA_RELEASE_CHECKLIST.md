@@ -1,17 +1,19 @@
-# IaC-Guard-V 0.1.0a5 release gate
+# IaC-Guard-V 0.1.0a6 release gate
 
 This checklist prepares reviewed artifacts; it does not authorize a push, tag, upload,
 or publication. Run it only from the owner-reviewed release commit with a clean tree.
 
-## Published archive
+## Most recent published archive
 
 The evolving IaC-Guard-V software project is archived by Zenodo:
 
 - Version DOI: [`10.5281/zenodo.22099303`](https://doi.org/10.5281/zenodo.22099303)
 - Concept DOI: [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272)
 
-The Version DOI identifies the exact alpha 5 archive. The Concept DOI identifies the
-evolving software project. Neither identifier is the pending paper identifier.
+The Version DOI identifies the previously published alpha 5 archive. The Concept DOI
+identifies the evolving software project. The alpha 6 Version DOI does not exist until
+Zenodo ingests the real GitHub release. Neither identifier is the pending paper
+identifier.
 
 ## Publication-metadata boundary
 
@@ -49,7 +51,7 @@ python -m build --outdir dist
 ```
 
 - [ ] `dist/` was absent or empty immediately before `python -m build`.
-- [ ] Exactly one `0.1.0a5` wheel and one `0.1.0a5` sdist were created.
+- [ ] Exactly one `0.1.0a6` wheel and one `0.1.0a6` sdist were created.
 - [ ] Package-content tests pass against a separately created empty output directory.
 - [ ] The wheel contains workflow.py, all three reporters, both public schemas, the
       protected oracle policy, packaged demo fixture, the RECORD-bound no-bytecode

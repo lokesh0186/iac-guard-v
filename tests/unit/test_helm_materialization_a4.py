@@ -139,9 +139,17 @@ def test_h10_yaml_map_order_changes_bytes_but_not_semantic_identity(tmp_path: Pa
     assert first.documents[0].resource_identity == second.documents[0].resource_identity
 
 
-def test_h20_implicit_nondefault_namespace_fails_closed(tmp_path: Path) -> None:
-    assert _failure(_spec(tmp_path, namespace="monitoring"), tmp_path) == (
-        "UNMODELED_RENDER_INPUT"
+def test_h20_implicit_nondefault_namespace_uses_bound_release_namespace(
+    tmp_path: Path,
+) -> None:
+    evidence = HELM.materialize_helm(
+        _spec(tmp_path, namespace="monitoring"), tmp_path / "output"
+    )
+    assert evidence.documents[0].resource_identity == (
+        "apps/v1/Deployment/monitoring/demo"
+    )
+    assert evidence.documents[0].namespace_provenance["resolution"] == (
+        "HELM_RELEASE_NAMESPACE_DEFAULT"
     )
 
 
