@@ -43,6 +43,18 @@ This roadmap records intent, not a delivery commitment.
 - Extend the closed alpha `report-v1` schema with optional Helm materialization
   evidence while retaining compatibility for non-Helm reports.
 
+## `0.1.0a5` - Candidate acceptance and multi-chart Helm evidence
+
+- Evaluate explicitly selected properties on a candidate snapshot as `SATISFIED`,
+  `VIOLATED`, or `INCONCLUSIVE` without inventing a baseline repair claim.
+- Preserve each chart's materialization identity while binding one ordered verification
+  universe for authoritative cross-chart Kubernetes graph relationships.
+- Derive dependency-lock relevance from `Chart.yaml` and actual `charts/` content so a
+  stray lock cannot manufacture a nonexistent dependency contract.
+- Bind governed, scanner-addressable, and target-relevant evidence universes so an
+  unrelated relationship resource does not require a fictional standalone check result
+  and cannot disappear from complete governance.
+
 ## Candidate next-alpha work
 
 These candidates are prioritized by real-world compatibility findings, not
@@ -50,8 +62,6 @@ promised release dates:
 
 - Stabilize protected-oracle implementation identity across fresh Python processes.
 - Improve diagnostics and performance for large Git materializations.
-- Evaluate a candidate-only/new-IaC review mode that reports introduced findings
-  without mislabelling a new module as a `FIXED` repair.
 - Evaluate OpenTofu `.tofu` support after a trusted Checkov release supports it
   and additional external demand justifies the complete parser/evidence surface.
 - Complete the native-Linux UID/GID 65532 bind-mount portability proof.

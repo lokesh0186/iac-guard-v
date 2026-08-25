@@ -9,13 +9,13 @@ from .adapters.checkov import (
     CheckovScanRequest,
     checkov_distribution_identity,
 )
+from .acceptance import CandidateEvidenceUniverses, build_candidate_evidence_universes
 from .config import (
-    ExecutionIsolation,
-    PublicHelmVerificationRequest,
-    PublicTarget,
-    PublicVerificationRequest,
+    ExecutionIsolation, PublicAcceptanceProperty,
+    PublicCandidateAcceptanceRequest, PublicHelmAcceptanceRequest,
+    PublicHelmVerificationRequest, PublicTarget, PublicVerificationRequest,
 )
-from .enums import ArtifactKind, Status
+from .enums import ArtifactKind, CheckEvaluationResult, Status
 from .engine import (
     VerificationRequest,
     attest_checkov_scan_plan,
@@ -23,7 +23,10 @@ from .engine import (
     load_operator_verification_config,
     run_checkov_verification,
 )
-from .helm import HelmMaterializationError, materialize_helm_comparison
+from .helm import (
+    HelmMaterializationError, materialize_helm_comparison,
+    materialize_helm_universe,
+)
 from .models import DomainError, RequiredGates, require_trusted_scanner_run
 from .policy import (
     PolicyRequest,
@@ -34,6 +37,7 @@ from .policy import (
     load_operator_policy,
 )
 from .report import (
+    CandidateAcceptancePropertyEvidence, CandidateAcceptanceReportV1,
     CandidateArtifactFailureReportV1, ExecutionIsolationEvidence,
     HelmVerificationReportV1, OperationalReportV1, VerificationReportV1,
 )
@@ -74,6 +78,203 @@ def verify(
 ) -> VerificationReportV1 | OperationalReportV1:
     """Run one public verification without accepting precomputed or trusted evidence."""
     return _verify_request(request)
+
+
+def _resolve_acceptance_property(
+    property_: PublicAcceptanceProperty,
+    plan,
+    run,
+    evidence_universes: CandidateEvidenceUniverses,
+) -> CandidateAcceptancePropertyEvidence:
+    resources = [
+        item for item in plan.resources
+        if item.resource_address == property_.resource_address
+        and (not property_.file_path or item.file_path == property_.file_path)
+        and (
+            property_.artifact_kind is ArtifactKind.UNKNOWN
+            or item.artifact_kind is property_.artifact_kind
+        )
+    ]
+    if not resources:
+        return CandidateAcceptancePropertyEvidence(
+            property_.rule_id,
+            None,
+            property_.resource_address,
+            property_.file_path,
+            "INCONCLUSIVE",
+            "CANDIDATE_TARGET_MISSING",
+        )
+    if len(resources) != 1:
+        return CandidateAcceptancePropertyEvidence(
+            property_.rule_id,
+            None,
+            property_.resource_address,
+            property_.file_path,
+            "INCONCLUSIVE",
+            "CANDIDATE_TARGET_AMBIGUOUS",
+        )
+    resource = resources[0]
+    target_universe = evidence_universes.target_for(property_)
+    scanner_complete = (
+        evidence_universes.status is Status.PASS
+        and target_universe.status is Status.PASS
+    )
+    if not scanner_complete:
+        return CandidateAcceptancePropertyEvidence(
+            property_.rule_id,
+            resource,
+            property_.resource_address,
+            property_.file_path,
+            "INCONCLUSIVE",
+            "SCANNER_EVIDENCE_INCOMPLETE",
+        )
+    evaluations = [
+        item for item in run.evaluations
+        if item.rule_id == property_.rule_id
+        and item.file_path == resource.file_path
+        and item.resource_address in {
+            resource.resource_address,
+            resource.scanner_native_lookup,
+        }
+    ]
+    if len(evaluations) != 1:
+        return CandidateAcceptancePropertyEvidence(
+            property_.rule_id,
+            resource,
+            property_.resource_address,
+            property_.file_path,
+            "INCONCLUSIVE",
+            (
+                "CANDIDATE_EVALUATION_MISSING"
+                if not evaluations
+                else "CANDIDATE_EVALUATION_AMBIGUOUS"
+            ),
+        )
+    evaluation = evaluations[0]
+    if property_.rule_id.startswith("CKV2_") and (
+        evaluation.graph_evidence is None
+        or evaluation.graph_evidence.status is not Status.PASS
+    ):
+        return CandidateAcceptancePropertyEvidence(
+            property_.rule_id,
+            resource,
+            property_.resource_address,
+            property_.file_path,
+            "INCONCLUSIVE",
+            "GRAPH_EVIDENCE_INCOMPLETE",
+            evaluation,
+        )
+    if evaluation.native_result is CheckEvaluationResult.PASSED:
+        outcome, reason = "SATISFIED", "CANDIDATE_PROPERTY_SATISFIED"
+    elif evaluation.native_result is CheckEvaluationResult.FAILED:
+        outcome, reason = "VIOLATED", "CANDIDATE_PROPERTY_VIOLATED"
+    else:
+        outcome, reason = "INCONCLUSIVE", "CANDIDATE_EVALUATION_UNDECIDED"
+    return CandidateAcceptancePropertyEvidence(
+        property_.rule_id,
+        resource,
+        property_.resource_address,
+        property_.file_path,
+        outcome,
+        reason,
+        evaluation,
+    )
+
+
+def verify_candidate(
+    request: PublicCandidateAcceptanceRequest,
+) -> CandidateAcceptanceReportV1 | OperationalReportV1:
+    """Verify selected candidate properties without asserting a repair occurred."""
+    return _verify_candidate_request(request)
+
+
+def _verify_candidate_request(
+    request: PublicCandidateAcceptanceRequest,
+    *,
+    materialization: object | None = None,
+) -> CandidateAcceptanceReportV1 | OperationalReportV1:
+    if type(request) is not PublicCandidateAcceptanceRequest:
+        raise TypeError("verify_candidate requires an exact acceptance request")
+    if request.execution_isolation is ExecutionIsolation.HARDENED_CONTAINER:
+        return OperationalReportV1(
+            "HARDENED_CONTAINER_UNAVAILABLE",
+            "Phase E container execution is not installed; native execution was not selected.",
+            "Use explicit reduced isolation only for operator-controlled local content.",
+        )
+    try:
+        raw = _untrusted_scan_request(
+            request.candidate_root,
+            request.candidate_root,
+            request.checkov_executable,
+            request.frameworks,
+        )
+        plan = attest_checkov_scan_plan(raw)
+        run = require_trusted_scanner_run(CheckovAdapter().scan(plan.request))
+    except (DomainError, OSError) as exc:
+        return OperationalReportV1(
+            "CANDIDATE_EVIDENCE_UNAVAILABLE",
+            str(exc),
+            "Repair the protected candidate input or scanner environment and rerun.",
+        )
+    evidence_universes = build_candidate_evidence_universes(
+        plan=plan,
+        run=run,
+        properties=request.properties,
+        executable=request.checkov_executable,
+    )
+    properties = tuple(
+        _resolve_acceptance_property(item, plan, run, evidence_universes)
+        for item in request.properties
+    )
+    return CandidateAcceptanceReportV1(
+        plan,
+        run,
+        properties,
+        ExecutionIsolationEvidence.reduced_verified(),
+        materialization,
+        evidence_universes,
+    )
+
+
+def verify_helm_candidate(
+    request: PublicHelmAcceptanceRequest,
+) -> CandidateAcceptanceReportV1 | OperationalReportV1:
+    """Render one protected chart universe and verify selected candidate properties."""
+    if type(request) is not PublicHelmAcceptanceRequest:
+        raise TypeError("verify_helm_candidate requires an exact Helm acceptance request")
+    try:
+        with materialize_helm_universe(request.charts) as universe:
+            result = _verify_candidate_request(
+                PublicCandidateAcceptanceRequest(
+                    universe.scanner_root,
+                    request.properties,
+                    request.execution_isolation,
+                    request.checkov_executable,
+                    ("kubernetes",),
+                ),
+                materialization=universe,
+            )
+            if type(result) is CandidateAcceptanceReportV1 and any(
+                item.evaluation is not None
+                and item.evaluation.graph_evidence is not None
+                for item in result.properties
+            ) and any(
+                evidence.render_inputs["crds"] == "exclude"
+                and any(file_["path"].startswith("crds/") for file_ in evidence.chart["files"])
+                for _key, evidence in universe.charts
+            ):
+                return OperationalReportV1(
+                    "INCOMPLETE_RENDERED_COVERAGE",
+                    "Graph acceptance cannot exclude chart CRDs authoritatively.",
+                    "Rerun every participating chart with CRDs included.",
+                )
+            return result
+    except HelmMaterializationError as exc:
+        return OperationalReportV1(
+            exc.reason_code,
+            exc.safe_detail,
+            "Make the local Helm inputs deterministic and fully source-bound, then rerun.",
+        )
 
 
 def _graph_verification_has_excluded_crds(
@@ -397,5 +598,7 @@ __all__ = [
     "BaselineDiscoveryUnavailable",
     "discover_baseline_targets",
     "verify",
+    "verify_candidate",
     "verify_helm",
+    "verify_helm_candidate",
 ]

@@ -119,15 +119,60 @@ def _single_result(payload: dict) -> dict:
     }
 
 
+def _acceptance_result(payload: dict, property_: dict) -> dict:
+    selector = property_["selector"]
+    outcome = property_["outcome"]
+    location = []
+    if selector["file_path"]:
+        location = [{
+            "physicalLocation": {
+                "artifactLocation": {
+                    "uri": selector["file_path"], "uriBaseId": "%SRCROOT%",
+                }
+            }
+        }]
+    return {
+        "ruleId": f"checkov:{selector['rule_id']}",
+        "level": (
+            "note" if outcome == "SATISFIED"
+            else "error" if outcome == "VIOLATED"
+            else "warning"
+        ),
+        "kind": (
+            "pass" if outcome == "SATISFIED"
+            else "fail" if outcome == "VIOLATED"
+            else "review"
+        ),
+        "message": {
+            "text": (
+                f"checkov {selector['rule_id']} at {selector['resource_address']}: "
+                f"{outcome} ({property_['reason_code']})"
+            )
+        },
+        "locations": location,
+        "properties": {
+            "finalVerdict": payload["verdict"],
+            "resultKind": payload["result_kind"],
+            "verificationMode": "candidate_acceptance",
+            "propertyOutcome": outcome,
+            "resourceIdentity": selector["resource_address"],
+        },
+    }
+
+
 def render_sarif(payload: dict) -> str:
     """Render SARIF only after the complete public report validator accepts input."""
     report = validated_snapshot(payload)
     targets = sorted_targets(report)
-    results = (
-        [_target_result(report, target) for target in targets]
-        if is_full_verification(report)
-        else [_single_result(report)]
-    )
+    if is_full_verification(report):
+        results = [_target_result(report, target) for target in targets]
+    elif report["result_kind"] == "candidate_acceptance":
+        results = [
+            _acceptance_result(report, property_)
+            for property_ in report["acceptance"]["properties"]
+        ]
+    else:
+        results = [_single_result(report)]
     rule_ids = sorted({result["ruleId"] for result in results})
     isolation = report.get("execution_isolation", {})
     run = {

@@ -299,6 +299,78 @@ def test_h22_unpacked_local_subchart_is_bound(tmp_path: Path) -> None:
     ]
 
 
+@pytest.mark.parametrize("contents", (b"", b"not: [valid"))
+def test_a5_irrelevant_lock_is_hashed_but_does_not_create_dependencies(
+    tmp_path: Path, contents: bytes
+) -> None:
+    chart = _chart(tmp_path)
+    (chart / "Chart.lock").write_bytes(contents)
+
+    evidence = HELM.materialize_helm(
+        _spec(tmp_path, chart_root=chart), tmp_path / "output"
+    )
+
+    dependencies = evidence.chart["dependencies"]
+    assert dependencies["count"] == 0
+    assert dependencies["artifacts"] == []
+    assert dependencies["chart_lock_sha256"] == HELM._sha256(contents)
+    assert dependencies["chart_lock_relevance"] == "NON_PARTICIPATING"
+
+
+def test_a5_absent_lock_and_dependency_state_are_explicit(tmp_path: Path) -> None:
+    evidence = HELM.materialize_helm(_spec(tmp_path), tmp_path / "output")
+    assert evidence.chart["dependencies"]["chart_lock_relevance"] == "ABSENT"
+
+
+def test_a5_manually_managed_subchart_is_bound_without_declared_dependency(
+    tmp_path: Path,
+) -> None:
+    chart = _chart(tmp_path)
+    child = chart / "charts" / "child"
+    child.mkdir(parents=True)
+    (child / "Chart.yaml").write_text(
+        "apiVersion: v2\nname: child\nversion: 1.2.3\n", encoding="utf-8"
+    )
+
+    evidence = HELM.materialize_helm(
+        _spec(tmp_path, chart_root=chart), tmp_path / "output"
+    )
+
+    assert evidence.chart["dependencies"]["artifacts"] == [{
+        "name": "child",
+        "version": "1.2.3",
+        "form": "directory",
+        "expanded_files": [],
+    }]
+
+
+def test_a5_malformed_lock_remains_fatal_when_dependency_state_exists(
+    tmp_path: Path,
+) -> None:
+    chart = _chart(tmp_path)
+    child = chart / "charts" / "child"
+    child.mkdir(parents=True)
+    (child / "Chart.yaml").write_text(
+        "apiVersion: v2\nname: child\nversion: 1.2.3\n", encoding="utf-8"
+    )
+    (chart / "Chart.lock").write_text("not: [valid", encoding="utf-8")
+
+    assert _failure(_spec(tmp_path, chart_root=chart), tmp_path) == (
+        "UNREPRODUCIBLE_DEPENDENCIES"
+    )
+
+
+def test_a5_undeclared_dependency_archive_is_rejected(tmp_path: Path) -> None:
+    chart = _chart(tmp_path)
+    charts = chart / "charts"
+    charts.mkdir()
+    (charts / "child-1.2.3.tgz").write_bytes(b"not a bound dependency")
+
+    assert _failure(_spec(tmp_path, chart_root=chart), tmp_path) == (
+        "UNREPRODUCIBLE_DEPENDENCIES"
+    )
+
+
 def test_h24_vendored_archive_is_safely_bound(tmp_path: Path) -> None:
     rendered = """---
 # Source: demo/charts/child/templates/child.yaml

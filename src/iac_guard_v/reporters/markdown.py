@@ -61,6 +61,43 @@ def _artifact_failure(report: dict) -> list[str]:
     ]
 
 
+def _candidate_acceptance(report: dict) -> list[str]:
+    acceptance = report["acceptance"]
+    snapshot = acceptance["candidate_snapshot"]
+    run = acceptance["scanner_run"]
+    lines = [
+        "## Candidate acceptance scope",
+        "",
+        "This report evaluates only the explicitly requested candidate properties. ",
+        "It does not assert that a baseline defect was fixed.",
+        "",
+        f"- Candidate snapshot: `{snapshot['snapshot_sha256']}`",
+        f"- Scanner: `{run['scanner']}` `{run['scanner_version']}`",
+        f"- Scanner integrity: `{acceptance['scanner_integrity']['status']}`",
+        "",
+        "| Rule | Resource | File | Outcome | Evidence reason |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for property_ in acceptance["properties"]:
+        selector = property_["selector"]
+        lines.append(
+            f"| `{selector['rule_id']}` | "
+            f"`{_structured_cell(selector['resource_address'])}` | "
+            f"`{_structured_cell(selector['file_path'])}` | "
+            f"`{property_['outcome']}` | `{property_['reason_code']}` |"
+        )
+    lines.extend((
+        "",
+        "## Scope accounting",
+        "",
+        f"- Requested properties: `{acceptance['scope_accounting']['requested_property_count']}`",
+        f"- Selected resources: `{acceptance['scope_accounting']['selected_resource_count']}`",
+        "- Unselected failed findings remain accounted for by count and digest.",
+        "",
+    ))
+    return lines
+
+
 def _full(report: dict) -> list[str]:
     verification = report["verification"]
     lines = [
@@ -169,6 +206,8 @@ def render_markdown(payload: dict) -> str:
     lines.extend(_isolation(report))
     if report["result_kind"] == "operational_uncertainty":
         lines.extend(_operational(report))
+    elif report["result_kind"] == "candidate_acceptance":
+        lines.extend(_candidate_acceptance(report))
     elif is_full_verification(report):
         lines.extend(_full(report))
     else:

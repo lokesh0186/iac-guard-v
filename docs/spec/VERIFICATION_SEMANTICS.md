@@ -166,6 +166,48 @@ budgets. Their status mappings are specified under V5.
 There is no fourth value. "Passed with warnings" is `VERIFIED` plus advisory
 findings; "probably fine" is `INCONCLUSIVE`.
 
+### 1.6.1 Candidate-acceptance property outcomes
+
+Candidate-acceptance mode uses the closed property-outcome values `SATISFIED`,
+`VIOLATED`, and `INCONCLUSIVE`. `SATISFIED` means that the exact requested property
+is affirmatively established for the protected candidate snapshot and complete
+governed universe. `VIOLATED` means that complete authoritative evidence establishes
+that the requested property does not hold. `INCONCLUSIVE` means that missing,
+ambiguous, unsupported, or operationally incomplete evidence prevents either
+conclusion.
+
+These values do not describe a repair transition. In particular, candidate acceptance
+can never emit the repair outcome `FIXED`; a whole-run `VERIFIED` verdict in this mode
+means only that every requested candidate property is `SATISFIED` under the recorded
+candidate-acceptance contract.
+
+Candidate acceptance separates three resource sets. The governed resource universe is
+the complete protected inventory. The scanner-addressable universe is derived from the
+selected scanner/check definition and identifies legitimate primary evaluation
+addresses. Each requested property has a target-relevant evidence universe containing
+its primary target, every relationship participant capable of changing the property,
+and structural irrelevance proofs for all other relationship resources.
+
+For the bounded `CKV2_K8S_6` contract, workloads are primary scanner addresses and
+NetworkPolicies are relationship participants. A policy is irrelevant to workload W
+only when namespace or selector semantics prove that it cannot select W. Absence from
+scanner output, chart ownership, filename, or ordering is never such a proof. Unknown
+selectors, missing primary evaluations, unaccounted selecting policies, parser errors,
+and ambiguous relationship identities remain `INCONCLUSIVE`.
+
+The closed scanner-addressability classifications are
+`SCANNER_PRIMARY_ADDRESSABLE`, `TARGET_RELEVANT_GRAPH_PARTICIPANT`,
+`GOVERNED_NON_TARGET_SCANNER_UNADDRESSED`, and
+`CONSERVATIVE_SCANNER_ADDRESSABLE`. The conservative class preserves complete-resource
+coverage for a check whose primary/relationship contract is not modeled.
+
+A scanner-level `PARTIAL` result may be accepted only for this selected property gate
+when the protected file/ruleset execution is otherwise complete, its diagnostics
+exactly identify independently derived missing standalone resource records, and every
+missing record is `GOVERNED_NON_TARGET_SCANNER_UNADDRESSED`. The raw scanner status and
+diagnostics remain unchanged in the report. Unsupported check contracts retain the
+pre-existing complete-resource requirement.
+
 ### 1.7 Packaged implementation integrity reasons
 
 The closed `PackagedImplementationReason` values are

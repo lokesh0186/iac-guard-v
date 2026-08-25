@@ -31,6 +31,7 @@ from .redaction import redact_detail
 
 
 HELM_MATERIALIZATION_CONTRACT = "helm-materialization-v1"
+HELM_UNIVERSE_CONTRACT = "helm-universe-v1"
 _MAX_CHART_FILES = 10_000
 _MAX_CHART_FILE_BYTES = 10 * 1024 * 1024
 _MAX_CHART_BYTES = 64 * 1024 * 1024
@@ -323,6 +324,50 @@ class HelmMaterializedPair:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class HelmUniverseChart:
+    universe_key: str
+    specification: HelmRenderSpec
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "universe_key",
+            _safe_dns(self.universe_key, "Helm universe chart key", namespace=True),
+        )
+        if type(self.specification) is not HelmRenderSpec:
+            raise DomainError("Helm universe chart requires an exact render specification")
+
+
+@dataclass(frozen=True, slots=True)
+class HelmMaterializedUniverse:
+    scanner_root: Path
+    charts: tuple[tuple[str, HelmMaterializationEvidence], ...]
+    combined_output: MappingProxyType
+    resource_ownership: tuple[tuple[str, HelmRenderedDocument], ...]
+    universe_identity: str
+
+    def canonical_dict(self) -> dict:
+        return {
+            "contract": HELM_UNIVERSE_CONTRACT,
+            "status": "PASS",
+            "reason_code": "DETERMINISTIC_MULTI_CHART_UNIVERSE_BOUND",
+            "charts": [
+                {
+                    "universe_key": key,
+                    "materialization": evidence.canonical_dict(),
+                }
+                for key, evidence in self.charts
+            ],
+            "combined_output": dict(self.combined_output),
+            "resource_ownership": [
+                {"universe_key": key, "document": document.canonical_dict()}
+                for key, document in self.resource_ownership
+            ],
+            "universe_identity": self.universe_identity,
+        }
+
+
 def _inventory(root: Path) -> tuple[tuple[HelmChartFile, ...], str]:
     files: list[HelmChartFile] = []
     total = 0
@@ -566,10 +611,32 @@ def _validate_dependencies(root: Path, chart: dict) -> dict:
         )
     lock_path = root / "Chart.lock"
     lock_hash = ""
-    if lock_path.exists():
+    charts = root / "charts"
+    chart_entries = (
+        tuple(sorted(charts.iterdir(), key=lambda item: item.name))
+        if charts.is_dir()
+        else ()
+    )
+    dependency_state_relevant = bool(dependencies or chart_entries)
+    lock_relevance = "ABSENT"
+    if lock_path.exists() and not dependency_state_relevant:
+        # Chart.lock is part of the protected chart byte inventory even when Helm has
+        # no dependency graph to lock.  Parsing an otherwise irrelevant stray file
+        # would manufacture a dependency contract that Chart.yaml and charts/ do not
+        # contain.
+        if lock_path.is_symlink() or not lock_path.is_file():
+            raise HelmMaterializationError(
+                "CHART_PATH_ESCAPE", "Chart.lock must be a regular chart file"
+            )
+        lock_hash = _sha256(lock_path.read_bytes())
+        lock_relevance = "NON_PARTICIPATING"
+    elif lock_path.exists():
         lock = _strict_yaml(lock_path, "Chart.lock")
         locked = lock.get("dependencies", [])
-        if type(locked) is not list or tuple(_dependency_key(item) for item in locked) != dependencies:
+        if (
+            type(locked) is not list
+            or tuple(_dependency_key(item) for item in locked) != dependencies
+        ):
             raise HelmMaterializationError(
                 "UNREPRODUCIBLE_DEPENDENCIES", "Chart.lock does not match Chart.yaml"
             )
@@ -583,7 +650,7 @@ def _validate_dependencies(root: Path, chart: dict) -> dict:
                 "UNREPRODUCIBLE_DEPENDENCIES", "Chart.lock digest is out of sync"
             )
         lock_hash = _sha256(lock_path.read_bytes())
-    charts = root / "charts"
+        lock_relevance = "PARTICIPATING"
     artifacts = []
     for name, version, repository in dependencies:
         directory = charts / name
@@ -618,9 +685,50 @@ def _validate_dependencies(root: Path, chart: dict) -> dict:
                 "UNREPRODUCIBLE_DEPENDENCIES",
                 "non-local dependency requires a lock and vendored bytes",
             )
+    declared_entries = {
+        value
+        for name, version, _repository in dependencies
+        for value in (name, f"{name}-{version}.tgz")
+    }
+    for entry in chart_entries:
+        if entry.name in declared_entries:
+            continue
+        if entry.is_symlink():
+            raise HelmMaterializationError(
+                "CHART_PATH_ESCAPE", "dependency symlinks are not supported"
+            )
+        if entry.is_file():
+            raise HelmMaterializationError(
+                "UNREPRODUCIBLE_DEPENDENCIES",
+                "undeclared dependency archives are not source-bound",
+            )
+        if not entry.is_dir():
+            raise HelmMaterializationError(
+                "UNREPRODUCIBLE_DEPENDENCIES",
+                "dependency content has an unsupported path type",
+            )
+        child = _strict_yaml(entry / "Chart.yaml", "manually managed subchart Chart.yaml")
+        child_name = child.get("name")
+        child_version = child.get("version")
+        if (
+            type(child_name) is not str
+            or child_name != entry.name
+            or type(child_version) not in (str, int, float)
+        ):
+            raise HelmMaterializationError(
+                "UNREPRODUCIBLE_DEPENDENCIES",
+                "manually managed subchart identity is inconsistent",
+            )
+        artifacts.append({
+            "name": child_name,
+            "version": str(child_version),
+            "form": "directory",
+            "expanded_files": [],
+        })
     return {
-        "count": len(dependencies),
+        "count": len(artifacts),
         "chart_lock_sha256": lock_hash,
+        "chart_lock_relevance": lock_relevance,
         "artifacts": artifacts,
     }
 
@@ -1266,12 +1374,128 @@ def materialize_helm_comparison(
         )
 
 
+@contextmanager
+def materialize_helm_universe(
+    charts: tuple[HelmUniverseChart, ...],
+) -> Iterator[HelmMaterializedUniverse]:
+    """Render an ordered set of charts and bind one cross-chart scan universe."""
+    if (
+        type(charts) is not tuple
+        or not charts
+        or len(charts) > 32
+        or any(type(item) is not HelmUniverseChart for item in charts)
+    ):
+        raise DomainError("Helm universe requires one to 32 exact chart requests")
+    keys = [item.universe_key for item in charts]
+    if len(keys) != len(set(keys)):
+        raise DomainError("Helm universe chart keys must be unique")
+
+    protected_compatibility = {
+        (
+            item.specification.helm_executable,
+            item.specification.kube_version,
+            item.specification.api_versions,
+        )
+        for item in charts
+    }
+    if len(protected_compatibility) != 1:
+        raise DomainError(
+            "Helm universe charts require one executable, kube version, and API set"
+        )
+
+    with tempfile.TemporaryDirectory(prefix="iacgv-helm-universe-") as temporary:
+        root = Path(temporary)
+        materialized: list[tuple[str, HelmMaterializationEvidence]] = []
+        ownership: list[tuple[str, HelmRenderedDocument]] = []
+        bundles: list[bytes] = []
+        for index, item in enumerate(charts, start=1):
+            chart_root = root / "charts" / f"{index:02d}-{item.universe_key}"
+            evidence = materialize_helm(item.specification, chart_root)
+            materialized.append((item.universe_key, evidence))
+            ownership.extend(
+                (item.universe_key, document) for document in evidence.documents
+            )
+            bundles.append((chart_root / "rendered.yaml").read_bytes())
+
+        identities = [
+            document.resource_identity for _key, document in ownership
+        ]
+        if len(identities) != len(set(identities)):
+            raise HelmMaterializationError(
+                "DUPLICATE_RENDERED_IDENTITY",
+                "multiple charts render the same canonical Kubernetes resource",
+            )
+
+        fragments = []
+        for bundle in bundles:
+            fragment = bundle.strip()
+            if not fragment.startswith(b"---"):
+                fragment = b"---\n" + fragment
+            fragments.append(fragment)
+        combined_bytes = b"\n".join(fragments) + b"\n"
+        if len(combined_bytes) > _MAX_RENDER_BYTES:
+            raise HelmMaterializationError(
+                "HELM_OUTPUT_LIMIT_EXCEEDED",
+                "combined Helm universe exceeds its rendered byte limit",
+            )
+        scanner_root = root / "combined"
+        scanner_root.mkdir(mode=0o700)
+        rendered = scanner_root / "rendered.yaml"
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(rendered, flags, 0o600)
+        try:
+            offset = 0
+            while offset < len(combined_bytes):
+                written = os.write(descriptor, combined_bytes[offset:])
+                if written <= 0:
+                    raise HelmMaterializationError(
+                        "HELM_STATE_NOT_ISOLATED",
+                        "combined rendered bundle write did not complete",
+                    )
+                offset += written
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+        ownership_payload = [
+            {"universe_key": key, "document": document.canonical_dict()}
+            for key, document in ownership
+        ]
+        combined_output = {
+            "rendered_bundle_path": "rendered.yaml",
+            "rendered_bundle_sha256": _sha256(combined_bytes),
+            "rendered_bundle_bytes": len(combined_bytes),
+            "document_inventory_sha256": _canonical_sha(ownership_payload),
+            "chart_count": len(materialized),
+            "resource_count": len(ownership),
+        }
+        identity_body = {
+            "ordered_materialization_ids": [
+                {"universe_key": key, "materialization_identity": evidence.materialization_identity}
+                for key, evidence in materialized
+            ],
+            "combined_output": combined_output,
+            "resource_ownership": ownership_payload,
+        }
+        yield HelmMaterializedUniverse(
+            scanner_root,
+            tuple(materialized),
+            MappingProxyType(combined_output),
+            tuple(ownership),
+            _canonical_sha(identity_body),
+        )
+
+
 __all__ = [
     "HELM_MATERIALIZATION_CONTRACT",
+    "HELM_UNIVERSE_CONTRACT",
     "HelmMaterializationError",
     "HelmMaterializationEvidence",
     "HelmMaterializedPair",
+    "HelmMaterializedUniverse",
     "HelmRenderSpec",
+    "HelmUniverseChart",
     "materialize_helm",
     "materialize_helm_comparison",
+    "materialize_helm_universe",
 ]

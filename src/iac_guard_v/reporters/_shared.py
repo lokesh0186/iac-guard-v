@@ -86,6 +86,20 @@ def decision_for(payload: dict, target: dict) -> dict:
 
 def gate_records(payload: dict) -> list[tuple[str, str, str, str]]:
     if not is_full_verification(payload):
+        if payload["result_kind"] == "candidate_acceptance":
+            acceptance = payload["acceptance"]
+            return [
+                (
+                    "scanner_integrity",
+                    acceptance["scanner_integrity"]["gate_id"],
+                    acceptance["scanner_integrity"]["status"],
+                    acceptance["scanner_integrity"]["reason_code"],
+                ),
+                *[
+                    ("validator", gate["gate_id"], gate["status"], gate["reason_code"])
+                    for gate in acceptance["parser_gates"]
+                ],
+            ]
         if payload["result_kind"] != "verification":
             return []
         verification = payload["verification"]

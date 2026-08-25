@@ -1,4 +1,4 @@
-"""Public 0.1.0a4 distribution and clean-install boundary."""
+"""Public 0.1.0a5 distribution and clean-install boundary."""
 from __future__ import annotations
 
 import email
@@ -16,7 +16,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0a4"
+VERSION = "0.1.0a5"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -45,6 +45,7 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/reporters/junit.py",
     "iac_guard_v/schemas/report-v1.schema.json",
     "iac_guard_v/schemas/config-v1.schema.json",
+    "iac_guard_v/schemas/helm-acceptance-v1.schema.json",
     "iac_guard_v/oracles/policies.json",
     "iac_guard_v/graph_evidence.py",
     "iac_guard_v/helm.py",
@@ -143,6 +144,7 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
     assert any(name.endswith("docs/ADVANCED_INSTALLATION.md") for name in sdist_names)
     assert any(name.endswith("docs/SECURITY_MODEL.md") for name in sdist_names)
     assert any(name.endswith("docs/SUPPORTED_SCOPE.md") for name in sdist_names)
+    assert any(name.endswith("docs/CANDIDATE_ACCEPTANCE.md") for name in sdist_names)
 
 
 def test_fresh_artifacts_have_stable_nonempty_hashes(alpha_artifacts) -> None:
@@ -233,7 +235,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
         "Verify that an infrastructure-as-code security fix actually fixed",
-        "python -m pip install iac-guard-v==0.1.0a4",
+        "python -m pip install iac-guard-v==0.1.0a5",
         "iac-guard demo",
         "Coder `demo-env-templates` PR #180",
         "25cff91e2c039ddc648541a06191f4b9b9a813b7",
@@ -254,7 +256,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "arXiv:ADD" not in readme
     assert "XXXX.XXXXX" not in readme
     assert "not yet a published release" not in readme
-    assert "package version `0.1.0a4` is not published" not in readme
+    assert "package version `0.1.0a5` is not published" not in readme
 
     advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
     for statement in (
@@ -263,7 +265,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "PYTHONDONTWRITEBYTECODE=1",
         "bc-python-hcl2",
         "may remain quiet for several minutes",
-        "iac-guard-v==0.1.0a4",
+        "iac-guard-v==0.1.0a5",
     ):
         assert statement in advanced
 

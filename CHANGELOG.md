@@ -5,6 +5,36 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [Unreleased]
 
+## [0.1.0a5] - 2026-08-25
+
+### Added
+
+- Candidate/head-only acceptance for explicitly requested properties, with separate
+  `SATISFIED`, `VIOLATED`, and `INCONCLUSIVE` outcomes that never imply a baseline
+  repair.
+- Ordered multi-chart Helm verification universes with per-chart materialization,
+  rendered-resource ownership, and cross-chart graph relationship evidence.
+- Closed `accept` and `helm-accept` command surfaces and the additive
+  `candidate_acceptance` report-v1 branch.
+- Target-relevant scanner-addressability accounting that keeps every resource governed
+  while distinguishing primary scanner addresses, graph participants, structurally
+  irrelevant relationship resources, and unresolved evidence.
+
+### Fixed
+
+- Dependency relevance now follows declared or physically vendored chart dependencies.
+  A stray lock remains byte-bound but cannot create a dependency-resolution failure
+  when the chart has no dependency state.
+
+### Security
+
+- Candidate acceptance requires complete scanner, parser, target, and requested-property
+  evidence. Duplicate cross-chart resources and incomplete participating charts fail
+  closed.
+- A raw partial scanner run is accepted only for the bounded selected-property gate
+  when exact diagnostics identify only independently proven non-target standalone
+  omissions; unsupported checks retain complete-resource coverage.
+
 ## [0.1.0a4] - 2026-08-24
 
 ### Archive
