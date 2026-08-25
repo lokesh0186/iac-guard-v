@@ -207,8 +207,8 @@ for the fail-closed trust architecture.
 For the evolving software project, cite the
 [Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
-For results produced specifically with IaC-Guard-V `0.1.0a4`, cite the archived
-[Version DOI `10.5281/zenodo.22088273`](https://doi.org/10.5281/zenodo.22088273).
+For results produced specifically with IaC-Guard-V `0.1.0a5`, cite the archived
+[Version DOI `10.5281/zenodo.22099303`](https://doi.org/10.5281/zenodo.22099303).
 
 Machine-readable citation metadata is available in
 [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).

@@ -7,6 +7,13 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [0.1.0a5] - 2026-08-25
 
+### Archive
+
+- Archived IaC-Guard-V `0.1.0a5` under Version DOI
+  [`10.5281/zenodo.22099303`](https://doi.org/10.5281/zenodo.22099303). The evolving
+  software project continues to use Concept DOI
+  [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
+
 ### Added
 
 - Candidate/head-only acceptance for explicitly requested properties, with separate
