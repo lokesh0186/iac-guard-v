@@ -7,6 +7,13 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [0.1.0a6] - 2026-08-25
 
+### Archive
+
+- Archived IaC-Guard-V `0.1.0a6` under Version DOI
+  [`10.5281/zenodo.22105295`](https://doi.org/10.5281/zenodo.22105295). The evolving
+  software project continues to use Concept DOI
+  [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
+
 ### Added
 
 - Protected namespace provenance for default and non-default Helm releases, including
