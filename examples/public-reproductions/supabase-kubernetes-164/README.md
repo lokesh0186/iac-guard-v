@@ -88,6 +88,8 @@ Canonical report SHA-256:
 
 ```text
 d12cb5e92978ea66170a16d605402171014987083498ad821c0b28c5af34f314  report.json
+fb55f13d6a57bda750f9759480ef21800eb987112f96e140f55b10b90207e8db  report.md
+ae3cd669353f662ac4fdc2a4aee70982669ce858c5083d35bc5d9478d1acc6b0  policy-inventory.json
 ```
 
 ## Scope and product boundary
@@ -102,4 +104,3 @@ A separate protected request using a non-default namespace failed closed with
 That public-a6 product boundary is separate from—and does not invalidate—the
 canonical default-namespace result above. No product change was made for this
 packet.
-
