@@ -7,6 +7,13 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [0.1.0a7] - 2026-08-26
 
+### Archive
+
+- Archived IaC-Guard-V `0.1.0a7` under Version DOI
+  [`10.5281/zenodo.22118759`](https://doi.org/10.5281/zenodo.22118759). The evolving
+  software project continues to use Concept DOI
+  [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
+
 ### Fixed
 
 - Known cluster-scoped Kubernetes resources now retain any rendered
