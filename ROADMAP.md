@@ -55,7 +55,7 @@ This roadmap records intent, not a delivery commitment.
   unrelated relationship resource does not require a fictional standalone check result
   and cannot disappear from complete governance.
 
-## Candidate `0.1.0a6` - Helm namespace and action provenance
+## `0.1.0a6` - Helm namespace and action provenance
 
 - Bind default, explicit non-default, values-derived, and statically selected Helm
   namespaces to exact protected inputs, source templates, resource scope, and
@@ -70,6 +70,15 @@ This roadmap records intent, not a delivery commitment.
 - Preserve `CLUSTER_STATE_REQUIRED`, `NONDETERMINISTIC_RENDER`, and
   `AMBIGUOUS_TEMPLATE_ACTION_GRAPH` whenever the corresponding action is reachable or
   its reachability cannot be proven.
+
+## Candidate `0.1.0a7` - Kubernetes namespace correctness
+
+- Model API-server namespace normalization for known cluster-scoped resources instead
+  of treating an emitted `metadata.namespace` as an automatic contradiction.
+- Retain emitted namespace bytes and scanner-facing identity as governed evidence while
+  recording an absent effective namespace in the Kubernetes resource identity.
+- Continue to reject duplicate identities after normalization and keep unresolved
+  custom-resource scope and contradictory namespaced-resource provenance inconclusive.
 
 ## Candidate next-alpha work
 

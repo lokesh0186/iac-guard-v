@@ -200,24 +200,86 @@ def test_a6_cluster_scoped_resource_retains_absent_namespace_provenance(
     assert provenance["effective_namespace"] is None
 
 
-def test_a6_cluster_scoped_resource_with_namespace_is_contradictory(
+def test_cluster_scoped_emitted_namespace_is_governed_and_normalized(
     tmp_path: Path,
 ) -> None:
+    evidence = HELM.materialize_helm(
+        _action_spec(
+            tmp_path,
+            "kind: Namespace\nmetadata:\n  namespace: monitoring\n",
+            rendered=_rendered(
+                name="monitoring", namespace="monitoring", kind="Namespace"
+            ),
+            namespace="monitoring",
+        ),
+        tmp_path / "output",
+    )
+    document = evidence.documents[0]
+    provenance = document.namespace_provenance
+    assert document.namespace == "monitoring"
+    assert document.resource_identity == "v1/Namespace/monitoring/monitoring"
+    assert provenance["resolution"] == "CLUSTER_SCOPED"
+    assert provenance["emitted_metadata_namespace"] == "monitoring"
+    assert provenance["effective_namespace"] is None
+    assert provenance["contradiction"] == "NONE"
+    assert len(provenance["source_expression_sha256"]) == 64
+
+
+@pytest.mark.parametrize("kind", ("ClusterRole", "ClusterRoleBinding"))
+def test_cluster_scoped_rbac_emitted_namespace_matches_checkov_address(
+    tmp_path: Path, kind: str,
+) -> None:
+    rendered = (
+        "---\n# Source: demo/templates/deployment.yaml\n"
+        "apiVersion: rbac.authorization.k8s.io/v1\n"
+        f"kind: {kind}\nmetadata:\n  name: demo\n  namespace: monitoring\n"
+    )
+    evidence = HELM.materialize_helm(
+        _action_spec(
+            tmp_path,
+            f"kind: {kind}\nmetadata:\n  namespace: monitoring\n",
+            rendered=rendered,
+            namespace="monitoring",
+        ),
+        tmp_path / "output",
+    )
+    document = evidence.documents[0]
+    assert document.resource_identity == (
+        f"rbac.authorization.k8s.io/v1/{kind}/monitoring/demo"
+    )
+    assert document.namespace_provenance["effective_namespace"] is None
+
+
+def test_cluster_scoped_duplicates_after_namespace_normalization_fail_closed(
+    tmp_path: Path,
+) -> None:
+    rendered = (
+        "---\n# Source: demo/templates/deployment.yaml\n"
+        "apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\n"
+        "metadata:\n  name: demo\n  namespace: first\n"
+        "---\n# Source: demo/templates/deployment.yaml\n"
+        "apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\n"
+        "metadata:\n  name: demo\n  namespace: second\n"
+    )
     spec = _action_spec(
         tmp_path,
-        "kind: Namespace\nmetadata:\n  namespace: monitoring\n",
-        rendered=_rendered(name="monitoring", namespace="monitoring", kind="Namespace"),
-        namespace="monitoring",
+        "kind: ClusterRole\nmetadata:\n  namespace: monitoring\n",
+        rendered=rendered,
     )
-    assert _failure(spec, tmp_path) == "CONTRADICTORY_NAMESPACE_PROVENANCE"
+    assert _failure(spec, tmp_path) == "DUPLICATE_RENDERED_IDENTITY"
 
 
 def test_a6_local_crd_proves_custom_cluster_resource_scope(tmp_path: Path) -> None:
     rendered = (
         "---\n# Source: demo/templates/deployment.yaml\n"
-        "apiVersion: example.test/v1\nkind: Widget\nmetadata:\n  name: demo\n"
+        "apiVersion: example.test/v1\nkind: Widget\nmetadata:\n"
+        "  name: demo\n  namespace: monitoring\n"
     )
-    chart = _chart(tmp_path, rendered=rendered, template="kind: Widget\n")
+    chart = _chart(
+        tmp_path,
+        rendered=rendered,
+        template="kind: Widget\nmetadata:\n  namespace: monitoring\n",
+    )
     crds = chart / "crds"
     crds.mkdir()
     (crds / "widget.yaml").write_text(
@@ -232,9 +294,42 @@ def test_a6_local_crd_proves_custom_cluster_resource_scope(tmp_path: Path) -> No
     evidence = HELM.materialize_helm(
         _spec(tmp_path, chart_root=chart, namespace="monitoring"), tmp_path / "output"
     )
-    provenance = evidence.documents[0].namespace_provenance
+    document = evidence.documents[0]
+    provenance = document.namespace_provenance
+    assert document.namespace == "monitoring"
+    assert provenance["emitted_metadata_namespace"] == "monitoring"
     assert provenance["resolution"] == "CLUSTER_SCOPED"
     assert provenance["effective_namespace"] is None
+
+
+def test_a6_local_crd_proves_custom_namespaced_resource_scope(tmp_path: Path) -> None:
+    rendered = (
+        "---\n# Source: demo/templates/deployment.yaml\n"
+        "apiVersion: example.test/v1\nkind: Widget\nmetadata:\n"
+        "  name: demo\n  namespace: monitoring\n"
+    )
+    chart = _chart(
+        tmp_path,
+        rendered=rendered,
+        template="kind: Widget\nmetadata:\n  namespace: monitoring\n",
+    )
+    crds = chart / "crds"
+    crds.mkdir()
+    (crds / "widget.yaml").write_text(
+        "apiVersion: apiextensions.k8s.io/v1\nkind: CustomResourceDefinition\n"
+        "metadata:\n  name: widgets.example.test\n"
+        "spec:\n  group: example.test\n  scope: Namespaced\n"
+        "  names:\n    plural: widgets\n    singular: widget\n    kind: Widget\n"
+        "  versions:\n  - name: v1\n    served: true\n    storage: true\n"
+        "    schema:\n      openAPIV3Schema:\n        type: object\n",
+        encoding="utf-8",
+    )
+    evidence = HELM.materialize_helm(
+        _spec(tmp_path, chart_root=chart, namespace="monitoring"), tmp_path / "output"
+    )
+    provenance = evidence.documents[0].namespace_provenance
+    assert provenance["resolution"] == "LITERAL_NAMESPACE_EXPRESSION"
+    assert provenance["effective_namespace"] == "monitoring"
 
 
 def test_a6_unknown_custom_resource_scope_remains_inconclusive(tmp_path: Path) -> None:
@@ -526,6 +621,17 @@ def test_a6_release_namespace_contradiction_is_recorded_not_hidden() -> None:
     assert proof["contradiction"] == "RELEASE_NAMESPACE_EXPRESSION_CONTRADICTS_RENDER"
 
 
+@pytest.mark.parametrize("kind", ("Role", "RoleBinding"))
+def test_namespaced_rbac_namespace_contradiction_remains_fail_closed(kind: str) -> None:
+    with pytest.raises(HELM.HelmMaterializationError) as caught:
+        _namespace_call(
+            api_version="rbac.authorization.k8s.io/v1",
+            kind=kind,
+            source_text="metadata:\n  namespace: other\n",
+        )
+    assert caught.value.reason_code == "CONTRADICTORY_NAMESPACE_PROVENANCE"
+
+
 def test_a6_same_name_in_two_release_namespaces_is_not_duplicate(tmp_path: Path) -> None:
     left = tmp_path / "left"
     right = tmp_path / "right"
@@ -545,6 +651,44 @@ def test_a6_same_name_in_two_release_namespaces_is_not_duplicate(tmp_path: Path)
             "apps/v1/Deployment/monitoring/demo",
             "apps/v1/Deployment/kube-system/demo",
         }
+
+
+def test_cluster_scoped_cross_chart_duplicates_after_normalization_fail_closed(
+    tmp_path: Path,
+) -> None:
+    executable = _executable(tmp_path)
+    charts = []
+    for key, emitted_namespace in (("left", "monitoring"), ("right", "system")):
+        root = tmp_path / key
+        root.mkdir()
+        rendered = (
+            "---\n# Source: demo/templates/deployment.yaml\n"
+            "apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\n"
+            f"metadata:\n  name: demo\n  namespace: {emitted_namespace}\n"
+        )
+        chart = _chart(
+            root,
+            rendered=rendered,
+            template=(
+                "kind: ClusterRole\nmetadata:\n"
+                f"  namespace: {emitted_namespace}\n"
+            ),
+        )
+        charts.append(
+            HELM.HelmUniverseChart(
+                key,
+                _spec(
+                    root,
+                    chart_root=chart,
+                    helm_executable=executable,
+                    namespace=emitted_namespace,
+                ),
+            )
+        )
+    with pytest.raises(HELM.HelmMaterializationError) as caught:
+        with HELM.materialize_helm_universe(tuple(charts)):
+            pass
+    assert caught.value.reason_code == "DUPLICATE_RENDERED_IDENTITY"
 
 
 @pytest.mark.parametrize(

@@ -299,6 +299,7 @@ def _dependency_chart(root: Path) -> Path:
 def _semantic_payload(
     tmp_path: Path, *, dependencies: bool = False, tpl: bool = False,
     dynamic_include: bool = False, protected_file_tpl: bool = False,
+    cluster_scoped_namespace: bool = False,
 ) -> dict:
     index = sum(1 for item in tmp_path.iterdir() if item.name.startswith("semantic-"))
     semantic_root = tmp_path / f"semantic-{index}"
@@ -307,7 +308,22 @@ def _semantic_payload(
     candidate_root = semantic_root / "candidate"
     baseline_root.mkdir()
     candidate_root.mkdir()
-    if dependencies:
+    if cluster_scoped_namespace:
+        rendered = (
+            "---\n# Source: demo/templates/deployment.yaml\n"
+            "apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\n"
+            "metadata:\n  name: demo\n  namespace: monitoring\n"
+        )
+        template = "kind: ClusterRole\nmetadata:\n  namespace: monitoring\n"
+        baseline_chart = _chart(baseline_root, rendered=rendered, template=template)
+        candidate_chart = _chart(candidate_root, rendered=rendered, template=template)
+        baseline = _spec(
+            baseline_root, chart_root=baseline_chart, namespace="monitoring"
+        )
+        candidate = _spec(
+            candidate_root, chart_root=candidate_chart, namespace="monitoring"
+        )
+    elif dependencies:
         baseline = _spec(baseline_root, chart_root=_dependency_chart(baseline_root))
         candidate = _spec(candidate_root, chart_root=_dependency_chart(candidate_root))
     elif protected_file_tpl:
@@ -371,6 +387,19 @@ def _semantic_payload(
 def test_helm_semantic_validator_recomputes_complete_identity(tmp_path: Path) -> None:
     payload = _semantic_payload(tmp_path)
     REPORT._validate_helm_materialization(payload)
+
+
+def test_helm_semantic_validator_accepts_cluster_scoped_namespace_normalization(
+    tmp_path: Path,
+) -> None:
+    payload = _semantic_payload(tmp_path, cluster_scoped_namespace=True)
+    REPORT._validate_helm_materialization(payload)
+    document = payload["materialization"]["baseline"]["documents"][0]
+    assert document["namespace"] == "monitoring"
+    assert document["namespace_provenance"]["emitted_metadata_namespace"] == (
+        "monitoring"
+    )
+    assert document["namespace_provenance"]["effective_namespace"] is None
 
 
 def test_helm_semantic_validator_binds_archive_and_expanded_dependency_bytes(

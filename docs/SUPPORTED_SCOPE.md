@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a6`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a7`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -75,6 +75,13 @@ vendored older schema must be updated before validating those Helm reports. Unkn
 expressions, target ambiguity, cycles, path escape, and unmodeled scanner addressability
 remain fail-closed.
 
+`0.1.0a7` corrects namespace provenance for known cluster-scoped resources to model
+the Kubernetes API-server create path. A rendered `metadata.namespace` remains governed
+and scanner-addressable, while the effective API resource identity has no namespace.
+Duplicate identities after normalization, contradictory namespaced-resource provenance,
+and unresolved custom-resource scope remain fail-closed. No report-v1 schema change is
+required.
+
 ## Component status
 
 | Area | Status |
@@ -88,7 +95,7 @@ remain fail-closed.
 | Terraform `.tf.json` | Explicitly unsupported/inconclusive end to end. |
 | Checkov CKV2/graph findings | Supported only for bounded connection-query shapes with complete participant and relationship evidence; every other shape remains inconclusive. |
 | Candidate acceptance | Supported only for explicitly selected properties under complete governed, scanner-addressable, and target-relevant evidence universes; it never claims `FIXED`. |
-| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded contract, including ordered multi-chart candidate universes, protected namespace provenance, bounded action/`tpl` analysis, and exactly resolvable dynamic include/template targets. |
+| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded contract, including ordered multi-chart candidate universes, [protected namespace provenance](NAMESPACE_PROVENANCE.md), bounded action/`tpl` analysis, and exactly resolvable dynamic include/template targets. |
 | Kustomize materialization | No protected materialization contract yet. |
 | Multi-scanner consensus | Advisory only and disconnected from the final verdict. |
 | Hardened container and composite Action | Not released. |
