@@ -1,0 +1,41 @@
+{
+  "schema_version": "supabase-networkpolicy-review-v1",
+  "repository": "supabase-community/supabase-kubernetes",
+  "pull_request": 164,
+  "base_sha": "b6b399f1cc994e609cbaff4e1652a6c4a79381ee",
+  "head_sha": "8d23520955879cb06c020d6dfe6f975a372f2ee6",
+  "rendered_bundle_sha256": "5737e5db441957893490cf7fae857b7641a194d35ba4ec3182b2c1bf52e17715",
+  "policies": [
+    {
+      "resource_identity": "networking.k8s.io/v1/NetworkPolicy/default/supabase-supabase-auth-netpol",
+      "source_template": "templates/networkpolicies/auth-networkpolicy.yaml",
+      "source_sha256": "d0ef9ae5b53a91621ffde1ea0663636960973b6b3abc8aaf5cbb9fd769ee8886",
+      "selected_workload": "apps/v1/Deployment/default/supabase-supabase-auth",
+      "ckv2_k8s_6": "SATISFIED",
+      "reviewed_egress_peers": [
+        {"peer": "namespaceSelector:{}", "ports": [5432], "meaning": "Pods in all namespaces on TCP 5432"},
+        {"peer": "namespaceSelector:{}", "ports": [587, 465], "meaning": "Pods in all namespaces on TCP 587/465"},
+        {"peer": "namespaceSelector:{}", "ports": [443], "meaning": "Pods in all namespaces on TCP 443"}
+      ]
+    },
+    {
+      "resource_identity": "networking.k8s.io/v1/NetworkPolicy/default/supabase-supabase-kong-netpol",
+      "source_template": "templates/networkpolicies/kong-networkpolicy.yaml",
+      "source_sha256": "59218cf2575f04c364b927eb713e45760f4c9cfa34b843bef418739a27f4f3ed",
+      "selected_workload": "apps/v1/Deployment/default/supabase-supabase-kong",
+      "ckv2_k8s_6": "SATISFIED",
+      "reviewed_egress_peers": []
+    },
+    {
+      "resource_identity": "networking.k8s.io/v1/NetworkPolicy/default/supabase-supabase-rest-netpol",
+      "source_template": "templates/networkpolicies/rest-networkpolicy.yaml",
+      "source_sha256": "70af607ca724d2e1d5f004ece246440c17a2e63661e5dafbddeaf4c952f43f43",
+      "selected_workload": "apps/v1/Deployment/default/supabase-supabase-rest",
+      "ckv2_k8s_6": "SATISFIED",
+      "reviewed_egress_peers": [
+        {"peer": "namespaceSelector:{}", "ports": [5432], "meaning": "Pods in all namespaces on TCP 5432"}
+      ]
+    }
+  ],
+  "scope_note": "CKV2_K8S_6 establishes policy-to-workload selection only. Peer meanings are reviewed separately against Kubernetes NetworkPolicy semantics."
+}
