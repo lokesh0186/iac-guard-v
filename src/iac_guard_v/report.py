@@ -465,11 +465,15 @@ def _validate_helm_a6_extensions(evidence: dict, label: str) -> None:
         if provenance["source_template"] != document["source_template"]:
             _semantic_error(f"{label} Helm namespace source is contradictory")
         if provenance["resolution"] == "CLUSTER_SCOPED":
-            if (
-                provenance["emitted_metadata_namespace"] is not None
-                or provenance["effective_namespace"] is not None
-            ):
-                _semantic_error(f"{label} cluster-scoped namespace is not absent")
+            if provenance["effective_namespace"] is not None:
+                _semantic_error(
+                    f"{label} cluster-scoped namespace effective value is not absent"
+                )
+            scanner_namespace = provenance["emitted_metadata_namespace"] or "default"
+            if document["namespace"] != scanner_namespace:
+                _semantic_error(
+                    f"{label} cluster-scoped scanner namespace is contradictory"
+                )
         elif provenance["effective_namespace"] != document["namespace"]:
             _semantic_error(f"{label} Helm effective namespace is contradictory")
         for field in ("source_expression_sha256", "value_sha256"):
@@ -578,6 +582,23 @@ def _validate_helm_materialization(payload: dict) -> None:
             ):
                 _semantic_error(f"{role} Helm source template is outside chart inventory")
         _validate_helm_a6_extensions(evidence, role)
+        for document in documents:
+            expected_identity = (
+                f"{document['api_version']}/{document['kind']}/"
+                f"{document['namespace']}/{document['name']}"
+            )
+            if document["resource_identity"] != expected_identity:
+                _semantic_error(f"{role} Helm rendered resource identity is not canonical")
+        _unique(
+            documents,
+            lambda item: (
+                item["api_version"],
+                item["kind"],
+                item["namespace_provenance"]["effective_namespace"],
+                item["name"],
+            ),
+            f"{role} Helm Kubernetes API resource identity",
+        )
         body = {
             "executable": evidence["executable"],
             "chart": chart,
@@ -631,6 +652,16 @@ def _validate_helm_universe(payload: dict) -> None:
         ownership,
         lambda item: item["document"]["resource_identity"],
         "Helm universe rendered resource identity",
+    )
+    _unique(
+        ownership,
+        lambda item: (
+            item["document"]["api_version"],
+            item["document"]["kind"],
+            item["document"]["namespace_provenance"]["effective_namespace"],
+            item["document"]["name"],
+        ),
+        "Helm universe Kubernetes API resource identity",
     )
     materialization_ids = []
     for item in charts:

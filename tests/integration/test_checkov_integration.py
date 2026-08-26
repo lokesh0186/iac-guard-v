@@ -141,6 +141,64 @@ def test_pinned_checkov_330_kubernetes_contract(tmp_path: Path) -> None:
     ).status is Status.PASS
 
 
+def test_pinned_checkov_330_cluster_scope_retains_emitted_namespace_address(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "candidate"
+    root.mkdir()
+    (root / "clusterrole.yaml").write_text(
+        "apiVersion: rbac.authorization.k8s.io/v1\n"
+        "kind: ClusterRole\n"
+        "metadata:\n"
+        "  name: probe\n"
+        "  namespace: monitoring\n"
+        "rules:\n"
+        "- apiGroups: ['']\n"
+        "  resources: ['pods']\n"
+        "  verbs: ['get']\n",
+        encoding="utf-8",
+    )
+    executable = _checkov()
+    distribution = checkov_distribution_identity(executable, "3.3.0")
+    run = CheckovAdapter().scan(
+        CheckovScanRequest(
+            executable=executable,
+            scan_root=root,
+            workspace_root=root,
+            frameworks=("kubernetes",),
+            files_eligible=("clusterrole.yaml",),
+            expected_version="3.3.0",
+            expected_executable_sha256=hashlib.sha256(executable.read_bytes()).hexdigest(),
+            expected_scanner_environment_sha256=distribution.scanner_environment_digest,
+            expected_policy_inventory_sha256=distribution.policy_inventory_digest,
+            kubernetes_identities=(
+                CheckovKubernetesIdentity(
+                    "clusterrole.yaml",
+                    "ClusterRole.monitoring.probe",
+                    "rbac.authorization.k8s.io/v1",
+                    "ClusterRole",
+                    "monitoring",
+                    "probe",
+                ),
+            ),
+            expected_resources=(
+                ExpectedResource(
+                    "clusterrole.yaml",
+                    "rbac.authorization.k8s.io/v1/ClusterRole/monitoring/probe",
+                    ArtifactKind.KUBERNETES_YAML,
+                    "ClusterRole.monitoring.probe",
+                ),
+            ),
+        )
+    )
+    assert run.status is Status.PASS
+    assert run.coverage.files_parsed == 1
+    assert run.evaluations
+    assert {item.resource_address for item in run.evaluations} == {
+        "rbac.authorization.k8s.io/v1/ClusterRole/monitoring/probe"
+    }
+
+
 def test_pinned_checkov_330_synthetic_pod_identity_matrix() -> None:
     fixture = (
         Path(__file__).parents[1]

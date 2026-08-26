@@ -3008,20 +3008,20 @@ def _namespace_provenance(
         )
     scope = _resource_scope(api_version, kind, custom_scopes)
     if scope == "Cluster":
-        if explicit_namespace is not None:
-            raise HelmMaterializationError(
-                "CONTRADICTORY_NAMESPACE_PROVENANCE",
-                "cluster-scoped rendered resource contains metadata.namespace",
-            )
         effective = None
         resolution = "CLUSTER_SCOPED"
         value_path = ""
         value_sha = ""
-        expression = ""
+        expression = (
+            _namespace_expression(source_text)
+            if explicit_namespace is not None
+            else ""
+        ) or ""
         contradiction = "NONE"
-        # Keep the scanner-facing historical canonical address stable while the
-        # protected namespace evidence records that namespace is absent.
-        canonical_namespace = "default"
+        # The API server clears namespace before validating a cluster-scoped
+        # object. Keep the emitted value in provenance, while using the value
+        # Checkov actually reports as the scanner-facing address segment.
+        canonical_namespace = explicit_namespace or "default"
     elif explicit_namespace is None:
         effective = release_namespace
         resolution = "HELM_RELEASE_NAMESPACE_DEFAULT"
@@ -3163,6 +3163,17 @@ def _namespace_provenance(
     return canonical_namespace, MappingProxyType(body)
 
 
+def _api_resource_identity(document: HelmRenderedDocument) -> str:
+    """Return the Kubernetes API identity after namespace normalization."""
+    provenance = document.namespace_provenance
+    namespace = provenance["effective_namespace"]
+    namespace_segment = "" if namespace is None else namespace
+    return (
+        f"{document.api_version}/{document.kind}/"
+        f"{namespace_segment}/{document.name}"
+    )
+
+
 def _documents(
     stdout: bytes,
     *,
@@ -3175,6 +3186,7 @@ def _documents(
 ) -> tuple[HelmRenderedDocument, ...]:
     result = []
     identities = set()
+    api_identities = set()
     files = {item.path for item in chart_files} | set(expanded_dependency_files)
     custom_scopes = _custom_resource_scopes(template_actions.sources)
     for index, raw in enumerate(_split_documents(stdout), start=1):
@@ -3235,7 +3247,7 @@ def _documents(
                 "DUPLICATE_RENDERED_IDENTITY", "rendered resource identity is duplicated"
             )
         identities.add(identity)
-        result.append(HelmRenderedDocument(
+        document = HelmRenderedDocument(
             index,
             _sha256(raw),
             api_version,
@@ -3246,7 +3258,15 @@ def _documents(
             source,
             source_chart,
             namespace_provenance,
-        ))
+        )
+        api_identity = _api_resource_identity(document)
+        if api_identity in api_identities:
+            raise HelmMaterializationError(
+                "DUPLICATE_RENDERED_IDENTITY",
+                "rendered resources normalize to the same Kubernetes API identity",
+            )
+        api_identities.add(api_identity)
+        result.append(document)
     if not result:
         raise HelmMaterializationError(
             "MISSING_RENDERED_RESOURCE_IDENTITY", "Helm rendered no Kubernetes resources"
@@ -3520,13 +3540,19 @@ def materialize_helm_universe(
             )
             bundles.append((chart_root / "rendered.yaml").read_bytes())
 
-        identities = [
-            document.resource_identity for _key, document in ownership
-        ]
+        identities = [document.resource_identity for _key, document in ownership]
         if len(identities) != len(set(identities)):
             raise HelmMaterializationError(
                 "DUPLICATE_RENDERED_IDENTITY",
                 "multiple charts render the same canonical Kubernetes resource",
+            )
+        api_identities = [
+            _api_resource_identity(document) for _key, document in ownership
+        ]
+        if len(api_identities) != len(set(api_identities)):
+            raise HelmMaterializationError(
+                "DUPLICATE_RENDERED_IDENTITY",
+                "multiple charts render resources with the same Kubernetes API identity",
             )
 
         fragments = []

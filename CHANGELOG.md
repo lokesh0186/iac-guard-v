@@ -3,7 +3,18 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
-## [Unreleased]
+## [0.1.0a7] - Unreleased
+
+### Fixed
+
+- Known cluster-scoped Kubernetes resources now retain any rendered
+  `metadata.namespace` as governed scanner-facing evidence while recording the API
+  server-normalized effective namespace as absent. Such metadata is redundant cleanup,
+  not an API rejection condition. Duplicate objects that collide after normalization
+  still fail closed.
+- Unknown custom-resource scope and contradictory namespaced-resource provenance remain
+  inconclusive; existing Terraform, Kubernetes, Helm, graph, and candidate-acceptance
+  behavior is otherwise unchanged.
 
 ## [0.1.0a6] - 2026-08-25
 
@@ -37,9 +48,10 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 - Missing, duplicate, escaped, cyclic, or unsupported dynamic include targets remain
   ambiguous. Dangerous actions reached through an exact target retain their stronger
   typed fail-closed outcome.
-- Cluster-scoped resources cannot carry `metadata.namespace`. Custom-resource scope
-  requires exact local CRD evidence; namespace contradictions and unproven scope fail
-  closed.
+- In `0.1.0a6`, cluster-scoped resources carrying `metadata.namespace` were treated as
+  contradictory. The Unreleased correction above aligns this with the API server create
+  path. Custom-resource scope still requires exact local CRD evidence, and unproven
+  scope remains fail closed.
 
 ## [0.1.0a5] - 2026-08-25
 
