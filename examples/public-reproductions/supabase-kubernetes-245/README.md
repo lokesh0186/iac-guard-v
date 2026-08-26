@@ -96,6 +96,9 @@ Bounded Helm action reachability passes for both revisions with identity
   `d1c4b0c5336d7a484fdace2600be8ff0a6513e50599269aeb01743e413eebbcc`
 - Private-path leakage: none in canonical report or materialization evidence
 
+The hashes for every retained packet file are recorded in
+[SHA256SUMS](SHA256SUMS).
+
 ## What the maintainer would learn
 
 The five edited templates do add the requested context to their `init-db` containers,
