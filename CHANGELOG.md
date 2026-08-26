@@ -3,7 +3,9 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
-## [0.1.0a7] - Unreleased
+## [Unreleased]
+
+## [0.1.0a7] - 2026-08-26
 
 ### Fixed
 

@@ -9,6 +9,7 @@ authors:
     affiliation: "Independent Researcher"
 type: software
 version: 0.1.0a7
+date-released: 2026-08-26
 license: Apache-2.0
 repository-code: "https://github.com/lokesh0186/iac-guard-v"
 url: "https://github.com/lokesh0186/iac-guard-v"
