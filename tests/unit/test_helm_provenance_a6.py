@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import io
+import tarfile
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -693,6 +695,390 @@ def test_a6_tpl_of_plain_literal_is_digest_bound_and_safe(tmp_path: Path) -> Non
     assert records[0]["nested_action_count"] == 0
     assert records[0]["nesting_depth"] == 1
     assert "literal-value" not in json.dumps(records)
+
+
+def _protected_file_spec(
+    root: Path,
+    content: str,
+    *,
+    action: str = '{{ tpl (.Files.Get "files/config.conf") . }}',
+) -> HELM.HelmRenderSpec:
+    chart = _chart(root, template=action)
+    protected = chart / "files" / "config.conf"
+    protected.parent.mkdir(parents=True)
+    protected.write_text(content, encoding="utf-8")
+    return _spec(root, chart_root=chart)
+
+
+def test_a6_tpl_files_get_safe_config_is_protected_and_digest_only(
+    tmp_path: Path,
+) -> None:
+    secret = "secret-like-file-marker-991"
+    evidence = HELM.materialize_helm(
+        _protected_file_spec(tmp_path, secret), tmp_path / "output"
+    )
+    record = evidence.render_inputs["template_action_reachability"]["tpl_evidence"][0]
+    assert record["template_string_source"] == "PROTECTED_CHART_FILE"
+    assert record["template_string_path"] == "files/config.conf"
+    assert record["protected_file"]["protected_path"] == "files/config.conf"
+    assert record["protected_file"]["relative_path"] == "files/config.conf"
+    assert record["protected_file"]["size"] == len(secret)
+    assert record["protected_file"]["sha256"] == HELM._sha256(secret.encode())
+    assert secret not in json.dumps(evidence.canonical_dict(), sort_keys=True)
+
+
+def test_a6_tpl_files_get_runs_same_bounded_nested_values_analysis(
+    tmp_path: Path,
+) -> None:
+    spec = _protected_file_spec(tmp_path, "{{ .Values.foo }}")
+    (spec.chart_root / "values.yaml").write_text("foo: bounded\n", encoding="utf-8")
+    evidence = HELM.materialize_helm(spec, tmp_path / "output")
+    record = evidence.render_inputs["template_action_reachability"]["tpl_evidence"][0]
+    assert record["nested_action_count"] == 1
+    assert record["reached_dangerous_actions"] == []
+
+
+@pytest.mark.parametrize(
+    ("content", "reason"),
+    (
+        ("{{ randAlphaNum 8 }}", "NONDETERMINISTIC_RENDER"),
+        ('{{ lookup "v1" "Secret" "default" "demo" }}', "CLUSTER_STATE_REQUIRED"),
+        ("{{ unsupportedFunction .Values.foo }}", "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"),
+    ),
+)
+def test_a6_tpl_files_get_preserves_nested_danger_precedence(
+    tmp_path: Path, content: str, reason: str
+) -> None:
+    assert _failure(_protected_file_spec(tmp_path, content), tmp_path) == reason
+
+
+@pytest.mark.parametrize(
+    "action",
+    (
+        '{{ tpl (.Files.Get .Values.path) . }}',
+        '{{ tpl (.Files.Get (printf "%s" "files/config.conf")) . }}',
+        '{{ tpl (.Files.GetBytes "files/config.conf") . }}',
+        '{{ tpl (.Files.Glob "files/*") . }}',
+    ),
+)
+def test_a6_tpl_files_get_dynamic_or_unapproved_forms_fail_closed(
+    tmp_path: Path, action: str
+) -> None:
+    spec = _protected_file_spec(tmp_path, "safe", action=action)
+    assert _failure(spec, tmp_path) == "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"
+
+
+@pytest.mark.parametrize(
+    "path",
+    ("files/missing.conf", "../outside.conf", "/absolute.conf"),
+)
+def test_a6_tpl_files_get_missing_or_escape_fails_closed(
+    tmp_path: Path, path: str
+) -> None:
+    spec = _protected_file_spec(
+        tmp_path, "safe", action=f'{{{{ tpl (.Files.Get "{path}") . }}}}'
+    )
+    assert _failure(spec, tmp_path) == "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"
+
+
+def test_a6_tpl_files_get_templates_content_is_inaccessible(tmp_path: Path) -> None:
+    chart = _chart(
+        tmp_path, template='{{ tpl (.Files.Get "templates/private.conf") . }}'
+    )
+    (chart / "templates" / "private.conf").write_text("safe", encoding="utf-8")
+    assert _failure(_spec(tmp_path, chart_root=chart), tmp_path) == (
+        "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"
+    )
+
+
+def test_a6_tpl_files_get_helmignore_excluded_content_is_inaccessible(
+    tmp_path: Path,
+) -> None:
+    spec = _protected_file_spec(tmp_path, "safe")
+    (spec.chart_root / ".helmignore").write_text("files/*.conf\n", encoding="utf-8")
+    assert _failure(spec, tmp_path) == "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"
+
+
+def test_a6_tpl_files_get_symlink_is_rejected_before_access(tmp_path: Path) -> None:
+    spec = _protected_file_spec(tmp_path, "safe")
+    protected = spec.chart_root / "files" / "config.conf"
+    protected.unlink()
+    outside = tmp_path / "outside.conf"
+    outside.write_text("safe", encoding="utf-8")
+    protected.symlink_to(outside)
+    assert _failure(spec, tmp_path) == "CHART_PATH_ESCAPE"
+
+
+def test_a6_subchart_files_get_cannot_read_parent_chart_file(tmp_path: Path) -> None:
+    rendered = DEPLOYMENT.replace(
+        "demo/templates/deployment.yaml", "demo/charts/child/templates/deployment.yaml"
+    )
+    chart = _chart(tmp_path, rendered=rendered)
+    (chart / "files").mkdir()
+    (chart / "files" / "parent.conf").write_text("safe", encoding="utf-8")
+    child = chart / "charts" / "child"
+    (child / "templates").mkdir(parents=True)
+    (child / "Chart.yaml").write_text(
+        "apiVersion: v2\nname: child\nversion: 1.0.0\n", encoding="utf-8"
+    )
+    (child / "templates" / "deployment.yaml").write_text(
+        '{{ tpl (.Files.Get "files/parent.conf") . }}', encoding="utf-8"
+    )
+    assert _failure(_spec(tmp_path, chart_root=chart), tmp_path) == (
+        "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"
+    )
+
+
+def test_a6_subchart_local_files_get_is_bound_to_subchart_identity(
+    tmp_path: Path,
+) -> None:
+    rendered = DEPLOYMENT.replace(
+        "demo/templates/deployment.yaml", "demo/charts/child/templates/deployment.yaml"
+    )
+    chart = _chart(tmp_path, rendered=rendered)
+    child = chart / "charts" / "child"
+    (child / "templates").mkdir(parents=True)
+    (child / "files").mkdir()
+    (child / "Chart.yaml").write_text(
+        "apiVersion: v2\nname: child\nversion: 1.0.0\n", encoding="utf-8"
+    )
+    (child / "templates" / "deployment.yaml").write_text(
+        '{{ tpl (.Files.Get "files/config.conf") . }}', encoding="utf-8"
+    )
+    (child / "files" / "config.conf").write_text("safe", encoding="utf-8")
+    evidence = HELM.materialize_helm(
+        _spec(tmp_path, chart_root=chart), tmp_path / "output"
+    )
+    protected = evidence.render_inputs["template_action_reachability"]["tpl_evidence"][0][
+        "protected_file"
+    ]
+    assert protected["chart_context"] == "charts/child"
+    assert protected["protected_path"] == "charts/child/files/config.conf"
+
+
+def test_a6_same_file_path_in_two_subcharts_has_distinct_chart_identity(
+    tmp_path: Path,
+) -> None:
+    rendered = DEPLOYMENT.replace(
+        "demo/templates/deployment.yaml", "demo/charts/one/templates/deployment.yaml"
+    ) + DEPLOYMENT.replace(
+        "demo/templates/deployment.yaml", "demo/charts/two/templates/deployment.yaml"
+    ).replace("name: demo", "name: second", 1)
+    chart = _chart(tmp_path, rendered=rendered)
+    for name in ("one", "two"):
+        child = chart / "charts" / name
+        (child / "templates").mkdir(parents=True)
+        (child / "files").mkdir()
+        (child / "Chart.yaml").write_text(
+            f"apiVersion: v2\nname: {name}\nversion: 1.0.0\n", encoding="utf-8"
+        )
+        (child / "templates" / "deployment.yaml").write_text(
+            '{{ tpl (.Files.Get "files/config.conf") . }}', encoding="utf-8"
+        )
+        (child / "files" / "config.conf").write_text(name, encoding="utf-8")
+    evidence = HELM.materialize_helm(
+        _spec(tmp_path, chart_root=chart), tmp_path / "output"
+    )
+    records = evidence.render_inputs["template_action_reachability"]["tpl_evidence"]
+    assert len(records) == 2
+    assert len({item["protected_file"]["chart_identity"] for item in records}) == 2
+    assert len({item["protected_file"]["protected_path"] for item in records}) == 2
+
+
+def test_a6_library_helper_uses_exact_callers_files_context(tmp_path: Path) -> None:
+    chart = _chart(tmp_path, template='{{ include "library.config" . }}')
+    (chart / "files").mkdir()
+    (chart / "files" / "config.conf").write_text("safe", encoding="utf-8")
+    library = chart / "charts" / "library"
+    (library / "templates").mkdir(parents=True)
+    (library / "Chart.yaml").write_text(
+        "apiVersion: v2\nname: library\ntype: library\nversion: 1.0.0\n",
+        encoding="utf-8",
+    )
+    (library / "templates" / "_helpers.tpl").write_text(
+        '{{ define "library.config" }}{{ tpl (.Files.Get "files/config.conf") . }}{{ end }}',
+        encoding="utf-8",
+    )
+    evidence = HELM.materialize_helm(
+        _spec(tmp_path, chart_root=chart), tmp_path / "output"
+    )
+    protected = evidence.render_inputs["template_action_reachability"]["tpl_evidence"][0][
+        "protected_file"
+    ]
+    assert protected["chart_context"] == "."
+    assert protected["protected_path"] == "files/config.conf"
+
+
+def test_a6_tpl_files_get_recursive_content_fails_closed(tmp_path: Path) -> None:
+    recursive = '{{ tpl (.Files.Get "files/config.conf") . }}'
+    assert _failure(_protected_file_spec(tmp_path, recursive), tmp_path) == (
+        "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"
+    )
+
+
+def test_a6_tpl_files_get_mutation_after_inventory_is_detected(tmp_path: Path) -> None:
+    spec = _protected_file_spec(tmp_path, "before")
+    executable = _executable(
+        tmp_path,
+        "#!/bin/sh\n"
+        "if [ \"$1\" = version ]; then printf 'v3.16.4'; exit 0; fi\n"
+        "printf 'after' > files/config.conf\n"
+        "cat rendered.fixture\n",
+    )
+    mutated = HELM.HelmRenderSpec(
+        chart_root=spec.chart_root,
+        helm_executable=executable,
+        release_name=spec.release_name,
+        namespace=spec.namespace,
+        kube_version=spec.kube_version,
+    )
+    assert _failure(mutated, tmp_path) == "CHART_MUTATED_DURING_RENDER"
+
+
+@pytest.mark.parametrize(
+    ("pattern", "matching", "nonmatching"),
+    (
+        ("file?.conf", "file1.conf", "file12.conf"),
+        ("file[0-9].conf", "file7.conf", "filex.conf"),
+        ("file[!0-9].conf", "filex.conf", "file7.conf"),
+        (r"file\?.conf", "file?.conf", "file1.conf"),
+    ),
+)
+def test_a6_helmignore_filepath_match_subset(
+    pattern: str, matching: str, nonmatching: str
+) -> None:
+    compiled = HELM._helm_glob_regex(pattern)
+    assert compiled.fullmatch(matching)
+    assert not compiled.fullmatch(nonmatching)
+
+
+@pytest.mark.parametrize("pattern", ("[", "[]", "trailing\\"))
+def test_a6_helmignore_invalid_patterns_fail_closed(pattern: str) -> None:
+    with pytest.raises(HELM.HelmMaterializationError) as caught:
+        HELM._helm_glob_regex(pattern)
+    assert caught.value.reason_code == "CHART_INVENTORY_UNAVAILABLE"
+
+
+def test_a6_helmignore_rule_parser_covers_helm_v3_rule_shapes(tmp_path: Path) -> None:
+    chart = _chart(tmp_path)
+    (chart / ".helmignore").write_text(
+        "\ufeff# comment\n\n/anchored.conf\ncache/\n*.tmp\n!keep.conf\n",
+        encoding="utf-8",
+    )
+    rules = HELM._helmignore_rules(chart)
+    assert len(rules) == 4
+    assert HELM._helmignore_matches("anchored.conf", is_dir=False, rules=rules)
+    assert HELM._helmignore_matches("nested/cache", is_dir=True, rules=rules)
+    assert HELM._helmignore_matches("nested/file.tmp", is_dir=False, rules=rules)
+    # Helm v3 uses first-match negative semantics, which are intentionally not
+    # replaced here with gitignore behavior.
+    assert HELM._helmignore_matches("other.conf", is_dir=False, rules=rules)
+
+
+@pytest.mark.parametrize("rule", ("**/*.conf", "/", "!"))
+def test_a6_helmignore_unloadable_rules_fail_closed(
+    tmp_path: Path, rule: str
+) -> None:
+    chart = _chart(tmp_path)
+    (chart / ".helmignore").write_text(rule + "\n", encoding="utf-8")
+    with pytest.raises(HELM.HelmMaterializationError) as caught:
+        HELM._helmignore_rules(chart)
+    assert caught.value.reason_code == "CHART_INVENTORY_UNAVAILABLE"
+
+
+def test_a6_helmignore_non_utf8_and_symlink_fail_closed(tmp_path: Path) -> None:
+    chart = _chart(tmp_path)
+    ignore = chart / ".helmignore"
+    ignore.write_bytes(b"\xff")
+    with pytest.raises(HELM.HelmMaterializationError) as caught:
+        HELM._helmignore_rules(chart)
+    assert caught.value.reason_code == "CHART_INVENTORY_UNAVAILABLE"
+
+    ignore.unlink()
+    outside = tmp_path / "outside-ignore"
+    outside.write_text("*.conf\n", encoding="utf-8")
+    ignore.symlink_to(outside)
+    with pytest.raises(HELM.HelmMaterializationError) as caught:
+        HELM._helmignore_rules(chart)
+    assert caught.value.reason_code == "CHART_PATH_ESCAPE"
+
+
+def test_a6_helmignore_directory_rule_excludes_descendants(tmp_path: Path) -> None:
+    chart = _chart(tmp_path)
+    (chart / ".helmignore").write_text("files/\n", encoding="utf-8")
+    assert HELM._chart_file_is_ignored(chart, "files/nested/config.conf")
+    assert not HELM._chart_file_is_ignored(chart, "other/config.conf")
+
+
+def test_a6_chart_context_without_template_segment_is_root() -> None:
+    assert HELM._chart_context_for_source("ordinary/file.conf") == "."
+    assert HELM._chart_context_for_source("charts/child/templates/a.yaml") == (
+        "charts/child"
+    )
+
+
+def test_a6_protected_directory_index_rejects_wrong_inventory_root(
+    tmp_path: Path,
+) -> None:
+    chart = _chart(tmp_path)
+    with pytest.raises(HELM.HelmMaterializationError) as caught:
+        HELM._protected_directory_files(
+            chart,
+            chart_context=".",
+            chart_name="demo",
+            inventory_root_sha256="0" * 64,
+        )
+    assert caught.value.reason_code == "CHART_MUTATED_DURING_RENDER"
+
+
+def test_a6_archive_subchart_protected_file_is_context_bound(tmp_path: Path) -> None:
+    chart = _chart(tmp_path)
+    charts = chart / "charts"
+    charts.mkdir()
+    archive_path = charts / "child-1.0.0.tgz"
+    members = {
+        "child/Chart.yaml": b"apiVersion: v2\nname: child\nversion: 1.0.0\n",
+        "child/templates/configmap.yaml": b"{{ tpl (.Files.Get \"files/config.conf\") . }}",
+        "child/files/config.conf": b"safe",
+    }
+    with tarfile.open(archive_path, "w:gz") as archive:
+        for name, content in members.items():
+            member = tarfile.TarInfo(name)
+            member.size = len(content)
+            archive.addfile(member, io.BytesIO(content))
+    expanded = [
+        {
+            "path": f"charts/child/{PurePath}",
+            "size": len(content),
+            "mode": 0,
+            "sha256": HELM._sha256(content),
+        }
+        for PurePath, content in (
+            ("Chart.yaml", members["child/Chart.yaml"]),
+            ("templates/configmap.yaml", members["child/templates/configmap.yaml"]),
+            ("files/config.conf", members["child/files/config.conf"]),
+        )
+    ]
+    dependencies = {
+        "artifacts": [{
+            "name": "child",
+            "version": "1.0.0",
+            "form": "archive",
+            "sha256": HELM._sha256(archive_path.read_bytes()),
+            "expanded_files": expanded,
+        }]
+    }
+    _files, root_hash = HELM._inventory(chart)
+    protected = HELM._protected_tpl_files(chart, dependencies, root_hash)
+    record = protected["charts/child"]["files/config.conf"]
+    assert record.protected_path == "charts/child/files/config.conf"
+    assert record.content == b"safe"
+
+
+def test_a6_selected_non_utf8_protected_file_fails_closed(tmp_path: Path) -> None:
+    spec = _protected_file_spec(tmp_path, "safe")
+    (spec.chart_root / "files" / "config.conf").write_bytes(b"\xff")
+    assert _failure(spec, tmp_path) == "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"
 
 
 def test_a6_tpl_of_protected_value_runs_bounded_nested_analysis(tmp_path: Path) -> None:

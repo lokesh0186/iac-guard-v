@@ -174,6 +174,10 @@ class _TemplateActionIndex:
     sources: dict[str, str]
     source_base_paths: dict[str, tuple[str, str, str]] = field(default_factory=dict)
     source_template_names: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    source_chart_contexts: dict[str, str] = field(default_factory=dict)
+    protected_files: dict[str, dict[str, "_ProtectedTplFile"]] = field(
+        default_factory=dict
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -187,6 +191,19 @@ class _TplArgument:
     content: str
     source_kind: str
     source_path: str
+    protected_file: "_ProtectedTplFile | None" = None
+
+
+@dataclass(frozen=True, slots=True)
+class _ProtectedTplFile:
+    content: bytes
+    chart_context: str
+    chart_identity: str
+    chart_inventory_root_sha256: str
+    protected_path: str
+    relative_path: str
+    size: int
+    sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -974,6 +991,252 @@ def _matching_parenthesis(tokens: tuple[_ActionToken, ...], start: int) -> int |
     return None
 
 
+def _helm_glob_regex(pattern: str) -> re.Pattern[str]:
+    """Compile the filepath.Match subset used by Helm's .helmignore rules."""
+    output = ["^"]
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if char == "*":
+            output.append("[^/]*")
+        elif char == "?":
+            output.append("[^/]")
+        elif char == "[":
+            end = pattern.find("]", index + 1)
+            if end < 0:
+                raise HelmMaterializationError(
+                    "CHART_INVENTORY_UNAVAILABLE", ".helmignore has an invalid pattern"
+                )
+            body = pattern[index + 1:end]
+            if not body:
+                raise HelmMaterializationError(
+                    "CHART_INVENTORY_UNAVAILABLE", ".helmignore has an invalid pattern"
+                )
+            if body[0] in {"!", "^"}:
+                body = "^" + body[1:]
+            output.append("[" + body.replace("\\", "\\\\") + "]")
+            index = end
+        elif char == "\\":
+            index += 1
+            if index >= len(pattern):
+                raise HelmMaterializationError(
+                    "CHART_INVENTORY_UNAVAILABLE", ".helmignore has an invalid pattern"
+                )
+            output.append(re.escape(pattern[index]))
+        else:
+            output.append(re.escape(char))
+        index += 1
+    output.append("$")
+    try:
+        return re.compile("".join(output))
+    except re.error as exc:
+        raise HelmMaterializationError(
+            "CHART_INVENTORY_UNAVAILABLE", ".helmignore has an invalid pattern"
+        ) from exc
+
+
+def _helmignore_rules(chart_root: Path) -> tuple[tuple[re.Pattern[str], bool, bool], ...]:
+    path = chart_root / ".helmignore"
+    if not path.exists():
+        return ()
+    if path.is_symlink() or not path.is_file():
+        raise HelmMaterializationError(
+            "CHART_PATH_ESCAPE", ".helmignore must be a regular chart file"
+        )
+    try:
+        lines = path.read_text(encoding="utf-8-sig").splitlines()
+    except (OSError, UnicodeError) as exc:
+        raise HelmMaterializationError(
+            "CHART_INVENTORY_UNAVAILABLE", ".helmignore is not valid UTF-8"
+        ) from exc
+    result = []
+    for raw in lines:
+        rule = raw.strip()
+        if not rule or rule.startswith("#"):
+            continue
+        if "**" in rule:
+            raise HelmMaterializationError(
+                "CHART_INVENTORY_UNAVAILABLE", ".helmignore double-star is unsupported by Helm"
+            )
+        negate = rule.startswith("!")
+        if negate:
+            rule = rule[1:]
+        must_dir = rule.endswith("/")
+        if must_dir:
+            rule = rule[:-1]
+        anchored = rule.startswith("/")
+        if anchored:
+            rule = rule[1:]
+        if not rule:
+            raise HelmMaterializationError(
+                "CHART_INVENTORY_UNAVAILABLE", ".helmignore has an invalid pattern"
+            )
+        match_pattern = rule if anchored or "/" in rule else f"__BASENAME__/{rule}"
+        result.append((_helm_glob_regex(match_pattern), negate, must_dir))
+    return tuple(result)
+
+
+def _helmignore_matches(
+    relative: str,
+    *,
+    is_dir: bool,
+    rules: tuple[tuple[re.Pattern[str], bool, bool], ...],
+) -> bool:
+    for pattern, negate, must_dir in rules:
+        candidate = (
+            f"__BASENAME__/{PurePosixPath(relative).name}"
+            if pattern.pattern.startswith("^__BASENAME__/")
+            else relative
+        )
+        matched = pattern.fullmatch(candidate) is not None
+        # This deliberately mirrors Helm v3's first-match and negative-rule
+        # behavior rather than importing gitignore semantics.
+        if negate:
+            if must_dir and not is_dir:
+                return True
+            if not matched:
+                return True
+            continue
+        if must_dir and not is_dir:
+            continue
+        if matched:
+            return True
+    return False
+
+
+def _chart_file_is_ignored(chart_root: Path, relative: str) -> bool:
+    rules = _helmignore_rules(chart_root)
+    parts = PurePosixPath(relative).parts
+    for end in range(1, len(parts)):
+        directory = PurePosixPath(*parts[:end]).as_posix()
+        if _helmignore_matches(directory, is_dir=True, rules=rules):
+            return True
+    return _helmignore_matches(relative, is_dir=False, rules=rules)
+
+
+def _chart_context_for_source(source_path: str) -> str:
+    parts = PurePosixPath(source_path).parts
+    template_index = next(
+        (position for position, part in enumerate(parts) if part in {"templates", "crds"}),
+        None,
+    )
+    if template_index is None:
+        return "."
+    prefix = parts[:template_index]
+    return PurePosixPath(*prefix).as_posix() if prefix else "."
+
+
+def _protected_directory_files(
+    chart_root: Path,
+    *,
+    chart_context: str,
+    chart_name: str,
+    inventory_root_sha256: str,
+) -> dict[str, _ProtectedTplFile]:
+    inventory, current_root = _inventory(chart_root)
+    if current_root != inventory_root_sha256:
+        raise HelmMaterializationError(
+            "CHART_MUTATED_DURING_RENDER", "chart changed while protected files were indexed"
+        )
+    chart_identity = _canonical_sha({
+        "chart_context": chart_context,
+        "chart_name": chart_name,
+        "inventory_root_sha256": inventory_root_sha256,
+    })
+    result: dict[str, _ProtectedTplFile] = {}
+    special = {"Chart.yaml", "Chart.lock", "values.yaml", "values.schema.json"}
+    for item in inventory:
+        relative = PurePosixPath(item.path)
+        if relative.parts[0] in {"templates", "charts"} or item.path in special:
+            continue
+        if _chart_file_is_ignored(chart_root, item.path):
+            continue
+        path = chart_root / item.path
+        payload = path.read_bytes()
+        if len(payload) != item.size or _sha256(payload) != item.sha256:
+            raise HelmMaterializationError(
+                "CHART_MUTATED_DURING_RENDER", "protected chart file changed during indexing"
+            )
+        protected_path = (
+            item.path if chart_context == "." else f"{chart_context}/{item.path}"
+        )
+        result[item.path] = _ProtectedTplFile(
+            payload,
+            chart_context,
+            chart_identity,
+            inventory_root_sha256,
+            canonical_repo_path(protected_path, "protected Helm file"),
+            item.path,
+            item.size,
+            item.sha256,
+        )
+    return result
+
+
+def _protected_tpl_files(
+    root: Path,
+    dependencies: dict,
+    root_inventory_sha256: str,
+) -> dict[str, dict[str, _ProtectedTplFile]]:
+    chart = _strict_yaml(root / "Chart.yaml", "Chart.yaml")
+    name = chart.get("name")
+    assert type(name) is str
+    result = {
+        ".": _protected_directory_files(
+            root,
+            chart_context=".",
+            chart_name=name,
+            inventory_root_sha256=root_inventory_sha256,
+        )
+    }
+    for artifact in dependencies["artifacts"]:
+        context = f"charts/{artifact['name']}"
+        if artifact["form"] == "directory":
+            child_root = root / context
+            _child_inventory, child_hash = _inventory(child_root)
+            result[context] = _protected_directory_files(
+                child_root,
+                chart_context=context,
+                chart_name=artifact["name"],
+                inventory_root_sha256=child_hash,
+            )
+            continue
+        archive_path = root / "charts" / f"{artifact['name']}-{artifact['version']}.tgz"
+        expanded_root = _canonical_sha(artifact["expanded_files"])
+        chart_identity = _canonical_sha({
+            "chart_context": context,
+            "chart_name": artifact["name"],
+            "inventory_root_sha256": expanded_root,
+            "archive_sha256": artifact["sha256"],
+        })
+        visible: dict[str, _ProtectedTplFile] = {}
+        with tarfile.open(archive_path, "r:gz") as archive:
+            for member in archive.getmembers():
+                pure = PurePosixPath(member.name)
+                if not member.isfile() or len(pure.parts) < 2:
+                    continue
+                relative = PurePosixPath(*pure.parts[1:]).as_posix()
+                if pure.parts[1] in {"templates", "charts"} or relative in {
+                    "Chart.yaml", "Chart.lock", "values.yaml", "values.schema.json"
+                }:
+                    continue
+                stream = archive.extractfile(member)
+                assert stream is not None
+                payload = stream.read()
+                visible[relative] = _ProtectedTplFile(
+                    payload,
+                    context,
+                    chart_identity,
+                    expanded_root,
+                    canonical_repo_path(f"{context}/{relative}", "protected Helm file"),
+                    relative,
+                    len(payload),
+                    _sha256(payload),
+                )
+        result[context] = visible
+    return result
+
+
 def _template_sources(root: Path, dependencies: dict) -> tuple[tuple[str, str], ...]:
     result = []
     for path in sorted(root.rglob("*")):
@@ -1030,7 +1293,9 @@ def _template_sources(root: Path, dependencies: dict) -> tuple[tuple[str, str], 
     return tuple(sorted(result))
 
 
-def _template_actions(root: Path, dependencies: dict) -> _TemplateActionIndex:
+def _template_actions(
+    root: Path, dependencies: dict, chart_inventory_root_sha256: str
+) -> _TemplateActionIndex:
     roots: dict[str, _TemplateActionScope] = {}
     definitions: dict[str, _TemplateActionScope] = {}
     sources = dict(_template_sources(root, dependencies))
@@ -1042,6 +1307,7 @@ def _template_actions(root: Path, dependencies: dict) -> _TemplateActionIndex:
         )
     source_base_paths: dict[str, tuple[str, str, str]] = {}
     source_template_names: dict[str, list[str]] = {}
+    source_chart_contexts: dict[str, str] = {}
     for path, text in sources.items():
         parts = PurePosixPath(path).parts
         template_positions = [
@@ -1072,6 +1338,7 @@ def _template_actions(root: Path, dependencies: dict) -> _TemplateActionIndex:
             protected_base,
             f"{source_chart_name}@{protected_base}",
         )
+        source_chart_contexts[path] = _chart_context_for_source(path)
         root_actions: list[str] = []
         current_name: str | None = None
         current_actions: list[str] | None = None
@@ -1118,6 +1385,8 @@ def _template_actions(root: Path, dependencies: dict) -> _TemplateActionIndex:
         sources,
         source_base_paths,
         {name: tuple(sorted(paths)) for name, paths in source_template_names.items()},
+        source_chart_contexts,
+        _protected_tpl_files(root, dependencies, chart_inventory_root_sha256),
     )
 
 
@@ -1279,7 +1548,10 @@ def _strip_outer_parentheses(
 
 
 def _resolve_tpl_expression(
-    tokens: tuple[_ActionToken, ...], values: dict
+    tokens: tuple[_ActionToken, ...],
+    values: dict,
+    index: _TemplateActionIndex | None = None,
+    file_chart_context: str | None = None,
 ) -> _TplArgument | None:
     expression = _strip_outer_parentheses(tokens)
     if len(expression) == 1:
@@ -1292,6 +1564,36 @@ def _resolve_tpl_expression(
             assert match is not None and match.group(1) is not None
             return _TplArgument(value, "PROTECTED_VALUES_PATH", match.group(1))
         return None
+    if (
+        len(expression) == 2
+        and not expression[0].quoted
+        and expression[0].text == ".Files.Get"
+        and expression[1].quoted
+    ):
+        requested = expression[1].text
+        path = PurePosixPath(requested)
+        if (
+            index is None
+            or file_chart_context is None
+            or not requested
+            or path.is_absolute()
+            or ".." in path.parts
+            or path.as_posix() != requested
+        ):
+            return None
+        protected = index.protected_files.get(file_chart_context, {}).get(requested)
+        if protected is None:
+            return None
+        try:
+            content = protected.content.decode("utf-8", errors="strict")
+        except UnicodeError:
+            return None
+        return _TplArgument(
+            content,
+            "PROTECTED_CHART_FILE",
+            protected.protected_path,
+            protected,
+        )
     if len(expression) == 3 and expression[0].text == "default":
         fallback = expression[1]
         requested = expression[2]
@@ -1309,7 +1611,11 @@ def _resolve_tpl_expression(
 
 
 def _resolve_tpl_call(
-    tokens: tuple[_ActionToken, ...], start: int, values: dict
+    tokens: tuple[_ActionToken, ...],
+    start: int,
+    values: dict,
+    index: _TemplateActionIndex | None = None,
+    file_chart_context: str | None = None,
 ) -> tuple[_TplArgument, int] | None:
     if start >= len(tokens) or tokens[start].quoted or tokens[start].text != "tpl":
         return None
@@ -1325,7 +1631,9 @@ def _resolve_tpl_call(
     else:
         argument_tokens = tokens[argument_start:argument_start + 1]
         context_index = argument_start + 1
-    argument = _resolve_tpl_expression(argument_tokens, values)
+    argument = _resolve_tpl_expression(
+        argument_tokens, values, index, file_chart_context
+    )
     if (
         argument is None
         or context_index >= len(tokens)
@@ -1810,6 +2118,7 @@ def _analyze_dynamic_include_calls(
     dynamic_target_stack: tuple[str, ...],
     dynamic_callsite_stack: tuple[str, ...],
     nested_contract: bool,
+    file_chart_context: str | None,
 ) -> bool:
     if not _action_parts(action)[2]:
         return True
@@ -1889,6 +2198,7 @@ def _analyze_dynamic_include_calls(
                 dynamic_target_stack=(*dynamic_target_stack, target.target_identity),
                 dynamic_callsite_stack=(*dynamic_callsite_stack, callsite_identity),
                 nested_contract=nested_contract,
+                file_chart_context=file_chart_context,
             )
         elif execution_state is None:
             if _scope_has_action_risk(target.target_scope, index, {target.target_identity}):
@@ -1953,7 +2263,7 @@ def _tpl_callsite_identity(
     nesting_depth: int,
     parent_callsite_identity: str,
 ) -> str:
-    return _canonical_sha({
+    body = {
         "source_template": scope.source_path,
         "callsite_action_sha256": _sha256(action.encode("utf-8")),
         "callsite_action_index": action_index,
@@ -1962,7 +2272,19 @@ def _tpl_callsite_identity(
         "template_string_path": argument.source_path,
         "nesting_depth": nesting_depth,
         "parent_callsite_identity": parent_callsite_identity,
-    })
+    }
+    if argument.protected_file is not None:
+        body["protected_file_identity"] = _canonical_sha({
+            "chart_identity": argument.protected_file.chart_identity,
+            "chart_inventory_root_sha256": (
+                argument.protected_file.chart_inventory_root_sha256
+            ),
+            "protected_path": argument.protected_file.protected_path,
+            "relative_path": argument.protected_file.relative_path,
+            "size": argument.protected_file.size,
+            "sha256": argument.protected_file.sha256,
+        })
+    return _canonical_sha(body)
 
 
 def _analyze_tpl_calls(
@@ -1979,6 +2301,7 @@ def _analyze_tpl_calls(
     tpl_call_stack: tuple[str, ...],
     dynamic_target_stack: tuple[str, ...],
     dynamic_callsite_stack: tuple[str, ...],
+    file_chart_context: str | None,
 ) -> None:
     code = _unquoted_action(action)
     if _TPL_FUNCTION.search(code) is None or execution_state is False:
@@ -1995,7 +2318,9 @@ def _analyze_tpl_calls(
             cursor += 1
             continue
         tpl_ordinal += 1
-        resolved = _resolve_tpl_call(tokens, cursor, values)
+        resolved = _resolve_tpl_call(
+            tokens, cursor, values, index, file_chart_context
+        )
         if resolved is None:
             state.ambiguous = True
             cursor += 1
@@ -2063,6 +2388,38 @@ def _analyze_tpl_calls(
             "excluded_dangerous_actions": [],
             "nested_action_graph_identity": "",
         }
+        if argument.protected_file is not None:
+            protected_file_body = {
+                "chart_context": argument.protected_file.chart_context,
+                "chart_identity": argument.protected_file.chart_identity,
+                "chart_inventory_root_sha256": (
+                    argument.protected_file.chart_inventory_root_sha256
+                ),
+                "protected_path": argument.protected_file.protected_path,
+                "relative_path": argument.protected_file.relative_path,
+                "size": argument.protected_file.size,
+                "sha256": argument.protected_file.sha256,
+                "files_get_expression_sha256": _sha256(
+                    (
+                        ".Files.Get "
+                        + json.dumps(argument.protected_file.relative_path)
+                    ).encode("utf-8")
+                ),
+            }
+            protected_file_identity = _canonical_sha({
+                key: value
+                for key, value in protected_file_body.items()
+                if key not in {"chart_context", "files_get_expression_sha256"}
+            })
+            protected_file_body["protected_file_identity"] = protected_file_identity
+            protected_file_body["protected_render_input_identity"] = _canonical_sha({
+                "chart_identity": argument.protected_file.chart_identity,
+                "chart_inventory_root_sha256": (
+                    argument.protected_file.chart_inventory_root_sha256
+                ),
+                "protected_values_sha256": state.protected_values_sha256,
+            })
+            record["protected_file"] = protected_file_body
         assert state.tpl_evidence is not None
         state.tpl_evidence.append(record)
         excluded_start = len(state.excluded)
@@ -2082,6 +2439,7 @@ def _analyze_tpl_calls(
                 dynamic_target_stack=dynamic_target_stack,
                 dynamic_callsite_stack=dynamic_callsite_stack,
                 nested_contract=True,
+                file_chart_context=file_chart_context,
             )
         record["reached_dangerous_actions"] = [
             dict(item) for item in state.reachable_details[reachable_start:]
@@ -2114,6 +2472,7 @@ def _evaluate_scope(
     dynamic_target_stack: tuple[str, ...] = (),
     dynamic_callsite_stack: tuple[str, ...] = (),
     nested_contract: bool = False,
+    file_chart_context: str | None = None,
 ) -> None:
     active = initial
     controls: list[tuple[bool | None, bool | None]] = []
@@ -2143,6 +2502,7 @@ def _evaluate_scope(
             tpl_call_stack,
             dynamic_target_stack,
             dynamic_callsite_stack,
+            file_chart_context,
         )
         dynamic_resolved = _analyze_dynamic_include_calls(
             action,
@@ -2159,6 +2519,7 @@ def _evaluate_scope(
             dynamic_target_stack,
             dynamic_callsite_stack,
             nested_contract,
+            file_chart_context,
         )
         if execution_state is True:
             state.reachable_functions.update(functions)
@@ -2169,8 +2530,32 @@ def _evaluate_scope(
                 state.ambiguous = True
             for name in calls:
                 called = index.definitions.get(name)
-                if called is None or _scope_has_action_risk(called, index, {name}):
+                if called is None or name in call_stack:
                     state.ambiguous = True
+                    continue
+                if len(call_stack) >= _MAX_TEMPLATE_CALL_DEPTH:
+                    state.ambiguous = True
+                    continue
+                # An unknown outer branch does not make a referenced helper
+                # ambiguous when every possible participating action inside
+                # that helper is itself bounded and non-dangerous. Analyze it
+                # under the unknown state so the same tpl/file/danger rules
+                # decide that question; never infer safety from output bytes.
+                _evaluate_scope(
+                    called,
+                    index,
+                    values,
+                    state,
+                    initial=None,
+                    call_stack=(*call_stack, name),
+                    tpl_depth=tpl_depth,
+                    tpl_stack=tpl_stack,
+                    tpl_call_stack=tpl_call_stack,
+                    dynamic_target_stack=dynamic_target_stack,
+                    dynamic_callsite_stack=dynamic_callsite_stack,
+                    nested_contract=nested_contract,
+                    file_chart_context=file_chart_context,
+                )
         elif execution_state is False:
             _record_excluded(state, scope, action, functions, calls, index)
         if execution_state is True:
@@ -2193,6 +2578,7 @@ def _evaluate_scope(
                     dynamic_target_stack=dynamic_target_stack,
                     dynamic_callsite_stack=dynamic_callsite_stack,
                     nested_contract=nested_contract,
+                    file_chart_context=file_chart_context,
                 )
 
         start = re.match(
@@ -2245,7 +2631,13 @@ def _participating_action_analysis(
         if scope is None:
             state.ambiguous = True
             continue
-        _evaluate_scope(scope, actions, _values_for_source(values, path), state)
+        _evaluate_scope(
+            scope,
+            actions,
+            _values_for_source(values, path),
+            state,
+            file_chart_context=actions.source_chart_contexts.get(path),
+        )
     if "lookup" in state.reachable_functions:
         return "CLUSTER_STATE_REQUIRED", {}
     if state.reachable_functions:
@@ -2887,7 +3279,7 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
         for artifact in dependencies["artifacts"]
         for item in artifact["expanded_files"]
     )
-    actions = _template_actions(spec.chart_root, dependencies)
+    actions = _template_actions(spec.chart_root, dependencies, chart_root_sha)
     protected_values, protected_values_sha = _protected_values(spec)
     executable = _helm_identity(spec.helm_executable, spec.chart_root)
     with tempfile.TemporaryDirectory(prefix="iacgv-helm-renders-") as temporary:

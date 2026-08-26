@@ -298,7 +298,7 @@ def _dependency_chart(root: Path) -> Path:
 
 def _semantic_payload(
     tmp_path: Path, *, dependencies: bool = False, tpl: bool = False,
-    dynamic_include: bool = False,
+    dynamic_include: bool = False, protected_file_tpl: bool = False,
 ) -> dict:
     index = sum(1 for item in tmp_path.iterdir() if item.name.startswith("semantic-"))
     semantic_root = tmp_path / f"semantic-{index}"
@@ -310,6 +310,18 @@ def _semantic_payload(
     if dependencies:
         baseline = _spec(baseline_root, chart_root=_dependency_chart(baseline_root))
         candidate = _spec(candidate_root, chart_root=_dependency_chart(candidate_root))
+    elif protected_file_tpl:
+        action = '{{ tpl (.Files.Get "files/config.conf") . }}'
+        baseline_chart = _chart(baseline_root, template=action)
+        candidate_chart = _chart(candidate_root, template=action)
+        for chart in (baseline_chart, candidate_chart):
+            (chart / "files").mkdir()
+            (chart / "files" / "config.conf").write_text(
+                "{{ .Values.value }}", encoding="utf-8"
+            )
+            (chart / "values.yaml").write_text("value: safe\n", encoding="utf-8")
+        baseline = _spec(baseline_root, chart_root=baseline_chart)
+        candidate = _spec(candidate_root, chart_root=candidate_chart)
     elif tpl:
         baseline_chart = _chart(
             baseline_root, template="{{ tpl .Values.templateText . }}"
@@ -371,6 +383,75 @@ def test_helm_semantic_validator_binds_archive_and_expanded_dependency_bytes(
 def test_helm_semantic_validator_binds_bounded_tpl_evidence(tmp_path: Path) -> None:
     payload = _semantic_payload(tmp_path, tpl=True)
     REPORT._validate_helm_materialization(payload)
+
+
+def test_helm_semantic_validator_binds_protected_file_tpl_evidence(
+    tmp_path: Path,
+) -> None:
+    payload = _semantic_payload(tmp_path, protected_file_tpl=True)
+    REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("protected_path", "files/other.conf", "protected tpl path"),
+        ("sha256", "0" * 64, "protected tpl file hash"),
+        ("files_get_expression_sha256", "0" * 64, "Files.Get expression"),
+        ("protected_file_identity", "0" * 64, "protected tpl file identity"),
+        ("protected_render_input_identity", "0" * 64, "protected render input"),
+    ),
+)
+def test_helm_semantic_validator_rejects_protected_file_tpl_mutation(
+    tmp_path: Path, field: str, value: object, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path, protected_file_tpl=True))
+    proof = payload["materialization"]["baseline"]["render_inputs"][
+        "template_action_reachability"
+    ]
+    proof["tpl_evidence"][0]["protected_file"][field] = value
+    body = dict(proof)
+    body.pop("analysis_identity")
+    proof["analysis_identity"] = REPORT._canonical_json_digest(body)
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("missing", "protected tpl file is missing"),
+        ("unexpected", "unexpected protected-file evidence"),
+        ("escape", "protected tpl file escapes inventory"),
+        ("content", "protected tpl content hash"),
+        ("scope", "protected tpl chart scope"),
+    ),
+)
+def test_helm_semantic_validator_rejects_protected_file_structure_mutation(
+    tmp_path: Path, mutation: str, message: str
+) -> None:
+    payload = copy.deepcopy(_semantic_payload(tmp_path, protected_file_tpl=True))
+    proof = payload["materialization"]["baseline"]["render_inputs"][
+        "template_action_reachability"
+    ]
+    record = proof["tpl_evidence"][0]
+    protected = record["protected_file"]
+    if mutation == "missing":
+        del record["protected_file"]
+    elif mutation == "unexpected":
+        record["template_string_source"] = "LITERAL"
+    elif mutation == "escape":
+        record["template_string_path"] = "files/missing.conf"
+        protected["protected_path"] = "files/missing.conf"
+    elif mutation == "content":
+        record["template_string_sha256"] = "0" * 64
+    else:
+        protected["relative_path"] = "files/other.conf"
+    body = dict(proof)
+    body.pop("analysis_identity")
+    proof["analysis_identity"] = REPORT._canonical_json_digest(body)
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
 
 
 def test_helm_semantic_validator_binds_dynamic_include_evidence(
