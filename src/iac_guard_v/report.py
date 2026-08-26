@@ -249,6 +249,59 @@ def _validate_helm_a6_extensions(evidence: dict, label: str) -> None:
                 "nesting_depth": item["nesting_depth"],
                 "parent_callsite_identity": item["parent_callsite_identity"],
             }
+            protected_file = item.get("protected_file")
+            if item["template_string_source"] == "PROTECTED_CHART_FILE":
+                if protected_file is None:
+                    _semantic_error(f"{label} Helm protected tpl file is missing")
+                if item["template_string_path"] != protected_file["protected_path"]:
+                    _semantic_error(f"{label} Helm protected tpl path is contradictory")
+                if protected_file["protected_path"] not in files:
+                    _semantic_error(f"{label} Helm protected tpl file escapes inventory")
+                if file_sha256[protected_file["protected_path"]] != protected_file["sha256"]:
+                    _semantic_error(f"{label} Helm protected tpl file hash is contradictory")
+                if item["template_string_sha256"] != protected_file["sha256"]:
+                    _semantic_error(f"{label} Helm protected tpl content hash is contradictory")
+                expected_path = (
+                    protected_file["relative_path"]
+                    if protected_file["chart_context"] == "."
+                    else protected_file["chart_context"] + "/" + protected_file["relative_path"]
+                )
+                if expected_path != protected_file["protected_path"]:
+                    _semantic_error(f"{label} Helm protected tpl chart scope is contradictory")
+                expression = ".Files.Get " + json.dumps(
+                    protected_file["relative_path"], ensure_ascii=False
+                )
+                if hashlib.sha256(expression.encode("utf-8")).hexdigest() != protected_file[
+                    "files_get_expression_sha256"
+                ]:
+                    _semantic_error(f"{label} Helm Files.Get expression hash is contradictory")
+                file_body = {
+                    key: protected_file[key]
+                    for key in (
+                        "chart_identity", "chart_inventory_root_sha256",
+                        "protected_path", "relative_path", "size", "sha256",
+                    )
+                }
+                if _canonical_json_digest(file_body) != protected_file[
+                    "protected_file_identity"
+                ]:
+                    _semantic_error(f"{label} Helm protected tpl file identity is not canonical")
+                render_input_body = {
+                    "chart_identity": protected_file["chart_identity"],
+                    "chart_inventory_root_sha256": protected_file[
+                        "chart_inventory_root_sha256"
+                    ],
+                    "protected_values_sha256": action["protected_values_sha256"],
+                }
+                if _canonical_json_digest(render_input_body) != protected_file[
+                    "protected_render_input_identity"
+                ]:
+                    _semantic_error(f"{label} Helm protected render input is not canonical")
+                callsite_body["protected_file_identity"] = protected_file[
+                    "protected_file_identity"
+                ]
+            elif protected_file is not None:
+                _semantic_error(f"{label} Helm tpl has unexpected protected-file evidence")
             if _canonical_json_digest(callsite_body) != item["callsite_identity"]:
                 _semantic_error(f"{label} Helm tpl callsite identity is not canonical")
             for action_record in (

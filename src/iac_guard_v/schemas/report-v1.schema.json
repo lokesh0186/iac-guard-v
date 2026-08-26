@@ -2119,6 +2119,28 @@
         "provenance_identity": {"$ref": "#/$defs/sha256"}
       }
     },
+    "helmProtectedTplFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "chart_context", "chart_identity", "chart_inventory_root_sha256",
+        "protected_path", "relative_path", "size", "sha256",
+        "files_get_expression_sha256", "protected_file_identity",
+        "protected_render_input_identity"
+      ],
+      "properties": {
+        "chart_context": {"type": "string", "minLength": 1},
+        "chart_identity": {"$ref": "#/$defs/sha256"},
+        "chart_inventory_root_sha256": {"$ref": "#/$defs/sha256"},
+        "protected_path": {"type": "string", "minLength": 1},
+        "relative_path": {"type": "string", "minLength": 1},
+        "size": {"type": "integer", "minimum": 0, "maximum": 10485760},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "files_get_expression_sha256": {"$ref": "#/$defs/sha256"},
+        "protected_file_identity": {"$ref": "#/$defs/sha256"},
+        "protected_render_input_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
     "helmActionReachability": {
       "type": "object",
       "additionalProperties": false,
@@ -2179,9 +2201,13 @@
               "callsite_identity": {"$ref": "#/$defs/sha256"},
               "parent_callsite_identity": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
               "template_string_source": {
-                "enum": ["LITERAL", "PROTECTED_VALUES_PATH", "PROTECTED_VALUES_DEFAULT"]
+                "enum": [
+                  "LITERAL", "PROTECTED_VALUES_PATH", "PROTECTED_VALUES_DEFAULT",
+                  "PROTECTED_CHART_FILE"
+                ]
               },
               "template_string_path": {"type": "string"},
+              "protected_file": {"$ref": "#/$defs/helmProtectedTplFile"},
               "template_string_sha256": {"$ref": "#/$defs/sha256"},
               "protected_values_sha256": {"$ref": "#/$defs/sha256"},
               "nesting_depth": {"type": "integer", "minimum": 1, "maximum": 4},
@@ -2200,7 +2226,19 @@
                 "items": {"$ref": "#/$defs/helmDangerousAction"}
               },
               "nested_action_graph_identity": {"$ref": "#/$defs/sha256"}
-            }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "template_string_source": {"const": "PROTECTED_CHART_FILE"}
+                  },
+                  "required": ["template_string_source"]
+                },
+                "then": {"required": ["protected_file"]},
+                "else": {"not": {"required": ["protected_file"]}}
+              }
+            ]
           }
         },
         "tpl_evidence_count": {"type": "integer", "minimum": 0},
