@@ -1,0 +1,1 @@
+{"diagnostic":{"detail":"cluster-scoped rendered resource contains metadata.namespace","reason_code":"CONTRADICTORY_NAMESPACE_PROVENANCE","remediation":"Make the local Helm inputs deterministic and fully source-bound, then rerun."},"exit_code":3,"result_kind":"operational_uncertainty","schema_version":"report-v1","verdict":"INCONCLUSIVE"}
