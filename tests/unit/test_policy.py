@@ -1,7 +1,7 @@
 """D6 policy truth table, exception binding, and provenance boundary."""
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -288,11 +288,13 @@ def test_exception_for_suppression_does_not_authorize_deletion(verified_engine) 
 @pytest.mark.parametrize("record", [
     _record(
         Outcome.SUPPRESSED,
-        expires=datetime.now(timezone.utc).date() - timedelta(days=1),
+        created=date(1999, 1, 1),
+        expires=date(2000, 1, 1),
     ),
     _record(
         Outcome.SUPPRESSED,
-        created=datetime.now(timezone.utc).date() + timedelta(days=1),
+        created=date(2100, 1, 1),
+        expires=date(2101, 1, 1),
     ),
 ])
 def test_out_of_window_exception_cannot_permit(verified_engine, record) -> None:
