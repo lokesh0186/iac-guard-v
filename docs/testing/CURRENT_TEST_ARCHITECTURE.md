@@ -40,11 +40,11 @@ those bytes through OIDC Trusted Publishing. It does not build or test source.
 | QRS | `tests/research/test_qrs_regression.py` plus the frozen annotated tag |
 | Public evidence | semantic checks within packaging and public-boundary test modules |
 
-The D3 through Helm test-path lists were duplicated as shell commands in the workflow.
-PR A records equivalent structured argv definitions in `tools/testing/gates.py` and
-uses them only for local Nox coverage. Public CI is intentionally unchanged. A later
-PR may consume the shared definitions only after collection, module, branch, threshold,
-and pass/fail equivalence is mechanically demonstrated.
+The D3 through Helm coverage selections are closed structured argv definitions in
+`tools/testing/gates.py`. Both Nox and the public workflow execute that catalog. The
+old and shared commands were mechanically compared for test-node identity, covered
+modules, branch setting, threshold, coverage result, and exit status; the proof is in
+`docs/testing/CI_GATE_EQUIVALENCE.md`.
 
 ## Integrity boundaries already present
 
