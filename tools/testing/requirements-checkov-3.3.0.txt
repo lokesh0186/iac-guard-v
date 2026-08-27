@@ -1,0 +1,4 @@
+# Canonical reusable local scanner environment. Release proof recreates it cleanly.
+checkov==3.3.0
+pytest>=8,<10
+build>=1.2,<2

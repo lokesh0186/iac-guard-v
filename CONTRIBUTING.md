@@ -19,13 +19,15 @@ implementation.
 
 ## Development setup
 
-Use CPython 3.10–3.13:
+Use CPython 3.10–3.13. The maintained persistent local test workflow, clean
+release boundary, and troubleshooting guidance are documented in
+[`docs/TESTING.md`](docs/TESTING.md).
 
 ```bash
-python -m venv .venv
-. .venv/bin/activate
-python -m pip install -e ".[dev]"
-python -m pytest
+python3.12 -m venv --copies .venv-nox
+python3.12 -m pip --python .venv-nox/bin/python install \
+  --no-compile -r tools/testing/requirements-nox.txt
+.venv-nox/bin/nox -s smoke
 ```
 
 Build the public artifacts with:
@@ -52,9 +54,10 @@ python -m build
 ## Changes and tests
 
 Add a failing-before/passing-after test for every security-relevant correction. Run
-the focused tests first, then the supported Python matrix, specification lint, frozen
-manifest verification, replay, and package-content checks. Changed security modules
-must retain at least 90% branch coverage.
+the `focused` profile first, `dev` after a coherent change, and `pr` once before a
+public pull request. Public CI remains a clean, independent check. Release validation
+uses the non-reused `release` profile. Changed security modules must retain at least
+90% branch coverage.
 
 Public contributions should describe observed behavior and evidence without making
 unverified adoption, scanner-defect, or production-readiness claims.

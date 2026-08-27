@@ -8,6 +8,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-nox/
 venv/
 dist/
 build/
@@ -15,6 +16,12 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.nox/
+.testenvs/
+.test-results/
+.coverage
+.coverage.*
+coverage.xml
 
 # IaC-Guard-V run output
 .iac-guard-results/
