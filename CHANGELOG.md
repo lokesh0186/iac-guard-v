@@ -58,9 +58,9 @@ artifact has its own immutable provenance and is not rewritten by this changelog
   ambiguous. Dangerous actions reached through an exact target retain their stronger
   typed fail-closed outcome.
 - In `0.1.0a6`, cluster-scoped resources carrying `metadata.namespace` were treated as
-  contradictory. The Unreleased correction above aligns this with the API server create
-  path. Custom-resource scope still requires exact local CRD evidence, and unproven
-  scope remains fail closed.
+  contradictory. The correction released in `0.1.0a7` above aligns this with the API
+  server create path. Custom-resource scope still requires exact local CRD evidence,
+  and unproven scope remains fail closed.
 
 ## [0.1.0a5] - 2026-08-25
 

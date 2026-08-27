@@ -279,8 +279,14 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "There is no silent downgrade" in security_model
     assert "no telemetry, model-provider SDK" in security_model
 
+    security_policy = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
+    assert f"IaC-Guard-V `{VERSION}` is a technical alpha" in security_policy
+    assert "Checkov `3.3.0` scanner contract" in security_policy
+
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "## [0.1.0a1] - 2026-08-20" in changelog
+    assert "correction released in `0.1.0a7`" in changelog
+    assert "The Unreleased correction above" not in changelog
     assert "prepared, not published" not in changelog
 
 

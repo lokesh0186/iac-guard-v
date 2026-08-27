@@ -1,7 +1,8 @@
 # Security Policy
 
-IaC-Guard-V `0.1.0a3` is an alpha with a Checkov-focused product boundary. It is
-not yet a production hardened-container release.
+IaC-Guard-V `0.1.0a7` is a technical alpha for trusted local input, with a pinned
+Checkov `3.3.0` scanner contract. It is not yet a production hardened-container
+release.
 
 ## Supported versions
 
