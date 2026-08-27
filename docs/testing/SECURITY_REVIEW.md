@@ -1,7 +1,7 @@
 # Local test harness security review
 
-Status: PASS for the PR A implementation, subject to the complete PR and release
-profiles recorded in `TEST_RESULTS`/CI.
+Status: PASS for the persistent harness and shared public-CI gate migration, subject
+to the complete PR and release profiles recorded in run summaries or published CI.
 
 ## Review boundary
 
@@ -27,7 +27,7 @@ reusable state to release evidence and does not change product verification sema
 | Release cache reuse | The release session declares `reuse_venv=False`, checks Nox's actual reuse flag, and retains a freshness marker. `--reuse-venv=always` is proven to fail before installation/tests. PASS. |
 | Shared-path concurrency | Parallelism is across isolated interpreter environments. xdist is limited to two workers in the non-research development phase; QRS, coverage, scanners, matrix workers, and release stay serial within each session. PASS. |
 | Docker exposure | The bounded experiment used no socket, credentials, cluster access, or runtime network. No Docker path or image is retained. PASS. |
-| Mutable GitHub CI state | PR A does not change public workflows. GitHub Actions continues to create clean copied venvs. PASS. |
+| Mutable GitHub CI state | Shared coverage definitions do not change environment construction. GitHub Actions continues to create clean copied venvs without caching populated correctness environments. PASS. |
 | Frozen research mutation | The manifest/root and replay semantics remain unchanged; the harness only invokes existing checks. PASS. |
 
 ## Corrections made during review
