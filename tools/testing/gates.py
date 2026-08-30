@@ -44,6 +44,7 @@ D4_TESTS = (
     "tests/unit/test_checkov_adapter_d48.py",
     "tests/unit/test_engine_d47.py",
     "tests/unit/test_graph_evidence_a2.py",
+    "tests/unit/test_scanner_neutral_a8.py",
     "tests/unit/test_terraform_coverage_contract_a3.py",
 )
 
@@ -77,6 +78,8 @@ D7_TESTS = (
     "tests/unit/test_api_adoption.py",
     "tests/unit/test_candidate_acceptance_a5.py",
     "tests/unit/test_candidate_addressability_a5.py",
+    "tests/unit/test_engine_coverage_ci.py",
+    "tests/unit/test_graph_evidence_a2.py",
     "tests/unit/test_cli_adoption_branches.py",
     "tests/unit/test_cli_ux1.py",
     "tests/unit/test_cli_ux2.py",
@@ -91,9 +94,13 @@ D7_TESTS = (
     "tests/unit/test_workflow_adoption_branches.py",
     "tests/unit/test_workflow_commands_e62.py",
     "tests/unit/test_terraform_coverage_contract_a3.py",
+    "tests/unit/test_terraform_validators_e31.py",
+    "tests/unit/test_validation_universe_e52.py",
     "tests/unit/test_helm_materialization_a4.py",
     "tests/unit/test_helm_provenance_a6.py",
     "tests/unit/test_helm_public_a4.py",
+    "tests/unit/test_helm_a8_extensions.py",
+    "tests/unit/test_kustomize_materialization_a8.py",
 )
 
 HELM_TESTS = (
@@ -101,6 +108,11 @@ HELM_TESTS = (
     "tests/unit/test_helm_materialization_a4.py",
     "tests/unit/test_helm_provenance_a6.py",
     "tests/unit/test_helm_public_a4.py",
+    "tests/unit/test_helm_a8_extensions.py",
+)
+
+KUSTOMIZE_TESTS = (
+    "tests/unit/test_kustomize_materialization_a8.py",
 )
 
 COVERAGE_GATES = (
@@ -114,6 +126,7 @@ COVERAGE_GATES = (
             "iac_guard_v.adapters.base",
             "iac_guard_v.adapters.checkov",
             "iac_guard_v.graph_evidence",
+            "iac_guard_v.scanner_core",
             "iac_guard_v.terraform_parser",
         ),
         branch=True,
@@ -133,6 +146,12 @@ COVERAGE_GATES = (
         branch=True,
     ),
     CoverageGate("helm-materializer", HELM_TESTS, ("iac_guard_v.helm",), branch=True),
+    CoverageGate(
+        "kustomize-materializer",
+        KUSTOMIZE_TESTS,
+        ("iac_guard_v.kustomize",),
+        branch=True,
+    ),
 )
 
 SMOKE_TESTS = (

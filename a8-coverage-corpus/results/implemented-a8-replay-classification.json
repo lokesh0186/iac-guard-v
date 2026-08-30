@@ -1,0 +1,511 @@
+{
+  "classification_counts": {
+    "DESIGN_PREDICTION_ERROR": 7,
+    "EXTERNAL_INPUT_IDENTITY_PROBLEM": 11,
+    "IMPLEMENTATION_DEFECT": 1,
+    "MATCH": 36
+  },
+  "classification_evidence_root_sha256": "f606348d470a74a6676f30840ffc86355850160511708ae0f7b08f41364c386c",
+  "raw_replay_evidence_root_sha256": "c6221dace29414df16af4a875a9a9124ddc8be011cb7035b08c3e54f7d203fd0",
+  "raw_replay_path": "a8-coverage-corpus/results/implemented-a8-replay.json",
+  "raw_replay_sha256": "5db3d839fc0c5d2b2167cc89d0e0f4822af8cc22d97be7b44181963b1b9266da",
+  "results": [
+    {
+      "classification": "MATCH",
+      "evidence_digest": "eddc69b22deaa8c24426d562adca7f01ab708d8428efe3cb475686514b040536",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-001-airflow-airflow"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "e2b8bed07fc0c5d4fbce407f998c0777862a6706edf0072d3390b29a7cd7bf6f",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-002-argo-helm-argo-cd"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "fc20398b5b15f981e9ea092b5a7898af6d9873fbeb54005d623e105c6438c54e",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "CLUSTER_STATE_REQUIRED",
+      "surface_id": "helm-003-coder-enterprise-helm-coder"
+    },
+    {
+      "classification": "IMPLEMENTATION_DEFECT",
+      "evidence_digest": "4a34ec4ca620e7b912559c4e53fd429c548537e633c8eb8a1df6c974a09e150a",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected memcached-6.14.0.tgz contains its declared common dependency under memcached/charts/common, but a8 reports that nested dependency closure inside an archive is not modeled. Nested LOCAL dependency closure for local archives is part of the frozen a8 contract.",
+      "reason_code": "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+      "surface_id": "helm-004-cortex-helm-chart-cortex"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "64979999f8478aa85a019005f42609b686d07c234bd5a2fff902e419ad6a578e",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-005-csi-driver-smb-csi-driver-smb"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "a0038d2594aadf8252395738ca69015f6728b9ce4b30f2260885f0fb33512f90",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-006-external-secrets-external-secrets"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "17daaa078702b82cec6d93184c9d2d34974e0500b19ba11d93dce878d0cc2cae",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-007-grafana-grafana-agent-operator"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "2c28751b7246556cae0e557c0643a2554ab361ce80e9337dc5239db572e247d3",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-008-grafana-enterprise-logs"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "0e84be73b40454d8116e9ba36694d2c52cda776bba5d69e5a58dda07d77aea57",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-009-grafana-enterprise-metrics"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "d1a6289f3916a88b9af1e61f1f6f2fecc0ceaae8096787e80491ad9962bf2c1b",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-010-grafana-grafana-sampling"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "6d2ae990ad0c0528f098c9768d60aba9da04225e9c587b337314f8dbb61f05e9",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-011-grafana-lgtm-distributed"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "b8a9773123481f8664648bb65e21932ca893339c1fc7d8402f64d5d547e7cab2",
+      "observation": "PARTIALLY_REACHABLE",
+      "prediction": "PARTIALLY_REACHABLE",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_RENDER_FAILED",
+      "surface_id": "helm-012-grafana-pdc-agent"
+    },
+    {
+      "classification": "DESIGN_PREDICTION_ERROR",
+      "evidence_digest": "ba7253eeddd13ea160238281dd5d37ca332c4aed8be6223e30815863966c1d50",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The design predicted namespace support would be the final blocker, but the protected source reaches an action graph outside the bounded grammar.",
+      "reason_code": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+      "surface_id": "helm-013-grafana-promtail"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "908f1b757495182ca803bba27d1578b4b05bfa9466142ded723d64e09044693b",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "UNREPRODUCIBLE_DEPENDENCIES",
+      "surface_id": "helm-014-grafana-rollout-operator"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "1f12d4a9a7a742f46d378ab046ad7dab6104d9dec5c763e9661038dfda94ea3c",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-015-grafana-tempo-distributed"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "3f58810efa7701ca6c84a6f3ef28a2da90d7dea6cad12e9b206722c8c4f3557f",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+      "surface_id": "helm-016-harbor-helm-harbor"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "0b37237fdb3d93543dbb66cca91dfb9048608c05236749f308877b8af374024e",
+      "observation": "PARTIALLY_REACHABLE",
+      "prediction": "PARTIALLY_REACHABLE",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_RENDER_FAILED",
+      "surface_id": "helm-017-harness-gitops-agent-gitops-agent"
+    },
+    {
+      "classification": "DESIGN_PREDICTION_ERROR",
+      "evidence_digest": "026ad415775cca9c863d54b52478de2e713897998b8823221fe9210ff6e80cb7",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The design inventory did not account for contradictory namespace declarations in the participating source template.",
+      "reason_code": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+      "surface_id": "helm-018-jenkins-helm-jenkins"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "d5cb8fc94ca019feae228efeed09ac3c3fbea85e4e9521ab3a47cecd204f637b",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-019-kyverno-kyverno"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "fb68d09fa056cc566194942607f428ab990e078138968ace8d07fb30c16eb5ce",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+      "surface_id": "helm-020-kyverno-kyverno-policies"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "de0a396f96807821c65bc141f1eb60b59a83735b3c5ebeff85d838d489dec257",
+      "observation": "PARTIALLY_REACHABLE",
+      "prediction": "PARTIALLY_REACHABLE",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_RENDER_FAILED",
+      "surface_id": "helm-021-neo4j-helm-neo4j"
+    },
+    {
+      "classification": "DESIGN_PREDICTION_ERROR",
+      "evidence_digest": "b55f7821242e7fafaa0600862618a7ca1731e235c2d1763bb6097de47d3981aa",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The design predicted support after bounded namespace handling, but a participating template action remains outside the closed action grammar.",
+      "reason_code": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+      "surface_id": "helm-022-onlyoffice-docs-docs"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "a4b3c76151effec7f2a694587a9d27fa2ddc78a63422ff68770383199cb72e43",
+      "observation": "PARTIALLY_REACHABLE",
+      "prediction": "PARTIALLY_REACHABLE",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_RENDER_FAILED",
+      "surface_id": "helm-023-onlyoffice-docspace-docspace"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "f6c680cc6612ed5d6e1ccced27de08a2eb3e4adb3366f00d5d75c48184e1603c",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+      "surface_id": "helm-024-opencost-opencost"
+    },
+    {
+      "classification": "DESIGN_PREDICTION_ERROR",
+      "evidence_digest": "c8e0a00674935cad1b64172523fef5d8fee0c50c21a54cd36b824124d4a8f08a",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "PARTIALLY_REACHABLE",
+      "rationale": "The design predicted partial reachability after alias handling, but the protected source still declares a dependency without local vendored bytes.",
+      "reason_code": "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+      "surface_id": "helm-025-opentelemetry-opentelemetry-demo"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "06d7491c80c234dce8d156629072d121e2447c66bd4902150231337780701ffa",
+      "observation": "PARTIALLY_REACHABLE",
+      "prediction": "PARTIALLY_REACHABLE",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "HELM_RENDER_FAILED",
+      "surface_id": "helm-026-opentelemetry-opentelemetry-collector"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "ee2a4b3c9bbc02b0379cff850050102d9d6af39f4cebc61575f5940038a340e9",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "UNREPRODUCIBLE_DEPENDENCIES",
+      "surface_id": "helm-027-opentelemetry-opentelemetry-kube-stack"
+    },
+    {
+      "classification": "DESIGN_PREDICTION_ERROR",
+      "evidence_digest": "e73b9e65c89269024d02c87dbe5c220af201166b4220831330a2256d9d3c2570",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The design predicted support without proving custom-resource scope from local CRD evidence; the implementation correctly refuses namespace identity.",
+      "reason_code": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+      "surface_id": "helm-028-opentelemetry-opentelemetry-operator"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "ea15dbe303434635d28472addb43d480a7583764d257d8cc144f98ce7b492bf2",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-029-opentelemetry-opentelemetry-target-allocator"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "516331e740cb8ac0479aabc3d519dd375a5ed43c43f7ff43d8aaf9a0299bc0b4",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-030-prometheus-community-alertmanager"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "256b6a4f8801df9081cd6722ee4249bf3eee6ef6881967966e77a9d49956a699",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "UNREPRODUCIBLE_DEPENDENCIES",
+      "surface_id": "helm-031-prometheus-community-kube-prometheus-stack"
+    },
+    {
+      "classification": "DESIGN_PREDICTION_ERROR",
+      "evidence_digest": "dbcc58abd4dfead23e0f4843938bec3b24b093e88009deb465eb52dd1a02a8c3",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The design inventory did not account for contradictory namespace declarations in the participating source template.",
+      "reason_code": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+      "surface_id": "helm-032-prometheus-community-prometheus-adapter"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "b56bb1a73c92d2ca0c6ba897f45bc3b3b96d26392d39fec37ec4da9392af4609",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-033-prometheus-community-prometheus-blackbox-exporter"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "ca593b669f211a242515bf79d4d5a43e14489b9aa619b8ebcf207e7acb89fb46",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-034-prometheus-community-prometheus-node-exporter"
+    },
+    {
+      "classification": "DESIGN_PREDICTION_ERROR",
+      "evidence_digest": "38d46d7213052ad5fe024485f2d102d5713f38771d696c1c30cf9db8e42564b7",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The design inventory did not account for contradictory namespace declarations in the participating source template.",
+      "reason_code": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+      "surface_id": "helm-035-prometheus-community-prometheus-operator-admission-webhook"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "8d1301c3bd433c19931de1b70cf0bb5f23e0bc6cd41e2fdf82131f7a9d10bf95",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-036-prometheus-community-prometheus-pushgateway"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "cc7d23baf38d60faca8b503c12a312d0eae4327b1b9ed0a1c07921bc0e9bd13b",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-037-prometheus-community-prometheus-snmp-exporter"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "1e4101e4d05bd7bce97d286a254b0316f06219233cf47fe55eddf7115ca4f486",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "UNREPRODUCIBLE_DEPENDENCIES",
+      "surface_id": "helm-038-prometheus-community-prometheus"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "a80b8e50a9b84cce8db7a6fee0c114ca8d324a7a6e20816452053ce0191b2878",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+      "surface_id": "helm-039-valkey-io-valkey"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "ca32691b75a10c097e5a7afc2f64a1e2e19721b72c6e5e12cf7517ea5c7d3bc7",
+      "observation": "SUPPORTED",
+      "prediction": "SUPPORTED",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "DETERMINISTIC_CLIENT_RENDER_BOUND",
+      "surface_id": "helm-040-valkey-io-valkey-operator"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "f6a8f91d578f493ffdde2d62137e7ca3eeba0a003eff778e7f3529acca109c37",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-001-azure-blob-csi-deploy-v1.27.9"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "4374aa85a20c33fd328782d78b40a0bdbb029864fddcd6fe7618bd553cf076e3",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-002-airflow-chart-kustomize-overlays-kerberos"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "bee7400199f06261d34146ec0e741f5c9cf366ad1b87aed78a7e5fb3d1ae5cf9",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-003-airflow-chart-kustomize-overlays-keda"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "9bc9e25aad24e40b1864a68e65953b8657a78efa8b8a1e2679313809992575b6",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "KUSTOMIZATION_REFERENCE_REMOTE",
+      "surface_id": "kustomize-004-kyverno-scripts-config-kwok"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "f67ede6561f2d3c5479afda31d995f2a68cb69710a1b6e474eb3e5c76535f98f",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-005-argo-workflows-manifests-cluster-install"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "545fff544c58502b355ad47ac6c39d36447a4183b1b758a02ce7a02be05d4fd6",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-006-argo-workflows-manifests-namespace-install"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "4eeff81ee909f625ad663c7401ad3428ab3b6d974e740c512a3dbfbb43d0745d",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "KUSTOMIZATION_CUSTOM_FIELD_SPEC_UNSUPPORTED",
+      "surface_id": "kustomize-007-aws-load-balancer-controller-config-default"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "50139feb508162bc0cd050115be1e9b8e2d72e0f01db9e61b4f7dc470b36ba31",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "KUSTOMIZATION_CUSTOM_FIELD_SPEC_UNSUPPORTED",
+      "surface_id": "kustomize-008-cloudnative-pg-config-default"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "54926570080359ac0002dc75aa01a956d2cb650031158e71118c0de5fab8f587",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-009-descheduler-kubernetes-base"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "cfcb9c1334d9efc36627711e45b4e0a3ab18cb454e3dc388b5eae5425158fb10",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-010-flux-source-controller-config-default"
+    },
+    {
+      "classification": "MATCH",
+      "evidence_digest": "a8ecd416fe756c688dea4912acca685eb8bfd5986705277b80a7c5fa16a3763c",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "rationale": "Observed disposition equals the frozen design prediction.",
+      "reason_code": "KUSTOMIZATION_REFERENCE_REMOTE",
+      "surface_id": "kustomize-011-flux-kustomize-controller-config-default"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "510109360c750635b9230a4fadca9b4af6e695745be2208d658f7f6b1219846f",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-012-gateway-api-config-crd"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "c4cefd7a09b8df2c6f4dd828085779678d5294418812f85223dc260585b9227e",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-013-metrics-server-manifests-base"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "dbb8875fc26d8f231a9045347d82a4e2ae44a84edf4003b459094382cf807c14",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-014-metrics-server-manifests-overlays-release"
+    },
+    {
+      "classification": "EXTERNAL_INPUT_IDENTITY_PROBLEM",
+      "evidence_digest": "a0e2f2f56b5dc7891a271bd1af74a8a6d9dcfdac1d13365fe91bff1511eeff23",
+      "observation": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "prediction": "SUPPORTED",
+      "rationale": "The protected source identity is intact, but the authoritative local Kustomize path could not enter its required macOS sandbox because this replay already runs under a managed host sandbox. This is an execution-environment obstruction, not a candidate-source or semantic verdict.",
+      "reason_code": "KUSTOMIZE_OFFLINE_CONTRACT_FAILED",
+      "surface_id": "kustomize-015-prometheus-operator-root"
+    }
+  ],
+  "schema_version": "iac-guard-v-a8-coverage-replay-classification-v1",
+  "surface_count": 55
+}

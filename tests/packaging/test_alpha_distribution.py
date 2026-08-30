@@ -1,4 +1,4 @@
-"""Public 0.1.0a7 distribution and clean-install boundary."""
+"""Public 0.1.0a8 distribution and clean-install boundary."""
 from __future__ import annotations
 
 import email
@@ -16,7 +16,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0a7"
+VERSION = "0.1.0a8"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -49,6 +49,9 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/oracles/policies.json",
     "iac_guard_v/graph_evidence.py",
     "iac_guard_v/helm.py",
+    "iac_guard_v/kustomize.py",
+    "iac_guard_v/kustomize-engine-v5.7.1.json",
+    "iac_guard_v/scanner_core.py",
     "iac_guard_v/terraform_parser.py",
     "iac_guard_v/examples/checkov-before-after/before.tf",
     "iac_guard_v/examples/checkov-before-after/after.tf",
@@ -144,7 +147,9 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
     assert any(name.endswith("docs/ADVANCED_INSTALLATION.md") for name in sdist_names)
     assert any(name.endswith("docs/SECURITY_MODEL.md") for name in sdist_names)
     assert any(name.endswith("docs/SUPPORTED_SCOPE.md") for name in sdist_names)
+    assert any(name.endswith("docs/KUSTOMIZE_MATERIALIZATION.md") for name in sdist_names)
     assert any(name.endswith("docs/CANDIDATE_ACCEPTANCE.md") for name in sdist_names)
+    assert any(name.endswith("docs/RELEASE_NOTES_0.1.0a8.md") for name in sdist_names)
 
 
 def test_fresh_artifacts_have_stable_nonempty_hashes(alpha_artifacts) -> None:
@@ -235,7 +240,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
         "Verify that an infrastructure-as-code security fix actually fixed",
-        "python -m pip install iac-guard-v==0.1.0a7",
+        "python -m pip install iac-guard-v==0.1.0a8",
         "iac-guard demo",
         "Coder `demo-env-templates` PR #180",
         "25cff91e2c039ddc648541a06191f4b9b9a813b7",
@@ -246,6 +251,9 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "docs/ADVANCED_INSTALLATION.md",
         "docs/SUPPORTED_SCOPE.md",
         "docs/SECURITY_MODEL.md",
+        "docs/KUSTOMIZE_MATERIALIZATION.md",
+        "Checkov as the only authoritative scanner path",
+        "general Helm interpretation",
         "awaiting a public arXiv identifier",
     ):
         assert statement in readme
@@ -256,7 +264,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "arXiv:ADD" not in readme
     assert "XXXX.XXXXX" not in readme
     assert "not yet a published release" not in readme
-    assert "package version `0.1.0a7` is not published" not in readme
+    assert "package version `0.1.0a8` is not published" not in readme
 
     advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
     for statement in (
@@ -265,7 +273,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "PYTHONDONTWRITEBYTECODE=1",
         "bc-python-hcl2",
         "may remain quiet for several minutes",
-        "iac-guard-v==0.1.0a7",
+        "iac-guard-v==0.1.0a8",
     ):
         assert statement in advanced
 
@@ -273,6 +281,31 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "zero `EXACT` mappings" in supported
     assert "OpenTofu `.tofu` / `.tofu.json`" in supported
     assert "production hostile-input support" in supported
+    assert "This is not general Helm interpretation" in supported
+    assert "Advisory/future adapter work" in supported
+
+    kustomize = (ROOT / "docs/KUSTOMIZE_MATERIALIZATION.md").read_text(
+        encoding="utf-8"
+    )
+    assert "not general Kustomize support" in kustomize
+    assert "remote URLs" in kustomize
+    assert "Helm chart inflation" in kustomize
+
+    release_notes = (ROOT / "docs/RELEASE_NOTES_0.1.0a8.md").read_text(
+        encoding="utf-8"
+    )
+    for statement in (
+        "scanner-neutral verifier/evidence architecture",
+        "nested local dependency closure",
+        "Helm-compatible dependency-version binding",
+        "Equivalent duplicate named-template handling",
+        "Bounded namespace-provenance improvements",
+        "Bounded deterministic local Kustomize",
+        "55-surface corpus",
+        "General Helm interpretation is not supported",
+        "KICS and Trivy remain advisory",
+    ):
+        assert statement in release_notes
 
     security_model = (ROOT / "docs/SECURITY_MODEL.md").read_text(encoding="utf-8")
     assert "V7 consensus is disconnected" in security_model

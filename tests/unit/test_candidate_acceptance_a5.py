@@ -15,6 +15,7 @@ import jsonschema
 import iac_guard_v.api as API
 import iac_guard_v.cli as CLI
 import iac_guard_v.helm as HELM
+import iac_guard_v.adapters.checkov as CHECKOV
 from iac_guard_v.acceptance import build_conservative_evidence_universes
 from iac_guard_v.config import (
     ExecutionIsolation,
@@ -82,6 +83,16 @@ def _acceptance_plan(tmp_path: Path):
     return attest_checkov_scan_plan(adapter_request(tmp_path))
 
 
+def _scanner_identity(plan) -> dict:
+    distribution = plan.request._distribution_identity
+    return {
+        "launcher_digest": plan.request._executable_sha256,
+        "scanner_environment_digest": distribution.scanner_environment_digest,
+        "policy_inventory_digest": distribution.policy_inventory_digest,
+        "invocation_config_digest": CHECKOV._invocation_config_digest(plan.request),
+    }
+
+
 def _run(plan, result: CheckEvaluationResult = CheckEvaluationResult.PASSED) -> ScannerRun:
     digest = "a" * 64
     resource = plan.resources[0]
@@ -107,10 +118,7 @@ def _run(plan, result: CheckEvaluationResult = CheckEvaluationResult.PASSED) -> 
         stderr_sha256=digest,
         raw_output_sha256=digest,
         resolved_launcher_path="/protected/checkov",
-        launcher_digest=digest,
-        scanner_environment_digest=digest,
-        policy_inventory_digest=digest,
-        invocation_config_digest=digest,
+        **_scanner_identity(plan),
         ruleset_integrity=Status.PASS,
         evaluations=(evaluation,),
         input_files=plan.request.eligible_file_evidence,
@@ -543,9 +551,8 @@ def test_direct_kubernetes_candidate_has_exact_resource_identity(
         findings=(), coverage=CoverageCounters(1, 1, 1, 0, 1, 0, 0),
         resource_coverage=ResourceCoverage(1, 1, 1, 0, 0, 1), exit_code=0,
         stdout_sha256=digest, stderr_sha256=digest, raw_output_sha256=digest,
-        resolved_launcher_path="/protected/checkov", launcher_digest=digest,
-        scanner_environment_digest=digest, policy_inventory_digest=digest,
-        invocation_config_digest=digest, ruleset_integrity=Status.PASS,
+        resolved_launcher_path="/protected/checkov", **_scanner_identity(plan),
+        ruleset_integrity=Status.PASS,
         evaluations=(evaluation,), input_files=plan.request.eligible_file_evidence,
         diagnostics=("COMPLETED",),
     )
@@ -594,7 +601,7 @@ def test_candidate_graph_acceptance_requires_complete_relationship_evidence(
         (GraphEdgeEvidence(block, bucket, "attribute_reference", "bucket"),),
         "b" * 64,
         plan.request.source_snapshot_sha256,
-        "a" * 64,
+        _scanner_identity(plan)["policy_inventory_digest"],
         "c" * 64,
         "d" * 64,
     )
@@ -622,10 +629,7 @@ def test_candidate_graph_acceptance_requires_complete_relationship_evidence(
         stderr_sha256=digest,
         raw_output_sha256=digest,
         resolved_launcher_path="/protected/checkov",
-        launcher_digest=digest,
-        scanner_environment_digest=digest,
-        policy_inventory_digest=digest,
-        invocation_config_digest=digest,
+        **_scanner_identity(plan),
         ruleset_integrity=Status.PASS,
         evaluations=(evaluation,),
         input_files=plan.request.eligible_file_evidence,
@@ -666,10 +670,7 @@ def test_candidate_graph_acceptance_requires_complete_relationship_evidence(
         stderr_sha256=digest,
         raw_output_sha256=digest,
         resolved_launcher_path="/protected/checkov",
-        launcher_digest=digest,
-        scanner_environment_digest=digest,
-        policy_inventory_digest=digest,
-        invocation_config_digest=digest,
+        **_scanner_identity(plan),
         ruleset_integrity=Status.PASS,
         evaluations=(incomplete,),
         input_files=plan.request.eligible_file_evidence,
@@ -794,7 +795,8 @@ spec:
             Status.PASS, "GRAPH_EVIDENCE_COMPLETE", primary,
             (primary, policy_participant),
             (GraphEdgeEvidence(policy_participant, primary, "selector", "podSelector"),),
-            "b" * 64, plan.request.source_snapshot_sha256, digest, "c" * 64, "d" * 64,
+            "b" * 64, plan.request.source_snapshot_sha256,
+            _scanner_identity(plan)["policy_inventory_digest"], "c" * 64, "d" * 64,
         )
         evaluation = CheckEvaluation(
             "checkov", "3.3.0", "CKV2_K8S_6", workload.scanner_native_lookup,
@@ -806,9 +808,8 @@ spec:
             findings=(), coverage=CoverageCounters(1, 1, 1, 0, 1, 0, 0),
             resource_coverage=ResourceCoverage(2, 2, 2, 0, 0, 2), exit_code=0,
             stdout_sha256=digest, stderr_sha256=digest, raw_output_sha256=digest,
-            resolved_launcher_path="/protected/checkov", launcher_digest=digest,
-            scanner_environment_digest=digest, policy_inventory_digest=digest,
-            invocation_config_digest=digest, ruleset_integrity=Status.PASS,
+            resolved_launcher_path="/protected/checkov", **_scanner_identity(plan),
+            ruleset_integrity=Status.PASS,
             evaluations=(evaluation,), input_files=plan.request.eligible_file_evidence,
             diagnostics=("COMPLETED",),
         )

@@ -1,0 +1,6 @@
+dependencies:
+- name: docs
+  repository: https://download.onlyoffice.com/charts/stable
+  version: 6.1.1
+digest: sha256:04c375efaf3c8b264c08db224919334bc7c6f6fd068e8d7d2fea22f138b67af5
+generated: "2026-08-28T10:54:24.227775-05:00"

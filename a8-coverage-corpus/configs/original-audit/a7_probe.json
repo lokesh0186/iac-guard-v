@@ -1,0 +1,327 @@
+[
+  {
+    "chart": "chart",
+    "detail": "a participating Helm template requires live cluster lookup",
+    "reason": "CLUSTER_STATE_REQUIRED",
+    "repo": "airflow",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/airflow/chart"
+  },
+  {
+    "chart": "argo-cd",
+    "detail": "named Helm template definition is duplicated or nested",
+    "reason": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+    "repo": "argo-helm",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/argo-helm/charts/argo-cd"
+  },
+  {
+    "chart": "coder-enterprise-helm",
+    "detail": "a participating Helm template requires live cluster lookup",
+    "reason": "CLUSTER_STATE_REQUIRED",
+    "repo": "coder-enterprise-helm",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/coder-enterprise-helm"
+  },
+  {
+    "chart": "cortex-helm-chart",
+    "detail": "dependency aliases are not supported by this bounded contract",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "cortex-helm-chart",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/cortex-helm-chart"
+  },
+  {
+    "chart": "csi-driver-smb",
+    "materialization_identity": "5dc0ee57d236b53f19565b80da2826882ae4ad138e377a2896cbc49f86cf7c4b",
+    "reason": null,
+    "repo": "csi-driver-smb",
+    "resources": 12,
+    "status": "SUPPORTED",
+    "surface": "/private/tmp/iacgv-consistency-sweep/csi-driver-smb/charts/latest/csi-driver-smb"
+  },
+  {
+    "chart": "external-secrets",
+    "detail": "declared dependency is not locally vendored",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "external-secrets",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/external-secrets/deploy/charts/external-secrets"
+  },
+  {
+    "chart": "agent-operator",
+    "materialization_identity": "46b9bd35a430549ad95dbd602503d1edf84454194e83e92e4300ec1292ded0a6",
+    "reason": null,
+    "repo": "grafana",
+    "resources": 4,
+    "status": "SUPPORTED",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/agent-operator"
+  },
+  {
+    "chart": "enterprise-logs",
+    "detail": "dependency aliases are not supported by this bounded contract",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "grafana",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/enterprise-logs"
+  },
+  {
+    "chart": "enterprise-metrics",
+    "detail": "dependency aliases are not supported by this bounded contract",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "grafana",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/enterprise-metrics"
+  },
+  {
+    "chart": "grafana-sampling",
+    "detail": "dependency aliases are not supported by this bounded contract",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "grafana",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/grafana-sampling"
+  },
+  {
+    "chart": "lgtm-distributed",
+    "detail": "dependency aliases are not supported by this bounded contract",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "grafana",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/lgtm-distributed"
+  },
+  {
+    "chart": "pdc-agent",
+    "detail": "Helm client render did not complete successfully",
+    "reason": "HELM_RENDER_FAILED",
+    "repo": "grafana",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/pdc-agent"
+  },
+  {
+    "chart": "promtail",
+    "detail": "named namespace template is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "grafana",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/promtail"
+  },
+  {
+    "chart": "rollout-operator",
+    "detail": "non-local dependency requires a lock and vendored bytes",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "grafana",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/rollout-operator"
+  },
+  {
+    "chart": "tempo-distributed",
+    "detail": "dependency aliases are not supported by this bounded contract",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "grafana",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/grafana/charts/tempo-distributed"
+  },
+  {
+    "chart": "harbor-helm",
+    "detail": "source template contains contradictory namespace declarations",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "harbor-helm",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/harbor-helm"
+  },
+  {
+    "chart": "harness-gitops-agent",
+    "detail": "Helm client render did not complete successfully",
+    "reason": "HELM_RENDER_FAILED",
+    "repo": "harness-gitops-agent",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/harness-gitops-agent"
+  },
+  {
+    "chart": "jenkins",
+    "detail": "dynamic namespace construction is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "jenkins-helm",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/jenkins-helm/charts/jenkins"
+  },
+  {
+    "chart": "kyverno",
+    "detail": "declared dependency is not locally vendored",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "kyverno",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/kyverno/charts/kyverno"
+  },
+  {
+    "chart": "kyverno-policies",
+    "detail": "rendered custom-resource scope is not proven by local CRD evidence",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "kyverno",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/kyverno/charts/kyverno-policies"
+  },
+  {
+    "chart": "neo4j",
+    "detail": "Helm client render did not complete successfully",
+    "reason": "HELM_RENDER_FAILED",
+    "repo": "neo4j-helm",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/neo4j-helm/neo4j"
+  },
+  {
+    "chart": "onlyoffice-docs",
+    "detail": "dynamic namespace construction is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "onlyoffice-docs",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/onlyoffice-docs"
+  },
+  {
+    "chart": "onlyoffice-docspace",
+    "detail": "Helm client render did not complete successfully",
+    "reason": "HELM_RENDER_FAILED",
+    "repo": "onlyoffice-docspace",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/onlyoffice-docspace"
+  },
+  {
+    "chart": "opencost",
+    "detail": "participating Helm template action reachability is not exactly provable",
+    "reason": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+    "repo": "opencost",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/opencost-helm-chart/charts/opencost"
+  },
+  {
+    "chart": "opentelemetry-demo",
+    "detail": "dependency aliases are not supported by this bounded contract",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "opentelemetry",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/opentelemetry-helm-charts/charts/opentelemetry-demo"
+  },
+  {
+    "chart": "opentelemetry-collector",
+    "detail": "Helm client render did not complete successfully",
+    "reason": "HELM_RENDER_FAILED",
+    "repo": "opentelemetry",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/opentelemetry-helm-charts/charts/opentelemetry-collector"
+  },
+  {
+    "chart": "opentelemetry-kube-stack",
+    "detail": "Chart.lock does not match Chart.yaml",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "opentelemetry",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/opentelemetry-helm-charts/charts/opentelemetry-kube-stack"
+  },
+  {
+    "chart": "opentelemetry-operator",
+    "detail": "dynamic namespace construction is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "opentelemetry",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/opentelemetry-helm-charts/charts/opentelemetry-operator"
+  },
+  {
+    "chart": "opentelemetry-target-allocator",
+    "detail": "dynamic namespace construction is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "opentelemetry",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/opentelemetry-helm-charts/charts/opentelemetry-target-allocator"
+  },
+  {
+    "chart": "alertmanager",
+    "materialization_identity": "e6962d3e30c21cbef6ae2a2153c600b5fa2be136926d517a044bb5684c9d980a",
+    "reason": null,
+    "repo": "prometheus-community",
+    "resources": 5,
+    "status": "SUPPORTED",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/alertmanager"
+  },
+  {
+    "chart": "kube-prometheus-stack",
+    "detail": "non-local dependency requires a lock and vendored bytes",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "prometheus-community",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/kube-prometheus-stack"
+  },
+  {
+    "chart": "prometheus-adapter",
+    "detail": "named namespace template is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "prometheus-community",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/prometheus-adapter"
+  },
+  {
+    "chart": "prometheus-blackbox-exporter",
+    "detail": "dynamic namespace construction is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "prometheus-community",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/prometheus-blackbox-exporter"
+  },
+  {
+    "chart": "prometheus-node-exporter",
+    "materialization_identity": "4ef66c04745646021a6d7fb4491c83c905d18e92aca3801f7467781deb95caee",
+    "reason": null,
+    "repo": "prometheus-community",
+    "resources": 3,
+    "status": "SUPPORTED",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/prometheus-node-exporter"
+  },
+  {
+    "chart": "prometheus-operator-admission-webhook",
+    "detail": "source template contains contradictory namespace declarations",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "prometheus-community",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/prometheus-operator-admission-webhook"
+  },
+  {
+    "chart": "prometheus-pushgateway",
+    "detail": "dynamic namespace construction is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "prometheus-community",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/prometheus-pushgateway"
+  },
+  {
+    "chart": "prometheus-snmp-exporter",
+    "detail": "dynamic namespace construction is outside the bounded proof contract",
+    "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+    "repo": "prometheus-community",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/prometheus-snmp-exporter"
+  },
+  {
+    "chart": "prometheus",
+    "detail": "Chart.lock does not match Chart.yaml",
+    "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+    "repo": "prometheus-community",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/prometheus/charts/prometheus"
+  },
+  {
+    "chart": "valkey",
+    "detail": "participating Helm template action reachability is not exactly provable",
+    "reason": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+    "repo": "valkey-io",
+    "status": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+    "surface": "/private/tmp/iacgv-consistency-sweep/valkey-helm/valkey"
+  },
+  {
+    "chart": "valkey-operator",
+    "materialization_identity": "0fc300e291ea817ca694bf69df8beea7b9495e259b088812dfe3e6e5218c05df",
+    "reason": null,
+    "repo": "valkey-io",
+    "resources": 10,
+    "status": "SUPPORTED",
+    "surface": "/private/tmp/iacgv-consistency-sweep/valkey-helm/valkey-operator"
+  }
+]

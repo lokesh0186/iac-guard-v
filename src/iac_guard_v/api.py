@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .adapters.checkov import (
     CheckovAdapter,
+    CheckovEvidenceAdapter,
     CheckovScanRequest,
     checkov_distribution_identity,
 )
@@ -13,7 +14,8 @@ from .acceptance import CandidateEvidenceUniverses, build_candidate_evidence_uni
 from .config import (
     ExecutionIsolation, PublicAcceptanceProperty,
     PublicCandidateAcceptanceRequest, PublicHelmAcceptanceRequest,
-    PublicHelmVerificationRequest, PublicTarget, PublicVerificationRequest,
+    PublicHelmVerificationRequest, PublicKustomizeAcceptanceRequest,
+    PublicTarget, PublicVerificationRequest,
 )
 from .enums import ArtifactKind, CheckEvaluationResult, Status
 from .engine import (
@@ -26,6 +28,9 @@ from .engine import (
 from .helm import (
     HelmMaterializationError, materialize_helm_comparison,
     materialize_helm_universe,
+)
+from .kustomize import (
+    KustomizeMaterializationError, materialize_kustomize_universe,
 )
 from .models import DomainError, RequiredGates, require_trusted_scanner_run
 from .policy import (
@@ -40,6 +45,16 @@ from .report import (
     CandidateAcceptancePropertyEvidence, CandidateAcceptanceReportV1,
     CandidateArtifactFailureReportV1, ExecutionIsolationEvidence,
     HelmVerificationReportV1, OperationalReportV1, VerificationReportV1,
+)
+from .scanner_core import (
+    NativePropertyIdentity,
+    PropertyCapability,
+    ProtectedPropertyTarget,
+    ScannerObservationResult,
+    build_protected_scan_plan,
+    execute_protected_scan,
+    legacy_report_v1_property_capability,
+    protect_scan_artifact,
 )
 from .workflow import GitVerificationMaterialization
 
@@ -151,7 +166,13 @@ def _resolve_acceptance_property(
             ),
         )
     evaluation = evaluations[0]
-    if property_.rule_id.startswith("CKV2_") and (
+    relationship_required = (
+        target_universe.query_identity_sha256 != "0" * 64
+        or legacy_report_v1_property_capability(
+            evaluation.scanner, property_.rule_id
+        ) is PropertyCapability.RELATIONSHIP
+    )
+    if relationship_required and (
         evaluation.graph_evidence is None
         or evaluation.graph_evidence.status is not Status.PASS
     ):
@@ -179,6 +200,103 @@ def _resolve_acceptance_property(
         reason,
         evaluation,
     )
+
+
+def _neutral_acceptance_evidence(
+    request: PublicCandidateAcceptanceRequest,
+    plan,
+    run,
+    *,
+    materialized: bool,
+):
+    """Reconcile production Checkov evidence through the neutral a8 boundary.
+
+    Missing or ambiguous requested resources remain ordinary candidate-acceptance
+    uncertainty and therefore do not become protected scanner targets. Every target
+    that resolves exactly once must, however, be observed through the complete
+    independently protected file/resource universe.
+    """
+    adapter = CheckovEvidenceAdapter(plan.request, trusted_run=run)
+    resolved = []
+    for property_ in request.properties:
+        resources = tuple(
+            item for item in plan.resources
+            if item.resource_address == property_.resource_address
+            and (not property_.file_path or item.file_path == property_.file_path)
+            and (
+                property_.artifact_kind is ArtifactKind.UNKNOWN
+                or item.artifact_kind is property_.artifact_kind
+            )
+        )
+        if len(resources) == 1:
+            resolved.append((property_, resources[0]))
+    if not resolved:
+        return None
+    kinds = {item.artifact_kind for item in plan.resources}
+    kubernetes_kinds = {ArtifactKind.KUBERNETES_YAML, ArtifactKind.KUBERNETES_JSON}
+    if kinds and kinds <= kubernetes_kinds:
+        artifact_class = (
+            "kubernetes_rendered_yaml" if materialized
+            else "kubernetes_source_manifest"
+        )
+    elif kinds == {ArtifactKind.TERRAFORM_HCL}:
+        artifact_class = "terraform_hcl_source"
+    else:
+        artifact_class = "mixed_iac_source"
+    artifact = protect_scan_artifact(
+        plan.request.scan_root,
+        artifact_class,
+        tuple(sorted(
+            (*plan.request.eligible_file_evidence,
+             *plan.request.supporting_file_evidence),
+            key=lambda item: item.canonical_key,
+        )),
+        plan.request.expected_resources,
+    )
+    targets = tuple(
+        ProtectedPropertyTarget(
+            NativePropertyIdentity(
+                property_.scanner_name,
+                property_.rule_id,
+                adapter.descriptor.scanner_version,
+                adapter.descriptor.policy_bundle_digest,
+            ),
+            resource.resource_address,
+            resource.file_path,
+            resource.scanner_native_lookup,
+            legacy_report_v1_property_capability(
+                property_.scanner_name, property_.rule_id
+            ),
+        )
+        for property_, resource in resolved
+    )
+    neutral_plan = build_protected_scan_plan(adapter.descriptor, artifact, targets)
+    return execute_protected_scan(neutral_plan, adapter)
+
+
+def _reconcile_acceptance_with_neutral_evidence(properties, evidence) -> None:
+    if evidence is None:
+        return
+    observations = {
+        (
+            item.target.property_identity.policy_id,
+            item.target.protected_resource_identity,
+            item.target.file_path,
+        ): item.result
+        for item in evidence.observations
+    }
+    expected = {
+        "SATISFIED": ScannerObservationResult.PASS,
+        "VIOLATED": ScannerObservationResult.FAIL,
+    }
+    for item in properties:
+        if item.resource is None or item.outcome not in expected:
+            continue
+        key = (item.rule_id, item.resource.resource_address, item.resource.file_path)
+        if observations.get(key) is not expected[item.outcome]:
+            raise DomainError(
+                "scanner-neutral and report-v1 target evidence disagree"
+            )
 
 
 def verify_candidate(
@@ -210,6 +328,9 @@ def _verify_candidate_request(
         )
         plan = attest_checkov_scan_plan(raw)
         run = require_trusted_scanner_run(CheckovAdapter().scan(plan.request))
+        neutral_evidence = _neutral_acceptance_evidence(
+            request, plan, run, materialized=materialization is not None
+        )
     except (DomainError, OSError) as exc:
         return OperationalReportV1(
             "CANDIDATE_EVIDENCE_UNAVAILABLE",
@@ -226,6 +347,14 @@ def _verify_candidate_request(
         _resolve_acceptance_property(item, plan, run, evidence_universes)
         for item in request.properties
     )
+    try:
+        _reconcile_acceptance_with_neutral_evidence(properties, neutral_evidence)
+    except DomainError as exc:
+        return OperationalReportV1(
+            "CANDIDATE_EVIDENCE_UNAVAILABLE",
+            str(exc),
+            "Repair the protected scanner evidence discrepancy and rerun.",
+        )
     return CandidateAcceptanceReportV1(
         plan,
         run,
@@ -274,6 +403,36 @@ def verify_helm_candidate(
             exc.reason_code,
             exc.safe_detail,
             "Make the local Helm inputs deterministic and fully source-bound, then rerun.",
+        )
+
+
+def verify_kustomize_candidate(
+    request: PublicKustomizeAcceptanceRequest,
+) -> CandidateAcceptanceReportV1 | CandidateArtifactFailureReportV1:
+    """Build one protected local Kustomize universe before scanner selection."""
+    if type(request) is not PublicKustomizeAcceptanceRequest:
+        raise TypeError(
+            "verify_kustomize_candidate requires an exact Kustomize request"
+        )
+    try:
+        with materialize_kustomize_universe(request.build) as universe:
+            return _verify_candidate_request(
+                PublicCandidateAcceptanceRequest(
+                    universe.scanner_root,
+                    request.properties,
+                    request.execution_isolation,
+                    request.checkov_executable,
+                    ("kubernetes",),
+                ),
+                materialization=universe.evidence,
+            )
+    except KustomizeMaterializationError as exc:
+        return CandidateArtifactFailureReportV1(
+            ArtifactKind.KUBERNETES_YAML,
+            "kustomize-materialization",
+            exc.reason_code,
+            exc.safe_detail,
+            ExecutionIsolationEvidence.reduced_verified(),
         )
 
 
@@ -601,4 +760,5 @@ __all__ = [
     "verify_candidate",
     "verify_helm",
     "verify_helm_candidate",
+    "verify_kustomize_candidate",
 ]

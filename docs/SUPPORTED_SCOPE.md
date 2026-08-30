@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a7`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a8`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -29,6 +29,10 @@ It includes:
   `SATISFIED`, `VIOLATED`, or `INCONCLUSIVE` outcomes and no baseline repair claim;
 - ordered multi-chart Helm universes that preserve per-chart source provenance while
   allowing exact cross-chart graph relationships.
+- scanner-neutral protected-artifact, target, property-observation, and evidence
+  contracts, with Checkov remaining the sole authoritative scanner path;
+- bounded deterministic local Kustomize materialization under the closed contract in
+  [Kustomize materialization](KUSTOMIZE_MATERIALIZATION.md).
 
 Native execution is `reduced-isolation` and supports only input controlled by
 the operator. A production hostile-input container and GitHub Action have not
@@ -82,6 +86,13 @@ Duplicate identities after normalization, contradictory namespaced-resource prov
 and unresolved custom-resource scope remain fail-closed. No report-v1 schema change is
 required.
 
+`0.1.0a8` adds scanner-neutral evidence ownership; bounded Helm dependency aliases,
+nested local dependency closure, and Helm-compatible version binding; equivalent
+duplicate named-template handling; bounded namespace-provenance improvements; and
+deterministic local Kustomize materialization. A vendored older schema must be updated
+before validating a8 scanner-neutral, Helm, or Kustomize evidence. Unsupported dynamic
+semantics remain fail closed.
+
 ## Component status
 
 | Area | Status |
@@ -89,14 +100,14 @@ required.
 | Checkov `3.3.0` | Supported scanner path for the technical alpha. |
 | Terraform `.tf` | Supported within the protected parser and exact-target boundary. |
 | Kubernetes YAML and Checkov Kubernetes findings | Supported where an exact target can be bound. |
-| KICS and Trivy | Experimental/advisory adapters; incomplete runtime cells cannot become ground truth. |
+| KICS and Trivy | Advisory/future adapter work; they cannot establish authoritative target `PASS` or change the verdict. |
 | kubeconform and TFLint | Experimental/advisory validation evidence. |
 | OpenTofu `.tofu` / `.tofu.json` | Not supported in the public alpha. |
 | Terraform `.tf.json` | Explicitly unsupported/inconclusive end to end. |
 | Checkov CKV2/graph findings | Supported only for bounded connection-query shapes with complete participant and relationship evidence; every other shape remains inconclusive. |
 | Candidate acceptance | Supported only for explicitly selected properties under complete governed, scanner-addressable, and target-relevant evidence universes; it never claims `FIXED`. |
-| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded contract, including ordered multi-chart candidate universes, [protected namespace provenance](NAMESPACE_PROVENANCE.md), bounded action/`tpl` analysis, and exactly resolvable dynamic include/template targets. |
-| Kustomize materialization | No protected materialization contract yet. |
+| Helm materialization | Supported only for local, client-side, deterministic charts under the bounded contract, including ordered multi-chart candidate universes, bounded aliases and nested local dependency closure, Helm-compatible dependency-version binding, equivalent duplicate named templates, [protected namespace provenance](NAMESPACE_PROVENANCE.md), bounded action/`tpl` analysis, and exactly resolvable dynamic include/template targets. This is not general Helm interpretation. |
+| Kustomize materialization | Supported only for the closed, local, deterministic v5.7.1 contract in [Kustomize materialization](KUSTOMIZE_MATERIALIZATION.md); remote resources, Helm inflation, plugins/exec, unknown control keys, and unbound input paths fail closed. |
 | Multi-scanner consensus | Advisory only and disconnected from the final verdict. |
 | Hardened container and composite Action | Not released. |
 
@@ -113,6 +124,8 @@ IaC-Guard-V does not call a change `VERIFIED` when:
 - a target is deleted, suppressed, or replaced rather than repaired;
 - an exact supported predicate is unavailable;
 - required evidence comes only from caller-authored assertions.
+- Helm or Kustomize input requires remote resolution, live cluster state, an unsupported
+  dynamic expression, or behavior outside the closed local grammar.
 
 These conditions produce an invalid request, `FAILED`, or `INCONCLUSIVE`
 according to the protected contract. An empty result is not a successful repair.

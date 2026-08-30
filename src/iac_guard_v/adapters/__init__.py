@@ -4,6 +4,7 @@ from .base import AdapterReason, ScannerContract
 from .checkov import (
     CHECKOV_CONTRACT,
     CheckovAdapter,
+    CheckovEvidenceAdapter,
     CheckovDistributionIdentity,
     CheckovEligibleFileEvidence,
     CheckovKubernetesIdentity,
@@ -41,6 +42,7 @@ __all__ = [
     "AdapterReason",
     "CHECKOV_CONTRACT",
     "CheckovAdapter",
+    "CheckovEvidenceAdapter",
     "CheckovDistributionIdentity",
     "CheckovEligibleFileEvidence",
     "CheckovKubernetesIdentity",

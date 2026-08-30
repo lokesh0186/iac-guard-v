@@ -9,6 +9,7 @@ eligible for the existing Checkov verification path.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import platform
@@ -17,8 +18,10 @@ import shlex
 import stat
 import tarfile
 import tempfile
+import unicodedata
+import urllib.parse
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Iterator
@@ -26,6 +29,7 @@ from typing import Iterator
 import yaml
 
 from .enums import Status
+from .helm_semver import HelmSemverError, prove_constraint
 from .models import DomainError, canonical_repo_path
 from .process import CommandRequest, run_command
 from .redaction import redact_detail
@@ -72,6 +76,10 @@ _SOURCE_MARKER = re.compile(r"^# Source: ([^\r\n]+)$", re.MULTILINE)
 _DNS_LABEL = re.compile(r"[a-z0-9](?:[-a-z0-9]*[a-z0-9])?")
 _DNS_SUBDOMAIN = re.compile(r"[a-z0-9](?:[-a-z0-9.]*[a-z0-9])?")
 _SET_KEY = re.compile(r"[A-Za-z0-9_.\[\]-]+")
+_DEPENDENCY_NAME = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,252})")
+_DEPENDENCY_VALUE_PATH = re.compile(
+    r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*"
+)
 _CLUSTER_SCOPED_GROUP_KINDS = frozenset({
     ("", "Namespace"),
     ("", "Node"),
@@ -162,9 +170,64 @@ class HelmMaterializationError(DomainError):
 
 
 @dataclass(frozen=True, slots=True)
+class _ArchiveMember:
+    path: str
+    kind: str
+    mode: int
+    size: int
+    sha256: str
+    payload: bytes | None = field(default=None, repr=False)
+
+    def evidence_dict(self) -> dict:
+        result = {
+            "path": self.path,
+            "type": self.kind,
+            "mode": self.mode,
+            "size": self.size,
+        }
+        if self.kind == "file":
+            result["sha256"] = self.sha256
+        return result
+
+
+@dataclass(frozen=True, slots=True)
+class _ArchiveInspection:
+    archive_sha256: str
+    chart_root: str
+    chart: dict
+    chart_yaml_sha256: str
+    members: tuple[_ArchiveMember, ...]
+    member_manifest_root_sha256: str
+    chart_member_subtree_root_sha256: str
+    expanded_files: tuple[dict, ...]
+
+
+@dataclass(slots=True)
+class _DependencyArchiveBudget:
+    members: int = 0
+    expanded_bytes: int = 0
+
+    def consume(self, *, members: int, expanded_bytes: int) -> None:
+        self.members += members
+        self.expanded_bytes += expanded_bytes
+        if self.members > _MAX_ARCHIVE_MEMBERS:
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_LIMIT_EXCEEDED",
+                "nested dependency archive closure has too many members",
+            )
+        if self.expanded_bytes > _MAX_ARCHIVE_EXPANDED_BYTES:
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_LIMIT_EXCEEDED",
+                "nested dependency archive closure expands beyond its limit",
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class _TemplateActionScope:
     source_path: str
     actions: tuple[str, ...]
+    definition_ordinal: int = 0
+    definition_span_sha256: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +241,10 @@ class _TemplateActionIndex:
     protected_files: dict[str, dict[str, "_ProtectedTplFile"]] = field(
         default_factory=dict
     )
+    definition_members: dict[str, tuple[_TemplateActionScope, ...]] = field(
+        default_factory=dict
+    )
+    definition_graphs: dict[str, tuple] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,6 +341,7 @@ class HelmRenderSpec:
     api_versions: tuple[str, ...] = ()
     include_crds: bool = False
     include_tests: bool = False
+    protected_repository_root: Path | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.chart_root, Path) or not isinstance(self.helm_executable, Path):
@@ -290,8 +358,23 @@ class HelmRenderSpec:
             raise DomainError("Helm executable must be an executable regular file")
         if executable == chart or chart in executable.parents:
             raise DomainError("Helm executable must not be inside the chart")
+        repository = self.protected_repository_root
+        if repository is None:
+            repository = chart
+        if not isinstance(repository, Path):
+            raise DomainError("Helm protected repository root must be pathlib.Path")
+        try:
+            repository = repository.resolve(strict=True)
+            chart.relative_to(repository)
+        except (OSError, ValueError) as exc:
+            raise DomainError(
+                "Helm chart root must be inside the protected repository root"
+            ) from exc
+        if not repository.is_dir():
+            raise DomainError("Helm protected repository root must be a directory")
         object.__setattr__(self, "chart_root", chart)
         object.__setattr__(self, "helm_executable", executable)
+        object.__setattr__(self, "protected_repository_root", repository)
         object.__setattr__(
             self, "release_name", _safe_dns(self.release_name, "Helm release name")
         )
@@ -578,14 +661,49 @@ def _dependency_record(value: object) -> dict:
         raise HelmMaterializationError(
             "UNREPRODUCIBLE_DEPENDENCIES", "dependency condition or alias is invalid"
         )
+    if alias and _DEPENDENCY_NAME.fullmatch(alias) is None:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_METADATA_INVALID", "dependency alias is invalid"
+        )
+    condition_paths = tuple(item.strip() for item in condition.split(",") if item.strip())
+    if condition and (
+        not condition_paths
+        or any(_DEPENDENCY_VALUE_PATH.fullmatch(item) is None for item in condition_paths)
+    ):
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_METADATA_INVALID", "dependency condition paths are invalid"
+        )
     if type(tags) is not list or any(type(item) is not str for item in tags):
         raise HelmMaterializationError(
             "UNREPRODUCIBLE_DEPENDENCIES", "dependency tags are invalid"
+        )
+    if any(not item or _DEPENDENCY_NAME.fullmatch(item) is None for item in tags) or len(
+        tags
+    ) != len(set(tags)):
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_METADATA_INVALID", "dependency tags are invalid or duplicated"
         )
     if type(enabled) is not bool or type(imports) is not list:
         raise HelmMaterializationError(
             "UNREPRODUCIBLE_DEPENDENCIES", "dependency options are invalid"
         )
+    for item in imports:
+        if type(item) is str:
+            valid = bool(item and _DEPENDENCY_VALUE_PATH.fullmatch(item))
+        elif type(item) is dict and set(item) == {"child", "parent"}:
+            valid = all(
+                type(item[key]) is str
+                and bool(item[key])
+                and _DEPENDENCY_VALUE_PATH.fullmatch(item[key]) is not None
+                for key in ("child", "parent")
+            )
+        else:
+            valid = False
+        if not valid:
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_IMPORT_UNSUPPORTED",
+                "dependency import-values entry is outside the closed grammar",
+            )
     if condition:
         result["condition"] = condition
     if tags:
@@ -610,24 +728,93 @@ def _helm_dependency_digest(requirements: list, locked: list) -> str:
     return "sha256:" + _sha256(payload)
 
 
-def _inspect_archive(
-    path: Path, expected_name: str, expected_version: str
-) -> list[dict]:
-    expanded = 0
-    expanded_files = []
+def _dependency_version_proof(declared: str, resolved: str) -> dict:
+    """Prove one Chart.yaml constraint against one protected lock version."""
     try:
-        with tarfile.open(path, "r:gz") as archive:
+        evidence = prove_constraint(declared, resolved)
+    except HelmSemverError as exc:
+        reason = (
+            "HELM_DEPENDENCY_RESOLVED_VERSION_INVALID"
+            if exc.reason == "MALFORMED_RESOLVED_VERSION"
+            else "HELM_DEPENDENCY_VERSION_CONSTRAINT_UNSUPPORTED"
+        )
+        raise HelmMaterializationError(reason, exc.detail) from exc
+    if not evidence["satisfied"]:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_VERSION_CONSTRAINT_MISMATCH",
+            "protected lock version does not satisfy the declared dependency constraint",
+        )
+    return evidence
+
+
+def _bind_dependency_version_evidence(artifact: dict, evidence: dict) -> None:
+    """Bind range proof to the independently established artifact identities."""
+    body = dict(evidence)
+    body["protected_lock_resolved_version"] = body.pop("resolved_version")
+    body["dependency_chart_version"] = artifact["version"]
+    body["physical_dependency_identity"] = artifact["physical_dependency"][
+        "physical_dependency_identity"
+    ]
+    body["logical_instance_identity"] = artifact["logical_instance"][
+        "logical_instance_identity"
+    ]
+    artifact["version_binding"] = {
+        **body,
+        "version_binding_identity": _canonical_sha(body),
+    }
+
+
+def _rebind_dependency_version_evidence(artifact: dict) -> None:
+    binding = artifact.get("version_binding")
+    if binding is None:
+        return
+    body = dict(binding)
+    body.pop("version_binding_identity", None)
+    body["physical_dependency_identity"] = artifact["physical_dependency"][
+        "physical_dependency_identity"
+    ]
+    body["logical_instance_identity"] = artifact["logical_instance"][
+        "logical_instance_identity"
+    ]
+    artifact["version_binding"] = {
+        **body,
+        "version_binding_identity": _canonical_sha(body),
+    }
+
+
+def _portable_archive_member_identity(path: str) -> str:
+    return unicodedata.normalize("NFC", path).casefold()
+
+
+def _inspect_archive_payload(
+    archive_payload: bytes,
+    expected_name: str,
+    expected_version: str,
+    *,
+    budget: _DependencyArchiveBudget | None = None,
+) -> _ArchiveInspection:
+    expanded = 0
+    expanded_files: list[dict] = []
+    records: list[_ArchiveMember] = []
+    portable_paths: set[str] = set()
+    try:
+        with tarfile.open(fileobj=io.BytesIO(archive_payload), mode="r:gz") as archive:
             members = archive.getmembers()
             if len(members) > _MAX_ARCHIVE_MEMBERS:
                 raise HelmMaterializationError(
                     "UNSAFE_DEPENDENCY_ARCHIVE", "dependency archive has too many members"
                 )
-            chart_yaml = None
+            chart_yaml: dict | None = None
+            chart_yaml_sha256 = ""
             for member in members:
                 pure = PurePosixPath(member.name)
+                canonical = pure.as_posix()
+                raw_without_directory_suffix = member.name.rstrip("/")
                 if (
                     pure.is_absolute()
                     or ".." in pure.parts
+                    or not pure.parts
+                    or raw_without_directory_suffix != canonical
                     or member.issym()
                     or member.islnk()
                     or not (member.isfile() or member.isdir())
@@ -635,7 +822,14 @@ def _inspect_archive(
                     raise HelmMaterializationError(
                         "UNSAFE_DEPENDENCY_ARCHIVE", "dependency archive contains unsafe paths"
                     )
-                if not pure.parts or pure.parts[0] != expected_name:
+                portable = _portable_archive_member_identity(canonical)
+                if portable in portable_paths:
+                    raise HelmMaterializationError(
+                        "UNSAFE_DEPENDENCY_ARCHIVE",
+                        "dependency archive contains duplicate portable paths",
+                    )
+                portable_paths.add(portable)
+                if pure.parts[0] != expected_name:
                     raise HelmMaterializationError(
                         "UNSAFE_DEPENDENCY_ARCHIVE",
                         "dependency archive has an unexpected root directory",
@@ -652,23 +846,41 @@ def _inspect_archive(
                             "UNSAFE_DEPENDENCY_ARCHIVE",
                             "dependency archive member cannot be read",
                         )
-                    payload = stream.read()
-                    if len(payload) != member.size:
+                    member_payload = stream.read()
+                    if len(member_payload) != member.size:
                         raise HelmMaterializationError(
                             "UNSAFE_DEPENDENCY_ARCHIVE",
                             "dependency archive member has inconsistent bytes",
                         )
+                    digest = _sha256(member_payload)
+                    records.append(_ArchiveMember(
+                        path=canonical,
+                        kind="file",
+                        mode=stat.S_IMODE(member.mode),
+                        size=len(member_payload),
+                        sha256=digest,
+                        payload=member_payload,
+                    ))
                     virtual = PurePosixPath("charts", expected_name, *pure.parts[1:])
                     expanded_files.append({
                         "path": canonical_repo_path(
                             virtual.as_posix(), "expanded Helm dependency file"
                         ),
-                        "size": len(payload),
+                        "size": len(member_payload),
                         "mode": stat.S_IMODE(member.mode),
-                        "sha256": _sha256(payload),
+                        "sha256": digest,
                     })
                     if pure.name == "Chart.yaml" and len(pure.parts) == 2:
-                        chart_yaml = yaml.load(payload, Loader=_StrictSafeLoader)
+                        chart_yaml = yaml.load(member_payload, Loader=_StrictSafeLoader)
+                        chart_yaml_sha256 = digest
+                else:
+                    records.append(_ArchiveMember(
+                        path=canonical,
+                        kind="directory",
+                        mode=stat.S_IMODE(member.mode),
+                        size=0,
+                        sha256="",
+                    ))
             if type(chart_yaml) is not dict or chart_yaml.get("name") != expected_name or str(
                 chart_yaml.get("version")
             ) != expected_version:
@@ -685,10 +897,544 @@ def _inspect_archive(
         raise HelmMaterializationError(
             "UNSAFE_DEPENDENCY_ARCHIVE", "dependency archive cannot be safely inspected"
         ) from exc
-    return sorted(expanded_files, key=lambda item: item["path"])
+    if budget is not None:
+        budget.consume(members=len(records), expanded_bytes=expanded)
+    ordered = tuple(sorted(records, key=lambda item: item.path))
+    member_manifest = [item.evidence_dict() for item in ordered]
+    subtree = [
+        {
+            **item.evidence_dict(),
+            "path": PurePosixPath(item.path).relative_to(expected_name).as_posix(),
+        }
+        for item in ordered
+        if item.path != expected_name and item.path.startswith(f"{expected_name}/")
+    ]
+    return _ArchiveInspection(
+        archive_sha256=_sha256(archive_payload),
+        chart_root=expected_name,
+        chart=chart_yaml,
+        chart_yaml_sha256=chart_yaml_sha256,
+        members=ordered,
+        member_manifest_root_sha256=_canonical_sha(member_manifest),
+        chart_member_subtree_root_sha256=_canonical_sha(subtree),
+        expanded_files=tuple(sorted(expanded_files, key=lambda item: item["path"])),
+    )
 
 
-def _validate_dependencies(root: Path, chart: dict) -> dict:
+def _inspect_archive(
+    path: Path,
+    expected_name: str,
+    expected_version: str,
+    *,
+    budget: _DependencyArchiveBudget | None = None,
+) -> _ArchiveInspection:
+    try:
+        payload = path.read_bytes()
+    except OSError as exc:
+        raise HelmMaterializationError(
+            "UNSAFE_DEPENDENCY_ARCHIVE", "dependency archive cannot be safely inspected"
+        ) from exc
+    return _inspect_archive_payload(
+        payload, expected_name, expected_version, budget=budget
+    )
+
+
+def _write_archive_inspection(
+    inspection: _ArchiveInspection, destination: Path
+) -> Path:
+    destination.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for member in inspection.members:
+        target = destination.joinpath(*PurePosixPath(member.path).parts)
+        if member.kind == "directory":
+            target.mkdir(mode=0o700, parents=True, exist_ok=True)
+            continue
+        if member.payload is None:
+            raise HelmMaterializationError(
+                "UNSAFE_DEPENDENCY_ARCHIVE", "dependency archive member bytes are unavailable"
+            )
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        descriptor = os.open(
+            target,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o600,
+        )
+        try:
+            offset = 0
+            while offset < len(member.payload):
+                written = os.write(descriptor, member.payload[offset:])
+                if written <= 0:
+                    raise HelmMaterializationError(
+                        "UNSAFE_DEPENDENCY_ARCHIVE",
+                        "dependency archive member extraction did not complete",
+                    )
+                offset += written
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+    root = destination / inspection.chart_root
+    if not root.is_dir() or root.is_symlink():
+        raise HelmMaterializationError(
+            "UNSAFE_DEPENDENCY_ARCHIVE", "dependency archive chart root is malformed"
+        )
+    return root
+
+
+def _dependency_path_value(values: dict, path: str) -> tuple[bool, object]:
+    current: object = values
+    for part in path.split("."):
+        if type(current) is not dict or part not in current:
+            return False, None
+        current = current[part]
+    return True, current
+
+
+def _dependency_activation(record: dict, values: dict) -> dict:
+    tag_inputs = []
+    tag_result: bool | None = None
+    if record.get("tags"):
+        table = values.get("tags", {})
+        if type(table) is not dict:
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_ACTIVATION_AMBIGUOUS",
+                "top-level dependency tags value is not a mapping",
+            )
+        states = []
+        for tag in record["tags"]:
+            state = table.get(tag, False)
+            if type(state) is not bool:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_ACTIVATION_AMBIGUOUS",
+                    "dependency tag value is not Boolean",
+                )
+            states.append(state)
+            tag_inputs.append({"tag": tag, "value": state})
+        tag_result = any(states)
+    condition_inputs = []
+    condition_result: bool | None = None
+    for path in tuple(
+        item.strip() for item in record.get("condition", "").split(",") if item.strip()
+    ):
+        found, state = _dependency_path_value(values, path)
+        condition_inputs.append({"path": path, "found": found,
+                                 "value": state if type(state) is bool else None})
+        if not found:
+            continue
+        if type(state) is not bool:
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_ACTIVATION_AMBIGUOUS",
+                "first existing dependency condition is not Boolean",
+            )
+        condition_result = state
+        break
+    result = (
+        condition_result if condition_result is not None
+        else tag_result if tag_result is not None
+        else True
+    )
+    return {
+        "condition_inputs": condition_inputs,
+        "tag_inputs": tag_inputs,
+        "declared_enabled_metadata": record.get("enabled", False),
+        "result": result,
+    }
+
+
+def _local_dependency_source(
+    declaring_root: Path, repository_root: Path, repository: str
+) -> Path:
+    if not repository.startswith("file://"):
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+            "dependency bytes are not locally available",
+        )
+    encoded = repository[len("file://"):]
+    if not encoded or "?" in encoded or "#" in encoded:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_PATH_ESCAPE", "file dependency URI is invalid"
+        )
+    try:
+        relative = urllib.parse.unquote(encoded, errors="strict")
+    except (UnicodeError, ValueError) as exc:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_PATH_ESCAPE", "file dependency URI encoding is invalid"
+        ) from exc
+    pure = PurePosixPath(relative)
+    if pure.is_absolute() or "\\" in relative or "\x00" in relative:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_PATH_ESCAPE", "file dependency path is not portable"
+        )
+    # Compare lexical containment only after both roots use the same canonical
+    # filesystem spelling.  On macOS, temporary paths may otherwise mix the
+    # equivalent /var and /private/var prefixes and reject a contained source.
+    declaring_root = declaring_root.resolve(strict=True)
+    repository_root = repository_root.resolve(strict=True)
+    target = Path(os.path.normpath(str(declaring_root.joinpath(*pure.parts))))
+    try:
+        lexical = target.absolute().relative_to(repository_root)
+    except ValueError as exc:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_PATH_ESCAPE", "file dependency escapes protected repository"
+        ) from exc
+    current = repository_root
+    for part in lexical.parts:
+        current = current / part
+        try:
+            metadata = current.lstat()
+        except OSError as exc:
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_ARTIFACT_MISSING",
+                "file dependency input is unavailable",
+            ) from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_SYMLINK", "file dependency traverses a symlink"
+            )
+    resolved = target.resolve(strict=True)
+    try:
+        resolved.relative_to(repository_root)
+    except ValueError as exc:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_PATH_ESCAPE", "file dependency escapes protected repository"
+        ) from exc
+    return resolved
+
+
+def _archive_provenance(
+    inspection: _ArchiveInspection, repository_path: str
+) -> dict:
+    body = {
+        "repository_path": canonical_repo_path(
+            repository_path, "Helm dependency archive repository path"
+        ),
+        "archive_sha256": inspection.archive_sha256,
+        "archive_member_manifest_root_sha256": (
+            inspection.member_manifest_root_sha256
+        ),
+        "chart_member_path": inspection.chart_root,
+        "chart_yaml_sha256": inspection.chart_yaml_sha256,
+        "chart_member_subtree_root_sha256": (
+            inspection.chart_member_subtree_root_sha256
+        ),
+    }
+    return {**body, "provenance_identity": _canonical_sha(body)}
+
+
+def _archive_member_records(
+    inspection: _ArchiveInspection, member_path: str
+) -> list[dict]:
+    prefix = f"{member_path}/"
+    result = []
+    for member in inspection.members:
+        if member.path == member_path:
+            relative = "."
+        elif member.path.startswith(prefix):
+            relative = member.path[len(prefix):]
+        else:
+            continue
+        record = member.evidence_dict()
+        record["path"] = relative
+        result.append(record)
+    return sorted(result, key=lambda item: item["path"])
+
+
+def _archive_member_provenance(
+    inspection: _ArchiveInspection,
+    *,
+    artifact_member_path: str,
+    chart_member_path: str,
+    chart_yaml_sha256: str,
+    parent_dependency_identity: str,
+) -> dict:
+    records = _archive_member_records(inspection, artifact_member_path)
+    if not records:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+            "nested dependency member subtree is unavailable",
+        )
+    body = {
+        "outer_archive_sha256": inspection.archive_sha256,
+        "outer_archive_member_manifest_root_sha256": (
+            inspection.member_manifest_root_sha256
+        ),
+        "artifact_member_path": canonical_repo_path(
+            artifact_member_path, "nested Helm dependency member path"
+        ),
+        "chart_member_path": canonical_repo_path(
+            chart_member_path, "nested Helm dependency chart member path"
+        ),
+        "chart_yaml_sha256": chart_yaml_sha256,
+        "member_subtree_root_sha256": _canonical_sha(records),
+        "parent_dependency_identity": parent_dependency_identity,
+    }
+    return {**body, "provenance_identity": _canonical_sha(body)}
+
+
+def _dependency_artifact_root(artifact: dict, source_path: Path | None = None) -> str:
+    if artifact["form"] in {"directory", "local-directory"}:
+        if source_path is None:
+            return artifact["physical_root_sha256"]
+        _records, identity = _inventory(source_path)
+        return identity
+    if artifact["form"] == "archive-member-directory":
+        return artifact["physical_root_sha256"]
+    return artifact["sha256"]
+
+
+def _attach_dependency_identity(
+    artifact: dict,
+    *,
+    record: dict,
+    repository: str,
+    parent_instance: str,
+    ordinal: int,
+    effective_name: str,
+    logical_prefix: str,
+    activation: dict,
+    protected_values: dict | None,
+    source_path: Path | None,
+) -> None:
+    imports = list(record.get("import-values", []))
+    physical = {
+        "declared_name": artifact["name"],
+        "resolved_version": artifact["version"],
+        "repository": repository,
+        "artifact_kind": artifact["form"],
+        "protected_artifact_root_sha256": _dependency_artifact_root(
+            artifact, source_path
+        ),
+    }
+    physical_identity = _canonical_sha(physical)
+    artifact["physical_dependency"] = {
+        **physical, "physical_dependency_identity": physical_identity,
+    }
+    effective_values = (
+        protected_values.get(effective_name, {})
+        if protected_values is not None else {}
+    )
+    global_values = (
+        protected_values.get("global", {})
+        if protected_values is not None else {}
+    )
+    if type(effective_values) is not dict or type(global_values) is not dict:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_ACTIVATION_AMBIGUOUS",
+            "logical dependency Values roots must be mappings",
+        )
+    logical = {
+        "parent_instance": parent_instance,
+        "ordinal": ordinal,
+        "effective_name": effective_name,
+        "declared_name": artifact["name"],
+        "physical_dependency_identity": physical_identity,
+        "activation_metadata_sha256": _canonical_sha(activation),
+        "import_metadata_sha256": _canonical_sha(imports),
+        "effective_values_root_sha256": _canonical_sha(effective_values),
+        "global_values_sha256": _canonical_sha(global_values),
+        "source_marker_context": (
+            f"{logical_prefix}/charts/{effective_name}"
+            if logical_prefix else f"charts/{effective_name}"
+        ),
+    }
+    logical["logical_instance_identity"] = _canonical_sha(logical)
+    artifact["activation"] = activation
+    artifact["imports"] = imports
+    artifact["logical_instance"] = logical
+
+
+def _rebind_dependency_identity(artifact: dict, parent_instance: str) -> str:
+    physical = dict(artifact["physical_dependency"])
+    physical.pop("physical_dependency_identity", None)
+    physical["artifact_kind"] = artifact["form"]
+    if (
+        artifact["form"] == "directory"
+        and "physical_root_sha256" not in artifact
+    ):
+        # The already-bound vendored directory root remains the same while only
+        # its logical/effective Values identity is being rebound.
+        pass
+    else:
+        physical["protected_artifact_root_sha256"] = _dependency_artifact_root(
+            artifact
+        )
+    physical_identity = _canonical_sha(physical)
+    artifact["physical_dependency"] = {
+        **physical, "physical_dependency_identity": physical_identity,
+    }
+    logical = dict(artifact["logical_instance"])
+    logical.pop("logical_instance_identity", None)
+    logical["parent_instance"] = parent_instance
+    logical["physical_dependency_identity"] = physical_identity
+    logical_identity = _canonical_sha(logical)
+    artifact["logical_instance"] = {
+        **logical, "logical_instance_identity": logical_identity,
+    }
+    values_provenance = artifact.get("values_provenance")
+    if values_provenance is not None:
+        values_body = dict(values_provenance)
+        values_body.pop("provenance_identity", None)
+        values_body["logical_instance_identity"] = logical_identity
+        artifact["values_provenance"] = {
+            **values_body, "provenance_identity": _canonical_sha(values_body),
+        }
+    _rebind_dependency_version_evidence(artifact)
+    return logical_identity
+
+
+def _reparent_dependency_closure(closure: dict, parent_instance: str) -> None:
+    for artifact in closure["artifacts"]:
+        logical = artifact.get("logical_instance")
+        identity = (
+            _rebind_dependency_identity(artifact, parent_instance)
+            if logical is not None else parent_instance
+        )
+        member = artifact.get("archive_member_provenance")
+        if member is not None and logical is not None:
+            body = dict(member)
+            body.pop("provenance_identity", None)
+            body["parent_dependency_identity"] = parent_instance
+            artifact["archive_member_provenance"] = {
+                **body, "provenance_identity": _canonical_sha(body),
+            }
+        nested = artifact.get("dependencies")
+        if nested is not None:
+            _reparent_dependency_closure(nested, identity)
+
+
+def _bind_archive_member_closure(
+    closure: dict,
+    inspection: _ArchiveInspection,
+    *,
+    physical_prefix: str,
+    parent_instance: str,
+) -> None:
+    for artifact in closure["artifacts"]:
+        original_form = artifact["form"]
+        if original_form in {"local-directory", "local-archive"}:
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                "nested archive dependency escapes the local charts closure",
+            )
+        if original_form == "directory":
+            artifact_member_path = f"{physical_prefix}/charts/{artifact['name']}"
+            chart_member_path = artifact_member_path
+            chart_record = next((
+                member for member in inspection.members
+                if member.path == f"{chart_member_path}/Chart.yaml"
+            ), None)
+            if chart_record is None:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested directory dependency Chart.yaml is unavailable",
+                )
+            physical_files = []
+            prefix = f"{chart_member_path}/"
+            for member in inspection.members:
+                if member.kind != "file" or not member.path.startswith(prefix):
+                    continue
+                physical_files.append({
+                    "path": member.path[len(prefix):],
+                    "size": member.size,
+                    "mode": member.mode,
+                    "sha256": member.sha256,
+                })
+            physical_files.sort(key=lambda item: item["path"])
+            if not physical_files:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested directory dependency member subtree is empty",
+                )
+            artifact["physical_files"] = physical_files
+            artifact["physical_root_sha256"] = _canonical_sha(physical_files)
+            artifact["form"] = "archive-member-directory"
+            artifact["archive_member_provenance"] = _archive_member_provenance(
+                inspection,
+                artifact_member_path=artifact_member_path,
+                chart_member_path=chart_member_path,
+                chart_yaml_sha256=chart_record.sha256,
+                parent_dependency_identity=parent_instance,
+            )
+            identity = _rebind_dependency_identity(artifact, parent_instance)
+            nested = artifact.get("dependencies")
+            if nested is not None:
+                _bind_archive_member_closure(
+                    nested,
+                    inspection,
+                    physical_prefix=chart_member_path,
+                    parent_instance=identity,
+                )
+            continue
+        if original_form == "archive":
+            artifact_member_path = (
+                f"{physical_prefix}/charts/"
+                f"{artifact['name']}-{artifact['version']}.tgz"
+            )
+            archive_record = next((
+                member for member in inspection.members
+                if member.path == artifact_member_path and member.kind == "file"
+            ), None)
+            if archive_record is None:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested archive dependency bytes are unavailable",
+                )
+            inner = artifact.get("archive_provenance")
+            if inner is None:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested archive dependency provenance is unavailable",
+                )
+            inner_body = dict(inner)
+            inner_body.pop("provenance_identity", None)
+            inner_body["repository_path"] = artifact_member_path
+            artifact["archive_provenance"] = {
+                **inner_body, "provenance_identity": _canonical_sha(inner_body),
+            }
+            artifact["form"] = "archive-member-archive"
+            artifact["archive_member_provenance"] = _archive_member_provenance(
+                inspection,
+                artifact_member_path=artifact_member_path,
+                chart_member_path=inner["chart_member_path"],
+                chart_yaml_sha256=inner["chart_yaml_sha256"],
+                parent_dependency_identity=parent_instance,
+            )
+            identity = _rebind_dependency_identity(artifact, parent_instance)
+            nested = artifact.get("dependencies")
+            if nested is not None:
+                _reparent_dependency_closure(nested, identity)
+            continue
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+            "nested archive dependency has an unsupported physical form",
+        )
+
+
+def _validate_dependencies(
+    root: Path,
+    chart: dict,
+    protected_values: dict | None = None,
+    *,
+    repository_root: Path | None = None,
+    parent_instance: str = ".",
+    logical_prefix: str = "",
+    depth: int = 0,
+    ancestry: tuple[Path, ...] = (),
+    archive_ancestry: tuple[str, ...] = (),
+    archive_budget: _DependencyArchiveBudget | None = None,
+    force_dependency_identities: bool = False,
+) -> dict:
+    repository_root = (repository_root or root).resolve(strict=True)
+    archive_budget = archive_budget or _DependencyArchiveBudget()
+    if depth > _MAX_TEMPLATE_CALL_DEPTH:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_LIMIT_EXCEEDED", "dependency closure exceeds depth limit"
+        )
+    physical_root = root.resolve(strict=True)
+    if physical_root in ancestry:
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+            "local dependency closure contains a cycle",
+        )
+    ancestry = (*ancestry, physical_root)
     raw_dependencies = chart.get("dependencies", [])
     if raw_dependencies is None:
         raw_dependencies = []
@@ -696,18 +1442,35 @@ def _validate_dependencies(root: Path, chart: dict) -> dict:
         raise HelmMaterializationError(
             "UNREPRODUCIBLE_DEPENDENCIES", "Chart.yaml dependencies must be a list"
         )
-    if any(type(item) is dict and item.get("alias", "") for item in raw_dependencies):
-        raise HelmMaterializationError(
-            "UNREPRODUCIBLE_DEPENDENCIES",
-            "dependency aliases are not supported by this bounded contract",
-        )
     dependencies = tuple(_dependency_key(item) for item in raw_dependencies)
-    if len(dependencies) != len(set(dependencies)):
+    effective_names = tuple(
+        item.get("alias") or item.get("name")
+        for item in raw_dependencies if type(item) is dict
+    )
+    if len(effective_names) != len(raw_dependencies) or any(
+        type(item) is not str or not item for item in effective_names
+    ):
         raise HelmMaterializationError(
-            "UNREPRODUCIBLE_DEPENDENCIES", "Chart.yaml contains duplicate dependencies"
+            "HELM_DEPENDENCY_METADATA_INVALID", "dependency effective name is invalid"
+        )
+    if len(effective_names) != len(set(effective_names)):
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_EFFECTIVE_NAME_COLLISION",
+            "dependency logical instances have a duplicate effective name",
+        )
+    logical_keys = tuple(
+        (*_dependency_key(item), effective_names[index])
+        for index, item in enumerate(raw_dependencies)
+    )
+    if len(logical_keys) != len(set(logical_keys)):
+        raise HelmMaterializationError(
+            "HELM_DEPENDENCY_EFFECTIVE_NAME_COLLISION",
+            "Chart.yaml contains duplicate logical dependencies",
         )
     lock_path = root / "Chart.lock"
     lock_hash = ""
+    resolved_dependencies = dependencies
+    version_proofs: tuple[dict | None, ...] = (None,) * len(dependencies)
     charts = root / "charts"
     chart_entries = (
         tuple(sorted(charts.iterdir(), key=lambda item: item.name))
@@ -730,13 +1493,32 @@ def _validate_dependencies(root: Path, chart: dict) -> dict:
     elif lock_path.exists():
         lock = _strict_yaml(lock_path, "Chart.lock")
         locked = lock.get("dependencies", [])
-        if (
-            type(locked) is not list
-            or tuple(_dependency_key(item) for item in locked) != dependencies
-        ):
+        if type(locked) is not list or len(locked) != len(dependencies):
             raise HelmMaterializationError(
                 "UNREPRODUCIBLE_DEPENDENCIES", "Chart.lock does not match Chart.yaml"
             )
+        locked_dependencies = tuple(_dependency_key(item) for item in locked)
+        proofs: list[dict | None] = []
+        for declared_key, locked_key in zip(
+            dependencies, locked_dependencies, strict=True
+        ):
+            declared_name, declared_version, declared_repository = declared_key
+            locked_name, locked_version, locked_repository = locked_key
+            if (
+                locked_name != declared_name
+                or locked_repository != declared_repository
+            ):
+                raise HelmMaterializationError(
+                    "UNREPRODUCIBLE_DEPENDENCIES",
+                    "Chart.lock dependency name or repository does not match Chart.yaml",
+                )
+            proof = (
+                _dependency_version_proof(declared_version, locked_version)
+                if declared_version != locked_version else None
+            )
+            proofs.append(proof)
+        resolved_dependencies = locked_dependencies
+        version_proofs = tuple(proofs)
         digest = lock.get("digest")
         if type(digest) is not str or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
             raise HelmMaterializationError(
@@ -749,42 +1531,292 @@ def _validate_dependencies(root: Path, chart: dict) -> dict:
         lock_hash = _sha256(lock_path.read_bytes())
         lock_relevance = "PARTICIPATING"
     artifacts = []
-    for name, version, repository in dependencies:
+    for ordinal, (name, version, repository) in enumerate(resolved_dependencies):
+        record = _dependency_record(raw_dependencies[ordinal])
+        effective_name = effective_names[ordinal]
         directory = charts / name
         archive = charts / f"{name}-{version}.tgz"
+        source_path: Path | None = None
+        archive_inspection: _ArchiveInspection | None = None
+        archive_repository_path = ""
         if directory.is_dir() and not directory.is_symlink():
+            source_path = directory.resolve(strict=True)
             child = _strict_yaml(directory / "Chart.yaml", "vendored subchart Chart.yaml")
             if child.get("name") != name or str(child.get("version")) != version:
                 raise HelmMaterializationError(
                     "UNREPRODUCIBLE_DEPENDENCIES", "vendored subchart identity is inconsistent"
                 )
-            artifacts.append({
+            artifact = {
                 "name": name,
                 "version": version,
                 "form": "directory",
                 "expanded_files": [],
-            })
+            }
         elif archive.is_file() and not archive.is_symlink():
-            expanded_files = _inspect_archive(archive, name, version)
-            artifacts.append({
+            archive_inspection = _inspect_archive(
+                archive, name, version, budget=archive_budget
+            )
+            if archive_inspection.archive_sha256 in archive_ancestry:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested dependency archive closure contains a repeated identity",
+                )
+            archive_repository_path = canonical_repo_path(
+                archive.resolve(strict=True).relative_to(repository_root).as_posix(),
+                "Helm dependency archive repository path",
+            )
+            artifact = {
                 "name": name,
                 "version": version,
                 "form": "archive",
-                "sha256": _sha256(archive.read_bytes()),
-                "expanded_files": expanded_files,
-            })
+                "sha256": archive_inspection.archive_sha256,
+                "expanded_files": list(archive_inspection.expanded_files),
+            }
         else:
-            raise HelmMaterializationError(
-                "UNREPRODUCIBLE_DEPENDENCIES", "declared dependency is not locally vendored"
-            )
+            if not repository.startswith("file://"):
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED",
+                    "declared dependency is not locally vendored",
+                )
+            source_path = _local_dependency_source(root, repository_root, repository)
+            if source_path.is_dir():
+                child = _strict_yaml(source_path / "Chart.yaml", "local dependency Chart.yaml")
+                if child.get("name") != name or str(child.get("version")) != version:
+                    raise HelmMaterializationError(
+                        "HELM_DEPENDENCY_ARTIFACT_IDENTITY_MISMATCH",
+                        "local dependency identity is inconsistent",
+                    )
+                source_inventory, source_root = _inventory(source_path)
+                artifact = {
+                    "name": name, "version": version, "form": "local-directory",
+                    "source_repository_path": source_path.relative_to(
+                        repository_root
+                    ).as_posix(),
+                    "physical_root_sha256": source_root,
+                    "physical_files": [item.canonical_dict() for item in source_inventory],
+                    "expanded_files": [],
+                }
+            elif source_path.is_file() and source_path.suffix == ".tgz":
+                archive_inspection = _inspect_archive(
+                    source_path, name, version, budget=archive_budget
+                )
+                if archive_inspection.archive_sha256 in archive_ancestry:
+                    raise HelmMaterializationError(
+                        "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                        "nested dependency archive closure contains a repeated identity",
+                    )
+                archive_repository_path = canonical_repo_path(
+                    source_path.relative_to(repository_root).as_posix(),
+                    "Helm dependency archive repository path",
+                )
+                artifact = {
+                    "name": name, "version": version, "form": "local-archive",
+                    "source_repository_path": archive_repository_path,
+                    "sha256": archive_inspection.archive_sha256,
+                    "expanded_files": list(archive_inspection.expanded_files),
+                }
+                # Archive members are represented by the protected expanded-file
+                # inventory above.  They are not a directory that may be traversed
+                # through the host filesystem for nested closure processing.
+                source_path = None
+            else:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_ARTIFACT_MISSING",
+                    "file dependency is not a supported directory or archive",
+                )
         if not repository.startswith("file://") and not lock_path.exists():
             raise HelmMaterializationError(
                 "UNREPRODUCIBLE_DEPENDENCIES",
                 "non-local dependency requires a lock and vendored bytes",
             )
+        activation = (
+            _dependency_activation(record, protected_values)
+            if protected_values is not None else {
+                "condition": record.get("condition", ""),
+                "tags": list(record.get("tags", [])),
+                "enabled": record.get("enabled", False),
+            }
+        )
+        archive_has_nested_closure = bool(
+            archive_inspection is not None and (
+                archive_inspection.chart.get("dependencies")
+                or any(
+                    member.path.startswith(
+                        f"{archive_inspection.chart_root}/charts/"
+                    )
+                    for member in archive_inspection.members
+                )
+            )
+        )
+        identity_required = bool(
+            effective_name != name
+            or force_dependency_identities
+            or archive_has_nested_closure
+            or version_proofs[ordinal] is not None
+        )
+        if any((
+            effective_name != name,
+            force_dependency_identities,
+            archive_has_nested_closure,
+            bool(record.get("condition")),
+            bool(record.get("tags")),
+            bool(record.get("enabled")),
+            bool(record.get("import-values")),
+        )):
+            artifact["activation"] = activation
+            artifact["imports"] = list(record.get("import-values", []))
+        if identity_required:
+            _attach_dependency_identity(
+                artifact,
+                record=record,
+                repository=repository,
+                parent_instance=parent_instance,
+                ordinal=ordinal,
+                effective_name=effective_name,
+                logical_prefix=logical_prefix,
+                activation=activation,
+                protected_values=protected_values,
+                source_path=source_path,
+            )
+            if version_proofs[ordinal] is not None:
+                _bind_dependency_version_evidence(
+                    artifact, version_proofs[ordinal]
+                )
+        if archive_inspection is not None and (
+            archive_has_nested_closure or force_dependency_identities
+        ):
+            artifact["archive_provenance"] = _archive_provenance(
+                archive_inspection, archive_repository_path
+            )
+        context = (
+            f"{logical_prefix}/charts/{effective_name}"
+            if logical_prefix else f"charts/{effective_name}"
+        )
+        if effective_name != name or logical_prefix:
+            artifact["logical_context"] = context
+        if archive_inspection is not None and archive_has_nested_closure:
+            child_values = {}
+            values_member = next((
+                member for member in archive_inspection.members
+                if member.path == f"{archive_inspection.chart_root}/values.yaml"
+                and member.kind == "file"
+            ), None)
+            if values_member is not None and values_member.payload is not None:
+                try:
+                    loaded_values = yaml.load(
+                        values_member.payload, Loader=_StrictSafeLoader
+                    )
+                except yaml.YAMLError as exc:
+                    raise HelmMaterializationError(
+                        "UNREPRODUCIBLE_DEPENDENCIES",
+                        "dependency archive values are malformed",
+                    ) from exc
+                if loaded_values is not None and type(loaded_values) is not dict:
+                    raise HelmMaterializationError(
+                        "UNREPRODUCIBLE_DEPENDENCIES",
+                        "dependency archive values must be a mapping",
+                    )
+                child_values = loaded_values or {}
+            if protected_values is not None:
+                parent_override = protected_values.get(effective_name, {})
+                if type(parent_override) is not dict:
+                    raise HelmMaterializationError(
+                        "HELM_DEPENDENCY_ACTIVATION_AMBIGUOUS",
+                        "dependency Values root is not a mapping",
+                    )
+                child_values = _merge_values(child_values, parent_override)
+                globals_value = protected_values.get("global")
+                if globals_value is not None:
+                    if type(globals_value) is not dict:
+                        raise HelmMaterializationError(
+                            "HELM_DEPENDENCY_ACTIVATION_AMBIGUOUS",
+                            "global dependency Values root is not a mapping",
+                        )
+                    child_values["global"] = _merge_values(
+                        child_values.get("global", {})
+                        if type(child_values.get("global", {})) is dict else {},
+                        globals_value,
+                    )
+            with tempfile.TemporaryDirectory(
+                prefix="iacgv-helm-archive-closure-"
+            ) as temporary:
+                extracted = _write_archive_inspection(
+                    archive_inspection, Path(temporary)
+                )
+                nested = _validate_dependencies(
+                    extracted,
+                    archive_inspection.chart,
+                    child_values,
+                    repository_root=extracted,
+                    parent_instance=artifact["logical_instance"][
+                        "logical_instance_identity"
+                    ],
+                    logical_prefix=context,
+                    depth=depth + 1,
+                    ancestry=ancestry,
+                    archive_ancestry=(
+                        *archive_ancestry, archive_inspection.archive_sha256
+                    ),
+                    archive_budget=archive_budget,
+                    force_dependency_identities=True,
+                )
+            if nested["artifacts"]:
+                _bind_archive_member_closure(
+                    nested,
+                    archive_inspection,
+                    physical_prefix=archive_inspection.chart_root,
+                    parent_instance=artifact["logical_instance"][
+                        "logical_instance_identity"
+                    ],
+                )
+                artifact["dependencies"] = nested
+        elif source_path is not None:
+            child_chart = _strict_yaml(source_path / "Chart.yaml", "dependency Chart.yaml")
+            child_values = {}
+            child_default = source_path / "values.yaml"
+            if child_default.is_file() and not child_default.is_symlink():
+                child_values = _load_values_file(child_default)
+            if protected_values is not None:
+                parent_override = protected_values.get(effective_name, {})
+                if type(parent_override) is not dict:
+                    raise HelmMaterializationError(
+                        "HELM_DEPENDENCY_ACTIVATION_AMBIGUOUS",
+                        "dependency Values root is not a mapping",
+                    )
+                child_values = _merge_values(child_values, parent_override)
+                globals_value = protected_values.get("global")
+                if globals_value is not None:
+                    if type(globals_value) is not dict:
+                        raise HelmMaterializationError(
+                            "HELM_DEPENDENCY_ACTIVATION_AMBIGUOUS",
+                            "global dependency Values root is not a mapping",
+                        )
+                    child_values["global"] = _merge_values(
+                        child_values.get("global", {})
+                        if type(child_values.get("global", {})) is dict else {},
+                        globals_value,
+                    )
+            nested = _validate_dependencies(
+                source_path, child_chart, child_values,
+                repository_root=repository_root,
+                parent_instance=(
+                    artifact.get("logical_instance", {}).get(
+                        "logical_instance_identity", context
+                    )
+                ),
+                logical_prefix=context,
+                depth=depth + 1,
+                ancestry=ancestry,
+                archive_ancestry=archive_ancestry,
+                archive_budget=archive_budget,
+                force_dependency_identities=force_dependency_identities,
+            )
+            if nested["artifacts"]:
+                artifact["dependencies"] = nested
+        artifacts.append(artifact)
     declared_entries = {
         value
-        for name, version, _repository in dependencies
+        for name, version, _repository in resolved_dependencies
         for value in (name, f"{name}-{version}.tgz")
     }
     for entry in chart_entries:
@@ -816,18 +1848,36 @@ def _validate_dependencies(root: Path, chart: dict) -> dict:
                 "UNREPRODUCIBLE_DEPENDENCIES",
                 "manually managed subchart identity is inconsistent",
             )
-        artifacts.append({
+        artifact = {
             "name": child_name,
             "version": str(child_version),
             "form": "directory",
             "expanded_files": [],
-        })
+        }
+        if depth or logical_prefix:
+            artifact["logical_context"] = (
+                f"{logical_prefix}/charts/{child_name}"
+                if logical_prefix else f"charts/{child_name}"
+            )
+        artifacts.append(artifact)
     return {
         "count": len(artifacts),
         "chart_lock_sha256": lock_hash,
         "chart_lock_relevance": lock_relevance,
         "artifacts": artifacts,
     }
+
+
+def _inactive_dependency_contexts(dependencies: dict) -> tuple[str, ...]:
+    result = []
+    for artifact in dependencies["artifacts"]:
+        context = artifact.get("logical_context") or f"charts/{artifact['name']}"
+        if artifact.get("activation", {}).get("result") is False:
+            result.append(context)
+        nested = artifact.get("dependencies")
+        if nested is not None:
+            result.extend(_inactive_dependency_contexts(nested))
+    return tuple(sorted(result))
 
 
 def _unquoted_action(action: str) -> str:
@@ -975,6 +2025,152 @@ def _action_tokens(action: str) -> tuple[_ActionToken, ...] | None:
             index += 1
         tokens.append(_ActionToken(action[start:index]))
     return tuple(tokens)
+
+
+def _template_nodes(text: str) -> tuple[tuple, ...]:
+    """Parse output-sensitive template nodes for duplicate-definition equality."""
+    nodes: list[tuple] = []
+    cursor = 0
+    trim_next = False
+    while cursor < len(text):
+        start = text.find("{{", cursor)
+        if start < 0:
+            fragment = text[cursor:]
+            if trim_next:
+                fragment = fragment.lstrip()
+            if fragment:
+                nodes.append(("text", fragment))
+            break
+        fragment = text[cursor:start]
+        left_trim = text.startswith("{{-", start)
+        if trim_next:
+            fragment = fragment.lstrip()
+        if left_trim:
+            fragment = fragment.rstrip()
+        if fragment:
+            nodes.append(("text", fragment))
+        probe = start + (3 if left_trim else 2)
+        comment_probe = probe
+        while comment_probe < len(text) and text[comment_probe].isspace():
+            comment_probe += 1
+        if text.startswith("/*", comment_probe):
+            comment_end = text.find("*/", comment_probe + 2)
+            if comment_end < 0:
+                raise HelmMaterializationError(
+                    "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+                    "Helm template comment is not closed",
+                )
+            closing = comment_end + 2
+            while closing < len(text) and text[closing].isspace():
+                closing += 1
+            if text.startswith("-}}", closing):
+                right_trim = True
+                cursor = closing + 3
+            elif text.startswith("}}", closing):
+                right_trim = False
+                cursor = closing + 2
+            else:
+                raise HelmMaterializationError(
+                    "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+                    "Helm template comment closing is ambiguous",
+                )
+            trim_next = right_trim
+            continue
+        quote = ""
+        escaped = False
+        while probe < len(text):
+            char = text[probe]
+            if quote:
+                if escaped:
+                    escaped = False
+                elif quote == '"' and char == "\\":
+                    escaped = True
+                elif char == quote:
+                    quote = ""
+                probe += 1
+                continue
+            if char in ('"', "'", "`"):
+                quote = char
+                probe += 1
+                continue
+            if text.startswith("-}}", probe) or text.startswith("}}", probe):
+                right_trim = text.startswith("-}}", probe)
+                content_start = start + (3 if left_trim else 2)
+                action = text[content_start:probe].strip()
+                tokens = _action_tokens(action)
+                if tokens is None:
+                    raise HelmMaterializationError(
+                        "HELM_TEMPLATE_DEFINITION_PARSE_FAILED",
+                        "named template action cannot be tokenized",
+                    )
+                if not _TEMPLATE_COMMENT.fullmatch(action):
+                    nodes.append((
+                        "action", left_trim, right_trim,
+                        tuple((item.text, item.quoted) for item in tokens),
+                    ))
+                cursor = probe + (3 if right_trim else 2)
+                trim_next = right_trim
+                break
+            probe += 1
+        else:
+            raise HelmMaterializationError(
+                "HELM_TEMPLATE_DEFINITION_PARSE_FAILED",
+                "named template action is not closed",
+            )
+    return tuple(nodes)
+
+
+def _definition_graphs(text: str) -> dict[str, tuple]:
+    nodes = _template_nodes(text)
+    result: dict[str, tuple] = {}
+    current: str | None = None
+    body: list[tuple] = []
+    depth = 0
+    for node in nodes:
+        if node[0] != "action":
+            if current is not None:
+                body.append(node)
+            continue
+        tokens = node[3]
+        action = " ".join(
+            json.dumps(value) if quoted else value for value, quoted in tokens
+        )
+        definition = _DEFINE_ACTION.match(action)
+        if definition is not None:
+            if current is not None:
+                raise HelmMaterializationError(
+                    "HELM_TEMPLATE_DEFINITION_PARSE_FAILED",
+                    "named template definitions cannot be nested",
+                )
+            current = definition.group(1)
+            body = []
+            depth = 1
+            continue
+        if current is None:
+            continue
+        code = _unquoted_action(action)
+        if _CONTROL_START.match(code):
+            depth += 1
+        if _CONTROL_END.match(code):
+            depth -= 1
+            if depth == 0:
+                graph = tuple(body)
+                prior = result.get(current)
+                if prior is not None and prior != graph:
+                    raise HelmMaterializationError(
+                        "HELM_TEMPLATE_DUPLICATE_NON_EQUIVALENT",
+                        "one source contains non-equivalent duplicate definitions",
+                    )
+                result[current] = graph
+                current = None
+                body = []
+                continue
+        body.append(node)
+    if current is not None:
+        raise HelmMaterializationError(
+            "HELM_TEMPLATE_DEFINITION_PARSE_FAILED", "named template is not closed"
+        )
+    return result
 
 
 def _matching_parenthesis(tokens: tuple[_ActionToken, ...], start: int) -> int | None:
@@ -1177,7 +2373,9 @@ def _protected_tpl_files(
     root: Path,
     dependencies: dict,
     root_inventory_sha256: str,
+    repository_root: Path | None = None,
 ) -> dict[str, dict[str, _ProtectedTplFile]]:
+    repository_root = (repository_root or root).resolve(strict=True)
     chart = _strict_yaml(root / "Chart.yaml", "Chart.yaml")
     name = chart.get("name")
     assert type(name) is str
@@ -1189,102 +2387,291 @@ def _protected_tpl_files(
             inventory_root_sha256=root_inventory_sha256,
         )
     }
-    for artifact in dependencies["artifacts"]:
-        context = f"charts/{artifact['name']}"
-        if artifact["form"] == "directory":
-            child_root = root / context
-            _child_inventory, child_hash = _inventory(child_root)
-            result[context] = _protected_directory_files(
-                child_root,
-                chart_context=context,
-                chart_name=artifact["name"],
-                inventory_root_sha256=child_hash,
+
+    def archive_inspection_for(
+        archive_path: Path, artifact: dict
+    ) -> _ArchiveInspection:
+        inspection = _inspect_archive(
+            archive_path, artifact["name"], artifact["version"]
+        )
+        if inspection.archive_sha256 != artifact["sha256"]:
+            raise HelmMaterializationError(
+                "CHART_MUTATED_DURING_RENDER",
+                "dependency archive changed after protected closure validation",
             )
-            continue
-        archive_path = root / "charts" / f"{artifact['name']}-{artifact['version']}.tgz"
-        expanded_root = _canonical_sha(artifact["expanded_files"])
+        return inspection
+
+    def nested_archive_inspection(
+        outer: _ArchiveInspection, artifact: dict
+    ) -> _ArchiveInspection:
+        provenance = artifact["archive_member_provenance"]
+        member = next((
+            item for item in outer.members
+            if item.path == provenance["artifact_member_path"]
+            and item.kind == "file"
+        ), None)
+        if member is None or member.payload is None or member.sha256 != artifact["sha256"]:
+            raise HelmMaterializationError(
+                "CHART_MUTATED_DURING_RENDER",
+                "nested dependency archive bytes contradict protected provenance",
+            )
+        return _inspect_archive_payload(
+            member.payload, artifact["name"], artifact["version"]
+        )
+
+    def add_archive_chart(
+        inspection: _ArchiveInspection,
+        *,
+        chart_member_path: str,
+        context: str,
+        chart_name: str,
+        closure: dict,
+        inventory_root_sha256: str,
+    ) -> None:
         chart_identity = _canonical_sha({
             "chart_context": context,
-            "chart_name": artifact["name"],
-            "inventory_root_sha256": expanded_root,
-            "archive_sha256": artifact["sha256"],
+            "chart_name": chart_name,
+            "inventory_root_sha256": inventory_root_sha256,
+            "archive_sha256": inspection.archive_sha256,
+            "chart_member_path": chart_member_path,
         })
         visible: dict[str, _ProtectedTplFile] = {}
-        with tarfile.open(archive_path, "r:gz") as archive:
-            for member in archive.getmembers():
-                pure = PurePosixPath(member.name)
-                if not member.isfile() or len(pure.parts) < 2:
-                    continue
-                relative = PurePosixPath(*pure.parts[1:]).as_posix()
-                if pure.parts[1] in {"templates", "charts"} or relative in {
-                    "Chart.yaml", "Chart.lock", "values.yaml", "values.schema.json"
-                }:
-                    continue
-                stream = archive.extractfile(member)
-                assert stream is not None
-                payload = stream.read()
-                visible[relative] = _ProtectedTplFile(
-                    payload,
-                    context,
-                    chart_identity,
-                    expanded_root,
-                    canonical_repo_path(f"{context}/{relative}", "protected Helm file"),
-                    relative,
-                    len(payload),
-                    _sha256(payload),
-                )
+        prefix = f"{chart_member_path}/"
+        special = {"Chart.yaml", "Chart.lock", "values.yaml", "values.schema.json"}
+        for member in inspection.members:
+            if member.kind != "file" or not member.path.startswith(prefix):
+                continue
+            relative = PurePosixPath(member.path[len(prefix):])
+            if not relative.parts or relative.parts[0] in {"templates", "charts"}:
+                continue
+            relative_path = relative.as_posix()
+            if relative_path in special or member.payload is None:
+                continue
+            visible[relative_path] = _ProtectedTplFile(
+                member.payload,
+                context,
+                chart_identity,
+                inventory_root_sha256,
+                canonical_repo_path(
+                    f"{context}/{relative_path}", "protected Helm file"
+                ),
+                relative_path,
+                member.size,
+                member.sha256,
+            )
         result[context] = visible
+        for child in closure["artifacts"]:
+            child_context = child.get("logical_context") or (
+                f"{context}/charts/{child['name']}"
+            )
+            provenance = child.get("archive_member_provenance")
+            if provenance is None:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested archive dependency lacks member provenance",
+                )
+            if child["form"] == "archive-member-directory":
+                add_archive_chart(
+                    inspection,
+                    chart_member_path=provenance["artifact_member_path"],
+                    context=child_context,
+                    chart_name=child["name"],
+                    closure=child.get("dependencies", {"artifacts": []}),
+                    inventory_root_sha256=child["physical_root_sha256"],
+                )
+            elif child["form"] == "archive-member-archive":
+                inner = nested_archive_inspection(inspection, child)
+                add_archive_chart(
+                    inner,
+                    chart_member_path=inner.chart_root,
+                    context=child_context,
+                    chart_name=child["name"],
+                    closure=child.get("dependencies", {"artifacts": []}),
+                    inventory_root_sha256=_canonical_sha(child["expanded_files"]),
+                )
+            else:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested archive dependency form is not source-bound",
+                )
+
+    def add_artifacts(parent_root: Path, closure: dict) -> None:
+        for artifact in closure["artifacts"]:
+            context = artifact.get("logical_context") or f"charts/{artifact['name']}"
+            if artifact["form"] in {"directory", "local-directory"}:
+                child_root = (
+                    parent_root / "charts" / artifact["name"]
+                    if artifact["form"] == "directory" else
+                    repository_root / artifact["source_repository_path"]
+                )
+                _child_inventory, child_hash = _inventory(child_root)
+                result[context] = _protected_directory_files(
+                    child_root,
+                    chart_context=context,
+                    chart_name=artifact["name"],
+                    inventory_root_sha256=child_hash,
+                )
+                add_artifacts(
+                    child_root, artifact.get("dependencies", {"artifacts": []})
+                )
+                continue
+            archive_path = (
+                parent_root / "charts" / f"{artifact['name']}-{artifact['version']}.tgz"
+                if artifact["form"] == "archive" else
+                repository_root / artifact["source_repository_path"]
+            )
+            inspection = archive_inspection_for(archive_path, artifact)
+            add_archive_chart(
+                inspection,
+                chart_member_path=inspection.chart_root,
+                context=context,
+                chart_name=artifact["name"],
+                closure=artifact.get("dependencies", {"artifacts": []}),
+                inventory_root_sha256=_canonical_sha(artifact["expanded_files"]),
+            )
+
+    add_artifacts(root, dependencies)
     return result
 
 
-def _template_sources(root: Path, dependencies: dict) -> tuple[tuple[str, str], ...]:
-    result = []
-    for path in sorted(root.rglob("*")):
-        if not path.is_file() or path.is_symlink():
-            continue
-        relative = path.relative_to(root)
-        if "templates" not in relative.parts and "crds" not in relative.parts:
-            continue
-        try:
-            result.append((relative.as_posix(), path.read_text(encoding="utf-8")))
-        except (OSError, UnicodeError) as exc:
-            raise HelmMaterializationError(
-                "CHART_INVENTORY_UNAVAILABLE", "Helm template is not valid UTF-8"
-            ) from exc
-    for artifact in dependencies["artifacts"]:
-        if artifact["form"] != "archive":
-            continue
-        archive_path = root / "charts" / f"{artifact['name']}-{artifact['version']}.tgz"
-        try:
-            with tarfile.open(archive_path, "r:gz") as archive:
-                for member in archive.getmembers():
-                    pure = PurePosixPath(member.name)
-                    if not member.isfile() or not (
-                        "templates" in pure.parts or "crds" in pure.parts
-                    ):
-                        continue
-                    stream = archive.extractfile(member)
-                    if stream is None:
-                        raise HelmMaterializationError(
-                            "UNSAFE_DEPENDENCY_ARCHIVE",
-                            "dependency template cannot be read",
-                        )
-                    payload = stream.read()
-                    try:
-                        text = payload.decode("utf-8", errors="strict")
-                    except UnicodeError as exc:
-                        raise HelmMaterializationError(
-                            "CHART_INVENTORY_UNAVAILABLE",
-                            "dependency template is not valid UTF-8",
-                        ) from exc
-                    virtual = PurePosixPath("charts", artifact["name"], *pure.parts[1:])
-                    result.append((virtual.as_posix(), text))
-        except HelmMaterializationError:
-            raise
-        except (OSError, tarfile.TarError) as exc:
-            raise HelmMaterializationError(
-                "UNSAFE_DEPENDENCY_ARCHIVE", "dependency templates cannot be inspected"
-            ) from exc
+def _template_sources(
+    root: Path, dependencies: dict, repository_root: Path | None = None
+) -> tuple[tuple[str, str], ...]:
+    repository_root = (repository_root or root).resolve(strict=True)
+    result: list[tuple[str, str]] = []
+
+    def emit_archive_chart(
+        inspection: _ArchiveInspection,
+        *,
+        chart_member_path: str,
+        context: str,
+        closure: dict,
+    ) -> None:
+        prefix = f"{chart_member_path}/"
+        for member in inspection.members:
+            if member.kind != "file" or not member.path.startswith(prefix):
+                continue
+            relative = PurePosixPath(member.path[len(prefix):])
+            if not relative.parts or relative.parts[0] == "charts":
+                continue
+            if "templates" not in relative.parts and "crds" not in relative.parts:
+                continue
+            if member.payload is None:
+                raise HelmMaterializationError(
+                    "UNSAFE_DEPENDENCY_ARCHIVE",
+                    "dependency template bytes are unavailable",
+                )
+            try:
+                text = member.payload.decode("utf-8", errors="strict")
+            except UnicodeError as exc:
+                raise HelmMaterializationError(
+                    "CHART_INVENTORY_UNAVAILABLE",
+                    "dependency template is not valid UTF-8",
+                ) from exc
+            result.append((f"{context}/{relative.as_posix()}", text))
+        for child in closure["artifacts"]:
+            child_context = child.get("logical_context") or (
+                f"{context}/charts/{child['name']}"
+            )
+            provenance = child.get("archive_member_provenance")
+            if provenance is None:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested archive template source lacks member provenance",
+                )
+            if child["form"] == "archive-member-directory":
+                emit_archive_chart(
+                    inspection,
+                    chart_member_path=provenance["artifact_member_path"],
+                    context=child_context,
+                    closure=child.get("dependencies", {"artifacts": []}),
+                )
+            elif child["form"] == "archive-member-archive":
+                member = next((
+                    item for item in inspection.members
+                    if item.path == provenance["artifact_member_path"]
+                    and item.kind == "file"
+                ), None)
+                if (
+                    member is None or member.payload is None
+                    or member.sha256 != child["sha256"]
+                ):
+                    raise HelmMaterializationError(
+                        "CHART_MUTATED_DURING_RENDER",
+                        "nested dependency archive contradicts protected provenance",
+                    )
+                inner = _inspect_archive_payload(
+                    member.payload, child["name"], child["version"]
+                )
+                emit_archive_chart(
+                    inner,
+                    chart_member_path=inner.chart_root,
+                    context=child_context,
+                    closure=child.get("dependencies", {"artifacts": []}),
+                )
+            else:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested archive template source has an unsupported form",
+                )
+
+    def emit_directory(chart_root: Path, context: str, closure: dict) -> None:
+        for path in sorted(chart_root.rglob("*")):
+            if not path.is_file() or path.is_symlink():
+                continue
+            relative = path.relative_to(chart_root)
+            # Nested charts are emitted only through their logical instance below.
+            if relative.parts and relative.parts[0] == "charts":
+                continue
+            if "templates" not in relative.parts and "crds" not in relative.parts:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeError) as exc:
+                raise HelmMaterializationError(
+                    "CHART_INVENTORY_UNAVAILABLE", "Helm template is not valid UTF-8"
+                ) from exc
+            logical = f"{context}/{relative.as_posix()}" if context else relative.as_posix()
+            result.append((logical, text))
+        for artifact in closure["artifacts"]:
+            context_path = artifact.get("logical_context") or (
+                f"{context}/charts/{artifact['name']}"
+                if context else f"charts/{artifact['name']}"
+            )
+            form = artifact["form"]
+            if form == "directory":
+                child_root = chart_root / "charts" / artifact["name"]
+                emit_directory(child_root, context_path, artifact.get(
+                    "dependencies", {"artifacts": []}
+                ))
+                continue
+            if form == "local-directory":
+                child_root = repository_root / artifact["source_repository_path"]
+                emit_directory(child_root, context_path, artifact.get(
+                    "dependencies", {"artifacts": []}
+                ))
+                continue
+            archive_path = (
+                chart_root / "charts" / f"{artifact['name']}-{artifact['version']}.tgz"
+                if form == "archive" else
+                repository_root / artifact["source_repository_path"]
+            )
+            inspection = _inspect_archive(
+                archive_path, artifact["name"], artifact["version"]
+            )
+            if inspection.archive_sha256 != artifact["sha256"]:
+                raise HelmMaterializationError(
+                    "CHART_MUTATED_DURING_RENDER",
+                    "dependency archive changed after protected closure validation",
+                )
+            emit_archive_chart(
+                inspection,
+                chart_member_path=inspection.chart_root,
+                context=context_path,
+                closure=artifact.get("dependencies", {"artifacts": []}),
+            )
+
+    emit_directory(root, "", dependencies)
     paths = [path for path, _ in result]
     if len(paths) != len(set(paths)):
         raise HelmMaterializationError(
@@ -1294,11 +2681,14 @@ def _template_sources(root: Path, dependencies: dict) -> tuple[tuple[str, str], 
 
 
 def _template_actions(
-    root: Path, dependencies: dict, chart_inventory_root_sha256: str
+    root: Path, dependencies: dict, chart_inventory_root_sha256: str,
+    repository_root: Path | None = None,
 ) -> _TemplateActionIndex:
     roots: dict[str, _TemplateActionScope] = {}
     definitions: dict[str, _TemplateActionScope] = {}
-    sources = dict(_template_sources(root, dependencies))
+    definition_members: dict[str, list[_TemplateActionScope]] = {}
+    definition_graphs: dict[str, tuple] = {}
+    sources = dict(_template_sources(root, dependencies, repository_root))
     root_chart = _strict_yaml(root / "Chart.yaml", "Chart.yaml")
     root_chart_name = root_chart.get("name")
     if type(root_chart_name) is not str or not root_chart_name:
@@ -1309,6 +2699,9 @@ def _template_actions(
     source_template_names: dict[str, list[str]] = {}
     source_chart_contexts: dict[str, str] = {}
     for path, text in sources.items():
+        source_definition_graphs = (
+            _definition_graphs(text) if re.search(r"{{-?\s*define\s+\"", text) else {}
+        )
         parts = PurePosixPath(path).parts
         template_positions = [
             position for position, part in enumerate(parts) if part == "templates"
@@ -1343,15 +2736,16 @@ def _template_actions(
         current_name: str | None = None
         current_actions: list[str] | None = None
         definition_depth = 0
+        definition_occurrences: dict[str, int] = {}
         for action in _iter_template_actions(text):
             if _TEMPLATE_COMMENT.fullmatch(action):
                 continue
             definition = _DEFINE_ACTION.match(action)
             if definition is not None:
-                if current_name is not None or definition.group(1) in definitions:
+                if current_name is not None:
                     raise HelmMaterializationError(
-                        "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
-                        "named Helm template definition is duplicated or nested",
+                        "HELM_TEMPLATE_DEFINITION_PARSE_FAILED",
+                        "named Helm template definition is nested",
                     )
                 current_name = definition.group(1)
                 current_actions = []
@@ -1367,9 +2761,32 @@ def _template_actions(
                 if _CONTROL_END.match(code):
                     definition_depth -= 1
                     if definition_depth == 0:
-                        definitions[current_name] = _TemplateActionScope(
-                            path, tuple(current_actions)
+                        graph = source_definition_graphs.get(current_name)
+                        if graph is None:
+                            raise HelmMaterializationError(
+                                "HELM_TEMPLATE_DEFINITION_PARSE_FAILED",
+                                "named template graph is unavailable",
+                            )
+                        prior_graph = definition_graphs.get(current_name)
+                        if prior_graph is not None and prior_graph != graph:
+                            raise HelmMaterializationError(
+                                "HELM_TEMPLATE_DUPLICATE_NON_EQUIVALENT",
+                                "named template definitions have different action graphs",
+                            )
+                        ordinal = definition_occurrences.get(current_name, 0)
+                        definition_occurrences[current_name] = ordinal + 1
+                        span_sha256 = _canonical_sha({
+                            "definition_name": current_name,
+                            "definition_ordinal": ordinal,
+                            "actions": current_actions,
+                            "action_graph": graph,
+                        })
+                        member = _TemplateActionScope(
+                            path, tuple(current_actions), ordinal, span_sha256
                         )
+                        definition_graphs.setdefault(current_name, graph)
+                        definition_members.setdefault(current_name, []).append(member)
+                        definitions.setdefault(current_name, member)
                         current_name = None
                         current_actions = None
                         continue
@@ -1386,7 +2803,14 @@ def _template_actions(
         source_base_paths,
         {name: tuple(sorted(paths)) for name, paths in source_template_names.items()},
         source_chart_contexts,
-        _protected_tpl_files(root, dependencies, chart_inventory_root_sha256),
+        _protected_tpl_files(
+            root, dependencies, chart_inventory_root_sha256, repository_root
+        ),
+        {
+            name: tuple(sorted(members, key=lambda item: item.source_path))
+            for name, members in definition_members.items()
+        },
+        definition_graphs,
     )
 
 
@@ -1407,6 +2831,35 @@ def _merge_values(target: dict, update: dict) -> dict:
         else:
             result[key] = value
     return result
+
+
+def _effective_values_projection(values: dict) -> dict:
+    """Return the exact bounded Values semantics without traversal-only sentinels."""
+    projected: dict[str, object] = {}
+    for key, value in values.items():
+        if type(key) is not str:
+            continue
+        if type(value) is dict:
+            projected[key] = _effective_values_projection(value)["values"]
+        elif type(value) is list:
+            projected[key] = [
+                _effective_values_projection(item)["values"]
+                if type(item) is dict else item
+                for item in value
+            ]
+        else:
+            projected[key] = value
+    return {
+        "values": projected,
+        "unmodeled": values.get(_UNMODELED_VALUES) is True,
+    }
+
+
+def _effective_values_sha256(values: dict) -> str:
+    projected = _effective_values_projection(values)
+    return _canonical_sha(
+        projected if projected["unmodeled"] else projected["values"]
+    )
 
 
 def _load_values_file(path: Path) -> dict:
@@ -1443,7 +2896,9 @@ def _set_value_path(values: dict, path: str, value: object) -> bool:
     return True
 
 
-def _protected_values(spec: HelmRenderSpec) -> tuple[dict, str]:
+def _protected_values(
+    spec: HelmRenderSpec, dependencies: dict | None = None
+) -> tuple[dict, str]:
     values: dict = {}
     identity: list[dict] = []
     default_values = spec.chart_root / "values.yaml"
@@ -1475,11 +2930,293 @@ def _protected_values(spec: HelmRenderSpec) -> tuple[dict, str]:
         })
     subcharts: dict[str, dict] = {}
     charts_root = spec.chart_root / "charts"
-    if charts_root.is_dir():
+    if dependencies is not None:
+        def archive_member(
+            inspection: _ArchiveInspection, path: str, label: str
+        ) -> _ArchiveMember | None:
+            selected = next((item for item in inspection.members if item.path == path), None)
+            if selected is not None and (
+                selected.kind != "file" or selected.payload is None
+            ):
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    f"{label} is not a protected regular archive member",
+                )
+            return selected
+
+        def inspect_path(path: Path, artifact: dict) -> _ArchiveInspection:
+            inspection = _inspect_archive(path, artifact["name"], artifact["version"])
+            if inspection.archive_sha256 != artifact["sha256"]:
+                raise HelmMaterializationError(
+                    "CHART_MUTATED_DURING_RENDER",
+                    "dependency archive changed while effective Values were bound",
+                )
+            return inspection
+
+        def inspect_nested(
+            inspection: _ArchiveInspection, artifact: dict
+        ) -> _ArchiveInspection:
+            provenance = artifact.get("archive_member_provenance")
+            if provenance is None:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                    "nested dependency Values lack archive-member provenance",
+                )
+            member = archive_member(
+                inspection,
+                provenance["artifact_member_path"],
+                "nested dependency archive",
+            )
+            if member is None or member.sha256 != artifact["sha256"]:
+                raise HelmMaterializationError(
+                    "CHART_MUTATED_DURING_RENDER",
+                    "nested dependency archive contradicts protected Values provenance",
+                )
+            nested = _inspect_archive_payload(
+                member.payload, artifact["name"], artifact["version"]
+            )
+            if nested.archive_sha256 != artifact["sha256"]:
+                raise HelmMaterializationError(
+                    "CHART_MUTATED_DURING_RENDER",
+                    "nested dependency archive digest changed during Values binding",
+                )
+            return nested
+
+        def load_archive_values(
+            inspection: _ArchiveInspection, chart_member_path: str
+        ) -> tuple[dict, dict]:
+            path = f"{chart_member_path}/values.yaml"
+            member = archive_member(inspection, path, "dependency values.yaml")
+            if member is None:
+                return {}, {
+                    "kind": "ABSENT",
+                    "path": "",
+                    "sha256": _canonical_sha({"values_yaml": "ABSENT"}),
+                }
+            try:
+                loaded = yaml.load(member.payload, Loader=_StrictSafeLoader)
+            except yaml.YAMLError as exc:
+                raise HelmMaterializationError(
+                    "UNREPRODUCIBLE_DEPENDENCIES",
+                    "dependency archive values are malformed",
+                ) from exc
+            if loaded is not None and type(loaded) is not dict:
+                raise HelmMaterializationError(
+                    "UNREPRODUCIBLE_DEPENDENCIES",
+                    "dependency archive values must be a mapping",
+                )
+            return loaded or {}, {
+                "kind": "ARCHIVE_MEMBER",
+                "path": path,
+                "sha256": member.sha256,
+            }
+
+        def dependency_defaults(
+            parent: Path,
+            artifact: dict,
+            enclosing_archive: _ArchiveInspection | None,
+        ) -> tuple[dict, dict, Path, _ArchiveInspection | None]:
+            form = artifact["form"]
+            if form in {"directory", "local-directory"}:
+                child = (
+                    parent / "charts" / artifact["name"]
+                    if form == "directory" else
+                    spec.protected_repository_root / artifact["source_repository_path"]
+                )
+                path = child / "values.yaml"
+                if path.is_file() and not path.is_symlink():
+                    return _load_values_file(path), {
+                        "kind": "FILE",
+                        "path": canonical_repo_path(
+                            path.relative_to(spec.protected_repository_root).as_posix(),
+                            "Helm dependency values path",
+                        ),
+                        "sha256": _sha256(path.read_bytes()),
+                    }, child, None
+                return {}, {
+                    "kind": "ABSENT", "path": "",
+                    "sha256": _canonical_sha({"values_yaml": "ABSENT"}),
+                }, child, None
+            if form in {"archive", "local-archive"}:
+                path = (
+                    parent / "charts" / f"{artifact['name']}-{artifact['version']}.tgz"
+                    if form == "archive" else
+                    spec.protected_repository_root / artifact["source_repository_path"]
+                )
+                inspection = inspect_path(path, artifact)
+                defaults, source = load_archive_values(
+                    inspection, inspection.chart_root
+                )
+                return defaults, source, parent, inspection
+            if form == "archive-member-directory":
+                if enclosing_archive is None:
+                    raise HelmMaterializationError(
+                        "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                        "archive-member Values lack their protected outer archive",
+                    )
+                provenance = artifact["archive_member_provenance"]
+                defaults, source = load_archive_values(
+                    enclosing_archive, provenance["chart_member_path"]
+                )
+                return defaults, source, parent, enclosing_archive
+            if form == "archive-member-archive":
+                if enclosing_archive is None:
+                    raise HelmMaterializationError(
+                        "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                        "nested archive Values lack their protected outer archive",
+                    )
+                inspection = inspect_nested(enclosing_archive, artifact)
+                defaults, source = load_archive_values(
+                    inspection, inspection.chart_root
+                )
+                return defaults, source, parent, inspection
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_TRANSITIVE_CLOSURE_INCOMPLETE",
+                "dependency Values use an unsupported physical form",
+            )
+
+        def set_path(root: dict, path: str, selected: object) -> dict:
+            parts = path.split(".")
+            result: dict = {}
+            current = result
+            for part in parts[:-1]:
+                child: dict = {}
+                current[part] = child
+                current = child
+            current[parts[-1]] = selected
+            return result
+
+        def apply_imports(
+            parent_values: dict,
+            artifact: dict,
+            child_values: dict,
+            contributions: list[dict],
+        ) -> None:
+            if not artifact.get("activation", {}).get("result", True):
+                return
+            for ordinal, item in enumerate(artifact.get("imports", [])):
+                if type(item) is str:
+                    found, selected = _dependency_path_value(
+                        child_values, f"exports.{item}"
+                    )
+                    if not found or type(selected) is not dict:
+                        raise HelmMaterializationError(
+                            "HELM_DEPENDENCY_IMPORT_UNSUPPORTED",
+                            "string import does not resolve to a protected table",
+                        )
+                    merged = _merge_values(selected, parent_values)
+                else:
+                    found, selected = _dependency_path_value(
+                        child_values, item["child"]
+                    )
+                    if not found:
+                        raise HelmMaterializationError(
+                            "HELM_DEPENDENCY_IMPORT_UNSUPPORTED",
+                            "mapped import child path is unavailable",
+                        )
+                    merged = _merge_values(
+                        set_path({}, item["parent"], selected), parent_values
+                    )
+                contributions.append({
+                    "ordinal": ordinal,
+                    "child": item if type(item) is str else item["child"],
+                    "parent": item if type(item) is str else item["parent"],
+                    "selected_values_sha256": _canonical_sha(selected),
+                })
+                parent_values.clear()
+                parent_values.update(merged)
+
+        def build_children(
+            parent: Path,
+            closure: dict,
+            parent_values: dict,
+            enclosing_archive: _ArchiveInspection | None = None,
+            imports_applied_to_parent: list[dict] | None = None,
+        ) -> dict[str, dict]:
+            result: dict[str, dict] = {}
+            for artifact in closure["artifacts"]:
+                effective_name = artifact.get("logical_instance", {}).get(
+                    "effective_name", artifact["name"]
+                )
+                child_values, default_source, child, child_archive = dependency_defaults(
+                    parent, artifact, enclosing_archive
+                )
+                default_values_sha256 = _effective_values_sha256(child_values)
+                overrides = parent_values.get(effective_name, {})
+                if type(overrides) is not dict:
+                    child_values[_UNMODELED_VALUES] = True
+                    parent_values_sha256 = _canonical_sha({
+                        "effective_name": effective_name,
+                        "type": type(overrides).__name__,
+                        "modeled": False,
+                    })
+                else:
+                    parent_values_sha256 = _effective_values_sha256(overrides)
+                    child_values = _merge_values(child_values, overrides)
+                globals_value = parent_values.get("global")
+                global_values = globals_value if type(globals_value) is dict else {}
+                if globals_value is not None:
+                    existing_global = child_values.get("global", {})
+                    if type(globals_value) is not dict or type(existing_global) is not dict:
+                        child_values[_UNMODELED_VALUES] = True
+                    else:
+                        child_values["global"] = _merge_values(
+                            existing_global, globals_value
+                        )
+                child_import_contributions: list[dict] = []
+                child_values[_SUBCHART_VALUES] = build_children(
+                    child,
+                    artifact.get("dependencies", {"artifacts": []}),
+                    child_values,
+                    child_archive,
+                    child_import_contributions,
+                )
+                result[effective_name] = child_values
+                apply_imports(
+                    parent_values,
+                    artifact,
+                    child_values,
+                    imports_applied_to_parent
+                    if imports_applied_to_parent is not None else [],
+                )
+                logical = artifact.get("logical_instance")
+                if logical is not None:
+                    effective_values_sha256 = _effective_values_sha256(child_values)
+                    logical["effective_values_root_sha256"] = effective_values_sha256
+                    logical["global_values_sha256"] = _effective_values_sha256(
+                        global_values
+                    )
+                    values_body = {
+                        "contract": "helm-logical-effective-values-v1",
+                        "effective_name": effective_name,
+                        "dependency_defaults_source_kind": default_source["kind"],
+                        "dependency_defaults_source_path": default_source["path"],
+                        "dependency_defaults_source_sha256": default_source["sha256"],
+                        "dependency_defaults_values_sha256": default_values_sha256,
+                        "parent_scoped_values_sha256": parent_values_sha256,
+                        "global_values_sha256": logical["global_values_sha256"],
+                        "import_values_contribution_sha256": _canonical_sha(
+                            child_import_contributions
+                        ),
+                        "effective_values_root_sha256": effective_values_sha256,
+                        "source_marker_context": logical["source_marker_context"],
+                        "logical_instance_identity": logical[
+                            "logical_instance_identity"
+                        ],
+                    }
+                    artifact["values_provenance"] = {
+                        **values_body,
+                        "provenance_identity": _canonical_sha(values_body),
+                    }
+            return result
+
+        subcharts = build_children(spec.chart_root, dependencies, values)
+        _reparent_dependency_closure(dependencies, ".")
+    elif charts_root.is_dir():
         for child in sorted(charts_root.iterdir(), key=lambda item: item.name):
             if not child.is_dir() or child.is_symlink():
                 continue
-            child_values: dict = {}
+            child_values = {}
             child_default = child / "values.yaml"
             if child_default.is_file() and not child_default.is_symlink():
                 child_values = _load_values_file(child_default)
@@ -1495,12 +3232,98 @@ def _protected_values(spec: HelmRenderSpec) -> tuple[dict, str]:
 
 def _values_for_source(values: dict, source_template: str) -> dict:
     parts = PurePosixPath(source_template).parts
-    if len(parts) >= 3 and parts[0] == "charts":
-        context = values.get(_SUBCHART_VALUES, {}).get(parts[1])
-        if type(context) is dict:
-            return context
-        return {_UNMODELED_VALUES: True}
-    return values
+    context = values
+    index = 0
+    while index + 1 < len(parts) and parts[index] == "charts":
+        child = context.get(_SUBCHART_VALUES, {}).get(parts[index + 1])
+        if type(child) is not dict:
+            return {_UNMODELED_VALUES: True}
+        context = child
+        index += 2
+    return context
+
+
+def _sealed_helm_chart(
+    spec: HelmRenderSpec, dependencies: dict, destination: Path
+) -> HelmRenderSpec:
+    """Create the complete read-only local chart/dependency build view."""
+    destination.mkdir(mode=0o700, parents=True)
+
+    def copy_file(source: Path, target: Path) -> None:
+        payload = source.read_bytes()
+        if target.exists():
+            if not target.is_file() or target.is_symlink() or target.read_bytes() != payload:
+                raise HelmMaterializationError(
+                    "HELM_DEPENDENCY_ARTIFACT_IDENTITY_MISMATCH",
+                    "logical instances require conflicting physical bytes",
+                )
+            return
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        descriptor = os.open(
+            target,
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0),
+            0o400,
+        )
+        try:
+            offset = 0
+            while offset < len(payload):
+                written = os.write(descriptor, payload[offset:])
+                if written <= 0:
+                    raise HelmMaterializationError(
+                        "HELM_STATE_NOT_ISOLATED", "sealed chart copy did not complete"
+                    )
+                offset += written
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+
+    def copy_tree(source: Path, target: Path) -> None:
+        inventory, _identity = _inventory(source)
+        for record in inventory:
+            copy_file(source / record.path, target / record.path)
+
+    copy_tree(spec.chart_root, destination)
+
+    def add_closure(physical_parent: Path, sealed_parent: Path, closure: dict) -> None:
+        for artifact in closure["artifacts"]:
+            form = artifact["form"]
+            if form == "directory":
+                physical = physical_parent / "charts" / artifact["name"]
+                sealed = sealed_parent / "charts" / artifact["name"]
+            elif form == "local-directory":
+                physical = (
+                    spec.protected_repository_root / artifact["source_repository_path"]
+                )
+                sealed = sealed_parent / "charts" / artifact["name"]
+                copy_tree(physical, sealed)
+            elif form == "local-archive":
+                physical = (
+                    spec.protected_repository_root / artifact["source_repository_path"]
+                )
+                copy_file(
+                    physical,
+                    sealed_parent / "charts" /
+                    f"{artifact['name']}-{artifact['version']}.tgz",
+                )
+                continue
+            else:
+                continue
+            add_closure(
+                physical, sealed, artifact.get("dependencies", {"artifacts": []})
+            )
+
+    add_closure(spec.chart_root, destination, dependencies)
+    for directory in sorted(
+        (item for item in destination.rglob("*") if item.is_dir()),
+        key=lambda item: len(item.parts), reverse=True,
+    ):
+        directory.chmod(0o500)
+    destination.chmod(0o500)
+    return replace(
+        spec,
+        chart_root=destination,
+        protected_repository_root=destination,
+    )
 
 
 def _value_at(values: object, expression: str) -> object:
@@ -2880,52 +4703,119 @@ def _namespace_expression(source: str) -> str | None:
 def _namespace_helper_value(
     scope: _TemplateActionScope, values: dict, release_namespace: str
 ) -> str | None:
-    active: bool | None = True
-    controls: list[tuple[bool | None, bool | None]] = []
-    outputs: list[str] = []
-    for action in scope.actions:
-        code = _unquoted_action(action).strip()
-        start = re.match(r"^(if|with|range)(?:\s+(.*))?$", action.strip(), re.DOTALL)
-        if start is not None:
-            selected = _condition((start.group(2) or "").strip(), values)
-            controls.append((active, selected))
-            active = _combine(active, selected)
-            continue
-        alternate = _CONTROL_ELSE.match(action.strip())
-        if alternate is not None:
-            if not controls:
-                return None
-            parent, selected = controls[-1]
-            inverse = None if selected is None else not selected
-            if alternate.group(1) is not None:
-                inverse = _combine(inverse, _condition(alternate.group(1), values))
-            active = _combine(parent, inverse)
-            continue
-        if _CONTROL_END.match(code):
-            if not controls:
-                return None
-            active, _selected = controls.pop()
-            continue
-        if active is False:
-            continue
-        if active is None:
+    actions = tuple(item.strip() for item in scope.actions)
+
+    def direct(expression: str) -> str | None:
+        if expression in {".Release.Namespace", "$.Release.Namespace"}:
+            return release_namespace
+        value = _value_at(values, expression)
+        return value if type(value) is str else None
+
+    if len(actions) == 1:
+        value = direct(actions[0])
+        if value is not None:
+            return value
+        tokens = _action_tokens(actions[0])
+        if tokens is None:
             return None
+        words = tuple((item.text, item.quoted) for item in tokens)
+        if len(words) >= 3 and words[0] == ("default", False):
+            release = words[1] in {
+                (".Release.Namespace", False), ("$.Release.Namespace", False)
+            }
+            value_path = words[2][0] if not words[2][1] else ""
+            if (
+                not release
+                or _VALUES_PATH.fullmatch(value_path) is None
+                or values.get(_UNMODELED_VALUES) is True
+            ):
+                return None
+            found, protected = _exact_value_at(values, value_path)
+            if not found:
+                protected = None
+            selected = release_namespace if not _truth(protected) else protected
+            if type(selected) is not str:
+                return None
+            if len(words) == 3:
+                return selected
+            expected_tail = (
+                ("|", False), ("trunc", False), ("63", False),
+                ("|", False), ("trimSuffix", False), ("-", True),
+            )
+            if words[3:] != expected_tail:
+                return None
+            raw = selected.encode("utf-8")[:63]
+            try:
+                truncated = raw.decode("utf-8", errors="strict")
+            except UnicodeError:
+                return None
+            return truncated[:-1] if truncated.endswith("-") else truncated
+        return None
+
+    if len(actions) == 5:
+        condition = re.fullmatch(r"if\s+(\.?\$?\.Values\.[A-Za-z0-9_.-]+)", actions[0])
+        alternate = _CONTROL_ELSE.fullmatch(actions[2])
+        if condition is None or alternate is None or actions[4] != "end":
+            return None
+        path = condition.group(1).replace(".$.", "$.")
+        if actions[1] != path or actions[3] not in {
+            ".Release.Namespace", "$.Release.Namespace"
+        }:
+            return None
+        if values.get(_UNMODELED_VALUES) is True:
+            return None
+        found, protected = _exact_value_at(values, path)
+        if not found:
+            protected = None
+        selected = protected if _truth(protected) else release_namespace
+        return selected if type(selected) is str else None
+    return None
+
+
+def _namespace_call(
+    expression: str, source_text: str
+) -> tuple[str, str] | None:
+    """Recognize only the closed a8 literal helper call/context grammar."""
+    nodes = _template_nodes(expression)
+    if len(nodes) != 1 or nodes[0][0] != "action":
+        return None
+    words = nodes[0][3]
+    if len(words) not in {3, 5}:
+        return None
+    function, name, context = words[:3]
+    if function not in {("include", False), ("template", False)} or not name[1]:
+        return None
+    if len(words) == 5 and words[3:] != (("|", False), ("quote", False)):
+        return None
+    if context in {(".", False), ("$", False)}:
+        return name[0], context[0]
+    if context != ("$root", False):
+        return None
+    call_action = " ".join(
+        json.dumps(value) if quoted else value for value, quoted in words
+    )
+    depth = 0
+    bound = False
+    call_seen = False
+    for action in _iter_template_actions(source_text):
         compact = action.strip()
-        if compact == ".Release.Namespace" or compact == "$.Release.Namespace":
-            outputs.append(release_namespace)
+        code = _unquoted_action(compact)
+        if compact in {"$root := .", "$root := $"}:
+            if depth != 0 or bound or call_seen:
+                return None
+            bound = True
             continue
-        value = _value_at(values, compact)
-        if type(value) is str:
-            outputs.append(value)
-            continue
-        # Assignments and comments do not emit a namespace. Any other action is
-        # outside this deliberately small namespace-helper evaluator.
-        if re.match(r"^\$[A-Za-z0-9_]+\s*:?=", compact):
-            continue
-        return None
-    if controls or len(outputs) != 1:
-        return None
-    return outputs[0]
+        if re.match(r"^\$root\s*(?::=|=)", compact):
+            return None
+        if call_action == compact:
+            if not bound:
+                return None
+            call_seen = True
+        if _CONTROL_START.match(code):
+            depth += 1
+        elif _CONTROL_END.match(code):
+            depth = max(0, depth - 1)
+    return (name[0], "$root") if call_seen else None
 
 
 def _custom_resource_scopes(sources: dict[str, str]) -> dict[tuple[str, str], str]:
@@ -2999,9 +4889,11 @@ def _namespace_provenance(
     values: dict,
     actions: _TemplateActionIndex,
     custom_scopes: dict[tuple[str, str], str],
+    logical_values: dict | None = None,
 ) -> tuple[str, MappingProxyType]:
     if explicit_namespace == "":
         explicit_namespace = None
+    helper_evidence: dict | None = None
     if explicit_namespace is not None and type(explicit_namespace) is not str:
         raise HelmMaterializationError(
             "MISSING_RENDERED_RESOURCE_IDENTITY", "rendered namespace is not a string"
@@ -3064,32 +4956,75 @@ def _namespace_provenance(
                 r"\s*\|\s*default\s+\.Release\.Namespace(?:\s*\|\s*quote)?\s*-?}}",
                 compact,
             )
-            include_match = re.fullmatch(
-                r'{{-?\s*include\s+"([^"\r\n]+)"\s+[.$]\s*-?}}', compact
-            )
+            namespace_call = _namespace_call(compact, source_text)
             if release_match is not None:
                 resolution = "RELEASE_NAMESPACE_EXPRESSION"
                 if explicit_namespace != release_namespace:
                     contradiction = "RELEASE_NAMESPACE_EXPRESSION_CONTRADICTS_RENDER"
-            elif include_match is not None:
-                definition = actions.definitions.get(include_match.group(1))
-                resolved = (
-                    None if definition is None
-                    else _namespace_helper_value(definition, values, release_namespace)
-                )
-                if resolved is None:
+            elif namespace_call is not None:
+                helper_name, helper_context = namespace_call
+                members = actions.definition_members.get(helper_name, ())
+                if not members:
                     raise HelmMaterializationError(
                         "AMBIGUOUS_NAMESPACE_PROVENANCE",
                         "named namespace template is outside the bounded proof contract",
                     )
+                resolved_members = tuple(
+                    _namespace_helper_value(member, values, release_namespace)
+                    for member in members
+                )
+                if any(item is None for item in resolved_members):
+                    raise HelmMaterializationError(
+                        "HELM_NAMESPACE_HELPER_BODY_UNSUPPORTED",
+                        "named namespace helper is outside the closed result grammar",
+                    )
+                if len(set(resolved_members)) != 1:
+                    raise HelmMaterializationError(
+                        "HELM_TEMPLATE_CONSUMER_VALUE_MISMATCH",
+                        "equivalent namespace helpers produced different values",
+                    )
+                resolved = resolved_members[0]
                 if resolved != explicit_namespace:
                     raise HelmMaterializationError(
                         "CONTRADICTORY_NAMESPACE_PROVENANCE",
                         "named namespace template contradicts rendered metadata",
                     )
                 resolution = "STATIC_NAMED_NAMESPACE_TEMPLATE"
-                value_path = include_match.group(1)
+                value_path = helper_name
                 value_sha = _sha256(resolved.encode("utf-8"))
+                member_records = []
+                graph = actions.definition_graphs.get(helper_name)
+                if graph is None:
+                    raise HelmMaterializationError(
+                        "HELM_NAMESPACE_HELPER_EQUIVALENCE_UNPROVEN",
+                        "namespace helper equivalence graph is unavailable",
+                    )
+                graph_sha = _canonical_sha(graph)
+                for member, member_value in zip(members, resolved_members):
+                    source = actions.sources.get(member.source_path)
+                    if source is None:
+                        raise HelmMaterializationError(
+                            "HELM_TEMPLATE_DEFINITION_SOURCE_MUTATED",
+                            "namespace helper source is unavailable",
+                        )
+                    member_records.append({
+                        "source_path": member.source_path,
+                        "source_sha256": _sha256(source.encode("utf-8")),
+                        "definition_ordinal": member.definition_ordinal,
+                        "definition_span_sha256": member.definition_span_sha256,
+                        "action_graph_sha256": graph_sha,
+                        "consumer_value_sha256": _sha256(
+                            member_value.encode("utf-8")
+                        ),
+                    })
+                helper_evidence = {
+                    "call_kind": _template_nodes(compact)[0][3][0][0],
+                    "literal_helper_name": helper_name,
+                    "context_kind": helper_context,
+                    "members": member_records,
+                    "equivalence_identity": _canonical_sha(member_records),
+                    "consumer_value_sha256": value_sha,
+                }
             elif value_default_release_match is not None:
                 resolution = "VALUES_DEFAULT_RELEASE_NAMESPACE_EXPRESSION"
                 value_path = value_default_release_match.group(1)
@@ -3126,6 +5061,29 @@ def _namespace_provenance(
                         "CONTRADICTORY_NAMESPACE_PROVENANCE",
                         "values-derived namespace contradicts rendered metadata",
                     )
+            elif len(_template_nodes(compact)) == 1 and _template_nodes(compact)[0][0] == "action":
+                node = _template_nodes(compact)[0]
+                action_text = " ".join(
+                    json.dumps(value) if quoted else value
+                    for value, quoted in node[3]
+                )
+                bounded = _namespace_helper_value(
+                    _TemplateActionScope(source_template, (action_text,)),
+                    values,
+                    release_namespace,
+                )
+                if bounded is None:
+                    raise HelmMaterializationError(
+                        "AMBIGUOUS_NAMESPACE_PROVENANCE",
+                        "namespace pipeline is outside the closed normalization grammar",
+                    )
+                if bounded != explicit_namespace:
+                    raise HelmMaterializationError(
+                        "HELM_NAMESPACE_RENDER_CONTRADICTION",
+                        "bounded namespace expression contradicts rendered metadata",
+                    )
+                resolution = "BOUNDED_NAMESPACE_EXPRESSION"
+                value_sha = _sha256(bounded.encode("utf-8"))
             elif "{{" in compact or "}}" in compact:
                 raise HelmMaterializationError(
                     "AMBIGUOUS_NAMESPACE_PROVENANCE",
@@ -3159,6 +5117,17 @@ def _namespace_provenance(
         "value_sha256": value_sha,
         "contradiction": contradiction,
     }
+    if helper_evidence is not None:
+        body["named_template_equivalence"] = helper_evidence
+    if logical_values is not None:
+        values_body = {
+            **logical_values,
+            "release_namespace": release_namespace,
+        }
+        body["logical_values_binding"] = {
+            **values_body,
+            "binding_identity": _canonical_sha(values_body),
+        }
     body["provenance_identity"] = _canonical_sha(body)
     return canonical_namespace, MappingProxyType(body)
 
@@ -3174,6 +5143,54 @@ def _api_resource_identity(document: HelmRenderedDocument) -> str:
     )
 
 
+def _logical_values_by_context(
+    dependencies: dict, root_effective_values_sha256: str
+) -> dict[str, dict]:
+    result = {
+        ".": {
+            "logical_instance_identity": ".",
+            "source_marker_context": ".",
+            "effective_values_root_sha256": root_effective_values_sha256,
+            "values_provenance_identity": root_effective_values_sha256,
+        }
+    }
+
+    def add(closure: dict) -> None:
+        for artifact in closure["artifacts"]:
+            logical = artifact.get("logical_instance")
+            values_provenance = artifact.get("values_provenance")
+            if logical is not None:
+                if values_provenance is None:
+                    raise HelmMaterializationError(
+                        "HELM_DEPENDENCY_VALUES_PROVENANCE_INCOMPLETE",
+                        "logical dependency lacks effective Values provenance",
+                    )
+                context = logical["source_marker_context"]
+                if context in result:
+                    raise HelmMaterializationError(
+                        "HELM_DEPENDENCY_EFFECTIVE_NAME_COLLISION",
+                        "logical dependency Values context is duplicated",
+                    )
+                result[context] = {
+                    "logical_instance_identity": logical[
+                        "logical_instance_identity"
+                    ],
+                    "source_marker_context": context,
+                    "effective_values_root_sha256": logical[
+                        "effective_values_root_sha256"
+                    ],
+                    "values_provenance_identity": values_provenance[
+                        "provenance_identity"
+                    ],
+                }
+            nested = artifact.get("dependencies")
+            if nested is not None:
+                add(nested)
+
+    add(dependencies)
+    return result
+
+
 def _documents(
     stdout: bytes,
     *,
@@ -3183,6 +5200,7 @@ def _documents(
     release_namespace: str,
     template_actions: _TemplateActionIndex,
     protected_values: dict,
+    logical_values_by_context: dict[str, dict],
 ) -> tuple[HelmRenderedDocument, ...]:
     result = []
     identities = set()
@@ -3230,6 +5248,15 @@ def _documents(
                 "AMBIGUOUS_SOURCE_PROVENANCE", "source template text is unavailable"
             )
         source_values = _values_for_source(protected_values, source)
+        source_context = _chart_context_for_source(source)
+        logical_values = logical_values_by_context.get(source_context)
+        if logical_values is not None and logical_values[
+            "effective_values_root_sha256"
+        ] != _effective_values_sha256(source_values):
+            raise HelmMaterializationError(
+                "HELM_NAMESPACE_LOGICAL_VALUES_MISMATCH",
+                "namespace proof Values differ from the protected logical instance",
+            )
         namespace, namespace_provenance = _namespace_provenance(
             api_version=api_version,
             kind=kind,
@@ -3240,6 +5267,7 @@ def _documents(
             values=source_values,
             actions=template_actions,
             custom_scopes=custom_scopes,
+            logical_values=logical_values,
         )
         identity = f"{api_version}/{kind}/{namespace}/{name}"
         if identity in identities:
@@ -3293,18 +5321,46 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
         raise HelmMaterializationError(
             "CHART_INVENTORY_UNAVAILABLE", "Chart.yaml identity is incomplete"
         )
-    dependencies = _validate_dependencies(spec.chart_root, chart_value)
-    expanded_dependency_files = tuple(
-        item["path"]
-        for artifact in dependencies["artifacts"]
-        for item in artifact["expanded_files"]
+    root_values, _root_values_sha = _protected_values(spec)
+    dependencies = _validate_dependencies(
+        spec.chart_root,
+        chart_value,
+        protected_values=root_values,
+        repository_root=spec.protected_repository_root,
     )
-    actions = _template_actions(spec.chart_root, dependencies, chart_root_sha)
-    protected_values, protected_values_sha = _protected_values(spec)
+    protected_values, protected_values_sha = _protected_values(spec, dependencies)
+    root_effective_values_sha256 = _effective_values_sha256(protected_values)
+    logical_values_by_context = _logical_values_by_context(
+        dependencies, root_effective_values_sha256
+    )
+    actions = _template_actions(
+        spec.chart_root,
+        dependencies,
+        chart_root_sha,
+        spec.protected_repository_root,
+    )
+    expanded_dependency_files = tuple(sorted(actions.sources))
     executable = _helm_identity(spec.helm_executable, spec.chart_root)
     with tempfile.TemporaryDirectory(prefix="iacgv-helm-renders-") as temporary:
         temp = Path(temporary)
-        first_stdout, first_stderr, safe_argv, argv_sha = _render(spec, temp / "first")
+        render_spec = _sealed_helm_chart(spec, dependencies, temp / "protected-chart")
+        sealed_files, sealed_root_sha = _inventory(render_spec.chart_root)
+        first_stdout, first_stderr, safe_argv, argv_sha = _render(
+            render_spec, temp / "first"
+        )
+        if any(
+            marker in first_stderr.lower()
+            for marker in (b"permission denied", b"operation not permitted", b"read-only")
+        ):
+            raise HelmMaterializationError(
+                "CHART_MUTATED_DURING_RENDER",
+                "render attempted to mutate the sealed protected chart",
+            )
+        if _inventory(render_spec.chart_root) != (sealed_files, sealed_root_sha):
+            raise HelmMaterializationError(
+                "CHART_MUTATED_DURING_RENDER",
+                "sealed protected chart changed during first render",
+            )
         if _sha256(spec.helm_executable.read_bytes()) != executable["executable_sha256"]:
             raise HelmMaterializationError(
                 "HELM_ENVIRONMENT_INCOMPLETE", "Helm executable changed before rendering"
@@ -3317,7 +5373,18 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
             release_namespace=spec.namespace,
             template_actions=actions,
             protected_values=protected_values,
+            logical_values_by_context=logical_values_by_context,
         )
+        inactive_contexts = _inactive_dependency_contexts(dependencies)
+        if any(
+            document.source_template == context
+            or document.source_template.startswith(f"{context}/")
+            for document in first_documents for context in inactive_contexts
+        ):
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_SOURCE_MARKER_CONTRADICTION",
+                "rendered source marker belongs to an inactive logical dependency",
+            )
         action_failure, action_reachability = _participating_action_analysis(
             actions, first_documents, protected_values, protected_values_sha
         )
@@ -3326,8 +5393,13 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
                 action_failure, "a participating Helm template requires live cluster lookup"
             )
         second_stdout, second_stderr, second_argv, second_argv_sha = _render(
-            spec, temp / "second"
+            render_spec, temp / "second"
         )
+        if _inventory(render_spec.chart_root) != (sealed_files, sealed_root_sha):
+            raise HelmMaterializationError(
+                "CHART_MUTATED_DURING_RENDER",
+                "sealed protected chart changed during second render",
+            )
         if _sha256(spec.helm_executable.read_bytes()) != executable["executable_sha256"]:
             raise HelmMaterializationError(
                 "HELM_ENVIRONMENT_INCOMPLETE", "Helm executable changed during rendering"
@@ -3340,7 +5412,17 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
             release_namespace=spec.namespace,
             template_actions=actions,
             protected_values=protected_values,
+            logical_values_by_context=logical_values_by_context,
         )
+        if any(
+            document.source_template == context
+            or document.source_template.startswith(f"{context}/")
+            for document in second_documents for context in inactive_contexts
+        ):
+            raise HelmMaterializationError(
+                "HELM_DEPENDENCY_SOURCE_MARKER_CONTRADICTION",
+                "second render contradicts dependency activation evidence",
+            )
     current_files, current_root_sha = _inventory(spec.chart_root)
     if current_files != chart_files or current_root_sha != chart_root_sha:
         raise HelmMaterializationError(
@@ -3409,6 +5491,7 @@ def materialize_helm(spec: HelmRenderSpec, output_root: Path) -> HelmMaterializa
             "LANG": "C", "LC_ALL": "C", "TZ": "UTC",
             "helm_homes": "fresh-per-render", "kubeconfig": "unavailable",
         }),
+        "protected_root_effective_values_sha256": root_effective_values_sha256,
         "template_action_reachability": action_reachability,
     }
     chart_evidence = {

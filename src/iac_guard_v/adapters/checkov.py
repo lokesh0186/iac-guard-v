@@ -33,6 +33,18 @@ from ..fingerprints import (
     canonicalize_terraform_address,
 )
 from ..graph_evidence import GraphEvidenceContext, build_graph_evidence_context
+from ..scanner_core import (
+    NativePropertyIdentity,
+    PropertyCapability,
+    ProtectedKubernetesIdentity,
+    ProtectedScanPlan,
+    RawPropertyObservation,
+    RawScannerExecution,
+    ScannerCapabilities,
+    ScannerDescriptor,
+    ScannerObservationResult,
+    legacy_report_v1_property_capability,
+)
 from ..models import (
     CoverageCounters,
     BoundInputFile,
@@ -502,38 +514,7 @@ def _within(path: Path, root: Path) -> bool:
         return False
 
 
-@dataclass(frozen=True, slots=True)
-class CheckovKubernetesIdentity:
-    """Identity supplied by the independent Kubernetes artifact detector."""
-
-    file_path: str
-    checkov_resource: str
-    api_version: str
-    kind: str
-    namespace: str
-    name: str
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "file_path", canonical_repo_path(self.file_path))
-        object.__setattr__(
-            self,
-            "checkov_resource",
-            canonical_identifier(self.checkov_resource, "Checkov Kubernetes resource"),
-        )
-        canonical = canonicalize_kubernetes_identity(
-            self.api_version, self.kind, self.namespace, self.name
-        )
-        api_version, kind, namespace, name = canonical.rsplit("/", 3)
-        object.__setattr__(self, "api_version", api_version)
-        object.__setattr__(self, "kind", kind)
-        object.__setattr__(self, "namespace", namespace)
-        object.__setattr__(self, "name", name)
-
-    @property
-    def canonical_address(self) -> str:
-        return canonicalize_kubernetes_identity(
-            self.api_version, self.kind, self.namespace, self.name
-        )
+CheckovKubernetesIdentity = ProtectedKubernetesIdentity
 
 
 @dataclass(frozen=True, slots=True)
@@ -759,6 +740,7 @@ class CheckovScanRequest:
             "_eligible_identities",
             tuple(identity_by_path[path] for path in sorted(eligible)),
         )
+
         supporting_identity_by_path = dict(zip(supporting, supporting_identities))
         object.__setattr__(
             self,
@@ -791,6 +773,14 @@ class CheckovScanRequest:
             "expected_resources",
             tuple(sorted(expected_resources, key=lambda item: item.canonical_key)),
         )
+
+    @property
+    def scanner_name(self) -> str:
+        return "checkov"
+
+    @property
+    def scanner_version(self) -> str:
+        return self.expected_version
 
 
 def _invocation_config_digest(request: CheckovScanRequest) -> str:
@@ -1041,6 +1031,13 @@ def _evaluation(
             rule_id=canonical_identifier(check.get("check_id"), "Checkov check_id"),
             check_class=check.get("check_class"),
             native_result=expected_result,
+            relationship_required=(
+                legacy_report_v1_property_capability(
+                    "checkov", canonical_identifier(
+                        check.get("check_id"), "Checkov check_id"
+                    )
+                ) is PropertyCapability.RELATIONSHIP
+            ),
         )
         if graph_context is not None else None
     )
@@ -1093,6 +1090,11 @@ def _finding(
             rule_id=rule_id,
             check_class=check.get("check_class"),
             native_result=native_result,
+            relationship_required=(
+                legacy_report_v1_property_capability(
+                    "checkov", rule_id
+                ) is PropertyCapability.RELATIONSHIP
+            ),
         )
         if graph_context is not None else None
     )
@@ -1191,7 +1193,9 @@ def _normalize(
         check.get("check_class") == _GRAPH_CHECK_CLASS
         or (
             type(check.get("check_id")) is str
-            and check["check_id"].startswith("CKV2_")
+            and legacy_report_v1_property_capability(
+                "checkov", check["check_id"]
+            ) is PropertyCapability.RELATIONSHIP
         )
         for document in documents
         for check in (
@@ -1349,10 +1353,17 @@ def _normalize(
     auxiliary_identities = (
         set(graph_context.auxiliary_identities) if graph_context is not None else set()
     )
+    relationship_rules = {
+        item.rule_id for item in evaluations
+        if item.graph_evidence is not None
+        or legacy_report_v1_property_capability(
+            "checkov", item.rule_id
+        ) is PropertyCapability.RELATIONSHIP
+    }
     observed_resources = {
         (item.file_path, item.resource_address) for item in evaluations
         if (item.file_path, item.resource_address) not in auxiliary_identities
-        and not (item.rule_id.startswith("CKV2_") and item.graph_evidence is None)
+        and not (item.rule_id in relationship_rules and item.graph_evidence is None)
     } | graph_participants
     expected_resources = {
         (item.file_path, item.resource_address) for item in request.expected_resources
@@ -1549,12 +1560,19 @@ def evaluate_checkov_target(
     rule_id: str,
     resource_address: str,
     file_path: str | None = None,
+    *,
+    relationship_required: bool | None = None,
 ) -> CheckovTargetEvidence:
     """Return only affirmative native target evidence; absence stays inconclusive."""
     if type(run) is not ScannerRun or run.scanner != "checkov":
         raise DomainError("target evaluation requires an exact Checkov ScannerRun")
     require_trusted_scanner_run(run)
     rule = canonical_identifier(rule_id, "target rule_id")
+    if relationship_required is None:
+        relationship_required = (
+            legacy_report_v1_property_capability("checkov", rule)
+            is PropertyCapability.RELATIONSHIP
+        )
     resource = canonical_resource_scope(resource_address, "target resource_address")
     path = canonical_repo_path(file_path, "target file_path") if file_path is not None else None
     scoped = tuple(
@@ -1565,7 +1583,7 @@ def evaluate_checkov_target(
         and (path is None or item.file_path == path)
     )
     graph_evidence = tuple(item.graph_evidence for item in scoped)
-    if rule.startswith("CKV2_") and (
+    if relationship_required and (
         not graph_evidence
         or any(item is None or item.status is not Status.PASS for item in graph_evidence)
     ):
@@ -1989,9 +2007,179 @@ class CheckovAdapter:
         )
 
 
+class CheckovEvidenceAdapter:
+    """Expose pinned Checkov observations through the a8 neutral scan protocol.
+
+    The independently-created ``ProtectedScanPlan`` remains authoritative.  This
+    bridge may translate Checkov-native evidence, but it cannot select inputs,
+    resources, property identities, or materialization semantics.
+    """
+
+    def __init__(
+        self, request: CheckovScanRequest, *, trusted_run: ScannerRun | None = None
+    ) -> None:
+        if type(request) is not CheckovScanRequest:
+            raise DomainError("Checkov evidence adapter requires an exact request")
+        self._request = request
+        if trusted_run is not None:
+            run = require_trusted_scanner_run(trusted_run)
+            expected_inputs = tuple(sorted(
+                (*request.eligible_file_evidence, *request.supporting_file_evidence),
+                key=lambda item: item.canonical_key,
+            ))
+            if (
+                run.scanner != "checkov"
+                or run.scanner_version != request.expected_version
+                or run.launcher_digest != request._executable_sha256
+                or run.scanner_environment_digest
+                != request._distribution_identity.scanner_environment_digest
+                or run.policy_inventory_digest
+                != request._distribution_identity.policy_inventory_digest
+                or run.invocation_config_digest != _invocation_config_digest(request)
+                or run.input_files != expected_inputs
+            ):
+                raise DomainError(
+                    "precomputed Checkov run does not belong to the protected request"
+                )
+        self._trusted_run = trusted_run
+        self._descriptor = ScannerDescriptor(
+            "checkov",
+            request.expected_version,
+            request._executable_sha256,
+            _invocation_config_digest(request),
+            request._distribution_identity.policy_inventory_digest,
+            ScannerCapabilities(
+                (
+                    "kubernetes_rendered_yaml",
+                    "kubernetes_source_manifest",
+                    "mixed_iac_source",
+                    "terraform_hcl_source",
+                ),
+                (
+                    PropertyCapability.ATTRIBUTE,
+                    PropertyCapability.CONTAINER,
+                    PropertyCapability.RELATIONSHIP,
+                ),
+                True,
+                False,
+            ),
+        )
+
+    @property
+    def descriptor(self) -> ScannerDescriptor:
+        return self._descriptor
+
+    @staticmethod
+    def _digest(value: object) -> str:
+        return hashlib.sha256(json.dumps(
+            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        ).encode("utf-8")).hexdigest()
+
+    def _bind_plan(self, plan: ProtectedScanPlan) -> None:
+        if type(plan) is not ProtectedScanPlan:
+            raise DomainError("Checkov adapter requires an exact protected scan plan")
+        if plan.descriptor != self._descriptor:
+            raise DomainError("Checkov request and scanner descriptor disagree")
+        if plan.artifact.root != self._request.scan_root:
+            raise DomainError("Checkov request and protected artifact root disagree")
+        expected_files = tuple(sorted(
+            (*self._request.eligible_file_evidence,
+             *self._request.supporting_file_evidence),
+            key=lambda item: item.canonical_key,
+        ))
+        if plan.artifact.input_files != expected_files:
+            raise DomainError("Checkov request and protected input universe disagree")
+        if plan.artifact.expected_resources != self._request.expected_resources:
+            raise DomainError("Checkov request and protected resource universe disagree")
+
+    def scan(self, plan: ProtectedScanPlan) -> RawScannerExecution:
+        self._bind_plan(plan)
+        run = (
+            require_trusted_scanner_run(self._trusted_run)
+            if self._trusted_run is not None
+            else require_trusted_scanner_run(CheckovAdapter().scan(self._request))
+        )
+        observations: list[RawPropertyObservation] = []
+        for target in plan.targets:
+            evidence = evaluate_checkov_target(
+                run,
+                target.property_identity.policy_id,
+                target.protected_resource_identity,
+                target.file_path,
+                relationship_required=(
+                    target.capability is PropertyCapability.RELATIONSHIP
+                ),
+            )
+            result = {
+                Status.PASS: ScannerObservationResult.PASS,
+                Status.FAIL: ScannerObservationResult.FAIL,
+                Status.INCONCLUSIVE: ScannerObservationResult.NOT_EVALUATED,
+                Status.ERROR: ScannerObservationResult.ERROR,
+                Status.TIMEOUT: ScannerObservationResult.ERROR,
+                Status.UNSUPPORTED: ScannerObservationResult.UNSUPPORTED,
+                Status.SKIPPED: ScannerObservationResult.UNSUPPORTED,
+                Status.PARTIAL: ScannerObservationResult.NOT_EVALUATED,
+            }[evidence.status]
+            evaluation_payload = [item.canonical_dict() for item in evidence.evaluations]
+            affirmative = (
+                self._digest(evaluation_payload)
+                if result in {ScannerObservationResult.PASS, ScannerObservationResult.FAIL}
+                else ""
+            )
+            graphs = tuple(
+                item.graph_evidence.canonical_sha256
+                for item in evidence.evaluations
+                if item.graph_evidence is not None
+            )
+            relationship = self._digest(list(graphs)) if graphs else ""
+            observations.append(RawPropertyObservation(
+                NativePropertyIdentity(
+                    "checkov",
+                    target.property_identity.policy_id,
+                    run.scanner_version,
+                    run.policy_inventory_digest,
+                ),
+                target.protected_resource_identity,
+                target.file_path,
+                target.scanner_native_target_identity,
+                result,
+                affirmative,
+                relationship,
+                evidence.reason.value,
+            ))
+        complete = (
+            run.status is Status.PASS
+            and run.resource_coverage.expected_resources_missing == 0
+            and run.resource_coverage.unexpected_resources_observed == 0
+        )
+        observed = (
+            tuple(sorted(item.resource_address for item in self._request.expected_resources))
+            if complete else tuple(sorted({
+                item.resource_address
+                for item in run.evaluations
+                if any(
+                    item.file_path == expected.file_path
+                    and item.resource_address == expected.resource_address
+                    for expected in self._request.expected_resources
+                )
+            }))
+        )
+        raw_digest = run.raw_output_sha256 or self._digest(run.canonical_dict())
+        return RawScannerExecution(
+            plan.descriptor.identity,
+            plan.artifact.artifact_identity,
+            tuple(item.file_path for item in plan.artifact.input_files),
+            observed,
+            tuple(observations),
+            raw_digest,
+            tuple(run.diagnostics),
+        )
+
+
 __all__ = [
     "CHECKOV_CONTRACT",
     "CheckovAdapter",
+    "CheckovEvidenceAdapter",
     "CheckovDistributionIdentity",
     "CheckovEligibleFileEvidence",
     "CheckovKubernetesIdentity",

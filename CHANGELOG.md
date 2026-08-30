@@ -3,7 +3,43 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
-## [Unreleased]
+## [0.1.0a8] - 2026-08-29
+
+### Added
+
+- Scanner-neutral protected-artifact, target-identity, property-observation, and
+  evidence contracts. Checkov remains the sole authoritative adapter; KICS and Trivy
+  remain advisory and cannot establish target `PASS`.
+- Bounded Helm logical dependency instances for aliases, activation/import metadata,
+  globals, repeated physical sources, nested local directory closure, and contained
+  `file://` dependencies with strict source/lock/byte binding.
+- Structural, output-sensitive equivalence for duplicate named templates, including
+  all-member source/span provenance and consumer-specific namespace-value equality.
+- The closed a8 namespace-helper grammar for literal `include`/`template` calls,
+  exact root contexts, direct Release/Values forms, and the reviewed default/trunc/
+  trimSuffix chain.
+- A locked, local-only Kustomize `v5.7.1` materializer with closed control grammar,
+  complete transitive input inventory, sealed offline double builds, conservative
+  full-closure provenance, and exact rendered/scanner-universe identity.
+
+### Fixed
+
+- Completed the frozen local Helm dependency contract for nested closure inside a
+  protected vendored archive and Helm-compatible declared-version constraints bound
+  to exact protected lock, nested `Chart.yaml`, physical, and logical identities.
+- Bound archive-backed and directory-backed logical dependency instances to the same
+  protected effective-Values model across defaults, parent/alias overrides, globals,
+  imports, action analysis, namespace provenance, and rendered target identity.
+
+### Security
+
+- Scanner adapters cannot select or prune protected inputs, redefine protected target
+  identity, infer `PASS` from absence, omit required coverage, or bypass relationship
+  evidence.
+- Remote dependencies/resources, cluster-state lookup, plugins/exec, Helm inflation
+  through Kustomize, nondeterministic template functions, unsupported dynamic template
+  names, unknown Kustomize keys, path/symlink escapes, and unequal fresh builds remain
+  typed fail-closed boundaries.
 
 ## [0.1.0a7] - 2026-08-26
 

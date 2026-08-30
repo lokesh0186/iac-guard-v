@@ -7,7 +7,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 from importlib.resources import files
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import jsonschema
 
@@ -20,12 +20,17 @@ from .enums import (
 from .engine import (
     TrustedScanPlan, VerificationResult, require_trusted_verification_result,
 )
+from .helm_semver import HelmSemverError, prove_constraint
 from .models import (
     CheckEvaluation, DomainError, ExpectedResource, Finding, FindingLocation,
     ScannerRun, TargetIdentity, canonical_repo_path, canonical_identifier,
     require_trusted_scanner_run,
 )
 from .policy import PolicyResult, require_trusted_policy_result
+from .scanner_core import (
+    PropertyCapability,
+    legacy_report_v1_property_capability,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -184,23 +189,433 @@ def _require_sha(value: object, label: str, *, allow_empty: bool = False) -> Non
         _semantic_error(f"{label} is not a canonical SHA-256")
 
 
-def _validate_helm_a6_extensions(evidence: dict, label: str) -> None:
-    inputs = evidence["render_inputs"]
-    file_sha256 = {
+def _iter_helm_dependency_artifacts(closure: dict):
+    for artifact in closure["artifacts"]:
+        yield artifact
+        nested = artifact.get("dependencies")
+        if nested is not None:
+            yield from _iter_helm_dependency_artifacts(nested)
+
+
+def _helm_logical_file_sha(evidence: dict, label: str) -> dict[str, str]:
+    root_files = {
         item["path"]: item["sha256"] for item in evidence["chart"]["files"]
     }
-    file_sha256.update({
-        expanded["path"]: expanded["sha256"]
-        for artifact in evidence["chart"]["dependencies"]["artifacts"]
-        for expanded in artifact["expanded_files"]
-    })
-    files = {item["path"] for item in evidence["chart"]["files"]}
-    files.update(
-        expanded["path"]
-        for artifact in evidence["chart"]["dependencies"]["artifacts"]
-        for expanded in artifact["expanded_files"]
+    result = dict(root_files)
+
+    def bind(path: str, digest: str) -> None:
+        prior = result.get(path)
+        if prior is not None and prior != digest:
+            _semantic_error(f"{label} Helm logical source has contradictory bytes")
+        result[path] = digest
+
+    def add(
+        closure: dict,
+        physical_files: dict[str, str],
+        *,
+        physical_prefix: str = "",
+        logical_prefix: str = "",
+    ) -> None:
+        for artifact in closure["artifacts"]:
+            logical_base = artifact.get("logical_context") or (
+                f"{logical_prefix}/charts/{artifact['name']}"
+                if logical_prefix else f"charts/{artifact['name']}"
+            )
+            form = artifact["form"]
+            if form == "directory":
+                physical_base = (
+                    f"{physical_prefix}/charts/{artifact['name']}"
+                    if physical_prefix else f"charts/{artifact['name']}"
+                )
+                selected = physical_files
+            elif form in {"local-directory", "archive-member-directory"}:
+                physical_base = ""
+                selected = {
+                    item["path"]: item["sha256"]
+                    for item in artifact["physical_files"]
+                }
+            else:
+                physical_base = f"charts/{artifact['name']}"
+                selected = {
+                    item["path"]: item["sha256"]
+                    for item in artifact["expanded_files"]
+                }
+            prefix = physical_base + "/" if physical_base else ""
+            for path, digest in selected.items():
+                if path == physical_base:
+                    relative = ""
+                elif path.startswith(prefix):
+                    relative = path[len(prefix):]
+                else:
+                    continue
+                if relative:
+                    bind(f"{logical_base}/{relative}", digest)
+            nested = artifact.get("dependencies")
+            if nested is not None:
+                add(
+                    nested,
+                    selected,
+                    physical_prefix=physical_base,
+                    logical_prefix=logical_base,
+                )
+
+    add(evidence["chart"]["dependencies"], root_files)
+    return result
+
+
+def _validate_helm_dependency_closure(
+    closure: dict,
+    label: str,
+    *,
+    logical_prefix: str = "",
+    expected_parent: str = ".",
+    enclosing_archive: dict | None = None,
+) -> None:
+    if closure["count"] != len(closure["artifacts"]):
+        _semantic_error(f"{label} Helm dependency count is inconsistent")
+    _require_sha(
+        closure["chart_lock_sha256"],
+        f"{label} Helm Chart.lock digest",
+        allow_empty=True,
     )
+    effective_names: set[str] = set()
+    logical_identities: set[str] = set()
+    for artifact in closure["artifacts"]:
+        form = artifact["form"]
+        if form in {"archive", "local-archive", "archive-member-archive"}:
+            _require_sha(artifact["sha256"], f"{label} Helm dependency archive digest")
+            if not artifact["expanded_files"]:
+                _semantic_error(f"{label} Helm dependency archive inventory is empty")
+        elif artifact["expanded_files"]:
+            _semantic_error(f"{label} Helm directory dependency has expanded files")
+        if form.startswith("local-"):
+            source_path = artifact["source_repository_path"]
+            try:
+                if canonical_repo_path(source_path, "local Helm dependency path") != source_path:
+                    _semantic_error(f"{label} local Helm dependency path is not canonical")
+            except DomainError as exc:
+                _semantic_error(f"{label} local Helm dependency path is unsafe: {exc}")
+        if form in {"local-directory", "archive-member-directory"}:
+            physical_files = artifact["physical_files"]
+            _unique(
+                physical_files,
+                lambda item: item["path"],
+                f"{label} local Helm dependency physical path",
+            )
+            if _canonical_json_digest(physical_files) != artifact["physical_root_sha256"]:
+                _semantic_error(
+                    f"{label} local Helm dependency physical root is not canonical"
+                )
+        archive_provenance = artifact.get("archive_provenance")
+        if archive_provenance is not None:
+            provenance_body = dict(archive_provenance)
+            provenance_identity = provenance_body.pop("provenance_identity")
+            if _canonical_json_digest(provenance_body) != provenance_identity:
+                _semantic_error(
+                    f"{label} Helm archive provenance identity is not canonical"
+                )
+            if archive_provenance["archive_sha256"] != artifact["sha256"]:
+                _semantic_error(
+                    f"{label} Helm archive provenance digest is contradictory"
+                )
+            try:
+                if canonical_repo_path(
+                    archive_provenance["repository_path"],
+                    "Helm archive provenance repository path",
+                ) != archive_provenance["repository_path"]:
+                    _semantic_error(
+                        f"{label} Helm archive provenance path is not canonical"
+                    )
+                canonical_repo_path(
+                    archive_provenance["chart_member_path"],
+                    "Helm archive chart member path",
+                )
+            except DomainError as exc:
+                _semantic_error(f"{label} Helm archive provenance path is unsafe: {exc}")
+        member_provenance = artifact.get("archive_member_provenance")
+        if form.startswith("archive-member-") and member_provenance is None:
+            _semantic_error(f"{label} nested Helm archive member provenance is missing")
+        if member_provenance is not None:
+            member_body = dict(member_provenance)
+            member_identity = member_body.pop("provenance_identity")
+            if _canonical_json_digest(member_body) != member_identity:
+                _semantic_error(
+                    f"{label} nested Helm archive member provenance is not canonical"
+                )
+            if member_provenance["parent_dependency_identity"] != expected_parent:
+                _semantic_error(
+                    f"{label} nested Helm archive parent provenance is contradictory"
+                )
+            if enclosing_archive is None or (
+                member_provenance["outer_archive_sha256"]
+                != enclosing_archive.get("archive_sha256")
+                or member_provenance["outer_archive_member_manifest_root_sha256"]
+                != enclosing_archive.get("archive_member_manifest_root_sha256")
+            ):
+                _semantic_error(
+                    f"{label} nested Helm archive containment provenance is contradictory"
+                )
+            for key in ("artifact_member_path", "chart_member_path"):
+                try:
+                    canonical_repo_path(
+                        member_provenance[key], f"nested Helm archive {key}"
+                    )
+                except DomainError as exc:
+                    _semantic_error(
+                        f"{label} nested Helm archive member path is unsafe: {exc}"
+                    )
+        elif form.startswith("archive-member-"):
+            _semantic_error(f"{label} nested Helm archive provenance is incomplete")
+        physical = artifact.get("physical_dependency")
+        logical = artifact.get("logical_instance")
+        version_binding = artifact.get("version_binding")
+        values_provenance = artifact.get("values_provenance")
+        if (physical is None) != (logical is None):
+            _semantic_error(
+                f"{label} Helm logical and physical dependency identities are incomplete"
+            )
+        effective_name = artifact["name"]
+        parent_for_nested = (
+            f"{logical_prefix}/charts/{effective_name}"
+            if logical_prefix else f"charts/{effective_name}"
+        )
+        if physical is not None:
+            physical_body = dict(physical)
+            physical_identity = physical_body.pop("physical_dependency_identity")
+            if _canonical_json_digest(physical_body) != physical_identity:
+                _semantic_error(f"{label} Helm physical dependency identity is not canonical")
+            if (
+                physical["declared_name"] != artifact["name"]
+                or physical["resolved_version"] != artifact["version"]
+                or physical["artifact_kind"] != form
+            ):
+                _semantic_error(f"{label} Helm physical dependency identity is contradictory")
+            expected_root = (
+                artifact["physical_root_sha256"]
+                if form in {"local-directory", "archive-member-directory"}
+                else artifact["sha256"]
+                if form in {"archive", "local-archive", "archive-member-archive"}
+                else None
+            )
+            if expected_root is not None and physical[
+                "protected_artifact_root_sha256"
+            ] != expected_root:
+                _semantic_error(f"{label} Helm physical dependency root is contradictory")
+            logical_body = dict(logical)
+            logical_identity = logical_body.pop("logical_instance_identity")
+            if _canonical_json_digest(logical_body) != logical_identity:
+                _semantic_error(f"{label} Helm logical dependency identity is not canonical")
+            if (
+                logical["parent_instance"] != expected_parent
+                or logical["declared_name"] != artifact["name"]
+                or logical["physical_dependency_identity"] != physical_identity
+            ):
+                _semantic_error(f"{label} Helm logical dependency identity is contradictory")
+            activation = artifact.get("activation")
+            imports = artifact.get("imports")
+            if activation is None or imports is None:
+                _semantic_error(f"{label} Helm logical dependency metadata is incomplete")
+            if (
+                _canonical_json_digest(activation)
+                != logical["activation_metadata_sha256"]
+                or _canonical_json_digest(imports) != logical["import_metadata_sha256"]
+            ):
+                _semantic_error(f"{label} Helm logical dependency metadata is contradictory")
+            if values_provenance is not None:
+                values_body = dict(values_provenance)
+                values_identity = values_body.pop("provenance_identity")
+                if _canonical_json_digest(values_body) != values_identity:
+                    _semantic_error(
+                        f"{label} Helm dependency Values provenance is not canonical"
+                    )
+                if (
+                    values_provenance["effective_name"]
+                    != logical["effective_name"]
+                    or values_provenance["effective_values_root_sha256"]
+                    != logical["effective_values_root_sha256"]
+                    or values_provenance["global_values_sha256"]
+                    != logical["global_values_sha256"]
+                    or values_provenance["source_marker_context"]
+                    != logical["source_marker_context"]
+                    or values_provenance["logical_instance_identity"]
+                    != logical_identity
+                ):
+                    _semantic_error(
+                        f"{label} Helm dependency Values identity is contradictory"
+                    )
+                for field in (
+                    "dependency_defaults_source_sha256",
+                    "dependency_defaults_values_sha256",
+                    "parent_scoped_values_sha256",
+                    "global_values_sha256",
+                    "import_values_contribution_sha256",
+                    "effective_values_root_sha256",
+                ):
+                    _require_sha(
+                        values_provenance[field],
+                        f"{label} Helm dependency Values {field}",
+                    )
+                source_kind = values_provenance[
+                    "dependency_defaults_source_kind"
+                ]
+                source_path = values_provenance[
+                    "dependency_defaults_source_path"
+                ]
+                if source_kind == "ABSENT":
+                    if source_path:
+                        _semantic_error(
+                            f"{label} absent Helm dependency Values have a source path"
+                        )
+                else:
+                    try:
+                        if canonical_repo_path(
+                            source_path, "Helm dependency Values source path"
+                        ) != source_path:
+                            _semantic_error(
+                                f"{label} Helm dependency Values path is not canonical"
+                            )
+                    except DomainError as exc:
+                        _semantic_error(
+                            f"{label} Helm dependency Values path is unsafe: {exc}"
+                        )
+            effective_name = logical["effective_name"]
+            parent_for_nested = logical_identity
+            if logical_identity in logical_identities:
+                _semantic_error(f"{label} Helm logical dependency identity is duplicated")
+            logical_identities.add(logical_identity)
+            if version_binding is not None:
+                binding_body = dict(version_binding)
+                binding_identity = binding_body.pop("version_binding_identity")
+                if _canonical_json_digest(binding_body) != binding_identity:
+                    _semantic_error(
+                        f"{label} Helm dependency version binding is not canonical"
+                    )
+                if (
+                    binding_body["physical_dependency_identity"] != physical_identity
+                    or binding_body["logical_instance_identity"] != logical_identity
+                    or binding_body["protected_lock_resolved_version"]
+                    != artifact["version"]
+                    or binding_body["dependency_chart_version"] != artifact["version"]
+                ):
+                    _semantic_error(
+                        f"{label} Helm dependency version binding is contradictory"
+                    )
+                try:
+                    expected_binding = prove_constraint(
+                        binding_body["declared_constraint"], artifact["version"]
+                    )
+                except HelmSemverError as exc:
+                    _semantic_error(
+                        f"{label} Helm dependency version binding is invalid: {exc.reason}"
+                    )
+                if not expected_binding["satisfied"]:
+                    _semantic_error(
+                        f"{label} Helm dependency version constraint is unsatisfied"
+                    )
+                expected_binding["protected_lock_resolved_version"] = (
+                    expected_binding.pop("resolved_version")
+                )
+                expected_binding["dependency_chart_version"] = artifact["version"]
+                expected_binding["physical_dependency_identity"] = physical_identity
+                expected_binding["logical_instance_identity"] = logical_identity
+                if binding_body != expected_binding:
+                    _semantic_error(
+                        f"{label} Helm dependency version evidence is not reproducible"
+                    )
+        elif version_binding is not None:
+            _semantic_error(
+                f"{label} Helm dependency version binding lacks protected identities"
+            )
+        elif values_provenance is not None:
+            _semantic_error(
+                f"{label} Helm dependency Values provenance lacks protected identities"
+            )
+        if effective_name in effective_names:
+            _semantic_error(f"{label} Helm effective dependency name is duplicated")
+        effective_names.add(effective_name)
+        expected_context = (
+            f"{logical_prefix}/charts/{effective_name}"
+            if logical_prefix else f"charts/{effective_name}"
+        )
+        context = artifact.get("logical_context")
+        if context is not None and context != expected_context:
+            _semantic_error(f"{label} Helm logical source context is contradictory")
+        nested = artifact.get("dependencies")
+        if nested is not None:
+            nested_archive = (
+                archive_provenance
+                if form in {"archive", "local-archive", "archive-member-archive"}
+                else enclosing_archive
+            )
+            _validate_helm_dependency_closure(
+                nested,
+                label,
+                logical_prefix=expected_context,
+                expected_parent=parent_for_nested,
+                enclosing_archive=nested_archive,
+            )
+
+
+def _helm_logical_values_contexts(evidence: dict) -> dict[str, dict]:
+    inputs = evidence["render_inputs"]
+    root = inputs.get("protected_root_effective_values_sha256")
+    result: dict[str, dict] = {}
+    if root is not None:
+        result["."] = {
+            "logical_instance_identity": ".",
+            "source_marker_context": ".",
+            "effective_values_root_sha256": root,
+            "values_provenance_identity": root,
+        }
+
+    def add(closure: dict) -> None:
+        for artifact in closure["artifacts"]:
+            values = artifact.get("values_provenance")
+            if values is not None:
+                context = values["source_marker_context"]
+                if context in result:
+                    _semantic_error("Helm logical Values context is duplicated")
+                result[context] = {
+                    "logical_instance_identity": values[
+                        "logical_instance_identity"
+                    ],
+                    "source_marker_context": context,
+                    "effective_values_root_sha256": values[
+                        "effective_values_root_sha256"
+                    ],
+                    "values_provenance_identity": values[
+                        "provenance_identity"
+                    ],
+                }
+            nested = artifact.get("dependencies")
+            if nested is not None:
+                add(nested)
+
+    add(evidence["chart"]["dependencies"])
+    return result
+
+
+def _helm_source_chart_context(source_template: str) -> str:
+    parts = PurePosixPath(source_template).parts
+    template_index = next(
+        (
+            position for position, part in enumerate(parts)
+            if part in {"templates", "crds"}
+        ),
+        None,
+    )
+    if template_index is None:
+        return "."
+    prefix = parts[:template_index]
+    return PurePosixPath(*prefix).as_posix() if prefix else "."
+
+
+def _validate_helm_a6_extensions(evidence: dict, label: str) -> None:
+    inputs = evidence["render_inputs"]
+    file_sha256 = _helm_logical_file_sha(evidence, label)
+    files = set(file_sha256)
     documents = evidence["documents"]
+    logical_values_contexts = _helm_logical_values_contexts(evidence)
     action = inputs.get("template_action_reachability")
     if action is not None:
         excluded = action["excluded_dangerous_actions"]
@@ -476,6 +891,78 @@ def _validate_helm_a6_extensions(evidence: dict, label: str) -> None:
                 )
         elif provenance["effective_namespace"] != document["namespace"]:
             _semantic_error(f"{label} Helm effective namespace is contradictory")
+        equivalence = provenance.get("named_template_equivalence")
+        values_binding = provenance.get("logical_values_binding")
+        source_context = _helm_source_chart_context(document["source_template"])
+        expected_values = logical_values_contexts.get(source_context)
+        if values_binding is not None:
+            values_body = dict(values_binding)
+            binding_identity = values_body.pop("binding_identity")
+            if _canonical_json_digest(values_body) != binding_identity:
+                _semantic_error(
+                    f"{label} Helm namespace Values binding is not canonical"
+                )
+            if (
+                expected_values is None
+                or any(
+                    values_binding[field] != expected_values[field]
+                    for field in (
+                        "logical_instance_identity",
+                        "source_marker_context",
+                        "effective_values_root_sha256",
+                        "values_provenance_identity",
+                    )
+                )
+                or values_binding["release_namespace"] != inputs["namespace"]
+            ):
+                _semantic_error(
+                    f"{label} Helm namespace uses a contradictory logical Values context"
+                )
+        elif expected_values is not None:
+            _semantic_error(
+                f"{label} Helm namespace logical Values binding is missing"
+            )
+        if provenance["resolution"] == "STATIC_NAMED_NAMESPACE_TEMPLATE":
+            if equivalence is None:
+                _semantic_error(f"{label} Helm namespace helper evidence is missing")
+        elif equivalence is not None:
+            _semantic_error(f"{label} Helm namespace helper evidence is unexpected")
+        if equivalence is not None:
+            members = equivalence["members"]
+            if members != sorted(
+                members,
+                key=lambda item: (item["source_path"], item["definition_ordinal"]),
+            ):
+                _semantic_error(f"{label} Helm helper members are not canonical")
+            _unique(
+                members,
+                lambda item: (item["source_path"], item["definition_ordinal"]),
+                f"{label} Helm helper definition member",
+            )
+            graph_digests = set()
+            for member in members:
+                if member["source_path"] not in files:
+                    _semantic_error(f"{label} Helm helper source escapes chart inventory")
+                if file_sha256[member["source_path"]] != member["source_sha256"]:
+                    _semantic_error(f"{label} Helm helper source digest is contradictory")
+                for field in (
+                    "definition_span_sha256", "action_graph_sha256",
+                    "consumer_value_sha256",
+                ):
+                    _require_sha(member[field], f"{label} Helm helper {field}")
+                graph_digests.add(member["action_graph_sha256"])
+                if member["consumer_value_sha256"] != equivalence[
+                    "consumer_value_sha256"
+                ]:
+                    _semantic_error(
+                        f"{label} Helm helper consumer values are contradictory"
+                    )
+            if len(graph_digests) != 1:
+                _semantic_error(f"{label} Helm helper action graphs are non-equivalent")
+            if equivalence["literal_helper_name"] != provenance["value_path"]:
+                _semantic_error(f"{label} Helm namespace helper identity is contradictory")
+            if _canonical_json_digest(members) != equivalence["equivalence_identity"]:
+                _semantic_error(f"{label} Helm helper equivalence identity is not canonical")
         for field in ("source_expression_sha256", "value_sha256"):
             _require_sha(
                 provenance[field], f"{label} Helm namespace {field}", allow_empty=True
@@ -507,15 +994,10 @@ def _validate_helm_materialization(payload: dict) -> None:
         if _canonical_json_digest(files) != chart["inventory_root_sha256"]:
             _semantic_error(f"{role} Helm chart inventory root is not canonical")
         _require_sha(chart["chart_yaml_sha256"], f"{role} Helm Chart.yaml digest")
-        _require_sha(
-            chart["dependencies"]["chart_lock_sha256"],
-            f"{role} Helm Chart.lock digest",
-            allow_empty=True,
-        )
-        expanded_dependency_paths = set()
-        for artifact in chart["dependencies"]["artifacts"]:
-            if artifact["form"] == "archive":
-                _require_sha(artifact["sha256"], f"{role} Helm dependency archive digest")
+        _validate_helm_dependency_closure(chart["dependencies"], role)
+        logical_file_sha256 = _helm_logical_file_sha(evidence, role)
+        expanded_dependency_paths: dict[str, str] = {}
+        for artifact in _iter_helm_dependency_artifacts(chart["dependencies"]):
             for item in artifact["expanded_files"]:
                 try:
                     if canonical_repo_path(
@@ -529,11 +1011,12 @@ def _validate_helm_materialization(payload: dict) -> None:
                         f"{role} expanded Helm dependency path is unsafe: {exc}"
                     )
                 _require_sha(item["sha256"], f"{role} expanded Helm dependency digest")
-                if item["path"] in expanded_dependency_paths:
+                prior = expanded_dependency_paths.get(item["path"])
+                if prior is not None and prior != item["sha256"]:
                     _semantic_error(
-                        f"duplicate authoritative {role} expanded Helm dependency path"
+                        f"contradictory authoritative {role} expanded Helm dependency path"
                     )
-                expanded_dependency_paths.add(item["path"])
+                expanded_dependency_paths[item["path"]] = item["sha256"]
         values_files = inputs["values_files"]
         _unique(values_files, lambda item: item["path"], f"{role} Helm values path")
         for item in values_files:
@@ -577,9 +1060,7 @@ def _validate_helm_materialization(payload: dict) -> None:
                     _semantic_error(f"{role} Helm source template is not canonical")
             except DomainError as exc:
                 _semantic_error(f"{role} Helm source template is unsafe: {exc}")
-            if document["source_template"] not in (
-                {item["path"] for item in files} | expanded_dependency_paths
-            ):
+            if document["source_template"] not in logical_file_sha256:
                 _semantic_error(f"{role} Helm source template is outside chart inventory")
         _validate_helm_a6_extensions(evidence, role)
         for document in documents:
@@ -722,6 +1203,141 @@ def _validate_helm_universe(payload: dict) -> None:
             _semantic_error("Helm universe graph participant is not rendered")
 
 
+def _validate_kustomize_materialization(payload: dict) -> None:
+    evidence = payload["materialization"]
+    inputs = evidence["inputs"]
+    documents = evidence["documents"]
+    build = evidence["build"]
+    output = evidence["output"]
+    engine = evidence["engine"]
+    _unique(inputs, lambda item: item["path"], "Kustomize protected input path")
+    for item in inputs:
+        try:
+            if canonical_repo_path(item["path"], "Kustomize input path") != item["path"]:
+                _semantic_error("Kustomize protected input path is not canonical")
+        except DomainError as exc:
+            _semantic_error(f"Kustomize protected input path is unsafe: {exc}")
+        if item["roles"] != sorted(set(item["roles"])) or item["referrers"] != sorted(
+            set(item["referrers"])
+        ):
+            _semantic_error("Kustomize source roles/referrers are not canonical")
+        _require_sha(item["sha256"], "Kustomize protected input digest")
+    _unique(
+        documents,
+        lambda item: item["resource_identity"],
+        "Kustomize rendered resource identity",
+    )
+    _unique(documents, lambda item: item["index"], "Kustomize document index")
+    for document in documents:
+        _require_sha(document["sha256"], "Kustomize rendered document digest")
+        expected_identity = (
+            f"{document['api_version']}/{document['kind']}/"
+            f"{document['namespace']}/{document['name']}"
+        )
+        if document["resource_identity"] != expected_identity:
+            _semantic_error("Kustomize rendered resource identity is not canonical")
+        if document["generated_secret"] != (document["kind"] == "Secret"):
+            _semantic_error("Kustomize secret-resource classification is contradictory")
+    input_root = _canonical_json_digest(inputs)
+    if build["transitive_input_manifest_sha256"] != input_root:
+        _semantic_error("Kustomize transitive input root is not canonical")
+    if any(item["provenance_root_sha256"] != input_root for item in documents):
+        _semantic_error("Kustomize output does not bind the complete input closure")
+    if (
+        output["resource_count"] != len(documents)
+        or output["document_inventory_sha256"] != _canonical_json_digest(documents)
+    ):
+        _semantic_error("Kustomize output inventory is inconsistent")
+    if (
+        output["fresh_build_count"] != 2
+        or build["build_1_raw_output_sha256"]
+        != build["build_2_raw_output_sha256"]
+        or build["build_1_raw_output_sha256"]
+        != output["rendered_bundle_sha256"]
+    ):
+        _semantic_error("Kustomize two-build identity is inconsistent")
+    build_root = build["build_root"]
+    if build_root != ".":
+        try:
+            if canonical_repo_path(build_root, "Kustomize build root") != build_root:
+                _semantic_error("Kustomize build root is not canonical")
+        except DomainError as exc:
+            _semantic_error(f"Kustomize build root is unsafe: {exc}")
+    expected_repository = _canonical_json_digest({
+        "input_manifest_root": input_root,
+        "build_root": build_root,
+    })
+    if build["repository_root_identity"] != expected_repository:
+        _semantic_error("Kustomize repository-root identity is not canonical")
+    controls = [item for item in inputs if "control_document" in item["roles"]]
+    control_root = _canonical_json_digest(controls)
+    if (
+        build["control_graph_sha256"] != control_root
+        or build["transform_declaration_sha256"] != control_root
+    ):
+        _semantic_error("Kustomize control/transform roots are not canonical")
+    expected_invocation = _canonical_json_digest({
+        "argv": [
+            "kustomize", "build", "<sealed-build-root>",
+            "--load-restrictor", "LoadRestrictionsNone",
+        ],
+        "network": "denied", "plugins": False, "helm": False,
+        "fresh_state": True,
+    })
+    if build["canonical_invocation_sha256"] != expected_invocation:
+        _semantic_error("Kustomize invocation identity is not canonical")
+    if build["source_to_output_lineage_sha256"] != _canonical_json_digest({
+        "input": input_root,
+        "output": output["rendered_bundle_sha256"],
+    }):
+        _semantic_error("Kustomize source-to-output lineage is not canonical")
+    from .kustomize import _engine_lock
+    try:
+        lock = _engine_lock()
+    except DomainError as exc:
+        _semantic_error(f"Kustomize implementation registry is unavailable: {exc}")
+    platform_record = lock["platforms"].get(engine["platform"])
+    if (
+        type(platform_record) is not dict
+        or engine["name"] != "kustomize"
+        or engine["version"] != lock["release"]["version"]
+        or engine["release_tag"] != lock["release"]["tag"]
+        or engine["release_id"] != lock["release"]["release_id"]
+        or engine["archive_sha256"] != platform_record["archive_sha256"]
+        or engine["executable_sha256"] != platform_record["executable_sha256"]
+        or engine["checksums_sha256"] != lock["release"]["checksums_sha256"]
+        or engine["implementation_registry_sha256"]
+        != lock["implementation_registry_sha256"]
+    ):
+        _semantic_error("Kustomize engine evidence is not allowlisted")
+    body = {
+        "engine": engine,
+        "build": build,
+        "inputs": inputs,
+        "output": output,
+        "documents": documents,
+    }
+    if _canonical_json_digest(body) != evidence["materialization_identity"]:
+        _semantic_error("Kustomize materialization identity is not canonical")
+    run = payload["acceptance"]["scanner_run"]
+    rendered_inputs = [
+        item for item in run["input_files"] if item["file_path"] == "rendered.yaml"
+    ]
+    if (
+        len(rendered_inputs) != 1
+        or rendered_inputs[0]["sha256"] != output["rendered_bundle_sha256"]
+    ):
+        _semantic_error("Kustomize output is not the exact scanner input")
+    identities = {item["resource_identity"] for item in documents}
+    for evaluation in run["evaluations"]:
+        graph = evaluation.get("graph_evidence")
+        if graph is not None and any(
+            participant["resource_address"] not in identities
+            for participant in graph["participants"]
+        ):
+            _semantic_error("Kustomize graph participant is not rendered")
+
+
 def _validate_candidate_acceptance(payload: dict) -> None:
     acceptance = payload["acceptance"]
     snapshot = acceptance["candidate_snapshot"]
@@ -855,7 +1471,14 @@ def _validate_candidate_acceptance(payload: dict) -> None:
             evaluation is None or evaluation["native_result"] != "FAILED"
         ):
             _semantic_error("VIOLATED lacks a native failed evaluation")
-        if item["selector"]["rule_id"].startswith("CKV2_") and item["outcome"] != "INCONCLUSIVE":
+        relationship_required = (
+            target_universe["query_identity_sha256"] != "0" * 64
+            or legacy_report_v1_property_capability(
+                evaluation["scanner"] if evaluation is not None else "checkov",
+                item["selector"]["rule_id"],
+            ) is PropertyCapability.RELATIONSHIP
+        )
+        if relationship_required and item["outcome"] != "INCONCLUSIVE":
             graph = evaluation.get("graph_evidence") if evaluation is not None else None
             if graph is None or graph["status"] != "PASS":
                 _semantic_error("decisive graph acceptance lacks complete graph evidence")
@@ -909,7 +1532,7 @@ def _validate_candidate_acceptance(payload: dict) -> None:
             if target_universe["status"] != "PASS":
                 _semantic_error("decisive property lacks a complete target universe")
             if (
-                item["selector"]["rule_id"].startswith("CKV2_")
+                relationship_required
                 and target_universe["policy_definition_sha256"] != "0" * 64
             ):
                 expected_participants = {
@@ -976,7 +1599,10 @@ def _validate_candidate_acceptance(payload: dict) -> None:
         and {item["file_path"] for item in scanner["input_files"]} == eligible_paths
     )
     scanner_complete = base_scanner_health and universes["status"] == "PASS"
-    if resource_coverage["expected_resources_missing"] != len(missing):
+    if (
+        universes["status"] == "PASS"
+        and resource_coverage["expected_resources_missing"] != len(missing)
+    ):
         _semantic_error("scanner missing-resource count disagrees with addressability evidence")
     classifications_by_key = {
         (
@@ -986,7 +1612,7 @@ def _validate_candidate_acceptance(payload: dict) -> None:
         ): item["classification"]
         for item in accounting
     }
-    if any(
+    if universes["status"] == "PASS" and any(
         classifications_by_key[key] != "GOVERNED_NON_TARGET_SCANNER_UNADDRESSED"
         for key in missing_keys
     ):
@@ -1019,7 +1645,13 @@ def _validate_candidate_acceptance(payload: dict) -> None:
             "decisive candidate acceptance requires complete scanner and parser evidence"
         )
     if "materialization" in payload:
-        _validate_helm_universe(payload)
+        contract = payload["materialization"]["contract"]
+        if contract == "helm-universe-v1":
+            _validate_helm_universe(payload)
+        elif contract == "kustomize-materialization-v1":
+            _validate_kustomize_materialization(payload)
+        else:  # The schema should reject this first; retain semantic defense in depth.
+            _semantic_error("candidate materialization contract is unsupported")
 
 
 def _validate_config_identity(config: dict) -> None:
@@ -1328,8 +1960,6 @@ def _validate_graph_evidence(
     graph = evaluation.get("graph_evidence")
     if graph is None:
         return
-    if not evaluation["rule_id"].startswith("CKV2_"):
-        _semantic_error(f"{role} non-CKV2 evaluation contains graph evidence")
     for name in (
         "input_manifest_sha256",
         "source_snapshot_sha256",
@@ -1563,8 +2193,7 @@ def _validate_scanner_run(
     }
     expected_resource_keys = set(expected_resource_kinds)
     if completion_basis and not any(
-        item["rule_id"].startswith("CKV2_")
-        and item.get("graph_evidence") is not None
+        item.get("graph_evidence") is not None
         for item in evaluations.values()
     ):
         _semantic_error(
@@ -1955,7 +2584,21 @@ def _derive_target_outcome(verification: dict, target: dict) -> tuple[str, int, 
     candidate_count = len(candidate_findings)
     if baseline_count != binding["baseline_occurrences"]:
         return "INCONCLUSIVE", baseline_count, candidate_count
-    if target["identity"]["rule_id"].startswith("CKV2_"):
+    # report-v1 predates the explicit scanner-neutral property-capability field.
+    # Preserve its reviewed Checkov CKV2 convention only in this compatibility
+    # reader; newly constructed protected scan plans carry the capability directly.
+    relationship_required = (
+        legacy_report_v1_property_capability(
+            target["identity"]["scanner"], target["identity"]["rule_id"]
+        )
+        is PropertyCapability.RELATIONSHIP
+        or any(
+            item.get("graph_evidence") is not None
+            for item in baseline["evaluations"]
+            if _target_evaluation(item, target, baseline)
+        )
+    )
+    if relationship_required:
         baseline_graph = [
             item for item in baseline["evaluations"]
             if _target_evaluation(item, target, baseline)
@@ -2658,8 +3301,18 @@ class CandidateAcceptancePropertyEvidence:
             or self.evaluation.native_result is not CheckEvaluationResult.FAILED
         ):
             raise DomainError("VIOLATED requires an exact native failed evaluation")
-        if self.outcome != "INCONCLUSIVE" and self.rule_id.startswith("CKV2_"):
-            graph = self.evaluation.graph_evidence
+        legacy_capability = legacy_report_v1_property_capability(
+            self.evaluation.scanner if self.evaluation is not None else "checkov",
+            self.rule_id,
+        )
+        if self.outcome != "INCONCLUSIVE" and (
+            legacy_capability is PropertyCapability.RELATIONSHIP
+            or (
+                self.evaluation is not None
+                and self.evaluation.graph_evidence is not None
+            )
+        ):
+            graph = None if self.evaluation is None else self.evaluation.graph_evidence
             if graph is None or graph.status is not Status.PASS:
                 raise DomainError("decisive graph acceptance requires complete graph evidence")
 
@@ -2715,28 +3368,41 @@ class CandidateAcceptanceReportV1:
                 raise DomainError("candidate property evaluation escapes its scanner run")
         if self.materialization is not None:
             from .helm import HelmMaterializedUniverse
+            from .kustomize import KustomizeMaterializationEvidence
 
-            if type(self.materialization) is not HelmMaterializedUniverse:
+            if type(self.materialization) is HelmMaterializedUniverse:
+                expected_digest = self.materialization.combined_output[
+                    "rendered_bundle_sha256"
+                ]
+                rendered = {
+                    document.resource_identity
+                    for _key, document in self.materialization.resource_ownership
+                }
+            elif type(self.materialization) is KustomizeMaterializationEvidence:
+                expected_digest = self.materialization.output[
+                    "rendered_bundle_sha256"
+                ]
+                rendered = {
+                    document.resource_identity for document in self.materialization.documents
+                }
+            else:
                 raise DomainError("candidate acceptance materialization is unsupported")
             bound_inputs = [
                 item for item in self.scanner_run.input_files
                 if item.file_path == "rendered.yaml"
             ]
-            expected_digest = self.materialization.combined_output[
-                "rendered_bundle_sha256"
-            ]
             if len(bound_inputs) != 1 or bound_inputs[0].sha256 != expected_digest:
-                raise DomainError("Helm universe does not bind exact scanner input bytes")
-            rendered = {
-                document.resource_identity
-                for _key, document in self.materialization.resource_ownership
-            }
+                raise DomainError(
+                    "materialized universe does not bind exact scanner input bytes"
+                )
             for evaluation in self.scanner_run.evaluations:
                 if evaluation.graph_evidence is not None and any(
                     participant.resource_address not in rendered
                     for participant in evaluation.graph_evidence.participants
                 ):
-                    raise DomainError("Helm universe graph evidence escapes rendered resources")
+                    raise DomainError(
+                        "materialized universe graph evidence escapes rendered resources"
+                    )
 
     @property
     def verdict(self) -> Verdict:

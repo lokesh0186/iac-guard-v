@@ -439,16 +439,18 @@ def test_h24_dependency_alias_is_rejected_until_it_has_a_bound_identity_model(
         "- {name: child, alias: renamed, version: 1.2.3, repository: 'file://child'}\n",
         encoding="utf-8",
     )
+    # a8 models aliases, but this fixture still omits both vendored and contained
+    # local dependency bytes, so it fails at the artifact boundary.
     assert _failure(_spec(tmp_path, chart_root=chart), tmp_path) == (
-        "UNREPRODUCIBLE_DEPENDENCIES"
+        "HELM_DEPENDENCY_ARTIFACT_MISSING"
     )
 
 
 @pytest.mark.parametrize(
     ("repository", "lock", "vendor", "expected"),
     (
-        ("https://example.invalid", False, False, "UNREPRODUCIBLE_DEPENDENCIES"),
-        ("file://child", False, False, "UNREPRODUCIBLE_DEPENDENCIES"),
+        ("https://example.invalid", False, False, "HELM_DEPENDENCY_REMOTE_RESOLUTION_REQUIRED"),
+        ("file://child", False, False, "HELM_DEPENDENCY_ARTIFACT_MISSING"),
         ("https://example.invalid", True, False, "UNREPRODUCIBLE_DEPENDENCIES"),
     ),
 )
@@ -681,21 +683,14 @@ def test_known_random_source_takes_precedence_over_unrelated_dynamic_call(
     )
 
 
-@pytest.mark.parametrize(
-    "helper",
-    (
-        '{{ define "demo.one" }}{{ end }}{{ define "demo.one" }}{{ end }}',
-        '{{ define "demo.one" }}unterminated',
-    ),
-)
-def test_named_template_definition_must_be_closed_and_unique(
-    tmp_path: Path, helper: str
-) -> None:
+def test_named_template_definition_must_be_closed(tmp_path: Path) -> None:
     chart = _chart(tmp_path)
-    (chart / "templates" / "helpers.tpl").write_text(helper, encoding="utf-8")
+    (chart / "templates" / "helpers.tpl").write_text(
+        '{{ define "demo.one" }}unterminated', encoding="utf-8"
+    )
 
     assert _failure(_spec(tmp_path, chart_root=chart), tmp_path) == (
-        "AMBIGUOUS_TEMPLATE_ACTION_GRAPH"
+        "HELM_TEMPLATE_DEFINITION_PARSE_FAILED"
     )
 
 

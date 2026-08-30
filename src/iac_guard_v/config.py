@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .enums import ArtifactKind
 from .helm import HelmRenderSpec, HelmUniverseChart
+from .kustomize import KustomizeBuildSpec
 from .models import DomainError, Target, TargetIdentity, canonical_identifier
 
 
@@ -26,6 +27,7 @@ class PublicTarget:
     artifact_kind: ArtifactKind = ArtifactKind.UNKNOWN
     scanner_native_lookup: str = ""
     baseline_occurrences: int = 1
+    scanner_name: str = "checkov"
 
     def __post_init__(self) -> None:
         if type(self.artifact_kind) is not ArtifactKind:
@@ -34,7 +36,7 @@ class PublicTarget:
             raise DomainError("baseline_occurrences must be a positive exact integer")
         # Target performs the full canonical path/scope validation without retaining it.
         Target(
-            TargetIdentity("checkov", self.rule_id, self.resource_address),
+            TargetIdentity(self.scanner_name, self.rule_id, self.resource_address),
             self.baseline_occurrences,
             self.file_path,
             self.artifact_kind,
@@ -43,7 +45,7 @@ class PublicTarget:
 
     def to_domain(self) -> Target:
         return Target(
-            TargetIdentity("checkov", self.rule_id, self.resource_address),
+            TargetIdentity(self.scanner_name, self.rule_id, self.resource_address),
             self.baseline_occurrences,
             self.file_path,
             self.artifact_kind,
@@ -138,12 +140,13 @@ class PublicAcceptanceProperty:
     resource_address: str
     file_path: str = ""
     artifact_kind: ArtifactKind = ArtifactKind.UNKNOWN
+    scanner_name: str = "checkov"
 
     def __post_init__(self) -> None:
         if type(self.artifact_kind) is not ArtifactKind:
             raise DomainError("acceptance property artifact_kind must be an ArtifactKind")
         Target(
-            TargetIdentity("checkov", self.rule_id, self.resource_address),
+            TargetIdentity(self.scanner_name, self.rule_id, self.resource_address),
             1,
             self.file_path,
             self.artifact_kind,
@@ -242,6 +245,31 @@ class PublicHelmAcceptanceRequest:
             executable = self.checkov_executable.resolve(strict=True)
         except OSError as exc:
             raise DomainError("Helm Checkov executable is unavailable") from exc
+        object.__setattr__(self, "checkov_executable", executable)
+
+
+@dataclass(frozen=True, slots=True)
+class PublicKustomizeAcceptanceRequest:
+    build: KustomizeBuildSpec
+    properties: tuple[PublicAcceptanceProperty, ...]
+    execution_isolation: ExecutionIsolation
+    checkov_executable: Path
+
+    def __post_init__(self) -> None:
+        if type(self.build) is not KustomizeBuildSpec:
+            raise DomainError("Kustomize acceptance requires an exact build specification")
+        if type(self.properties) is not tuple or not self.properties or any(
+            type(item) is not PublicAcceptanceProperty for item in self.properties
+        ):
+            raise DomainError("Kustomize properties must be a nonempty exact tuple")
+        if self.execution_isolation is not ExecutionIsolation.REDUCED_ISOLATION:
+            raise DomainError("Kustomize a8 supports explicit local-trusted scanning only")
+        if not isinstance(self.checkov_executable, Path):
+            raise DomainError("Kustomize acceptance requires an explicit Checkov executable")
+        try:
+            executable = self.checkov_executable.resolve(strict=True)
+        except OSError as exc:
+            raise DomainError("Kustomize Checkov executable is unavailable") from exc
         object.__setattr__(self, "checkov_executable", executable)
 
 
@@ -347,6 +375,7 @@ _HELM_CHART_FIELDS = frozenset({
     "universe_key", "chart_root", "helm_executable", "release_name", "namespace",
     "kube_version", "values_files", "set", "set_string", "api_versions",
     "include_crds", "include_tests",
+    "protected_repository_root",
 })
 _ACCEPTANCE_PROPERTY_FIELDS = frozenset({
     "rule_id", "resource_address", "file_path", "artifact_kind",
@@ -414,6 +443,13 @@ def load_public_helm_acceptance_config(path: Path) -> PublicHelmAcceptanceReques
         for name in required:
             if type(value[name]) is not str or not value[name]:
                 raise DomainError(f"Helm acceptance chart {name} must be nonblank")
+        if "protected_repository_root" in value and (
+            type(value["protected_repository_root"]) is not str
+            or not value["protected_repository_root"]
+        ):
+            raise DomainError(
+                "Helm acceptance chart protected_repository_root must be nonblank"
+            )
         for name in ("include_crds", "include_tests"):
             if name in value and type(value[name]) is not bool:
                 raise DomainError(f"Helm acceptance chart {name} must be Boolean")
@@ -431,6 +467,8 @@ def load_public_helm_acceptance_config(path: Path) -> PublicHelmAcceptanceReques
                 _string_list(value.get("api_versions", []), "api_versions"),
                 value.get("include_crds", False),
                 value.get("include_tests", False),
+                None if "protected_repository_root" not in value
+                else Path(value["protected_repository_root"]),
             ),
         ))
     raw_properties = payload.get("properties")
@@ -444,9 +482,50 @@ def load_public_helm_acceptance_config(path: Path) -> PublicHelmAcceptanceReques
     )
 
 
+_KUSTOMIZE_ACCEPTANCE_FIELDS = frozenset({
+    "schema_version", "repository_root", "build_root", "kustomize_executable",
+    "checkov_executable", "properties",
+})
+
+
+def load_public_kustomize_acceptance_config(
+    path: Path,
+) -> PublicKustomizeAcceptanceRequest:
+    """Load the closed local-source Kustomize a8 acceptance request."""
+    payload = _read_config(path)
+    if set(payload) != _KUSTOMIZE_ACCEPTANCE_FIELDS:
+        raise DomainError(
+            "kustomize-acceptance-v1 requires exactly its closed field set"
+        )
+    if payload["schema_version"] != "kustomize-acceptance-v1":
+        raise DomainError(
+            "Kustomize acceptance schema_version must be kustomize-acceptance-v1"
+        )
+    for name in (
+        "repository_root", "build_root", "kustomize_executable", "checkov_executable"
+    ):
+        if type(payload[name]) is not str or not payload[name]:
+            raise DomainError(f"Kustomize acceptance {name} must be nonblank")
+    raw_properties = payload["properties"]
+    if type(raw_properties) is not list or not raw_properties:
+        raise DomainError("Kustomize acceptance properties must be a nonempty array")
+    return PublicKustomizeAcceptanceRequest(
+        KustomizeBuildSpec(
+            Path(payload["repository_root"]),
+            Path(payload["build_root"]),
+            Path(payload["kustomize_executable"]),
+        ),
+        tuple(_acceptance_property(item) for item in raw_properties),
+        ExecutionIsolation.REDUCED_ISOLATION,
+        Path(payload["checkov_executable"]),
+    )
+
+
 __all__ = [
     "ExecutionIsolation", "PublicAcceptanceProperty",
     "PublicCandidateAcceptanceRequest", "PublicHelmAcceptanceRequest",
+    "PublicKustomizeAcceptanceRequest",
     "PublicHelmVerificationRequest", "PublicTarget", "PublicVerificationRequest",
     "load_public_config", "load_public_helm_acceptance_config",
+    "load_public_kustomize_acceptance_config",
 ]

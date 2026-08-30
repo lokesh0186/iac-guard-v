@@ -1,0 +1,3595 @@
+{
+  "artifact_counts": {
+    "HELM": 40,
+    "KUSTOMIZE": 15
+  },
+  "corpus_id": "a8-original-design-55-surfaces",
+  "manifest_payload_sha256": "3a4d6ac6678c917879575c228c9b2521dd40b37a922d671afffdd28f8010ec4c",
+  "original_design_prediction_counts": {
+    "FAIL_CLOSED_PRODUCT_BOUNDARY": 22,
+    "PARTIALLY_REACHABLE": 6,
+    "SUPPORTED": 27
+  },
+  "recovery_status": "EXACT_ORIGINAL_SURFACES_RECOVERED",
+  "replay_protocol": {
+    "candidate_source_mutation": "FORBIDDEN",
+    "internal_materializer_fresh_builds": 2,
+    "mode": "MATERIALIZATION_REACHABILITY",
+    "network": "FORBIDDEN",
+    "product_path": "public Python materializer API used by CLI acceptance paths",
+    "render_count_per_surface": 1,
+    "selected_property_request": "not applicable to original construct-frequency surfaces"
+  },
+  "repositories": {
+    "airflow": {
+      "archive_path": "repositories/airflow-9d54ac94826d8f46c0d6d1032ee7d9988e562d70.tar.gz",
+      "archive_root_prefix": "airflow-9d54ac94826d8f46c0d6d1032ee7d9988e562d70",
+      "archive_sha256": "dfab64428bb321d12a2f577b1fcfcbb82420d643276a5cb80ac0aa0a9eed15fb",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "9d54ac94826d8f46c0d6d1032ee7d9988e562d70",
+      "commit_tree_sha": "f598988108217c65570f05bdc1fc22a151d7c887",
+      "repository": "apache/airflow",
+      "repository_url": "https://github.com/apache/airflow",
+      "snapshot_file_count": 12170,
+      "snapshot_manifest_root": "2bb0d6b09d02030d3e6e5ee1118a472074cca63fecb90126fb5f9e0deb1a5f24"
+    },
+    "argo-helm": {
+      "archive_path": "repositories/argo-helm-e0e82f7a9b543405ee25798ce8c899705503a3d1.tar.gz",
+      "archive_root_prefix": "argo-helm-e0e82f7a9b543405ee25798ce8c899705503a3d1",
+      "archive_sha256": "9f3f2e23a5fd557c77da545054f5385a8eb01195dbe25838d979c3dc7fe3e3a2",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "e0e82f7a9b543405ee25798ce8c899705503a3d1",
+      "commit_tree_sha": "09e1cc5e643ae8747e8352c49ec4cbd459142e0a",
+      "repository": "argoproj/argo-helm",
+      "repository_url": "https://github.com/argoproj/argo-helm",
+      "snapshot_file_count": 372,
+      "snapshot_manifest_root": "355866b3f8591be9e0c834a50ce31f93aebb6a208b591bb8bc1ed376bff7032e"
+    },
+    "argo-workflows": {
+      "archive_path": "repositories/argo-workflows-bde5adf915fbc2600a49e6e864a699544fb91368.tar.gz",
+      "archive_root_prefix": "argo-workflows-bde5adf915fbc2600a49e6e864a699544fb91368",
+      "archive_sha256": "bc166229502573877c732414ca9167072e8c687cc330f2b916d332fbb82fcd53",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "bde5adf915fbc2600a49e6e864a699544fb91368",
+      "commit_tree_sha": "5004d1ddfdc929ae35183d0bf05b1206d7524047",
+      "repository": "argoproj/argo-workflows",
+      "repository_url": "https://github.com/argoproj/argo-workflows",
+      "snapshot_file_count": 3051,
+      "snapshot_manifest_root": "f2cf9b79da74c8c38f7f12edd12ee1f6ab050f961e8f8b72b8e60be2e76c31fa"
+    },
+    "aws-load-balancer-controller": {
+      "archive_path": "repositories/aws-load-balancer-controller-7040d02b38580b8b8b47ba3fb2b279da9698f5d9.tar.gz",
+      "archive_root_prefix": "aws-load-balancer-controller-7040d02b38580b8b8b47ba3fb2b279da9698f5d9",
+      "archive_sha256": "cea5e4d83235143d4de488adf933783eda15a7b56ef1893d61c49ece4f3933cb",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "7040d02b38580b8b8b47ba3fb2b279da9698f5d9",
+      "commit_tree_sha": "9cf462b3cc592730d57061332aa32a164a212856",
+      "repository": "kubernetes-sigs/aws-load-balancer-controller",
+      "repository_url": "https://github.com/kubernetes-sigs/aws-load-balancer-controller",
+      "snapshot_file_count": 1039,
+      "snapshot_manifest_root": "f8f421f7aea5835d03c6e4c9aa3e44f8ec8133f6d670a36a2340f1b6c34b4dc1"
+    },
+    "azure-blob-csi": {
+      "archive_path": "repositories/azure-blob-csi-d50172c7fbab36573ed92ef0b1f4b4b32d41ff19.tar.gz",
+      "archive_root_prefix": "blob-csi-driver-d50172c7fbab36573ed92ef0b1f4b4b32d41ff19",
+      "archive_sha256": "841f8632d867011c649da0a8a07355912d3a1cb2bf636754ff243977832be199",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "d50172c7fbab36573ed92ef0b1f4b4b32d41ff19",
+      "commit_tree_sha": "7920b18aff86a1871efeb236279b5fed8a33abec",
+      "repository": "kubernetes-sigs/blob-csi-driver",
+      "repository_url": "https://github.com/kubernetes-sigs/blob-csi-driver",
+      "snapshot_file_count": 9887,
+      "snapshot_manifest_root": "3abc366bbcd1d87fa8174319824fa46b43078c3df33703a575a0ca9a685981a4"
+    },
+    "cloudnative-pg": {
+      "archive_path": "repositories/cloudnative-pg-8179beb0592398b9ae3221d8488c815b73e94b2c.tar.gz",
+      "archive_root_prefix": "cloudnative-pg-8179beb0592398b9ae3221d8488c815b73e94b2c",
+      "archive_sha256": "5987d1dd09806d448842f06f077bcb822c77def48a16a1470df88e6cbee0c6be",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "8179beb0592398b9ae3221d8488c815b73e94b2c",
+      "commit_tree_sha": "f029b8f8468992fc01b205795377d5d646a2e138",
+      "repository": "cloudnative-pg/cloudnative-pg",
+      "repository_url": "https://github.com/cloudnative-pg/cloudnative-pg",
+      "snapshot_file_count": 1844,
+      "snapshot_manifest_root": "0ddf151a6b86b29c7f2f991a2f1df0bfb6d96c2880a02e389deea4034c121ba0"
+    },
+    "coder-enterprise-helm": {
+      "archive_path": "repositories/coder-enterprise-helm-b096a369fe2d1b2de75a0b85af01fa9e272b221e.tar.gz",
+      "archive_root_prefix": "enterprise-helm-b096a369fe2d1b2de75a0b85af01fa9e272b221e",
+      "archive_sha256": "2ec165f7718da1fab86353a12ef165101486e05a98907c317b1f2a6c8fc7ca67",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "b096a369fe2d1b2de75a0b85af01fa9e272b221e",
+      "commit_tree_sha": "eb222290d36fb794b0499576b44b62ca07fed408",
+      "repository": "coder/enterprise-helm",
+      "repository_url": "https://github.com/coder/enterprise-helm",
+      "snapshot_file_count": 61,
+      "snapshot_manifest_root": "c63197b41777517bf57fbbb1203fc87e2938cce52f3ac33c832bbc8319cb5786"
+    },
+    "cortex-helm-chart": {
+      "archive_path": "repositories/cortex-helm-chart-73337e251edec84ed394b47649ec0e4763cdb591.tar.gz",
+      "archive_root_prefix": "cortex-helm-chart-73337e251edec84ed394b47649ec0e4763cdb591",
+      "archive_sha256": "238d8421df81fa422d3e1e30501d65cfb71f15254d8882bd31d0b794cf4af44f",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "73337e251edec84ed394b47649ec0e4763cdb591",
+      "commit_tree_sha": "787e8654316af2a6217f07ebeceb72ce1fdfb816",
+      "repository": "cortexproject/cortex-helm-chart",
+      "repository_url": "https://github.com/cortexproject/cortex-helm-chart",
+      "snapshot_file_count": 173,
+      "snapshot_manifest_root": "e93757ac32e3188be6da2088a705dc1173ba2f300c122bb4609247c561bc6b6f"
+    },
+    "csi-driver-smb": {
+      "archive_path": "repositories/csi-driver-smb-0f879a3208930a1a61cbe6fc2353719495845ba9.tar.gz",
+      "archive_root_prefix": "csi-driver-smb-0f879a3208930a1a61cbe6fc2353719495845ba9",
+      "archive_sha256": "fb5fca1520cd3c5a5761581cdd2e10e41859a3a8c0717adf7823ba624b555425",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "0f879a3208930a1a61cbe6fc2353719495845ba9",
+      "commit_tree_sha": "b5866935107c6a97c78e8acea6fe1f032017f056",
+      "repository": "kubernetes-csi/csi-driver-smb",
+      "repository_url": "https://github.com/kubernetes-csi/csi-driver-smb",
+      "snapshot_file_count": 9062,
+      "snapshot_manifest_root": "c40d575f09a7eabadf8ada1b979e7fcbface05e2781d3757ab48cb3fe9cc6ff7"
+    },
+    "descheduler": {
+      "archive_path": "repositories/descheduler-8bbd0bd661f2328ade2615ab0bd7f8dcafa3e723.tar.gz",
+      "archive_root_prefix": "descheduler-8bbd0bd661f2328ade2615ab0bd7f8dcafa3e723",
+      "archive_sha256": "b818995fb02d0573b42d25c273ce8dc21ecb408b904fd1d59874cb32b77b6a57",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "8bbd0bd661f2328ade2615ab0bd7f8dcafa3e723",
+      "commit_tree_sha": "389f804ed1e9a7638529b77ca1bbc905bb7bc767",
+      "repository": "kubernetes-sigs/descheduler",
+      "repository_url": "https://github.com/kubernetes-sigs/descheduler",
+      "snapshot_file_count": 7620,
+      "snapshot_manifest_root": "d0ca8faf76ecb782591cbbdc087e9c1e0eb1213d991eaa05230827675da296c6"
+    },
+    "external-secrets": {
+      "archive_path": "repositories/external-secrets-8488600898e856d74a7e0f53ed5e3cc79d89f4e8.tar.gz",
+      "archive_root_prefix": "external-secrets-8488600898e856d74a7e0f53ed5e3cc79d89f4e8",
+      "archive_sha256": "29874406c7593cf93c09d189050f7f5537c38f6ba3257b53886a57ba9bb2e241",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "8488600898e856d74a7e0f53ed5e3cc79d89f4e8",
+      "commit_tree_sha": "816e037251bf68375e22982757f87ab744406223",
+      "repository": "external-secrets/external-secrets",
+      "repository_url": "https://github.com/external-secrets/external-secrets",
+      "snapshot_file_count": 1785,
+      "snapshot_manifest_root": "ca7476655656803fa941046ebe360d3bfae5f81004cf9ed995e7cbe197acffc9"
+    },
+    "flux-kustomize-controller": {
+      "archive_path": "repositories/flux-kustomize-controller-186fb3b29138ce82ff61ba1a9370b96a3dd598fe.tar.gz",
+      "archive_root_prefix": "kustomize-controller-186fb3b29138ce82ff61ba1a9370b96a3dd598fe",
+      "archive_sha256": "cf2f1a08dc378fb52b0eba23fdeb9c9715683fb69657ce19928b18e2f58147bf",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "186fb3b29138ce82ff61ba1a9370b96a3dd598fe",
+      "commit_tree_sha": "bbaf44b12f1b5fbbe94779f6a8999b97eb49bee1",
+      "repository": "fluxcd/kustomize-controller",
+      "repository_url": "https://github.com/fluxcd/kustomize-controller",
+      "snapshot_file_count": 211,
+      "snapshot_manifest_root": "51d2265ca272fe8d10815ef8b417ac30074253f8250f1596dc7ee69ca62dfc7a"
+    },
+    "flux-source-controller": {
+      "archive_path": "repositories/flux-source-controller-208961aa7bf334cbef95bee390712b27a925dec2.tar.gz",
+      "archive_root_prefix": "source-controller-208961aa7bf334cbef95bee390712b27a925dec2",
+      "archive_sha256": "c7eaa49aaebde8f39d603aaf861700e6245c370eb30a538ca04c733cbd087fa7",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "208961aa7bf334cbef95bee390712b27a925dec2",
+      "commit_tree_sha": "d7c70f0d748d82adac68686fcc4f78c3cc580513",
+      "repository": "fluxcd/source-controller",
+      "repository_url": "https://github.com/fluxcd/source-controller",
+      "snapshot_file_count": 403,
+      "snapshot_manifest_root": "d6d86d002ee17a9be291b65cd1bd13dc438b93fd4c1b6b874116360d6a2c06d7"
+    },
+    "gateway-api": {
+      "archive_path": "repositories/gateway-api-1ab0781ac715b26a25ff201ce444058a47703c4c.tar.gz",
+      "archive_root_prefix": "gateway-api-1ab0781ac715b26a25ff201ce444058a47703c4c",
+      "archive_sha256": "86a59658567af7429483f760e690a164c7572f01f07769cf7e85d82bc7779559",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "1ab0781ac715b26a25ff201ce444058a47703c4c",
+      "commit_tree_sha": "be7eacc94b3c15aef268a793d071c809712d441e",
+      "repository": "kubernetes-sigs/gateway-api",
+      "repository_url": "https://github.com/kubernetes-sigs/gateway-api",
+      "snapshot_file_count": 1628,
+      "snapshot_manifest_root": "de8f94d647849245c6576cc6d726770dab1756c1efd09e401aecdcaefe3fa67f"
+    },
+    "grafana": {
+      "archive_path": "repositories/grafana-7a0ab968961a165318ab95ff678908c3b9bc3240.tar.gz",
+      "archive_root_prefix": "helm-charts-7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "archive_sha256": "afb9997e54b3212ceae723a37cd07728a3c4c9f02accc19a2c3d95d4cef66804",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "repository": "grafana/helm-charts",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "snapshot_file_count": 516,
+      "snapshot_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322"
+    },
+    "harbor-helm": {
+      "archive_path": "repositories/harbor-helm-acb552529b7c73d86840130eee226f17dc79a5ab.tar.gz",
+      "archive_root_prefix": "harbor-helm-acb552529b7c73d86840130eee226f17dc79a5ab",
+      "archive_sha256": "26e1bc93acc11754ee4bc8b3c329e747d5da32461d73ce7182bb2c0e566f0b42",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "acb552529b7c73d86840130eee226f17dc79a5ab",
+      "commit_tree_sha": "efabb59b2f05bcaa61e513d71d6fff036c42fb7d",
+      "repository": "goharbor/harbor-helm",
+      "repository_url": "https://github.com/goharbor/harbor-helm",
+      "snapshot_file_count": 98,
+      "snapshot_manifest_root": "4ef7c2dc805980a472e37848a6e4a6d26c961c6efc03e8311ff83b8e64b0b877"
+    },
+    "harness-gitops-agent": {
+      "archive_path": "repositories/harness-gitops-agent-c4bfa0297cfbd27f0cc591f26a9ec39119ddbcb0.tar.gz",
+      "archive_root_prefix": "gitops-agent-helm-chart-c4bfa0297cfbd27f0cc591f26a9ec39119ddbcb0",
+      "archive_sha256": "1d5e4799338701d0ddd71ea9ca81da31ac0f94d3b0b24d82da28edfcc1a6d45d",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "c4bfa0297cfbd27f0cc591f26a9ec39119ddbcb0",
+      "commit_tree_sha": "b4b367c9acf1e4908ff0846e10d6424f29ccb811",
+      "repository": "harness/gitops-agent-helm-chart",
+      "repository_url": "https://github.com/harness/gitops-agent-helm-chart",
+      "snapshot_file_count": 22,
+      "snapshot_manifest_root": "96e7d6ee0605163ad508a6c468aa3881a2f13d74e9668417849c5564d8be0c53"
+    },
+    "jenkins-helm": {
+      "archive_path": "repositories/jenkins-helm-41eeb20f3f00dda2515d2c5724b1343c5a237762.tar.gz",
+      "archive_root_prefix": "helm-charts-41eeb20f3f00dda2515d2c5724b1343c5a237762",
+      "archive_sha256": "69cb66b88df093452f866e73019aef90fa10b556e6ba384db2da8aecf4cfa604",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "41eeb20f3f00dda2515d2c5724b1343c5a237762",
+      "commit_tree_sha": "4689d8ca56275154e85f49dd9f956ba5e46f287a",
+      "repository": "jenkinsci/helm-charts",
+      "repository_url": "https://github.com/jenkinsci/helm-charts",
+      "snapshot_file_count": 101,
+      "snapshot_manifest_root": "f7397ab5aae0dda6d4a519253e0d3f8846b07ef12e98fd77cd5129ff34d44187"
+    },
+    "kyverno": {
+      "archive_path": "repositories/kyverno-dc12fe22eb32b0aa8c4ba39e4b2f2a3bf5aacf34.tar.gz",
+      "archive_root_prefix": "kyverno-dc12fe22eb32b0aa8c4ba39e4b2f2a3bf5aacf34",
+      "archive_sha256": "1f1b02a855ab3dde475d6aaffbcb8d1df7d220519c6d581302eee65cf174448a",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "dc12fe22eb32b0aa8c4ba39e4b2f2a3bf5aacf34",
+      "commit_tree_sha": "2c81fc4ca8f461439e14b2a3f6f19d73ee7cbeec",
+      "repository": "kyverno/kyverno",
+      "repository_url": "https://github.com/kyverno/kyverno",
+      "snapshot_file_count": 9497,
+      "snapshot_manifest_root": "c0fb826a9e751087f7d1ffe601a3bd0ff1a9add5351e64138471f18ca140fd20"
+    },
+    "metrics-server": {
+      "archive_path": "repositories/metrics-server-4062beeed6ef996ba3ff7164967edafd3470e2e4.tar.gz",
+      "archive_root_prefix": "metrics-server-4062beeed6ef996ba3ff7164967edafd3470e2e4",
+      "archive_sha256": "bfc25193152381c350cf2e89262e8b6ad1168a47423c28c7c6a7c23c19714a21",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "4062beeed6ef996ba3ff7164967edafd3470e2e4",
+      "commit_tree_sha": "0e1deb8a4c0ec7879cf1c1e03ccb2434e8230b37",
+      "repository": "kubernetes-sigs/metrics-server",
+      "repository_url": "https://github.com/kubernetes-sigs/metrics-server",
+      "snapshot_file_count": 136,
+      "snapshot_manifest_root": "7b4712f87d5a4e43712432739a09b11dc277f77a51d590928ebca428888cdc98"
+    },
+    "neo4j-helm": {
+      "archive_path": "repositories/neo4j-helm-bd85d80c591e016fcf12e9960d626712ffddb642.tar.gz",
+      "archive_root_prefix": "helm-charts-bd85d80c591e016fcf12e9960d626712ffddb642",
+      "archive_sha256": "9952d9d06de3bd86573201310bdbb60e4c6880a4f3ff8b42a0f33cd3f1c456ab",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "bd85d80c591e016fcf12e9960d626712ffddb642",
+      "commit_tree_sha": "a123170722190c192925f60033813e72c40a0fd4",
+      "repository": "neo4j/helm-charts",
+      "repository_url": "https://github.com/neo4j/helm-charts",
+      "snapshot_file_count": 322,
+      "snapshot_manifest_root": "4bc0afedd1ef26ef9e612dd2149b102e36e92b1d42a34ce47cb8d05b01bf9971"
+    },
+    "onlyoffice-docs": {
+      "archive_path": "repositories/onlyoffice-docs-c0e9bdfc515858758cbe4bf23eeec23376595e70.tar.gz",
+      "archive_root_prefix": "Kubernetes-Docs-c0e9bdfc515858758cbe4bf23eeec23376595e70",
+      "archive_sha256": "b038ab4921a06b3f391245c2543ae9f90132f11e3f0cb26b6e86b4379d3e8e16",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "c0e9bdfc515858758cbe4bf23eeec23376595e70",
+      "commit_tree_sha": "66b173ca3f64b31a6361f18661e868a1c21f5ebe",
+      "repository": "ONLYOFFICE/Kubernetes-Docs",
+      "repository_url": "https://github.com/ONLYOFFICE/Kubernetes-Docs",
+      "snapshot_file_count": 105,
+      "snapshot_manifest_root": "91455c453a99179c9cca2eff4eb99066c893d3fe4f6713420fb346aecd72aa92"
+    },
+    "onlyoffice-docspace": {
+      "archive_path": "repositories/onlyoffice-docspace-ae9cfca78e8485491a3cd7fcffe875abd3737579.tar.gz",
+      "archive_root_prefix": "Kubernetes-DocSpace-ae9cfca78e8485491a3cd7fcffe875abd3737579",
+      "archive_sha256": "1626c919dafbd509361cb7b94ce5dff32eba0707e48b2905d439652cfb554ee0",
+      "auxiliary_protected_inputs": [
+        {
+          "recovery_basis": "present in original audit checkout before inventory/probe",
+          "sha256": "cd914818ec1f07f8d582160576dcdf4ed85564102bf1ffaf98d8ed9f98204846",
+          "size": 230,
+          "source_path": "configs/onlyoffice-docspace/Chart.lock",
+          "target_path": "Chart.lock"
+        },
+        {
+          "recovery_basis": "present in original audit checkout before inventory/probe",
+          "sha256": "8fd6f9b9407876428140169c04b032a5cab54e605cd1145aa5cde86168d2cd7c",
+          "size": 85152,
+          "source_path": "configs/onlyoffice-docspace/charts/docs-6.1.1.tgz",
+          "target_path": "charts/docs-6.1.1.tgz"
+        }
+      ],
+      "commit_sha": "ae9cfca78e8485491a3cd7fcffe875abd3737579",
+      "commit_tree_sha": "0c043995831f30e877b4e1d2757b399a94b79650",
+      "repository": "ONLYOFFICE/Kubernetes-DocSpace",
+      "repository_url": "https://github.com/ONLYOFFICE/Kubernetes-DocSpace",
+      "snapshot_file_count": 132,
+      "snapshot_manifest_root": "71827148f889daefd2c68069ac7ff276ae558c120f1fa88fedb99acf85973b7d"
+    },
+    "opencost": {
+      "archive_path": "repositories/opencost-4242feee70e745ea540fc5d3177d4899b307dc2d.tar.gz",
+      "archive_root_prefix": "opencost-helm-chart-4242feee70e745ea540fc5d3177d4899b307dc2d",
+      "archive_sha256": "2cdbe4b874ac84b584c0ec5ffa65d44b90af58cf42730e734f954ca95f61d44d",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "4242feee70e745ea540fc5d3177d4899b307dc2d",
+      "commit_tree_sha": "4581a61f6418e19baeb734dde77c6e76407523e3",
+      "repository": "opencost/opencost-helm-chart",
+      "repository_url": "https://github.com/opencost/opencost-helm-chart",
+      "snapshot_file_count": 53,
+      "snapshot_manifest_root": "4e0d09b49a1b1ccede33766e71320fc3a432c22a4f0ddc14257d49cda2bb5ace"
+    },
+    "opentelemetry": {
+      "archive_path": "repositories/opentelemetry-b1f24a2f0cc9bcee70bd1bf8e7b989240496385f.tar.gz",
+      "archive_root_prefix": "opentelemetry-helm-charts-b1f24a2f0cc9bcee70bd1bf8e7b989240496385f",
+      "archive_sha256": "8f209c916521c6dd0ee3125af498cf60e7020f6953302976a35fb1c4d6e9a9dd",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "b1f24a2f0cc9bcee70bd1bf8e7b989240496385f",
+      "commit_tree_sha": "8f3c18c6c9e7601d4d1078364c543da8849a6dbf",
+      "repository": "open-telemetry/opentelemetry-helm-charts",
+      "repository_url": "https://github.com/open-telemetry/opentelemetry-helm-charts",
+      "snapshot_file_count": 901,
+      "snapshot_manifest_root": "6a053da9912703eb54f4b797d2e7b4dd151e71c0fe49466263db1a926f67d233"
+    },
+    "prometheus-community": {
+      "archive_path": "repositories/prometheus-community-ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988.tar.gz",
+      "archive_root_prefix": "helm-charts-ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "archive_sha256": "42aba1c3641cb7997bfd684261f7025e36460af983ce4e5dc10dfcf1b6e9b0f6",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "repository": "prometheus-community/helm-charts",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "snapshot_file_count": 1123,
+      "snapshot_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60"
+    },
+    "prometheus-operator": {
+      "archive_path": "repositories/prometheus-operator-146a99723a91c4b96abc41aeb46a147b04cf092b.tar.gz",
+      "archive_root_prefix": "prometheus-operator-146a99723a91c4b96abc41aeb46a147b04cf092b",
+      "archive_sha256": "1282d1a23f36fce965d73e8ecbc8e328688501a30355fe4483e57fac47fd71d1",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "146a99723a91c4b96abc41aeb46a147b04cf092b",
+      "commit_tree_sha": "015fb4f49271a382818a989cd6f057e495dde7b2",
+      "repository": "prometheus-operator/prometheus-operator",
+      "repository_url": "https://github.com/prometheus-operator/prometheus-operator",
+      "snapshot_file_count": 1635,
+      "snapshot_manifest_root": "d8b3227be7d109e10fcc7d13eb279b7b184cf999df8195a0fd2c9fde3e7ccc8e"
+    },
+    "valkey-io": {
+      "archive_path": "repositories/valkey-helm-dd2d78213ae4e7b229074d473612999c7324d9be.tar.gz",
+      "archive_root_prefix": "valkey-helm-dd2d78213ae4e7b229074d473612999c7324d9be",
+      "archive_sha256": "0c8b3c3de6e66ef5e9ec52fd2f9045dc05466b4dc9dde31002853fbcb8e728c4",
+      "auxiliary_protected_inputs": [],
+      "commit_sha": "dd2d78213ae4e7b229074d473612999c7324d9be",
+      "commit_tree_sha": "0ad76f09ceca4750d8c5a23e66d42d225e63357f",
+      "repository": "valkey-io/valkey-helm",
+      "repository_url": "https://github.com/valkey-io/valkey-helm",
+      "snapshot_file_count": 100,
+      "snapshot_manifest_root": "3505ba508e241bd2688e02d9e2724cc18311ad970e6cf9b598b9683793af7a79"
+    }
+  },
+  "repository_count": 28,
+  "schema_version": "iac-guard-v-a8-55-surface-corpus-v1",
+  "source_evidence": {
+    "coverage_audit": {
+      "path": "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+      "sha256": "81b77758de25553476441ab308b02695b0d8af0b70853e9ca260162d8d4fddd4"
+    },
+    "final_design": {
+      "path": "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+      "sha256": "e2621701e8be3d5e0ba7e0778934fba8efd97b945fd7fc0ebd82bd0041c0439d"
+    },
+    "original_a7_probe": {
+      "path": "a8-coverage-corpus/configs/original-audit/a7_probe.json",
+      "sha256": "7ec06b7a443f7bbc1dee0e61607a9ca7dde32362dbb4f153b1e78d2d58c65c7e"
+    },
+    "original_inventory": {
+      "path": "a8-coverage-corpus/configs/original-audit/inventory.json",
+      "sha256": "53820b00a9123ed089990bbeaf7d4350a7524b8632a2188235b8919a3dba67b4"
+    }
+  },
+  "surface_count": 55,
+  "surfaces": [
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "9d54ac94826d8f46c0d6d1032ee7d9988e562d70",
+      "commit_tree_sha": "f598988108217c65570f05bdc1fc22a151d7c887",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": true,
+        "declared": 1,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 1,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "CLUSTER_STATE_REQUIRED",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "2bb0d6b09d02030d3e6e5ee1118a472074cca63fecb90126fb5f9e0deb1a5f24",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "apache/airflow",
+      "repository_id": "airflow",
+      "repository_url": "https://github.com/apache/airflow",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "bb62da6f7687e6b97295e69236f9c8dbcd11b47a8518f3598c701632b75e78bc",
+          "size": 6957
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "0b7aa9c6280763e6cd3cf47dd3838cf90ff432764ac0ebc05bd72836411f9dca",
+          "size": 227
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "fe79c5855a63079f1736e2d65ad430bf59f83e971d16e82e24792c4bd560a407",
+          "size": 110832
+        }
+      ],
+      "root_path": "chart",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "0ae3ae434c212f72ae8b39d96941b834ecffbc5e1f80b00672abc2650cf999d4",
+      "surface_id": "helm-001-airflow-airflow"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "e0e82f7a9b543405ee25798ce8c899705503a3d1",
+      "commit_tree_sha": "09e1cc5e643ae8747e8352c49ec4cbd459142e0a",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": true,
+        "declared": 1,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 1,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "355866b3f8591be9e0c834a50ce31f93aebb6a208b591bb8bc1ed376bff7032e",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "argoproj/argo-helm",
+      "repository_id": "argo-helm",
+      "repository_url": "https://github.com/argoproj/argo-helm",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "4be1af17f0eb3847f7df7ca4ab24e69e2753af2da7b370e1303badeaa9dc7f64",
+          "size": 919
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "5f33d254172ff0545150d8f2d89dcd2b007541219fb3211579791cf97f1f9a34",
+          "size": 230
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "426a7d29f8571e1fda29d6e0c0094f1dda9d0d4c0f7f1843f33743de0cab0c33",
+          "size": 185541
+        }
+      ],
+      "root_path": "charts/argo-cd",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "e56c58e7c1a18273341935b34a6098ed58d8a7fd22856e59c2e85e231ab029ac",
+      "surface_id": "helm-002-argo-helm-argo-cd"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "b096a369fe2d1b2de75a0b85af01fa9e272b221e",
+      "commit_tree_sha": "eb222290d36fb794b0499576b44b62ca07fed408",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "CLUSTER_STATE_REQUIRED",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "c63197b41777517bf57fbbb1203fc87e2938cce52f3ac33c832bbc8319cb5786",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "coder/enterprise-helm",
+      "repository_id": "coder-enterprise-helm",
+      "repository_url": "https://github.com/coder/enterprise-helm",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "01ec770eed3cf9a254f2e0718d0bbd98eaa86b4c6a6128c76bab536a5a13c480",
+          "size": 910
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "5e73218432740ca89e847899270c3ad7a6df63aaef091dc2bbd136fbe0f396bb",
+          "size": 22724
+        }
+      ],
+      "root_path": ".",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "c63197b41777517bf57fbbb1203fc87e2938cce52f3ac33c832bbc8319cb5786",
+      "surface_id": "helm-003-coder-enterprise-helm-coder"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "73337e251edec84ed394b47649ec0e4763cdb591",
+      "commit_tree_sha": "787e8654316af2a6217f07ebeceb72ce1fdfb816",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 5,
+        "chart_lock_present": true,
+        "declared": 5,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 1,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "e93757ac32e3188be6da2088a705dc1173ba2f300c122bb4609247c561bc6b6f",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "cortexproject/cortex-helm-chart",
+      "repository_id": "cortex-helm-chart",
+      "repository_url": "https://github.com/cortexproject/cortex-helm-chart",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "8dda897000e4cb33e363b7b3f26a5d3edcb4a9647e57cf9fb81fd2daf6c0a47e",
+          "size": 1398
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "92753cce15fd9bcc69cce7ba4f5d524cbf107047045a21b8b80a51b0e665b833",
+          "size": 565
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "1149c8195e971d3f8d3ff2f632750152d605fc62c0801d824cf5eecc821386c1",
+          "size": 51065
+        }
+      ],
+      "root_path": ".",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "e93757ac32e3188be6da2088a705dc1173ba2f300c122bb4609247c561bc6b6f",
+      "surface_id": "helm-004-cortex-helm-chart-cortex"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "0f879a3208930a1a61cbe6fc2353719495845ba9",
+      "commit_tree_sha": "b5866935107c6a97c78e8acea6fe1f032017f056",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": null,
+        "status": "SUPPORTED"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "c40d575f09a7eabadf8ada1b979e7fcbface05e2781d3757ab48cb3fe9cc6ff7",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "kubernetes-csi/csi-driver-smb",
+      "repository_id": "csi-driver-smb",
+      "repository_url": "https://github.com/kubernetes-csi/csi-driver-smb",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "ad8e679a426a60e3c379f564541e75f4d19dd0458373c2050d93fac7706f6797",
+          "size": 114
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "8c0f749d0f0f79874fa0659992017f1d21ad6830e82cce6eade23fcd1aaf608d",
+          "size": 6996
+        }
+      ],
+      "root_path": "charts/latest/csi-driver-smb",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "2a0dcb9cf7b0229156a53eb22be83df68e0399227e2df5d975aa150c0768d4c3",
+      "surface_id": "helm-005-csi-driver-smb-csi-driver-smb"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "8488600898e856d74a7e0f53ed5e3cc79d89f4e8",
+      "commit_tree_sha": "816e037251bf68375e22982757f87ab744406223",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": true,
+        "declared": 1,
+        "missing_vendored_dependencies": [
+          "bitwarden-sdk-server"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "ca7476655656803fa941046ebe360d3bfae5f81004cf9ed995e7cbe197acffc9",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "external-secrets/external-secrets",
+      "repository_id": "external-secrets",
+      "repository_url": "https://github.com/external-secrets/external-secrets",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "5720c017be1ca67a945bb60c2f0c44827fe20c47fc372fa9eef765660f267a5c",
+          "size": 625
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "fd044a82cfa30a80712cd4ab9a73dba304b59b99f0f8287dab7329c8403e4d38",
+          "size": 239
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "35af4ec1dab59c9ab09617df460e5f5b2ca2305bb8a6fbb0d40e07ee260b7370",
+          "size": 34767
+        }
+      ],
+      "root_path": "deploy/charts/external-secrets",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "878ebd4285d11d866c532f0f71c33f33eb9e83bb8766b8fbcb60bfe24cde5149",
+      "surface_id": "helm-006-external-secrets-external-secrets"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": null,
+        "status": "SUPPORTED"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "6e7afa39d795f3b32a2fc35e94845d24592f56f33f1cadab2c586d97a65f70db",
+          "size": 476
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "114505c4425bebb384726c5a4fb5e453c15a608834371d0e46fb91c12b2f1a7f",
+          "size": 1904
+        }
+      ],
+      "root_path": "charts/agent-operator",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "ca8788795a9e6f3a0af7c72f412e41992dd30b6326f2635fdaed35053db75665",
+      "surface_id": "helm-007-grafana-grafana-agent-operator"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 1,
+        "chart_lock_present": false,
+        "declared": 2,
+        "missing_vendored_dependencies": [
+          "loki-distributed",
+          "minio"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "8cc242448e00b7ed4b41d6f75188dd586758db49a54e73c9be0e46b76fbe6c5e",
+          "size": 458
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "3694fcd56775479d382812b66dc42edb38362fd63410546ab165d5338c6450e7",
+          "size": 16960
+        }
+      ],
+      "root_path": "charts/enterprise-logs",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "6f883885ecc7d809d65dfcdc7bc813c240343abe4df62099d6caac1fb6e24354",
+      "surface_id": "helm-008-grafana-enterprise-logs"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 4,
+        "chart_lock_present": false,
+        "declared": 4,
+        "missing_vendored_dependencies": [
+          "memcached",
+          "memcached",
+          "memcached",
+          "minio"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "df068fe69b575accbc7445f435c66ad1ebafd1a91c9d9b7465b928870f87e6ee",
+          "size": 902
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "8b26154bbcb7317c212920e4e2ca00831a5bb341ae449775debed2bd2953aba1",
+          "size": 25050
+        }
+      ],
+      "root_path": "charts/enterprise-metrics",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "1629f67e12b6afd0bbc0eba69ac4966e37760ed643824732b11c7ea527921c75",
+      "surface_id": "helm-009-grafana-enterprise-metrics"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 2,
+        "chart_lock_present": true,
+        "declared": 2,
+        "missing_vendored_dependencies": [
+          "alloy",
+          "alloy"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "93a0d6ed6bbc0c0c730454be7c7c0d39678fa6c99abf317c2cc520dac1959a1a",
+          "size": 591
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "c59c0d550ca8f28507c49169392263315130278ba8399888bb621c458f9419f5",
+          "size": 306
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "4296fb828c93d15843e578651eba375c04012f4f5c3114ae6ebac8577b68b525",
+          "size": 8207
+        }
+      ],
+      "root_path": "charts/grafana-sampling",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "d915de5bdc06b1e2f111be6cf260ab20802693fd9f219f30842039a285adc86a",
+      "surface_id": "helm-010-grafana-grafana-sampling"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 5,
+        "chart_lock_present": false,
+        "declared": 5,
+        "missing_vendored_dependencies": [
+          "grafana",
+          "loki-distributed",
+          "mimir-distributed",
+          "tempo-distributed",
+          "oncall"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "fbf81fd8d6db10a2838f3485edefc89f1875b76aa71f6809a69520e79debbdc3",
+          "size": 1840
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "ab0bd6e84cb8a9820cdc3746c667f39154db1d72c80675c38c2a06b7e3f5191b",
+          "size": 3260
+        }
+      ],
+      "root_path": "charts/lgtm-distributed",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "9f637b2d5887b7d5c49a4a8d21bdf92a2c5efe4a9ea503a9318be722106bd273",
+      "surface_id": "helm-011-grafana-lgtm-distributed"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "HELM_RENDER_FAILED",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "PARTIALLY_REACHABLE",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "a135a5adb1e7ed714535cfb8efe11ed9b1d02a6d41acf7f60e257cde17715257",
+          "size": 324
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "5054c25c74a061cd1908316d93c16b1560acf4b83e5b68ed9c67db3b72e64a53",
+          "size": 4404
+        }
+      ],
+      "root_path": "charts/pdc-agent",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "3e6e691d70100da1b3fbd16733c486378cbd9a701345f677bfa2d1d2691da425",
+      "surface_id": "helm-012-grafana-pdc-agent"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "4f65d6a55cdb1f95ec757c9e92f58116392b591ba836549d61cf8958d9960d44",
+          "size": 526
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "09905bc9367598d03aab4f97c272279278935c73e6f84c59642196be54b218ef",
+          "size": 21126
+        }
+      ],
+      "root_path": "charts/promtail",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "8053fc591fcef7b02d3328ba71cca0b6aec85fda023e6349df05b5855b4870a0",
+      "surface_id": "helm-013-grafana-promtail"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 1,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 1
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "8da68d097e0b8f899734e98ee6b7d7e334e31fadde4d20441ccbdbdfc57f97f6",
+          "size": 283
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "93a13ff99670719b724c01e26ebc8d6f91b8eb555e611266e822c92d1f4d7fb4",
+          "size": 5913
+        }
+      ],
+      "root_path": "charts/rollout-operator",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "c0b22c039b84997c77d4dc439103a2e93e438b56728044ded4bced0fd97e3ab8",
+      "surface_id": "helm-014-grafana-rollout-operator"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "7a0ab968961a165318ab95ff678908c3b9bc3240",
+      "commit_tree_sha": "ea29bffdffbe09e395f771b9f26ab89a4c317010",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 3,
+        "chart_lock_present": true,
+        "declared": 3,
+        "missing_vendored_dependencies": [
+          "minio",
+          "grafana-agent-operator",
+          "rollout-operator"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "4c09779067406cc97b011e9c9b343a5412b7a011b3f06327c60a96aee90d1322",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "grafana/helm-charts",
+      "repository_id": "grafana",
+      "repository_url": "https://github.com/grafana/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "5f9df4b51b2aeb5841f34d90f165631dbd5f52d7509055f38e9e62a42bd8f719",
+          "size": 1223
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "0e28d2069b16e646df77aff3aa4e072839352c0c23541c0d5f046900b257ee3c",
+          "size": 403
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "7f83125d61c6ad4130fa155359b0041d2b30e0e5f4947aea7a4e658494625138",
+          "size": 115840
+        }
+      ],
+      "root_path": "charts/tempo-distributed",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "dff0d0b2942aa16522c5209eb52d39bfc0e72cf50f29f7276915ef756e65749c",
+      "surface_id": "helm-015-grafana-tempo-distributed"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "acb552529b7c73d86840130eee226f17dc79a5ab",
+      "commit_tree_sha": "efabb59b2f05bcaa61e513d71d6fff036c42fb7d",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "4ef7c2dc805980a472e37848a6e4a6d26c961c6efc03e8311ff83b8e64b0b877",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "goharbor/harbor-helm",
+      "repository_id": "harbor-helm",
+      "repository_url": "https://github.com/goharbor/harbor-helm",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "a2146f04a9ddabac650d166365b84a8766b2b1e6419169bc5810354be4c85b49",
+          "size": 704
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "aea16d6dd5f374a7b50e13a242a13875d28eccf736cf7d0ceb39135e6afd7fff",
+          "size": 45729
+        }
+      ],
+      "root_path": ".",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "4ef7c2dc805980a472e37848a6e4a6d26c961c6efc03e8311ff83b8e64b0b877",
+      "surface_id": "helm-016-harbor-helm-harbor"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "c4bfa0297cfbd27f0cc591f26a9ec39119ddbcb0",
+      "commit_tree_sha": "b4b367c9acf1e4908ff0846e10d6424f29ccb811",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "HELM_RENDER_FAILED",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "PARTIALLY_REACHABLE",
+      "protected_input_manifest_root": "96e7d6ee0605163ad508a6c468aa3881a2f13d74e9668417849c5564d8be0c53",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "harness/gitops-agent-helm-chart",
+      "repository_id": "harness-gitops-agent",
+      "repository_url": "https://github.com/harness/gitops-agent-helm-chart",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "35fd25b8840f1a2504236e5ae35caba74ced5c25a01f53769c5d5ef6cdbdfa7e",
+          "size": 147
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "e9ccdf56055504eb59fe9aacd34893292c0166322a28fa8812b479275fc02af5",
+          "size": 2659
+        }
+      ],
+      "root_path": ".",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "96e7d6ee0605163ad508a6c468aa3881a2f13d74e9668417849c5564d8be0c53",
+      "surface_id": "helm-017-harness-gitops-agent-gitops-agent"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "41eeb20f3f00dda2515d2c5724b1343c5a237762",
+      "commit_tree_sha": "4689d8ca56275154e85f49dd9f956ba5e46f287a",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "f7397ab5aae0dda6d4a519253e0d3f8846b07ef12e98fd77cd5129ff34d44187",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "jenkinsci/helm-charts",
+      "repository_id": "jenkins-helm",
+      "repository_url": "https://github.com/jenkinsci/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "6da635b13e6d0c6cff4e955200192626159f466d47bb9876dd7856a2de74f1a7",
+          "size": 1503
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "a4c410b68c92eba446ca97de70fddfbbe9c5c9b56f7f78d4859f7f8b55242f7c",
+          "size": 59130
+        }
+      ],
+      "root_path": "charts/jenkins",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "5f005b3bee9705a86a85cb1699e03de9af2f1769ab183c99d0f628583d026d70",
+      "surface_id": "helm-018-jenkins-helm-jenkins"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "dc12fe22eb32b0aa8c4ba39e4b2f2a3bf5aacf34",
+      "commit_tree_sha": "2c81fc4ca8f461439e14b2a3f6f19d73ee7cbeec",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": true,
+        "declared": 5,
+        "missing_vendored_dependencies": [
+          "kyverno-api",
+          "openreports",
+          "reports-server"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 2
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "c0fb826a9e751087f7d1ffe601a3bd0ff1a9add5351e64138471f18ca140fd20",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "kyverno/kyverno",
+      "repository_id": "kyverno",
+      "repository_url": "https://github.com/kyverno/kyverno",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "da4f56fd2945de7e0402f1baa7cee2afa13aa67401b2559ea1718ed8df68ed7c",
+          "size": 2192
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "a1ccd11998176d2bb84703b3e0f5dcdc27770b5d0982b0ef7b414693a827ed85",
+          "size": 517
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "a65e42acd9112ba83497a18e09a9b8a2bb122d339d040921ca7b0393b2c57efe",
+          "size": 91343
+        }
+      ],
+      "root_path": "charts/kyverno",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "4116bec146ddc584d15fb772f0d4108abb68f3d242b3eb2354e0800f30b54307",
+      "surface_id": "helm-019-kyverno-kyverno"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "dc12fe22eb32b0aa8c4ba39e4b2f2a3bf5aacf34",
+      "commit_tree_sha": "2c81fc4ca8f461439e14b2a3f6f19d73ee7cbeec",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "c0fb826a9e751087f7d1ffe601a3bd0ff1a9add5351e64138471f18ca140fd20",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "kyverno/kyverno",
+      "repository_id": "kyverno",
+      "repository_url": "https://github.com/kyverno/kyverno",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "06a9d58496d0138e2cf44e534c0447405adf1d244a080a0323192e8e6a0f5f04",
+          "size": 1257
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "c7cee2be97f8254a95f18e412c23d2563b7b9ab23d8b0d6fc98d5339274868e2",
+          "size": 8492
+        }
+      ],
+      "root_path": "charts/kyverno-policies",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "04542a8e83c25a91e4ec69bacfcdae909b8b9e8d4f4b8215c4bbe048b6562126",
+      "surface_id": "helm-020-kyverno-kyverno-policies"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "bd85d80c591e016fcf12e9960d626712ffddb642",
+      "commit_tree_sha": "a123170722190c192925f60033813e72c40a0fd4",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "HELM_RENDER_FAILED",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "PARTIALLY_REACHABLE",
+      "protected_input_manifest_root": "4bc0afedd1ef26ef9e612dd2149b102e36e92b1d42a34ce47cb8d05b01bf9971",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "neo4j/helm-charts",
+      "repository_id": "neo4j-helm",
+      "repository_url": "https://github.com/neo4j/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "afa4d18fddf00280799c20186de9d5d450628aa35d6fc998889079ffbb5f5131",
+          "size": 479
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "8de5073d702ce219abad15ac39c93eec6b4337e6f933001872975d940471ebc9",
+          "size": 33470
+        }
+      ],
+      "root_path": "neo4j",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "745e12e02cc2b532951e2ad640adcf7048288d0182d2818fdbe07cd6d6d92e02",
+      "surface_id": "helm-021-neo4j-helm-neo4j"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "c0e9bdfc515858758cbe4bf23eeec23376595e70",
+      "commit_tree_sha": "66b173ca3f64b31a6361f18661e868a1c21f5ebe",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "91455c453a99179c9cca2eff4eb99066c893d3fe4f6713420fb346aecd72aa92",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "ONLYOFFICE/Kubernetes-Docs",
+      "repository_id": "onlyoffice-docs",
+      "repository_url": "https://github.com/ONLYOFFICE/Kubernetes-Docs",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "4dadcc1ac0dc71120d4aee250062a0719ac1465f55000633fc0dbad404bb6dfe",
+          "size": 528
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "4c67dc114b7ce92ad9a16cb65317840820510d3f100e9aa9110ffdc4e98bc828",
+          "size": 130430
+        }
+      ],
+      "root_path": ".",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "91455c453a99179c9cca2eff4eb99066c893d3fe4f6713420fb346aecd72aa92",
+      "surface_id": "helm-022-onlyoffice-docs-docs"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ae9cfca78e8485491a3cd7fcffe875abd3737579",
+      "commit_tree_sha": "0c043995831f30e877b4e1d2757b399a94b79650",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": true,
+        "declared": 1,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 1,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "HELM_RENDER_FAILED",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "PARTIALLY_REACHABLE",
+      "protected_input_manifest_root": "71827148f889daefd2c68069ac7ff276ae558c120f1fa88fedb99acf85973b7d",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "ONLYOFFICE/Kubernetes-DocSpace",
+      "repository_id": "onlyoffice-docspace",
+      "repository_url": "https://github.com/ONLYOFFICE/Kubernetes-DocSpace",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "3269f58e263d57a8c67ead4db6fb39493066024fa079241f1f8036d1d24e745c",
+          "size": 689
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "cd914818ec1f07f8d582160576dcdf4ed85564102bf1ffaf98d8ed9f98204846",
+          "size": 230
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "46d9d7193c71104745661a89c8122f5dcac4a4e43eca32e9915db0e7e2bfa0df",
+          "size": 354528
+        }
+      ],
+      "root_path": ".",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "71827148f889daefd2c68069ac7ff276ae558c120f1fa88fedb99acf85973b7d",
+      "surface_id": "helm-023-onlyoffice-docspace-docspace"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "4242feee70e745ea540fc5d3177d4899b307dc2d",
+      "commit_tree_sha": "4581a61f6418e19baeb734dde77c6e76407523e3",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "4e0d09b49a1b1ccede33766e71320fc3a432c22a4f0ddc14257d49cda2bb5ace",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "opencost/opencost-helm-chart",
+      "repository_id": "opencost",
+      "repository_url": "https://github.com/opencost/opencost-helm-chart",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "ee782139ce710ceaaf12cb15aa5df12d5549f6657251566a00367430410005f9",
+          "size": 394
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "a55ee7fa37f965626172a7cd3a4c18e2977fc703d0891d3ec3a8e89dc1c49bc2",
+          "size": 37101
+        }
+      ],
+      "root_path": "charts/opencost",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "c3d5a00004e0d1f01d73c808a37fd031f98c2cb95e179da45c041f616ca6aa6c",
+      "surface_id": "helm-024-opencost-opencost"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "b1f24a2f0cc9bcee70bd1bf8e7b989240496385f",
+      "commit_tree_sha": "8f3c18c6c9e7601d4d1078364c543da8849a6dbf",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 1,
+        "chart_lock_present": true,
+        "declared": 6,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 5,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "PARTIALLY_REACHABLE",
+      "protected_input_manifest_root": "6a053da9912703eb54f4b797d2e7b4dd151e71c0fe49466263db1a926f67d233",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "open-telemetry/opentelemetry-helm-charts",
+      "repository_id": "opentelemetry",
+      "repository_url": "https://github.com/open-telemetry/opentelemetry-helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "bd6378bafb9d3bb56517f6be53b38f124e5e44d4aeb227800940d0ca009eb06b",
+          "size": 1357
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "d50e908f404831d3cce450fc9010bd7d1cce23cd1d97e8ee89e8ab8d2324d35f",
+          "size": 777
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "44680223dced9ba941a7608a8b9b2995c3abfbbc3b8021cf1bb40ff6a94b3b4b",
+          "size": 48148
+        }
+      ],
+      "root_path": "charts/opentelemetry-demo",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "97f61cfdea081a7a70533b6189f4cdf03803cf2655c854816ee0418097b21505",
+      "surface_id": "helm-025-opentelemetry-opentelemetry-demo"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "b1f24a2f0cc9bcee70bd1bf8e7b989240496385f",
+      "commit_tree_sha": "8f3c18c6c9e7601d4d1078364c543da8849a6dbf",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "HELM_RENDER_FAILED",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "PARTIALLY_REACHABLE",
+      "protected_input_manifest_root": "6a053da9912703eb54f4b797d2e7b4dd151e71c0fe49466263db1a926f67d233",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "open-telemetry/opentelemetry-helm-charts",
+      "repository_id": "opentelemetry",
+      "repository_url": "https://github.com/open-telemetry/opentelemetry-helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "c571dbb5f86e0da98a36853a78e6b9635964604092035f50f2f4df601435349f",
+          "size": 480
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "b0f5026aa169be664ba735c23ef12eed7a976c33abe2d1b4d7201a9f2fd5ffcc",
+          "size": 30887
+        }
+      ],
+      "root_path": "charts/opentelemetry-collector",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "32c52cb223b5eb3205653dc7729d4bf7d1f6463b271e4cf7ed7680c6e9ac472e",
+      "surface_id": "helm-026-opentelemetry-opentelemetry-collector"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "b1f24a2f0cc9bcee70bd1bf8e7b989240496385f",
+      "commit_tree_sha": "8f3c18c6c9e7601d4d1078364c543da8849a6dbf",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": true,
+        "declared": 5,
+        "missing_vendored_dependencies": [
+          "opentelemetry-operator",
+          "kube-state-metrics",
+          "prometheus-node-exporter"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 2
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "6a053da9912703eb54f4b797d2e7b4dd151e71c0fe49466263db1a926f67d233",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "open-telemetry/opentelemetry-helm-charts",
+      "repository_id": "opentelemetry",
+      "repository_url": "https://github.com/open-telemetry/opentelemetry-helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "7bf830fb2a234e4e0c09a64556c3bf5e3e185a4cf448767901722924fedc9e0f",
+          "size": 1470
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "4f8dd63b0f6ff7d114bc269c064521ff072533ae06d5d41ee14a0a5642d07293",
+          "size": 598
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "142ed68682317fc657077f24c86fe426680921c46b125fe6d27edaf82291bba4",
+          "size": 61663
+        }
+      ],
+      "root_path": "charts/opentelemetry-kube-stack",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "6e19ffc5b27804345bae9738733a0f162469a18eb9b0fe74c2ce2681023fe754",
+      "surface_id": "helm-027-opentelemetry-opentelemetry-kube-stack"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "b1f24a2f0cc9bcee70bd1bf8e7b989240496385f",
+      "commit_tree_sha": "8f3c18c6c9e7601d4d1078364c543da8849a6dbf",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "6a053da9912703eb54f4b797d2e7b4dd151e71c0fe49466263db1a926f67d233",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "open-telemetry/opentelemetry-helm-charts",
+      "repository_id": "opentelemetry",
+      "repository_url": "https://github.com/open-telemetry/opentelemetry-helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "1b5c0f1bea5e8c61ec4ae2e36ca2af2f0ea9a9fff2b5e25d42c31dc1092ff40a",
+          "size": 513
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "6d4c4e726900af99802a7fe941622a318a2da671493fa891fdecc2c8a5339562",
+          "size": 15366
+        }
+      ],
+      "root_path": "charts/opentelemetry-operator",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "e28f371ba131a17c4a25b5063ed23d6973ad71d0b1d9d9f1b3005c6c1db7a4f9",
+      "surface_id": "helm-028-opentelemetry-opentelemetry-operator"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "b1f24a2f0cc9bcee70bd1bf8e7b989240496385f",
+      "commit_tree_sha": "8f3c18c6c9e7601d4d1078364c543da8849a6dbf",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "6a053da9912703eb54f4b797d2e7b4dd151e71c0fe49466263db1a926f67d233",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "open-telemetry/opentelemetry-helm-charts",
+      "repository_id": "opentelemetry",
+      "repository_url": "https://github.com/open-telemetry/opentelemetry-helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "d034993b4090faed1fe6eaf21b7df9084053d01f0b1f48a79d6998e47ee5d470",
+          "size": 378
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "611e9e0a82a649b7a761fe1892f9c393a88a7fc66814e70325d6141980985362",
+          "size": 4978
+        }
+      ],
+      "root_path": "charts/opentelemetry-target-allocator",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "a62c0db924fc8e3318bff5a1ac03045a4a4798675bbd3fdfbe578f354d52e91a",
+      "surface_id": "helm-029-opentelemetry-opentelemetry-target-allocator"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": null,
+        "status": "SUPPORTED"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "acd48e1d58ee04d47691028b19b573353216a052d348d0f21a1811707d7dcfa0",
+          "size": 858
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "788db101feef20d573b7471f03ca3ba0c1262c06ba3121e90d10e68c332a71bb",
+          "size": 14189
+        }
+      ],
+      "root_path": "charts/alertmanager",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "e8db5379d0c2c7188aa16e869201e424b6f495be4e125b7ccb0a727c7346cd3c",
+      "surface_id": "helm-030-prometheus-community-alertmanager"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 5,
+        "missing_vendored_dependencies": [
+          "kube-state-metrics",
+          "prometheus-node-exporter",
+          "grafana",
+          "prometheus-windows-exporter"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 1
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "02b9c824ef9721d9cf7c60bdf5bc4599e3e1f639ded1cf1f51e063db037b4ad5",
+          "size": 2644
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "837ac4d71a5b922d8d11e40ded47a70ac8028847c148acbbd86d3ef65d1e85a8",
+          "size": 208723
+        }
+      ],
+      "root_path": "charts/kube-prometheus-stack",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "0fbedaa36908c6c876a90f5a7ade8e4e615c695ea122572f2dd01fae0e9876c9",
+      "surface_id": "helm-031-prometheus-community-kube-prometheus-stack"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "2604e37ff9d09344b345b4f10c008d26968dff6ca41746c3e92c825f47ba184a",
+          "size": 733
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "2a3bbea6bc4f75c9f7b69f9a6b75fc1d1a73e7c04a3c687c74131694088ed23b",
+          "size": 8146
+        }
+      ],
+      "root_path": "charts/prometheus-adapter",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "9a666b0697081fcf8bd0452f0193546f1dfacc3a1438f7fba4973340ae6edd44",
+      "surface_id": "helm-032-prometheus-community-prometheus-adapter"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "4db69b7550bea3408e51b80a24487da3ba78b87a162064bf6ac8016f3028842c",
+          "size": 865
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "63c3ce9843e7d233be929af37024d1831304ffd247c295a7ad4f0868e674612e",
+          "size": 17801
+        }
+      ],
+      "root_path": "charts/prometheus-blackbox-exporter",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "f3715a39140c9e27fd4a61fac9795f29d54f4128cf23751b145c74fb6880d600",
+      "surface_id": "helm-033-prometheus-community-prometheus-blackbox-exporter"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": null,
+        "status": "SUPPORTED"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "27aaa04b10edc1933ba119a2813673b3b994324e33d4026ecf63c875c02d0601",
+          "size": 934
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "428cec4fb54b0c0a58480d067f13b7f6851102fb5c5c1b282bf6f376073f21f0",
+          "size": 21892
+        }
+      ],
+      "root_path": "charts/prometheus-node-exporter",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "ce73b4a61c6114bd73b8cfa70b805d51aac57069be21a7e20e58f2c78999306b",
+      "surface_id": "helm-034-prometheus-community-prometheus-node-exporter"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "9406019b714b63dce9f3b94bdd2dce9c2cbe34228f2a8f90eac4df8a31bb37ce",
+          "size": 1041
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "0ea03b00f910b675cf4a0b0b6d204899ea243d4869c094f61c5c24cf6bfa71e7",
+          "size": 12955
+        }
+      ],
+      "root_path": "charts/prometheus-operator-admission-webhook",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "715bf2fc104654634d7e9fceed075eeda2413fa709715a9aeb167fae6c37a0fa",
+      "surface_id": "helm-035-prometheus-community-prometheus-operator-admission-webhook"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "fa3f53da7849c8dbc841e0c484adba580b4409cb5d3d7f7ad309e06ce23e286f",
+          "size": 939
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "fbda9e6a7c6dd7f13ff3ce55ea8c3f353dcc0e97fe9292f4586209ca4a59d755",
+          "size": 13859
+        }
+      ],
+      "root_path": "charts/prometheus-pushgateway",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "7c9255ea1d948740eeabd42a4899112fb480df748fd4d54b2088c631509998ba",
+      "surface_id": "helm-036-prometheus-community-prometheus-pushgateway"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_NAMESPACE_PROVENANCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "15bd412a99fb52c9bf61b8a5f568662f90fa014268590938d5aca7a114623e5c",
+          "size": 501
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "aa54abb4ac51eec178125f0a36070c27c348b9c869e3b0cb2e8c590c49344329",
+          "size": 10374
+        }
+      ],
+      "root_path": "charts/prometheus-snmp-exporter",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "08afd504af4d48f27923f9df2804fa1fa09e2a6ccc175936174ba46e23ae2724",
+      "surface_id": "helm-037-prometheus-community-prometheus-snmp-exporter"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988",
+      "commit_tree_sha": "55a654617f1f778527346c9b0b57b14adc3c7a12",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": true,
+        "declared": 4,
+        "missing_vendored_dependencies": [
+          "alertmanager",
+          "kube-state-metrics",
+          "prometheus-node-exporter",
+          "prometheus-pushgateway"
+        ],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "UNREPRODUCIBLE_DEPENDENCIES",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "2c160b0802e6224ca393f816f0fd8dd3619bee15692a4b9912e5a373f3125a60",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "prometheus-community/helm-charts",
+      "repository_id": "prometheus-community",
+      "repository_url": "https://github.com/prometheus-community/helm-charts",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "a78db6ad1bddc70477f4d3763c1c438b3976578f75d4a85042b3aac731df0266",
+          "size": 2035
+        },
+        {
+          "path": "Chart.lock",
+          "sha256": "3920a52a25753442da85920e512622565ddd355dbc111af9f8e5131b3f87c87a",
+          "size": 580
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "e4fdf99b58b371576bae5c067978e56f9e38295262023b659a384d34641d8683",
+          "size": 39660
+        }
+      ],
+      "root_path": "charts/prometheus",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "bc3a8be65e8e90ccaaabe15ca6217af241d4b7730e844216b38eaccbeb20e457",
+      "surface_id": "helm-038-prometheus-community-prometheus"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "dd2d78213ae4e7b229074d473612999c7324d9be",
+      "commit_tree_sha": "0ad76f09ceca4750d8c5a23e66d42d225e63357f",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": "AMBIGUOUS_TEMPLATE_ACTION_GRAPH",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "3505ba508e241bd2688e02d9e2724cc18311ad970e6cf9b598b9683793af7a79",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "valkey-io/valkey-helm",
+      "repository_id": "valkey-io",
+      "repository_url": "https://github.com/valkey-io/valkey-helm",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "2907381894e9f03d4f6d1dfcee40b29c3740ff3e842c29af519a9477462eeaad",
+          "size": 519
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "c9c407ca4d2dcc11062dee983d011899b6b2b3ba6420c4104f8f2b9e8c98c9f0",
+          "size": 16891
+        }
+      ],
+      "root_path": "valkey",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "2bb574f26f1ba8d46fe8e0bfff4aaff83ad2f3329f04897d9e741281be0c69f6",
+      "surface_id": "helm-039-valkey-io-valkey"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "HELM",
+      "commit_sha": "dd2d78213ae4e7b229074d473612999c7324d9be",
+      "commit_tree_sha": "0ad76f09ceca4750d8c5a23e66d42d225e63357f",
+      "configuration": {
+        "include_crds": false,
+        "include_tests": false,
+        "set_strings": [],
+        "set_values": [],
+        "values_files": []
+      },
+      "dependency_assumptions": {
+        "aliases": 0,
+        "chart_lock_present": false,
+        "declared": 0,
+        "missing_vendored_dependencies": [],
+        "remote_resolution_permitted": false,
+        "vendored_archives": 0,
+        "vendored_directories": 0
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_HELM_A8",
+      "kube_version": "1.31.0",
+      "namespace": "default",
+      "original_a7_observation": {
+        "reason": null,
+        "status": "SUPPORTED"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "3505ba508e241bd2688e02d9e2724cc18311ad970e6cf9b598b9683793af7a79",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "configs/original-audit/a7_probe.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": "a8-audit",
+      "repository": "valkey-io/valkey-helm",
+      "repository_id": "valkey-io",
+      "repository_url": "https://github.com/valkey-io/valkey-helm",
+      "root_control_files": [
+        {
+          "path": "Chart.yaml",
+          "sha256": "a82a6dccf31be0faa4fa9f7209db3b3737a0e9fc7013a0e225f87651bc830455",
+          "size": 576
+        },
+        {
+          "path": "values.yaml",
+          "sha256": "c1adc213b90348ac190722c264d4aa6bded6774e15e5e8dd141bebacfc1f3083",
+          "size": 8403
+        }
+      ],
+      "root_path": "valkey-operator",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "b9b5acb3b4973cab1cd05adca5bda35b867420c8bb5895df1efbab0b01941600",
+      "surface_id": "helm-040-valkey-io-valkey-operator"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "d50172c7fbab36573ed92ef0b1f4b4b32d41ff19",
+      "commit_tree_sha": "7920b18aff86a1871efeb236279b5fed8a33abec",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "3abc366bbcd1d87fa8174319824fa46b43078c3df33703a575a0ca9a685981a4",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "kubernetes-sigs/blob-csi-driver",
+      "repository_id": "azure-blob-csi",
+      "repository_url": "https://github.com/kubernetes-sigs/blob-csi-driver",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "7d363c6a37344d40924b96821e698aded83431b9b21ff851e8c2bdb06d5669ff",
+          "size": 218
+        }
+      ],
+      "root_path": "deploy/v1.27.9",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "5b0cf342dd37af675b36402631454fdc522f7a54576e9f9163869f408dccc678",
+      "surface_id": "kustomize-001-azure-blob-csi-deploy-v1.27.9"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "9d54ac94826d8f46c0d6d1032ee7d9988e562d70",
+      "commit_tree_sha": "f598988108217c65570f05bdc1fc22a151d7c887",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2bb0d6b09d02030d3e6e5ee1118a472074cca63fecb90126fb5f9e0deb1a5f24",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "apache/airflow",
+      "repository_id": "airflow",
+      "repository_url": "https://github.com/apache/airflow",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "574e975db137b98f99c51dcfbac3610a1198a8d4cd8874f74f1727f37c03e532",
+          "size": 1482
+        }
+      ],
+      "root_path": "chart/kustomize-overlays/kerberos",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "7fedf962e29114a7a3332cf3333d39de313d722c6a2c95108325b8a8bf9f0417",
+      "surface_id": "kustomize-002-airflow-chart-kustomize-overlays-kerberos"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "9d54ac94826d8f46c0d6d1032ee7d9988e562d70",
+      "commit_tree_sha": "f598988108217c65570f05bdc1fc22a151d7c887",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "2bb0d6b09d02030d3e6e5ee1118a472074cca63fecb90126fb5f9e0deb1a5f24",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "apache/airflow",
+      "repository_id": "airflow",
+      "repository_url": "https://github.com/apache/airflow",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "39f3acfa8804980b14c54f753b26b29ae4d156f5cf0b6306f5bc5388d59b3cba",
+          "size": 1423
+        }
+      ],
+      "root_path": "chart/kustomize-overlays/keda",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "50e814bf368cb3c9180c6fb7f0ad888b15652f3e712d43bb3fa0269f38a19920",
+      "surface_id": "kustomize-003-airflow-chart-kustomize-overlays-keda"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "dc12fe22eb32b0aa8c4ba39e4b2f2a3bf5aacf34",
+      "commit_tree_sha": "2c81fc4ca8f461439e14b2a3f6f19d73ee7cbeec",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [],
+        "plugins_permitted": false,
+        "remote_references": [
+          "https://github.com/kubernetes-sigs/kwok/kustomize/kwok?ref=v0.2.0"
+        ],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "c0fb826a9e751087f7d1ffe601a3bd0ff1a9add5351e64138471f18ca140fd20",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "kyverno/kyverno",
+      "repository_id": "kyverno",
+      "repository_url": "https://github.com/kyverno/kyverno",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "4123c15dfebb639810b417c3445ef230312ad7c5f175b29d4828d6bef5909acb",
+          "size": 369
+        }
+      ],
+      "root_path": "scripts/config/kwok",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "4c47c668075b702e5f5a3220460f40f1cfa21f90151d3dc5655cc19c51af1df5",
+      "surface_id": "kustomize-004-kyverno-scripts-config-kwok"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "bde5adf915fbc2600a49e6e864a699544fb91368",
+      "commit_tree_sha": "5004d1ddfdc929ae35183d0bf05b1206d7524047",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [
+          "../base/crds/full",
+          "../cluster-install-no-crds",
+          "../base/workflow-controller",
+          "../base/argo-server"
+        ],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "f2cf9b79da74c8c38f7f12edd12ee1f6ab050f961e8f8b72b8e60be2e76c31fa",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "argoproj/argo-workflows",
+      "repository_id": "argo-workflows",
+      "repository_url": "https://github.com/argoproj/argo-workflows",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "3220de8cfc69bd1e33dbdc9cf72e41f91c98586790150315aa505392ae9e5017",
+          "size": 125
+        }
+      ],
+      "root_path": "manifests/cluster-install",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "8cfd1e07acdf719dd2c752e81d440c87be5a24a2d6c84e3cf50b92545724c3f6",
+      "surface_id": "kustomize-005-argo-workflows-manifests-cluster-install"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "bde5adf915fbc2600a49e6e864a699544fb91368",
+      "commit_tree_sha": "5004d1ddfdc929ae35183d0bf05b1206d7524047",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [
+          "../base/crds/full",
+          "../base/workflow-controller",
+          "../base/argo-server"
+        ],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "f2cf9b79da74c8c38f7f12edd12ee1f6ab050f961e8f8b72b8e60be2e76c31fa",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "argoproj/argo-workflows",
+      "repository_id": "argo-workflows",
+      "repository_url": "https://github.com/argoproj/argo-workflows",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "e9fd48dc656443b6dcc20a726fce4bbf46f7caa71354be846f6b4ba5c3a5cb49",
+          "size": 522
+        }
+      ],
+      "root_path": "manifests/namespace-install",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "0930029cc737c0d4ff5b36849d4f1a712ca552b60b87bfa6abe03f4d343a7950",
+      "surface_id": "kustomize-006-argo-workflows-manifests-namespace-install"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "7040d02b38580b8b8b47ba3fb2b279da9698f5d9",
+      "commit_tree_sha": "9cf462b3cc592730d57061332aa32a164a212856",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [
+          "../crd",
+          "../rbac",
+          "../controller",
+          "../webhook",
+          "../certmanager"
+        ],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "f8f421f7aea5835d03c6e4c9aa3e44f8ec8133f6d670a36a2340f1b6c34b4dc1",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "kubernetes-sigs/aws-load-balancer-controller",
+      "repository_id": "aws-load-balancer-controller",
+      "repository_url": "https://github.com/kubernetes-sigs/aws-load-balancer-controller",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "71e7345322291815f0d8b600bf198e13ffacd3ae9929c237d3d3a1250c62efbb",
+          "size": 2285
+        }
+      ],
+      "root_path": "config/default",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "bc810ebef1a0ac03348cd6c11be37464433a5b25996dd805f2907efa3261f884",
+      "surface_id": "kustomize-007-aws-load-balancer-controller-config-default"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "8179beb0592398b9ae3221d8488c815b73e94b2c",
+      "commit_tree_sha": "f029b8f8468992fc01b205795377d5d646a2e138",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [
+          "../crd",
+          "../rbac",
+          "../manager",
+          "../webhook"
+        ],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "0ddf151a6b86b29c7f2f991a2f1df0bfb6d96c2880a02e389deea4034c121ba0",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "cloudnative-pg/cloudnative-pg",
+      "repository_id": "cloudnative-pg",
+      "repository_url": "https://github.com/cloudnative-pg/cloudnative-pg",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "502bc9a69269662fc026c5103cfc79d5d44f3fe26abdaac150eff47b7855e2dc",
+          "size": 2650
+        }
+      ],
+      "root_path": "config/default",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "ad101594dba584ac71c3b9fa2725f16a0263328d037fb90e3685d55562490ec3",
+      "surface_id": "kustomize-008-cloudnative-pg-config-default"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "8bbd0bd661f2328ade2615ab0bd7f8dcafa3e723",
+      "commit_tree_sha": "389f804ed1e9a7638529b77ca1bbc905bb7bc767",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "d0ca8faf76ecb782591cbbdc087e9c1e0eb1213d991eaa05230827675da296c6",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "kubernetes-sigs/descheduler",
+      "repository_id": "descheduler",
+      "repository_url": "https://github.com/kubernetes-sigs/descheduler",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "beeb4272d2c8093a446b57532833d7946ec0564d579e744152d19702565cdfa0",
+          "size": 109
+        }
+      ],
+      "root_path": "kubernetes/base",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "8ab713702c4c5e52ce8c24595c073fa891da0b9e47cdbd0e0468005549243d29",
+      "surface_id": "kustomize-009-descheduler-kubernetes-base"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "208961aa7bf334cbef95bee390712b27a925dec2",
+      "commit_tree_sha": "d7c70f0d748d82adac68686fcc4f78c3cc580513",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [
+          "../crd",
+          "../rbac",
+          "../manager"
+        ],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "d6d86d002ee17a9be291b65cd1bd13dc438b93fd4c1b6b874116360d6a2c06d7",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "fluxcd/source-controller",
+      "repository_id": "flux-source-controller",
+      "repository_url": "https://github.com/fluxcd/source-controller",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "4937cc6657463d0ca1d528ad71ebd98593725439463d2c6964f5a5ec2053c18c",
+          "size": 149
+        }
+      ],
+      "root_path": "config/default",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "273c0877465ca5713b92c4b9b230810e3bbb857a0e39a8645cd0c29b1814ed30",
+      "surface_id": "kustomize-010-flux-source-controller-config-default"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "186fb3b29138ce82ff61ba1a9370b96a3dd598fe",
+      "commit_tree_sha": "bbaf44b12f1b5fbbe94779f6a8999b97eb49bee1",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [
+          "../crd",
+          "../rbac",
+          "../manager"
+        ],
+        "plugins_permitted": false,
+        "remote_references": [
+          "https://github.com/fluxcd/source-controller/releases/download/v1.9.0/source-controller.crds.yaml",
+          "https://github.com/fluxcd/source-controller/releases/download/v1.9.0/source-controller.deployment.yaml"
+        ],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "FAIL_CLOSED_PRODUCT_BOUNDARY",
+      "protected_input_manifest_root": "51d2265ca272fe8d10815ef8b417ac30074253f8250f1596dc7ee69ca62dfc7a",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "fluxcd/kustomize-controller",
+      "repository_id": "flux-kustomize-controller",
+      "repository_url": "https://github.com/fluxcd/kustomize-controller",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "46d88b759086b8a6e6c438f8e792fe43d2f5b993a0b3b0f4cc85de75f2e3be9f",
+          "size": 356
+        }
+      ],
+      "root_path": "config/default",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "c6312f656035c3aa142e2e3a42e51e2645d919d5e89c2a28c2c5a36b380d44ae",
+      "surface_id": "kustomize-011-flux-kustomize-controller-config-default"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "1ab0781ac715b26a25ff201ce444058a47703c4c",
+      "commit_tree_sha": "be7eacc94b3c15aef268a793d071c809712d441e",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "de8f94d647849245c6576cc6d726770dab1756c1efd09e401aecdcaefe3fa67f",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "kubernetes-sigs/gateway-api",
+      "repository_id": "gateway-api",
+      "repository_url": "https://github.com/kubernetes-sigs/gateway-api",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "b57265c13827641629f689a70b917b1851e26963051d6748c7cc7f529e4f6d90",
+          "size": 636
+        }
+      ],
+      "root_path": "config/crd",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "42353bf662b8c78ea0bc93242103413f1abc31e7ef566736a939baab37504902",
+      "surface_id": "kustomize-012-gateway-api-config-crd"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "4062beeed6ef996ba3ff7164967edafd3470e2e4",
+      "commit_tree_sha": "0e1deb8a4c0ec7879cf1c1e03ccb2434e8230b37",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "7b4712f87d5a4e43712432739a09b11dc277f77a51d590928ebca428888cdc98",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "kubernetes-sigs/metrics-server",
+      "repository_id": "metrics-server",
+      "repository_url": "https://github.com/kubernetes-sigs/metrics-server",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "31dca97d3a1505d8577f41ef09feca37e51ebfa881fa0b5f1782e3a960abc713",
+          "size": 185
+        }
+      ],
+      "root_path": "manifests/base",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "20e0224b27dc5176881b2b8acb42918c0ebcd1a522fff6e5c130d916bd2c9527",
+      "surface_id": "kustomize-013-metrics-server-manifests-base"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "4062beeed6ef996ba3ff7164967edafd3470e2e4",
+      "commit_tree_sha": "0e1deb8a4c0ec7879cf1c1e03ccb2434e8230b37",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [
+          "../../base",
+          "../../components/release"
+        ],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "7b4712f87d5a4e43712432739a09b11dc277f77a51d590928ebca428888cdc98",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "kubernetes-sigs/metrics-server",
+      "repository_id": "metrics-server",
+      "repository_url": "https://github.com/kubernetes-sigs/metrics-server",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "f14383467e9cf7373a549c780dc978452ba17fc81dcfc7bda83df1d507a2c3d1",
+          "size": 127
+        }
+      ],
+      "root_path": "manifests/overlays/release",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "50d5db2a3a66e58cf7fbbe620243d89902b756a91f59084a690b6098547bd0c7",
+      "surface_id": "kustomize-014-metrics-server-manifests-overlays-release"
+    },
+    {
+      "api_versions": [],
+      "artifact_class": "KUSTOMIZE",
+      "commit_sha": "146a99723a91c4b96abc41aeb46a147b04cf092b",
+      "commit_tree_sha": "015fb4f49271a382818a989cd6f057e495dde7b2",
+      "configuration": {},
+      "dependency_assumptions": {
+        "exec_permitted": false,
+        "helm_inflation_permitted": false,
+        "path_traversal_references": [],
+        "plugins_permitted": false,
+        "remote_references": [],
+        "remote_resolution_permitted": false
+      },
+      "expected_materializer": "IAC_GUARD_V_BOUNDED_LOCAL_KUSTOMIZE_A8",
+      "kube_version": null,
+      "namespace": null,
+      "original_a7_observation": {
+        "reason": "KUSTOMIZATION_CONTROL_DOCUMENT_NOT_TARGET_RESOURCE",
+        "status": "FAIL_CLOSED_PRODUCT_BOUNDARY"
+      },
+      "original_design_prediction": "SUPPORTED",
+      "protected_input_manifest_root": "d8b3227be7d109e10fcc7d13eb279b7b184cf999df8195a0fd2c9fde3e7ccc8e",
+      "recovery_confidence": "HIGH",
+      "recovery_source": [
+        "A8_PREIMPLEMENTATION_COVERAGE_AUDIT.md",
+        "A8_FINAL_PREIMPLEMENTATION_DESIGN.md",
+        "configs/original-audit/inventory.json",
+        "retained original local checkout and Codex session log"
+      ],
+      "release_name": null,
+      "repository": "prometheus-operator/prometheus-operator",
+      "repository_id": "prometheus-operator",
+      "repository_url": "https://github.com/prometheus-operator/prometheus-operator",
+      "root_control_files": [
+        {
+          "path": "kustomization.yaml",
+          "sha256": "3f00dae8426a940ed35020e4ed54eab1295fe7f2c70fbb2ee2770a57a60a984f",
+          "size": 90
+        }
+      ],
+      "root_path": ".",
+      "selected_property_request": null,
+      "selected_root_manifest_root": "d8b3227be7d109e10fcc7d13eb279b7b184cf999df8195a0fd2c9fde3e7ccc8e",
+      "surface_id": "kustomize-015-prometheus-operator-root"
+    }
+  ],
+  "tool_contract": {
+    "helm": {
+      "path": "tools/helm-v4.2.4-darwin-arm64",
+      "sha256": "ebf04b3606784d48568cf386483ac2b81fc747ed77859da4ba4f77df4c5e81d3",
+      "version": "v4.2.4+g3900f43"
+    },
+    "kustomize": {
+      "archive_path": "tools/kustomize_v5.7.1_darwin_arm64.tar.gz",
+      "archive_sha256": "073e9d16d5a235e2ff83e62d6b76edb5d962adbc33be1e4860c4b3f1f39b33b9",
+      "path": "tools/kustomize",
+      "sha256": "c7b2b13703ff6d8f06d88f22f7737bea7f7c072a151b39440875e3e046a13899",
+      "version": "5.7.1"
+    }
+  }
+}

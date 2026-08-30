@@ -13,7 +13,7 @@ IaC-Guard-V works with changes written by people, AI coding agents, and remediat
 tools. It binds scanner evidence to the exact before/after files and resources, then
 fails closed when the evidence is incomplete or unverifiable.
 
-> **Status:** `0.1.0a7` technical alpha · Checkov-focused · trusted local input only.
+> **Status:** `0.1.0a8` technical alpha · Checkov-authoritative · trusted local input only.
 > The hardened hostile-input container and GitHub Action are not released.
 
 ## Why IaC-Guard-V?
@@ -35,7 +35,7 @@ Uncertainty is reported as `INCONCLUSIVE`, never as success.
 Install the public package and run the deterministic offline demo:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a7
+python -m pip install iac-guard-v==0.1.0a8
 iac-guard --version
 iac-guard demo
 ```
@@ -123,6 +123,7 @@ certification. See the
 | `iac-guard accept ...` | Evaluate explicit properties on one candidate without claiming a repair. |
 | `iac-guard helm-verify ...` | Deterministically render and verify local Helm charts. |
 | `iac-guard helm-accept --config ...` | Evaluate properties across one protected multi-chart Helm universe. |
+| `iac-guard kustomize-accept --config ...` | Evaluate properties after one bounded deterministic local Kustomize build. |
 | `iac-guard pr ...` | Materialize exact Git base/head objects and verify changed targets. |
 | `iac-guard explain report.json` | Validate and explain an existing `report-v1`. |
 
@@ -184,11 +185,20 @@ identity to model API-server namespace normalization while retaining any emitted
 `metadata.namespace` as governed evidence. Duplicate normalized identities and
 unresolved custom-resource scope remain fail-closed.
 
-KICS, Trivy, OpenTofu, kubeconform, TFLint, and multi-scanner consensus remain
-experimental, advisory, or future work. Candidate acceptance is limited to explicitly
-selected properties under a complete protected universe; it is not a generic claim
-that newly introduced infrastructure is safe. These boundaries cannot silently
-change the final verdict.
+`0.1.0a8` adds scanner-neutral protected-artifact, target, property-observation, and
+evidence contracts while retaining Checkov as the only authoritative scanner path. It
+also adds bounded Helm dependency aliases and nested local dependency closure,
+Helm-compatible dependency-version binding, equivalent duplicate named-template
+handling, bounded namespace-provenance improvements, and deterministic local
+Kustomize materialization. These are closed contracts: general Helm interpretation,
+remote dependency/resource resolution, `lookup` or other live-cluster state, and
+unsupported dynamic semantics are not supported and remain fail closed.
+
+KICS and Trivy remain advisory/future adapter work; OpenTofu, kubeconform, TFLint, and
+multi-scanner consensus remain experimental, advisory, or future work. Candidate
+acceptance is limited to explicitly selected properties under a complete protected
+universe; it is not a generic claim that newly introduced infrastructure is safe.
+These boundaries cannot silently change the final verdict.
 
 See [Supported scope and limitations](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORTED_SCOPE.md)
 for exact boundaries and [Security model](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SECURITY_MODEL.md)
@@ -200,6 +210,7 @@ for the fail-closed trust architecture.
 - [Supported scope and limitations](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORTED_SCOPE.md)
 - [Security model](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SECURITY_MODEL.md)
 - [Helm materialization](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/HELM_MATERIALIZATION.md)
+- [Kustomize materialization](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/KUSTOMIZE_MATERIALIZATION.md)
 - [Candidate acceptance](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/CANDIDATE_ACCEPTANCE.md)
 - [Example walkthrough](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/EXAMPLE_WALKTHROUGH.md)
 - [Public reproduction packet guidance](https://github.com/lokesh0186/iac-guard-v/blob/main/examples/public-reproductions/README.md)
@@ -213,8 +224,10 @@ for the fail-closed trust architecture.
 For the evolving software project, cite the
 [Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
-For results produced specifically with IaC-Guard-V `0.1.0a7`, cite the archived
+The most recent archived release before a8 is IaC-Guard-V `0.1.0a7`, identified by
 [Version DOI `10.5281/zenodo.22118759`](https://doi.org/10.5281/zenodo.22118759).
+The a8 Version DOI will be added after Zenodo publishes the release under the same
+concept record.
 
 Machine-readable citation metadata is available in
 [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).

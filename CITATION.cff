@@ -8,13 +8,13 @@ authors:
     email: lokesh0186@gmail.com
     affiliation: "Independent Researcher"
 type: software
-version: 0.1.0a7
-date-released: 2026-08-26
+version: 0.1.0a8
+date-released: 2026-08-29
 license: Apache-2.0
 repository-code: "https://github.com/lokesh0186/iac-guard-v"
 url: "https://github.com/lokesh0186/iac-guard-v"
 doi: "10.5281/zenodo.22088272"
-abstract: "IaC-Guard-V is a fail-closed verifier for infrastructure-as-code security repairs and explicitly selected candidate properties. It binds scanner, parser, source, resource, relationship, before/after, and deterministic local Helm evidence for supported Terraform and Kubernetes workflows."
+abstract: "IaC-Guard-V is a fail-closed verifier for infrastructure-as-code security repairs and explicitly selected candidate properties. It binds scanner-neutral evidence contracts to the authoritative Checkov path and supports bounded deterministic local Helm and Kustomize materialization for selected Terraform and Kubernetes workflows."
 keywords:
   - infrastructure-as-code
   - devsecops
@@ -23,6 +23,7 @@ keywords:
   - terraform
   - kubernetes
   - helm
+  - kustomize
   - checkov
   - ai-coding-agents
 preferred-citation:

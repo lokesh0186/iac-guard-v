@@ -177,6 +177,7 @@ class GraphEvidenceContext:
         rule_id: str,
         check_class: object,
         native_result: CheckEvaluationResult,
+        relationship_required: bool = False,
     ) -> GraphCheckEvidence | None:
         rule = canonical_identifier(rule_id, "graph check id")
         query_matches = tuple(
@@ -184,7 +185,9 @@ class GraphEvidenceContext:
             if item[0] == framework and item[1] == rule
         )
         query = query_matches[0] if len(query_matches) == 1 else None
-        is_graph_rule = rule.startswith("CKV2_")
+        # Native policy metadata and check class establish relationship semantics;
+        # an identifier prefix is not a capability declaration.
+        is_graph_rule = bool(query_matches) or relationship_required
         if not is_graph_rule:
             return None
         primary = self._resolve(file_path, native_resource)
@@ -361,7 +364,7 @@ def _load_graph_queries(
                     continue
                 metadata = value.get("metadata")
                 raw_rule = metadata.get("id") if type(metadata) is dict else None
-                if type(raw_rule) is not str or not raw_rule.startswith("CKV2_"):
+                if type(raw_rule) is not str:
                     continue
                 rule = canonical_identifier(raw_rule, "graph check id")
                 matches.setdefault((framework, rule), []).append((raw, value))

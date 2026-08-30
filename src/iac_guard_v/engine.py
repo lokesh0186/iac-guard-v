@@ -33,12 +33,7 @@ from yaml.events import (
 )
 from yaml.nodes import MappingNode, Node, ScalarNode, SequenceNode
 
-from .adapters.checkov import (
-    CheckovAdapter,
-    CheckovKubernetesIdentity,
-    CheckovScanRequest,
-    evaluate_checkov_target,
-)
+from .adapters.checkov import evaluate_checkov_target
 from .adapters.base import AdapterReason
 from .diffing import FindingDiffResult, diff_findings, require_trusted_diff_result
 from .enums import (
@@ -76,6 +71,7 @@ from .terraform_parser import (
     isolated_hcl2_parser_cache as _isolated_hcl2_parser_cache,
     parse_terraform_structure,
 )
+from .scanner_core import ProtectedAdapterRequest, ProtectedKubernetesIdentity
 
 
 _TRUSTED_ENGINE_CONTEXT = object()
@@ -1198,8 +1194,8 @@ class TrustedVerificationConfigBundle:
 
 
 def load_operator_verification_config(
-    baseline_request: CheckovScanRequest,
-    candidate_request: CheckovScanRequest,
+    baseline_request: ProtectedAdapterRequest,
+    candidate_request: ProtectedAdapterRequest,
     *,
     required_gates: RequiredGates,
     severity_floor: Severity = Severity.HIGH,
@@ -1207,8 +1203,12 @@ def load_operator_verification_config(
     frameworks: tuple | None = None,
 ) -> TrustedVerificationConfigBundle:
     """Explicit local/operator loader; future PR mode uses a Git-attested source."""
-    require_exact_type(baseline_request, CheckovScanRequest, "baseline Checkov request")
-    require_exact_type(candidate_request, CheckovScanRequest, "candidate Checkov request")
+    if not isinstance(baseline_request, ProtectedAdapterRequest) or not isinstance(
+        candidate_request, ProtectedAdapterRequest
+    ):
+        raise DomainError("verification requests must satisfy the protected adapter contract")
+    if type(baseline_request) is not type(candidate_request):
+        raise DomainError("baseline and candidate requests require one scanner adapter type")
     lock_fields = (
         "executable", "expected_version", "expected_executable_sha256",
         "expected_scanner_environment_sha256", "expected_policy_inventory_sha256",
@@ -1288,8 +1288,8 @@ def load_operator_verification_config(
 
 
 def load_git_verification_config(
-    baseline_request: CheckovScanRequest,
-    candidate_request: CheckovScanRequest,
+    baseline_request: ProtectedAdapterRequest,
+    candidate_request: ProtectedAdapterRequest,
     *,
     required_gates: RequiredGates,
     repository_identity: str,
@@ -1573,7 +1573,7 @@ class SealedVerificationSnapshot:
 class TrustedScanPlan:
     """Private-factory scan plan whose resources were detected from bound bytes."""
 
-    request: CheckovScanRequest
+    request: ProtectedAdapterRequest
     files: tuple
     resources: tuple
     inventory_sha256: str
@@ -1595,7 +1595,8 @@ class TrustedScanPlan:
     )
 
     def __post_init__(self, _trusted_context: object) -> None:
-        require_exact_type(self.request, CheckovScanRequest, "scan-plan request")
+        if not isinstance(self.request, ProtectedAdapterRequest):
+            raise DomainError("scan plan request does not satisfy the protected adapter contract")
         if type(self.files) is not tuple or any(type(item) is not ScanPlanFile for item in self.files):
             raise DomainError("scan-plan files must be exact ScanPlanFile values")
         if type(self.resources) is not tuple or any(type(item) is not ExpectedResource for item in self.resources):
@@ -1876,7 +1877,7 @@ _StrictSafeLoader.add_constructor(
 
 def _kubernetes_identity(
     relative: str, value: object, artifact_kind: ArtifactKind
-) -> tuple[ExpectedResource, CheckovKubernetesIdentity]:
+) -> tuple[ExpectedResource, ProtectedKubernetesIdentity]:
     if type(value) is not dict:
         raise DomainError("unsupported Kubernetes identity shape")
     api_version = value.get("apiVersion")
@@ -1908,7 +1909,7 @@ def _kubernetes_identity(
     native = f"{kind}.{namespace}.{name}"
     return (
         ExpectedResource(relative, canonical, artifact_kind, native),
-        CheckovKubernetesIdentity(
+        ProtectedKubernetesIdentity(
             relative, native, api_version, kind, namespace, name
         ),
     )
@@ -1916,9 +1917,9 @@ def _kubernetes_identity(
 
 def _resources_from_kubernetes_documents(
     relative: str, documents: tuple, artifact_kind: ArtifactKind
-) -> tuple[tuple[ExpectedResource, ...], tuple[CheckovKubernetesIdentity, ...]]:
+) -> tuple[tuple[ExpectedResource, ...], tuple[ProtectedKubernetesIdentity, ...]]:
     resources: list[ExpectedResource] = []
-    identities: list[CheckovKubernetesIdentity] = []
+    identities: list[ProtectedKubernetesIdentity] = []
     for document in documents:
         if document is None:
             continue
@@ -2061,7 +2062,7 @@ def _bounded_yaml_documents(content: bytes) -> tuple:
 
 def _kubernetes_resources(
     relative: str, content: bytes
-) -> tuple[tuple[ExpectedResource, ...], tuple[CheckovKubernetesIdentity, ...]]:
+) -> tuple[tuple[ExpectedResource, ...], tuple[ProtectedKubernetesIdentity, ...]]:
     return _resources_from_kubernetes_documents(
         relative, _bounded_yaml_documents(content), ArtifactKind.KUBERNETES_YAML
     )
@@ -2122,7 +2123,7 @@ def _json_contains_identity(value: object) -> bool:
 
 def _kubernetes_json_resources(
     relative: str, content: bytes
-) -> tuple[tuple[ExpectedResource, ...], tuple[CheckovKubernetesIdentity, ...]]:
+) -> tuple[tuple[ExpectedResource, ...], tuple[ProtectedKubernetesIdentity, ...]]:
     document = _strict_json_document(content)
     if not _json_contains_identity(document):
         return (), ()
@@ -2165,11 +2166,12 @@ def _read_detector_file(path: Path, root: Path, max_bytes: int) -> bytes:
 
 
 def attest_checkov_scan_plan(
-    untrusted: CheckovScanRequest,
+    untrusted: ProtectedAdapterRequest,
     config: TrustedVerificationConfigBundle | None = None,
     role: ScanRole = ScanRole.DISCOVERY,
 ) -> TrustedScanPlan:
     """Re-discover bytes/resources; production calls provide protected config."""
+    from .adapters.checkov import CheckovScanRequest
     require_exact_type(untrusted, CheckovScanRequest, "unattested Checkov request")
     require_enum(role, ScanRole, "scan-plan role")
     if config is not None:
@@ -2199,7 +2201,7 @@ def attest_checkov_scan_plan(
     files: list[ScanPlanFile] = []
     inspected_files: list[ScanPlanFile] = []
     resources: list[ExpectedResource] = []
-    kubernetes: list[CheckovKubernetesIdentity] = []
+    kubernetes: list[ProtectedKubernetesIdentity] = []
     eligible: list[str] = []
     supporting: list[str] = []
     classifications: list[ArtifactClassification] = []
@@ -2350,6 +2352,7 @@ def attest_checkov_scan_plan(
                 relative, file_type, len(content), hashlib.sha256(content).hexdigest(), content
             )
         )
+    from .adapters.checkov import CheckovScanRequest
     request = CheckovScanRequest(
         executable=config.scanner_executable if config else untrusted.executable,
         scan_root=untrusted.scan_root,
@@ -2987,8 +2990,11 @@ def _target_observation(
         and item.file_path == target.file_path
         and item.native_result is CheckEvaluationResult.FAILED
     )
+    relationship_required = any(
+        item.graph_evidence is not None for item in baseline_graph_evaluations
+    )
     baseline_graph_complete = (
-        not target.rule_id.startswith("CKV2_")
+        not relationship_required
         or (
             len(baseline_graph_evaluations) == len(baseline_findings)
             and all(
@@ -3040,6 +3046,7 @@ def _target_observation(
     target_evidence = evaluate_checkov_target(
         candidate, target.rule_id, target.scope,
         target.file_path if target.file_path in eligible else None,
+        relationship_required=relationship_required,
     )
     suppressed = (
         target_evidence.reason is CheckTargetReason.TARGET_SUPPRESSED
@@ -3371,6 +3378,7 @@ def run_checkov_verification(
     by the protected configuration bundle.
     """
     require_exact_type(request, VerificationRequest, "verification request")
+    from .adapters.checkov import CheckovAdapter
     adapter = CheckovAdapter()
     baseline = require_trusted_scanner_run(adapter.scan(request.baseline_scan.request))
     candidate = require_trusted_scanner_run(adapter.scan(request.candidate_scan.request))

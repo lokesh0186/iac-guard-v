@@ -1,0 +1,39 @@
+{
+  "contract": "iac-guard-v-kustomize-engine-lock-v1",
+  "implementation_registry_sha256": "854f6a6a8d0e18831042c30346aeb592dc4b118549b024e0ee5efa77d692883c",
+  "release": {
+    "repository": "kubernetes-sigs/kustomize",
+    "tag": "kustomize/v5.7.1",
+    "release_id": 234547748,
+    "version": "5.7.1",
+    "published_at": "2025-07-23T12:54:41Z",
+    "checksums_sha256": "6c618b59563854d035df06c70b6a4e0e892c295321ceb8ce91805d7a7ea244c7"
+  },
+  "platforms": {
+    "darwin/amd64": {
+      "archive": "kustomize_v5.7.1_darwin_amd64.tar.gz",
+      "archive_sha256": "4a0dff80c5644df6bc8f51b342842969004cb6ba5f94dddaabbea7483493273d",
+      "executable_sha256": "2ef364c147fe7ebcb52603fb0b8628e373c748ae3952a9f9e50c302f434cbe3d"
+    },
+    "darwin/arm64": {
+      "archive": "kustomize_v5.7.1_darwin_arm64.tar.gz",
+      "archive_sha256": "073e9d16d5a235e2ff83e62d6b76edb5d962adbc33be1e4860c4b3f1f39b33b9",
+      "executable_sha256": "c7b2b13703ff6d8f06d88f22f7737bea7f7c072a151b39440875e3e046a13899"
+    },
+    "linux/amd64": {
+      "archive": "kustomize_v5.7.1_linux_amd64.tar.gz",
+      "archive_sha256": "ea375e7372f9aa029129d4b2d16c66b7750b7f1213c4f66f910d981c895818d8",
+      "executable_sha256": "54636edecead2af90fa980cdc6a66a5ce062a1e4d694a2e36357cd73190755bb"
+    },
+    "linux/arm64": {
+      "archive": "kustomize_v5.7.1_linux_arm64.tar.gz",
+      "archive_sha256": "4261a040217df3bd6896597c3986d1465925726e4f22a945304b5233a4dcdbda",
+      "executable_sha256": "ba012577adea506d40526dbdbd9c804f6a10fdcf3f175e74a33d83eb1320a1d6"
+    },
+    "windows/amd64": {
+      "archive": "kustomize_v5.7.1_windows_amd64.zip",
+      "archive_sha256": "4704f8b47582c1c52bf76a50b37178f7f7de17f892713794a8bf44b01b50e0ce",
+      "executable_sha256": "2005d670d030a65dedd8b5bd7c5a12c5d89e41bb71f28c3b492b7b1d066eb74b"
+    }
+  }
+}

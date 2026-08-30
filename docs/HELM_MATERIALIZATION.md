@@ -38,7 +38,8 @@ The report binds:
 
 - Helm version, executable digest, platform, and architecture;
 - every chart file and the canonical chart-inventory root;
-- `Chart.yaml`, `Chart.lock`, and frozen local dependency artifacts;
+- `Chart.yaml`, `Chart.lock`, frozen local dependency artifacts, logical alias
+  instances, and nested local dependency closure;
 - ordered values files, redacted and typed overrides, release name, namespace,
   Kubernetes version, API versions, CRD mode, test mode, and exact argument identity;
 - two fresh render attempts with isolated Helm state;
@@ -57,10 +58,13 @@ The report binds:
 
 ## Supported dependency boundary
 
-Verification consumes only dependency bytes already present in the local chart. An
-unpacked local subchart is accepted. A remote dependency is accepted only when its
-matching artifact is vendored and `Chart.lock` is valid. IaC-Guard-V never runs
-`helm dependency update`, resolves a mutable HTTP/OCI chart, or negotiates a version.
+Verification consumes only dependency bytes already present in the local chart.
+Unpacked local subcharts and contained vendored archives can participate, including
+bounded nested local closure and repeated logical instances created by aliases.
+Declared versions are checked with Helm-compatible constraint semantics and bound to
+the protected lock, nested `Chart.yaml`, physical source, and logical instance.
+IaC-Guard-V never runs `helm dependency update`, resolves an HTTP/OCI dependency, or
+downloads missing bytes.
 
 Dependency relevance follows `Chart.yaml` and actual content under `charts/`. When
 both declare no dependency state, a stray `Chart.lock` remains byte-bound chart content
@@ -81,6 +85,8 @@ The materializer does not support:
 - ambiguous/missing source markers or duplicate rendered identities;
 - unequal bytes, document order, resource identities, source mappings, or semantics
   across the two fresh renders.
+- general Go-template/Helm interpretation outside the explicitly bounded action,
+  namespace, dependency, and duplicate-template equivalence grammars.
 
 These conditions produce a typed operational or `INCONCLUSIVE` result. They are not
 silently ignored. Helm stderr is retained by digest and byte count, not copied into the
@@ -89,7 +95,9 @@ canonical materialization evidence.
 For a namespaced resource that omits `metadata.namespace`, the protected Helm release
 namespace is the effective namespace. Explicit literal, `.Release.Namespace`, bounded
 values-derived, and bounded static named-helper namespaces retain their source proof.
-Cluster-scoped resources must omit `metadata.namespace`. A custom-resource scope must
+For known cluster-scoped resources, any emitted `metadata.namespace` remains governed
+scanner-facing evidence while the API-normalized effective namespace is absent; two
+objects that collide after normalization remain an error. A custom-resource scope must
 be established by exact local CRD bytes; an unavailable, dynamic, or contradictory
 scope is inconclusive.
 

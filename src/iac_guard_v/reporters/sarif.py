@@ -131,8 +131,12 @@ def _acceptance_result(payload: dict, property_: dict) -> dict:
                 }
             }
         }]
+    scanner_namespace = (
+        property_.get("evaluation", {}).get("scanner", "checkov")
+        if isinstance(property_.get("evaluation"), dict) else "checkov"
+    )
     return {
-        "ruleId": f"checkov:{selector['rule_id']}",
+        "ruleId": f"{scanner_namespace}:{selector['rule_id']}",
         "level": (
             "note" if outcome == "SATISFIED"
             else "error" if outcome == "VIOLATED"
@@ -145,7 +149,7 @@ def _acceptance_result(payload: dict, property_: dict) -> dict:
         ),
         "message": {
             "text": (
-                f"checkov {selector['rule_id']} at {selector['resource_address']}: "
+                f"{scanner_namespace} {selector['rule_id']} at {selector['resource_address']}: "
                 f"{outcome} ({property_['reason_code']})"
             )
         },

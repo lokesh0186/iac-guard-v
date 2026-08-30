@@ -88,16 +88,19 @@ def test_d91_parser_failures_are_typed(monkeypatch) -> None:
 
 def test_committed_json_and_markdown_match_canonical_analysis() -> None:
     result = compare_frozen_runs()
-    markdown = render_markdown(result)
     committed = (REPO / "docs/spec/LEGACY_VS_HARDENED.md").read_text(encoding="utf-8")
     committed_json = CANONICAL_ANALYSIS.read_text(encoding="utf-8")
     frozen_result = json.loads(committed_json)
     assert frozen_result["iac_guard_v_version"] == "0.1.0a1"
-    # D9 is a historical a1 record. A later product version must not rewrite
-    # that frozen metadata, while every substantive replay value still has to
-    # match the current deterministic comparison.
-    result["iac_guard_v_version"] = frozen_result["iac_guard_v_version"]
+    # D9 is a historical a1 record. Later verifier source necessarily has a
+    # different implementation digest, so compare replay semantics separately
+    # from the immutable historical implementation provenance.  Neither value
+    # is rewritten to make unlike implementations appear identical.
+    for key in ("iac_guard_v_version", "iac_guard_v_implementation_digest"):
+        result.pop(key)
+        frozen_result.pop(key)
     assert frozen_result == result
+    markdown = render_markdown(json.loads(committed_json))
     assert committed == markdown
     for text in (
         "historical hardened-evidence sufficiency comparison",

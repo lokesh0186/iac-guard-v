@@ -23,12 +23,14 @@ from .api import (
     verify_candidate,
     verify_helm,
     verify_helm_candidate,
+    verify_kustomize_candidate,
 )
 from .config import (
     ExecutionIsolation, PublicAcceptanceProperty,
     PublicCandidateAcceptanceRequest, PublicHelmVerificationRequest, PublicTarget,
     PublicVerificationRequest, load_public_config,
     load_public_helm_acceptance_config,
+    load_public_kustomize_acceptance_config,
 )
 from .helm import HelmRenderSpec
 from .models import DomainError
@@ -305,6 +307,17 @@ def _parser() -> argparse.ArgumentParser:
     )
     helm_accept_parser.add_argument("--output", type=Path)
     helm_accept_parser.add_argument("--quiet", action="store_true")
+    kustomize_accept_parser = subcommands.add_parser(
+        "kustomize-accept",
+        help="materialize one bounded local Kustomize universe and verify properties",
+    )
+    kustomize_accept_parser.add_argument("--config", required=True, type=Path)
+    kustomize_accept_parser.add_argument("--local-trusted", action="store_true")
+    kustomize_accept_parser.add_argument(
+        "--format", choices=_REPORT_FORMATS, default="console"
+    )
+    kustomize_accept_parser.add_argument("--output", type=Path)
+    kustomize_accept_parser.add_argument("--quiet", action="store_true")
     doctor_parser = subcommands.add_parser(
         "doctor", help="diagnose readiness for one selected isolation mode"
     )
@@ -1042,6 +1055,22 @@ def main(argv: list[str] | None = None) -> int:
                 )
             report = verify_helm_candidate(
                 load_public_helm_acceptance_config(args.config)
+            )
+            return _write_report(report, args.format, args.output, quiet=args.quiet)
+        if args.command == "kustomize-accept":
+            if not args.local_trusted:
+                return _write_report(
+                    OperationalReportV1(
+                        "HARDENED_KUSTOMIZE_UNAVAILABLE",
+                        "Kustomize acceptance supports protected local input only.",
+                        "Rerun with --local-trusted for operator-controlled sources.",
+                    ),
+                    args.format,
+                    args.output,
+                    quiet=args.quiet,
+                )
+            report = verify_kustomize_candidate(
+                load_public_kustomize_acceptance_config(args.config)
             )
             return _write_report(report, args.format, args.output, quiet=args.quiet)
         if args.command == "pr":

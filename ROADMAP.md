@@ -71,7 +71,7 @@ This roadmap records intent, not a delivery commitment.
   `AMBIGUOUS_TEMPLATE_ACTION_GRAPH` whenever the corresponding action is reachable or
   its reachability cannot be proven.
 
-## Candidate `0.1.0a7` - Kubernetes namespace correctness
+## `0.1.0a7` - Kubernetes namespace correctness
 
 - Model API-server namespace normalization for known cluster-scoped resources instead
   of treating an emitted `metadata.namespace` as an automatic contradiction.
@@ -79,6 +79,19 @@ This roadmap records intent, not a delivery commitment.
   recording an absent effective namespace in the Kubernetes resource identity.
 - Continue to reject duplicate identities after normalization and keep unresolved
   custom-resource scope and contradictory namespaced-resource provenance inconclusive.
+
+## `0.1.0a8` - Scanner-neutral evidence and bounded materialization
+
+- Separate protected artifacts, targets, observations, and evidence from scanner
+  adapter ownership while keeping Checkov as the authoritative scanner path.
+- Bind Helm aliases, nested local dependency closure, Helm-compatible dependency
+  versions, and equivalent duplicate named templates under closed deterministic rules.
+- Improve namespace provenance only within the bounded, source-proven grammar.
+- Add deterministic local Kustomize v5.7.1 materialization with a complete protected
+  input inventory and two-build output identity.
+- Preserve the permanent 55-surface real-world corpus and replay identities.
+- Keep general Helm interpretation, remote resolution, live-cluster lookup, unsupported
+  dynamic semantics, and advisory KICS/Trivy results outside the authoritative path.
 
 ## Candidate next-alpha work
 

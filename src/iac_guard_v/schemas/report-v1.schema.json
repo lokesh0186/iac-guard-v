@@ -2103,7 +2103,8 @@
             "CLUSTER_SCOPED", "HELM_RELEASE_NAMESPACE_DEFAULT",
             "EXPLICIT_RENDERED_NAMESPACE", "RELEASE_NAMESPACE_EXPRESSION",
             "VALUES_NAMESPACE_EXPRESSION", "VALUES_DEFAULT_RELEASE_NAMESPACE_EXPRESSION",
-            "LITERAL_NAMESPACE_EXPRESSION", "STATIC_NAMED_NAMESPACE_TEMPLATE"
+            "LITERAL_NAMESPACE_EXPRESSION", "STATIC_NAMED_NAMESPACE_TEMPLATE",
+            "BOUNDED_NAMESPACE_EXPRESSION"
           ]
         },
         "source_template": {"type": "string", "minLength": 1},
@@ -2115,6 +2116,61 @@
             "NONE", "EXPLICIT_NAMESPACE_OVERRIDES_RELEASE_NAMESPACE",
             "RELEASE_NAMESPACE_EXPRESSION_CONTRADICTS_RENDER"
           ]
+        },
+        "named_template_equivalence": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "call_kind", "literal_helper_name", "context_kind", "members",
+            "equivalence_identity", "consumer_value_sha256"
+          ],
+          "properties": {
+            "call_kind": {"enum": ["include", "template"]},
+            "literal_helper_name": {"type": "string", "minLength": 1},
+            "context_kind": {"enum": [".", "$", "$root"]},
+            "members": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_path", "source_sha256", "definition_ordinal",
+                  "definition_span_sha256", "action_graph_sha256",
+                  "consumer_value_sha256"
+                ],
+                "properties": {
+                  "source_path": {"type": "string", "minLength": 1},
+                  "source_sha256": {"$ref": "#/$defs/sha256"},
+                  "definition_ordinal": {"type": "integer", "minimum": 0},
+                  "definition_span_sha256": {"$ref": "#/$defs/sha256"},
+                  "action_graph_sha256": {"$ref": "#/$defs/sha256"},
+                  "consumer_value_sha256": {"$ref": "#/$defs/sha256"}
+                }
+              }
+            },
+            "equivalence_identity": {"$ref": "#/$defs/sha256"},
+            "consumer_value_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "logical_values_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "logical_instance_identity", "source_marker_context",
+            "effective_values_root_sha256", "values_provenance_identity",
+            "release_namespace", "binding_identity"
+          ],
+          "properties": {
+            "logical_instance_identity": {
+              "type": "string", "pattern": "^\\.$|^[0-9a-f]{64}$"
+            },
+            "source_marker_context": {"type": "string", "minLength": 1},
+            "effective_values_root_sha256": {"$ref": "#/$defs/sha256"},
+            "values_provenance_identity": {"$ref": "#/$defs/sha256"},
+            "release_namespace": {"type": "string", "minLength": 1},
+            "binding_identity": {"$ref": "#/$defs/sha256"}
+          }
         },
         "provenance_identity": {"$ref": "#/$defs/sha256"}
       }
@@ -2361,6 +2417,344 @@
         "type": {"enum": ["typed", "string"]}
       }
     },
+    "helmDependencyActivation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["condition_inputs", "tag_inputs", "declared_enabled_metadata", "result"],
+          "properties": {
+            "condition_inputs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "found", "value"],
+                "properties": {
+                  "path": {"type": "string", "minLength": 1},
+                  "found": {"type": "boolean"},
+                  "value": {"type": ["boolean", "null"]}
+                }
+              }
+            },
+            "tag_inputs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["tag", "value"],
+                "properties": {
+                  "tag": {"type": "string", "minLength": 1},
+                  "value": {"type": "boolean"}
+                }
+              }
+            },
+            "declared_enabled_metadata": {"type": "boolean"},
+            "result": {"type": "boolean"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["condition", "tags", "enabled"],
+          "properties": {
+            "condition": {"type": "string"},
+            "tags": {
+              "type": "array", "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "enabled": {"type": "boolean"}
+          }
+        }
+      ]
+    },
+    "helmDependencyImport": {
+      "oneOf": [
+        {"type": "string", "minLength": 1},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["child", "parent"],
+          "properties": {
+            "child": {"type": "string", "minLength": 1},
+            "parent": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "helmPhysicalDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared_name", "resolved_version", "repository", "artifact_kind",
+        "protected_artifact_root_sha256", "physical_dependency_identity"
+      ],
+      "properties": {
+        "declared_name": {"type": "string", "minLength": 1},
+        "resolved_version": {"type": "string", "minLength": 1},
+        "repository": {"type": "string"},
+        "artifact_kind": {
+          "enum": [
+            "directory", "archive", "local-directory", "local-archive",
+            "archive-member-directory", "archive-member-archive"
+          ]
+        },
+        "protected_artifact_root_sha256": {"$ref": "#/$defs/sha256"},
+        "physical_dependency_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmLogicalDependency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parent_instance", "ordinal", "effective_name", "declared_name",
+        "physical_dependency_identity", "activation_metadata_sha256",
+        "import_metadata_sha256", "effective_values_root_sha256",
+        "global_values_sha256", "source_marker_context", "logical_instance_identity"
+      ],
+      "properties": {
+        "parent_instance": {"type": "string", "minLength": 1},
+        "ordinal": {"type": "integer", "minimum": 0},
+        "effective_name": {"type": "string", "minLength": 1},
+        "declared_name": {"type": "string", "minLength": 1},
+        "physical_dependency_identity": {"$ref": "#/$defs/sha256"},
+        "activation_metadata_sha256": {"$ref": "#/$defs/sha256"},
+        "import_metadata_sha256": {"$ref": "#/$defs/sha256"},
+        "effective_values_root_sha256": {"$ref": "#/$defs/sha256"},
+        "global_values_sha256": {"$ref": "#/$defs/sha256"},
+        "source_marker_context": {"type": "string", "minLength": 1},
+        "logical_instance_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmLogicalValuesProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract", "effective_name", "dependency_defaults_source_kind",
+        "dependency_defaults_source_path", "dependency_defaults_source_sha256",
+        "dependency_defaults_values_sha256", "parent_scoped_values_sha256",
+        "global_values_sha256", "import_values_contribution_sha256",
+        "effective_values_root_sha256", "source_marker_context",
+        "logical_instance_identity", "provenance_identity"
+      ],
+      "properties": {
+        "contract": {"const": "helm-logical-effective-values-v1"},
+        "effective_name": {"type": "string", "minLength": 1},
+        "dependency_defaults_source_kind": {
+          "enum": ["ABSENT", "FILE", "ARCHIVE_MEMBER"]
+        },
+        "dependency_defaults_source_path": {"type": "string"},
+        "dependency_defaults_source_sha256": {"$ref": "#/$defs/sha256"},
+        "dependency_defaults_values_sha256": {"$ref": "#/$defs/sha256"},
+        "parent_scoped_values_sha256": {"$ref": "#/$defs/sha256"},
+        "global_values_sha256": {"$ref": "#/$defs/sha256"},
+        "import_values_contribution_sha256": {"$ref": "#/$defs/sha256"},
+        "effective_values_root_sha256": {"$ref": "#/$defs/sha256"},
+        "source_marker_context": {"type": "string", "minLength": 1},
+        "logical_instance_identity": {"$ref": "#/$defs/sha256"},
+        "provenance_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmArchiveProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_path", "archive_sha256",
+        "archive_member_manifest_root_sha256", "chart_member_path",
+        "chart_yaml_sha256", "chart_member_subtree_root_sha256",
+        "provenance_identity"
+      ],
+      "properties": {
+        "repository_path": {"type": "string", "minLength": 1},
+        "archive_sha256": {"$ref": "#/$defs/sha256"},
+        "archive_member_manifest_root_sha256": {"$ref": "#/$defs/sha256"},
+        "chart_member_path": {"type": "string", "minLength": 1},
+        "chart_yaml_sha256": {"$ref": "#/$defs/sha256"},
+        "chart_member_subtree_root_sha256": {"$ref": "#/$defs/sha256"},
+        "provenance_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmArchiveMemberProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "outer_archive_sha256", "outer_archive_member_manifest_root_sha256",
+        "artifact_member_path", "chart_member_path", "chart_yaml_sha256",
+        "member_subtree_root_sha256", "parent_dependency_identity",
+        "provenance_identity"
+      ],
+      "properties": {
+        "outer_archive_sha256": {"$ref": "#/$defs/sha256"},
+        "outer_archive_member_manifest_root_sha256": {"$ref": "#/$defs/sha256"},
+        "artifact_member_path": {"type": "string", "minLength": 1},
+        "chart_member_path": {"type": "string", "minLength": 1},
+        "chart_yaml_sha256": {"$ref": "#/$defs/sha256"},
+        "member_subtree_root_sha256": {"$ref": "#/$defs/sha256"},
+        "parent_dependency_identity": {"type": "string", "minLength": 1},
+        "provenance_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmDependencyVersionConstraintTerm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operator", "original_version", "normalized_version",
+        "dirty", "minor_dirty", "patch_dirty"
+      ],
+      "properties": {
+        "operator": {"enum": ["", "=", "!=", ">", "<", ">=", "=>", "<=", "=<", "~", "~>", "^"]},
+        "original_version": {"type": "string", "minLength": 1, "maxLength": 256},
+        "normalized_version": {"type": "string", "minLength": 5, "maxLength": 256},
+        "dirty": {"type": "boolean"},
+        "minor_dirty": {"type": "boolean"},
+        "patch_dirty": {"type": "boolean"}
+      }
+    },
+    "helmDependencyVersionBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared_constraint", "declared_constraint_sha256",
+        "parsed_constraint_semantic_identity", "constraint_ast",
+        "protected_lock_resolved_version", "resolved_version_canonical",
+        "dependency_chart_version", "constraint_engine",
+        "constraint_engine_version", "constraint_implementation",
+        "constraint_engine_identity", "helm_constraint_contract",
+        "prerelease_policy", "satisfied", "physical_dependency_identity",
+        "logical_instance_identity", "version_binding_identity"
+      ],
+      "properties": {
+        "declared_constraint": {"type": "string", "minLength": 1, "maxLength": 512},
+        "declared_constraint_sha256": {"$ref": "#/$defs/sha256"},
+        "parsed_constraint_semantic_identity": {"$ref": "#/$defs/sha256"},
+        "constraint_ast": {
+          "type": "array", "minItems": 1, "maxItems": 32,
+          "items": {
+            "type": "array", "minItems": 1, "maxItems": 128,
+            "items": {"$ref": "#/$defs/helmDependencyVersionConstraintTerm"}
+          }
+        },
+        "protected_lock_resolved_version": {"type": "string", "minLength": 5, "maxLength": 256},
+        "resolved_version_canonical": {"type": "string", "minLength": 5, "maxLength": 256},
+        "dependency_chart_version": {"type": "string", "minLength": 5, "maxLength": 256},
+        "constraint_engine": {"const": "github.com/Masterminds/semver/v3"},
+        "constraint_engine_version": {"const": "3.5.0"},
+        "constraint_implementation": {"const": "iac-guard-v-internal-masterminds-compatible-v1"},
+        "constraint_engine_identity": {"$ref": "#/$defs/sha256"},
+        "helm_constraint_contract": {"const": "helm-v4.2.4+g3900f43"},
+        "prerelease_policy": {"const": "MASTERMIND_V3_5_0_AND_GROUP_OPT_IN"},
+        "satisfied": {"const": true},
+        "physical_dependency_identity": {"$ref": "#/$defs/sha256"},
+        "logical_instance_identity": {"$ref": "#/$defs/sha256"},
+        "version_binding_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "helmDependencyArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "form", "expanded_files"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "form": {"enum": [
+          "directory", "archive", "local-directory", "local-archive",
+          "archive-member-directory", "archive-member-archive"
+        ]},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "source_repository_path": {"type": "string", "minLength": 1},
+        "physical_root_sha256": {"$ref": "#/$defs/sha256"},
+        "physical_files": {
+          "type": "array", "minItems": 1,
+          "items": {"$ref": "#/$defs/helmChartFile"}
+        },
+        "expanded_files": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/helmChartFile"}
+        },
+        "activation": {"$ref": "#/$defs/helmDependencyActivation"},
+        "imports": {
+          "type": "array", "items": {"$ref": "#/$defs/helmDependencyImport"}
+        },
+        "physical_dependency": {"$ref": "#/$defs/helmPhysicalDependency"},
+        "logical_instance": {"$ref": "#/$defs/helmLogicalDependency"},
+        "values_provenance": {"$ref": "#/$defs/helmLogicalValuesProvenance"},
+        "logical_context": {"type": "string", "minLength": 1},
+        "archive_provenance": {"$ref": "#/$defs/helmArchiveProvenance"},
+        "archive_member_provenance": {
+          "$ref": "#/$defs/helmArchiveMemberProvenance"
+        },
+        "version_binding": {"$ref": "#/$defs/helmDependencyVersionBinding"},
+        "dependencies": {"$ref": "#/$defs/helmDependencyClosure"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"form": {"enum": [
+            "archive", "local-archive", "archive-member-archive"
+          ]}}},
+          "then": {
+            "required": ["sha256"],
+            "properties": {"expanded_files": {"minItems": 1}}
+          },
+          "else": {"properties": {"expanded_files": {"maxItems": 0}}}
+        },
+        {
+          "if": {"properties": {"form": {"const": "local-directory"}}},
+          "then": {
+            "required": ["source_repository_path", "physical_root_sha256", "physical_files"]
+          }
+        },
+        {
+          "if": {"properties": {"form": {"const": "archive-member-directory"}}},
+          "then": {
+            "required": [
+              "physical_root_sha256", "physical_files",
+              "archive_member_provenance"
+            ]
+          }
+        },
+        {
+          "if": {"properties": {"form": {"const": "archive-member-archive"}}},
+          "then": {
+            "required": ["archive_provenance", "archive_member_provenance"]
+          }
+        },
+        {
+          "if": {"properties": {"form": {"const": "local-archive"}}},
+          "then": {"required": ["source_repository_path"]}
+        },
+        {
+          "if": {"required": ["logical_instance"]},
+          "then": {"required": ["physical_dependency", "activation", "imports"]}
+        },
+        {
+          "if": {"required": ["physical_dependency"]},
+          "then": {"required": ["logical_instance", "activation", "imports"]}
+        },
+        {
+          "if": {"required": ["version_binding"]},
+          "then": {"required": ["physical_dependency", "logical_instance"]}
+        },
+        {
+          "if": {"required": ["values_provenance"]},
+          "then": {"required": ["physical_dependency", "logical_instance"]}
+        }
+      ]
+    },
+    "helmDependencyClosure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["count", "chart_lock_sha256", "artifacts"],
+      "properties": {
+        "count": {"type": "integer", "minimum": 0},
+        "chart_lock_sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
+        "chart_lock_relevance": {
+          "enum": ["ABSENT", "NON_PARTICIPATING", "PARTICIPATING"]
+        },
+        "artifacts": {
+          "type": "array", "items": {"$ref": "#/$defs/helmDependencyArtifact"}
+        }
+      }
+    },
     "helmMaterialization": {
       "type": "object",
       "additionalProperties": false,
@@ -2399,46 +2793,7 @@
             "inventory_root_sha256": {"$ref": "#/$defs/sha256"},
             "chart_yaml_sha256": {"$ref": "#/$defs/sha256"},
             "files": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/helmChartFile"}},
-            "dependencies": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": ["count", "chart_lock_sha256", "artifacts"],
-              "properties": {
-                "count": {"type": "integer", "minimum": 0},
-                "chart_lock_sha256": {"type": "string", "pattern": "^$|^[0-9a-f]{64}$"},
-                "chart_lock_relevance": {
-                  "enum": ["ABSENT", "NON_PARTICIPATING", "PARTICIPATING"]
-                },
-                "artifacts": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": false,
-                    "required": ["name", "version", "form", "expanded_files"],
-                    "properties": {
-                      "name": {"type": "string", "minLength": 1},
-                      "version": {"type": "string", "minLength": 1},
-                      "form": {"enum": ["directory", "archive"]},
-                      "sha256": {"$ref": "#/$defs/sha256"},
-                      "expanded_files": {
-                        "type": "array",
-                        "items": {"$ref": "#/$defs/helmChartFile"}
-                      }
-                    },
-                    "allOf": [
-                      {
-                        "if": {"properties": {"form": {"const": "archive"}}},
-                        "then": {
-                          "required": ["sha256"],
-                          "properties": {"expanded_files": {"minItems": 1}}
-                        },
-                        "else": {"properties": {"expanded_files": {"maxItems": 0}}}
-                      }
-                    ]
-                  }
-                }
-              }
-            }
+            "dependencies": {"$ref": "#/$defs/helmDependencyClosure"}
           }
         },
         "render_inputs": {
@@ -2480,6 +2835,7 @@
             "argv": {"type": "array", "minItems": 1, "items": {"type": "string"}},
             "argv_sha256": {"$ref": "#/$defs/sha256"},
             "environment_sha256": {"$ref": "#/$defs/sha256"},
+            "protected_root_effective_values_sha256": {"$ref": "#/$defs/sha256"},
             "template_action_reachability": {"$ref": "#/$defs/helmActionReachability"}
           }
         },
@@ -2578,6 +2934,128 @@
           }
         },
         "universe_identity": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "kustomizeMaterialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract", "status", "reason_code", "engine", "build", "inputs",
+        "output", "documents", "materialization_identity"
+      ],
+      "properties": {
+        "contract": {"const": "kustomize-materialization-v1"},
+        "status": {"const": "PASS"},
+        "reason_code": {"const": "DETERMINISTIC_LOCAL_KUSTOMIZE_BUILD_BOUND"},
+        "engine": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name", "version", "release_tag", "release_id", "platform",
+            "executable_sha256", "archive_sha256", "checksums_sha256",
+            "implementation_registry_sha256"
+          ],
+          "properties": {
+            "name": {"const": "kustomize"},
+            "version": {"type": "string", "minLength": 1},
+            "release_tag": {"type": "string", "minLength": 1},
+            "release_id": {"type": "integer", "minimum": 1},
+            "platform": {"type": "string", "minLength": 1},
+            "executable_sha256": {"$ref": "#/$defs/sha256"},
+            "archive_sha256": {"$ref": "#/$defs/sha256"},
+            "checksums_sha256": {"$ref": "#/$defs/sha256"},
+            "implementation_registry_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "build": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository_root_identity", "build_root",
+            "transitive_input_manifest_sha256", "control_graph_sha256",
+            "transform_declaration_sha256", "canonical_invocation_sha256",
+            "build_1_raw_output_sha256", "build_2_raw_output_sha256",
+            "source_to_output_lineage_sha256", "offline", "plugins", "exec", "helm"
+          ],
+          "properties": {
+            "repository_root_identity": {"$ref": "#/$defs/sha256"},
+            "build_root": {"type": "string", "minLength": 1},
+            "transitive_input_manifest_sha256": {"$ref": "#/$defs/sha256"},
+            "control_graph_sha256": {"$ref": "#/$defs/sha256"},
+            "transform_declaration_sha256": {"$ref": "#/$defs/sha256"},
+            "canonical_invocation_sha256": {"$ref": "#/$defs/sha256"},
+            "build_1_raw_output_sha256": {"$ref": "#/$defs/sha256"},
+            "build_2_raw_output_sha256": {"$ref": "#/$defs/sha256"},
+            "source_to_output_lineage_sha256": {"$ref": "#/$defs/sha256"},
+            "offline": {"const": true},
+            "plugins": {"const": false},
+            "exec": {"const": false},
+            "helm": {"const": false}
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "roles", "referrers", "size", "sha256"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "roles": {
+                "type": "array", "minItems": 1, "uniqueItems": true,
+                "items": {"type": "string", "minLength": 1}
+              },
+              "referrers": {
+                "type": "array", "uniqueItems": true,
+                "items": {"type": "string", "minLength": 1}
+              },
+              "size": {"type": "integer", "minimum": 0},
+              "sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        },
+        "output": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rendered_bundle_path", "rendered_bundle_sha256",
+            "rendered_bundle_bytes", "resource_count", "fresh_build_count",
+            "document_inventory_sha256"
+          ],
+          "properties": {
+            "rendered_bundle_path": {"const": "rendered.yaml"},
+            "rendered_bundle_sha256": {"$ref": "#/$defs/sha256"},
+            "rendered_bundle_bytes": {"type": "integer", "minimum": 1},
+            "resource_count": {"type": "integer", "minimum": 1},
+            "fresh_build_count": {"const": 2},
+            "document_inventory_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "documents": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "index", "sha256", "api_version", "kind", "namespace", "name",
+              "resource_identity", "provenance_root_sha256", "generated_secret"
+            ],
+            "properties": {
+              "index": {"type": "integer", "minimum": 0},
+              "sha256": {"$ref": "#/$defs/sha256"},
+              "api_version": {"type": "string", "minLength": 1},
+              "kind": {"type": "string", "minLength": 1},
+              "namespace": {"type": "string"},
+              "name": {"type": "string", "minLength": 1},
+              "resource_identity": {"type": "string", "minLength": 1},
+              "provenance_root_sha256": {"$ref": "#/$defs/sha256"},
+              "generated_secret": {"type": "boolean"}
+            }
+          }
+        },
+        "materialization_identity": {"$ref": "#/$defs/sha256"}
       }
     },
     "artifactClassification": {
@@ -2843,7 +3321,12 @@
             }
           }
         },
-        "materialization": {"$ref": "#/$defs/helmUniverse"}
+        "materialization": {
+          "oneOf": [
+            {"$ref": "#/$defs/helmUniverse"},
+            {"$ref": "#/$defs/kustomizeMaterialization"}
+          ]
+        }
       }
     },
     "verificationBase": {

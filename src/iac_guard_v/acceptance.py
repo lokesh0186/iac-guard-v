@@ -375,6 +375,29 @@ def build_conservative_evidence_universes(
     require_trusted_scanner_run(run)
     rules = tuple(sorted({item.rule_id for item in properties}))
     complete = _conservative_complete(plan, run)
+    missing_by_key = {
+        (item.file_path, item.resource_address): item for item in plan.resources
+    }
+    reported_missing = []
+    prefix = "missing evaluation resource: "
+    for diagnostic in run.diagnostics:
+        if not diagnostic.startswith(prefix):
+            continue
+        identity = diagnostic[len(prefix):]
+        file_path, separator, resource_address = identity.partition("@")
+        resource = missing_by_key.get((file_path, resource_address)) if separator else None
+        if resource is None:
+            # A malformed or unbound adapter diagnostic cannot create trusted
+            # missing-resource evidence.  Preserve an empty set so the count
+            # disagreement remains fail-closed in report validation.
+            reported_missing = []
+            break
+        reported_missing.append(resource)
+    missing = (
+        tuple(reported_missing)
+        if len(reported_missing) == run.resource_coverage.expected_resources_missing
+        else ()
+    )
     targets = tuple(
         TargetRelevantEvidenceUniverse(
             _property_selector(item),
@@ -405,7 +428,7 @@ def build_conservative_evidence_universes(
             for item in plan.resources
         ),
         targets,
-        (),
+        missing,
         Status.PASS if complete else Status.INCONCLUSIVE,
         "CONSERVATIVE_SCANNER_EVIDENCE_COMPLETE" if complete
         else "CONSERVATIVE_SCANNER_EVIDENCE_INCOMPLETE",
@@ -456,9 +479,7 @@ def build_candidate_evidence_universes(
     require_trusted_scanner_run(run)
     if type(properties) is not tuple or not properties:
         raise DomainError("candidate evidence requires selected properties")
-    if {item.rule_id for item in properties} != {"CKV2_K8S_6"} or set(
-        plan.request.frameworks
-    ) != {"kubernetes"}:
+    if set(plan.request.frameworks) != {"kubernetes"}:
         return build_conservative_evidence_universes(plan, run, properties)
 
     try:
@@ -473,14 +494,17 @@ def build_candidate_evidence_universes(
         )
     except (DomainError, OSError):
         return build_conservative_evidence_universes(plan, run, properties)
+    requested_rules = {item.rule_id for item in properties}
     query_matches = tuple(
         query for framework, rule, query in context.queries
-        if framework == "kubernetes" and rule == "CKV2_K8S_6"
+        if framework == "kubernetes" and rule in requested_rules
     )
-    if len(query_matches) != 1 or query_matches[0] is None:
+    if len(query_matches) != len(requested_rules) or any(
+        item is None for item in query_matches
+    ):
         return build_conservative_evidence_universes(plan, run, properties)
     query = query_matches[0]
-    if (
+    if any(item != query for item in query_matches[1:]) or (
         query.primary_types != ("Pod",)
         or query.connected_types != ("NetworkPolicy",)
         or query.attribute_requirements
@@ -626,7 +650,7 @@ def build_candidate_evidence_universes(
         ))
 
     classifications = []
-    rules = ("CKV2_K8S_6",)
+    rules = tuple(sorted(requested_rules))
     for resource in plan.resources:
         if resource in primary_resources:
             classification = "SCANNER_PRIMARY_ADDRESSABLE"
@@ -659,8 +683,8 @@ def build_candidate_evidence_universes(
         for item in missing
     )
     primary_complete = all(
-        len(_evaluation_for(run, "CKV2_K8S_6", item)) == 1
-        for item in primary_resources
+        len(_evaluation_for(run, rule, item)) == 1
+        for rule in requested_rules for item in primary_resources
     )
     missing_count_agrees = (
         len(missing) == run.resource_coverage.expected_resources_missing

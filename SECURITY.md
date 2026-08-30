@@ -1,6 +1,6 @@
 # Security Policy
 
-IaC-Guard-V `0.1.0a7` is a technical alpha for trusted local input, with a pinned
+IaC-Guard-V `0.1.0a8` is a technical alpha for trusted local input, with a pinned
 Checkov `3.3.0` scanner contract. It is not yet a production hardened-container
 release.
 
@@ -29,6 +29,11 @@ forwarded or published without the reporter's and project owner's authorization.
   `VERIFIED`.
 - Native mode is explicitly `reduced-isolation` and is suitable only for locally
   trusted input.
+- Checkov remains the only authoritative scanner path. KICS and Trivy remain advisory
+  and cannot establish a protected target `PASS` or change the final verdict.
+- Helm and Kustomize materialization are closed local contracts, not general
+  interpreters. Remote resolution, live cluster state, and unsupported dynamic
+  semantics fail closed.
 - The hardened production container and GitHub Action are not released. Do not use
   the alpha to evaluate hostile pull-request content.
 - The project does not defend against arbitrary hostile Python already running in its

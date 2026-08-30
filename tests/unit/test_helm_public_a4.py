@@ -24,7 +24,7 @@ from iac_guard_v.models import DomainError
 from iac_guard_v.enums import Verdict
 from iac_guard_v.report import OperationalReportV1, VerificationReportV1
 
-from test_helm_materialization_a4 import _chart, _executable, _spec
+from test_helm_materialization_a4 import DEPLOYMENT, _chart, _executable, _spec
 from test_policy import _verdict, verified_engine  # noqa: F401
 
 
@@ -299,7 +299,7 @@ def _dependency_chart(root: Path) -> Path:
 def _semantic_payload(
     tmp_path: Path, *, dependencies: bool = False, tpl: bool = False,
     dynamic_include: bool = False, protected_file_tpl: bool = False,
-    cluster_scoped_namespace: bool = False,
+    cluster_scoped_namespace: bool = False, duplicate_namespace_helper: bool = False,
 ) -> dict:
     index = sum(1 for item in tmp_path.iterdir() if item.name.startswith("semantic-"))
     semantic_root = tmp_path / f"semantic-{index}"
@@ -308,7 +308,32 @@ def _semantic_payload(
     candidate_root = semantic_root / "candidate"
     baseline_root.mkdir()
     candidate_root.mkdir()
-    if cluster_scoped_namespace:
+    if duplicate_namespace_helper:
+        rendered = DEPLOYMENT.replace(
+            "metadata:\n  name: demo",
+            "metadata:\n  name: demo\n  namespace: monitoring",
+        )
+        template = (
+            'metadata:\n  namespace: {{ include "demo.namespace" . }}\n'
+        )
+        baseline_chart = _chart(baseline_root, rendered=rendered, template=template)
+        candidate_chart = _chart(candidate_root, rendered=rendered, template=template)
+        definition = (
+            '{{ define "demo.namespace" }}{{ .Values.namespace }}{{ end }}\n'
+        )
+        for chart in (baseline_chart, candidate_chart):
+            (chart / "templates" / "one.tpl").write_text(definition, encoding="utf-8")
+            (chart / "templates" / "two.tpl").write_text(definition, encoding="utf-8")
+            (chart / "values.yaml").write_text(
+                "namespace: monitoring\n", encoding="utf-8"
+            )
+        baseline = _spec(
+            baseline_root, chart_root=baseline_chart, namespace="monitoring"
+        )
+        candidate = _spec(
+            candidate_root, chart_root=candidate_chart, namespace="monitoring"
+        )
+    elif cluster_scoped_namespace:
         rendered = (
             "---\n# Source: demo/templates/deployment.yaml\n"
             "apiVersion: rbac.authorization.k8s.io/v1\nkind: ClusterRole\n"
@@ -407,6 +432,64 @@ def test_helm_semantic_validator_binds_archive_and_expanded_dependency_bytes(
 ) -> None:
     payload = _semantic_payload(tmp_path, dependencies=True)
     REPORT._validate_helm_materialization(payload)
+
+
+def test_helm_semantic_validator_binds_equivalent_duplicate_namespace_helpers(
+    tmp_path: Path,
+) -> None:
+    payload = _semantic_payload(tmp_path, duplicate_namespace_helper=True)
+    REPORT._validate_helm_materialization(payload)
+    equivalence = payload["materialization"]["baseline"]["documents"][0][
+        "namespace_provenance"
+    ]["named_template_equivalence"]
+    assert len(equivalence["members"]) == 2
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    (
+        ("order", "members are not canonical"),
+        ("duplicate", "helper definition member"),
+        ("source", "source escapes"),
+        ("source-digest", "source digest"),
+        ("consumer", "consumer values"),
+        ("graph", "action graphs"),
+        ("helper", "helper identity"),
+        ("identity", "equivalence identity"),
+    ),
+)
+def test_helm_semantic_validator_rejects_duplicate_helper_evidence_mutation(
+    tmp_path: Path, mutation: str, message: str,
+) -> None:
+    payload = copy.deepcopy(
+        _semantic_payload(tmp_path, duplicate_namespace_helper=True)
+    )
+    baseline = payload["materialization"]["baseline"]
+    equivalence = baseline["documents"][0]["namespace_provenance"][
+        "named_template_equivalence"
+    ]
+    members = equivalence["members"]
+    if mutation == "order":
+        members.reverse()
+    elif mutation == "duplicate":
+        members[1] = copy.deepcopy(members[0])
+    elif mutation == "source":
+        members[0]["source_path"] = "templates/missing.tpl"
+    elif mutation == "source-digest":
+        members[0]["source_sha256"] = "0" * 64
+    elif mutation == "consumer":
+        members[0]["consumer_value_sha256"] = "0" * 64
+    elif mutation == "graph":
+        members[0]["action_graph_sha256"] = "0" * 64
+    elif mutation == "helper":
+        equivalence["literal_helper_name"] = "other.namespace"
+    else:
+        equivalence["equivalence_identity"] = "0" * 64
+    baseline["output"]["document_inventory_sha256"] = REPORT._canonical_json_digest(
+        baseline["documents"]
+    )
+    with pytest.raises(DomainError, match=message):
+        REPORT._validate_helm_materialization(payload)
 
 
 def test_helm_semantic_validator_binds_bounded_tpl_evidence(tmp_path: Path) -> None:

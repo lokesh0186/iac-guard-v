@@ -1,0 +1,247 @@
+{
+  "content_root_sha256": "603714898775fd7da32ca6c73973067ff990e6fbdbc9edde3f4f84a3349f6b67",
+  "file_count": 48,
+  "files": [
+    {
+      "path": "A8_55_SURFACE_CORPUS_MANIFEST.json",
+      "sha256": "b189031477e990cf70188adabf740b73cddf0ad7c3477ee4eb1c7b6a33c6292a",
+      "size": 145615
+    },
+    {
+      "path": "A8_55_SURFACE_CORPUS_MANIFEST.md",
+      "sha256": "143d76562871d0941bee0243a7bf48117b813094d49db014698aff877c403e94",
+      "size": 11249
+    },
+    {
+      "path": "a8-coverage-corpus/configs/onlyoffice-docspace/Chart.lock",
+      "sha256": "cd914818ec1f07f8d582160576dcdf4ed85564102bf1ffaf98d8ed9f98204846",
+      "size": 230
+    },
+    {
+      "path": "a8-coverage-corpus/configs/onlyoffice-docspace/charts/docs-6.1.1.tgz",
+      "sha256": "8fd6f9b9407876428140169c04b032a5cab54e605cd1145aa5cde86168d2cd7c",
+      "size": 85152
+    },
+    {
+      "path": "a8-coverage-corpus/configs/original-audit/a7_probe.json",
+      "sha256": "7ec06b7a443f7bbc1dee0e61607a9ca7dde32362dbb4f153b1e78d2d58c65c7e",
+      "size": 13043
+    },
+    {
+      "path": "a8-coverage-corpus/configs/original-audit/inventory.json",
+      "sha256": "53820b00a9123ed089990bbeaf7d4350a7524b8632a2188235b8919a3dba67b4",
+      "size": 340756
+    },
+    {
+      "path": "a8-coverage-corpus/configs/original-audit/inventory.py",
+      "sha256": "08246436aaeb489de6770938431254391f1aad01172cff5982a76eb656e6116a",
+      "size": 23437
+    },
+    {
+      "path": "a8-coverage-corpus/configs/original-audit/probe_a7.py",
+      "sha256": "efce98a00497b2048b4794ceec047d5775af6e37eb998b7af1a8c2aa07490749",
+      "size": 1806
+    },
+    {
+      "path": "a8-coverage-corpus/replay/build_manifest.py",
+      "sha256": "ba9ac7dca5543cc860a81b8374f6d1b080278cb653e6cbfe1cfb4bb9131886c3",
+      "size": 22857
+    },
+    {
+      "path": "a8-coverage-corpus/replay/classify_replay.py",
+      "sha256": "9439c7d162925d553496fd0b1b083aeaf2254faf409381f1125a616d1e70cb91",
+      "size": 5912
+    },
+    {
+      "path": "a8-coverage-corpus/replay/freeze_corpus.py",
+      "sha256": "af494f8e60b670761d650c2bc3dd297957a125b14e9c229e0b36c22238bc1af4",
+      "size": 2490
+    },
+    {
+      "path": "a8-coverage-corpus/replay/replay.py",
+      "sha256": "c4803877f17b7c5fcacbd8578385e0f270e599c9c56b5892ff21b739380321f5",
+      "size": 17152
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/airflow-9d54ac94826d8f46c0d6d1032ee7d9988e562d70.tar.gz",
+      "sha256": "dfab64428bb321d12a2f577b1fcfcbb82420d643276a5cb80ac0aa0a9eed15fb",
+      "size": 73976159
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/argo-helm-e0e82f7a9b543405ee25798ce8c899705503a3d1.tar.gz",
+      "sha256": "9f3f2e23a5fd557c77da545054f5385a8eb01195dbe25838d979c3dc7fe3e3a2",
+      "size": 747043
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/argo-workflows-bde5adf915fbc2600a49e6e864a699544fb91368.tar.gz",
+      "sha256": "bc166229502573877c732414ca9167072e8c687cc330f2b916d332fbb82fcd53",
+      "size": 12448064
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/aws-load-balancer-controller-7040d02b38580b8b8b47ba3fb2b279da9698f5d9.tar.gz",
+      "sha256": "cea5e4d83235143d4de488adf933783eda15a7b56ef1893d61c49ece4f3933cb",
+      "size": 2794228
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/azure-blob-csi-d50172c7fbab36573ed92ef0b1f4b4b32d41ff19.tar.gz",
+      "sha256": "841f8632d867011c649da0a8a07355912d3a1cb2bf636754ff243977832be199",
+      "size": 19075515
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/cloudnative-pg-8179beb0592398b9ae3221d8488c815b73e94b2c.tar.gz",
+      "sha256": "5987d1dd09806d448842f06f077bcb822c77def48a16a1470df88e6cbee0c6be",
+      "size": 13699361
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/coder-enterprise-helm-b096a369fe2d1b2de75a0b85af01fa9e272b221e.tar.gz",
+      "sha256": "2ec165f7718da1fab86353a12ef165101486e05a98907c317b1f2a6c8fc7ca67",
+      "size": 275788
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/cortex-helm-chart-73337e251edec84ed394b47649ec0e4763cdb591.tar.gz",
+      "sha256": "238d8421df81fa422d3e1e30501d65cfb71f15254d8882bd31d0b794cf4af44f",
+      "size": 2653337
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/csi-driver-smb-0f879a3208930a1a61cbe6fc2353719495845ba9.tar.gz",
+      "sha256": "fb5fca1520cd3c5a5761581cdd2e10e41859a3a8c0717adf7823ba624b555425",
+      "size": 14370177
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/descheduler-8bbd0bd661f2328ade2615ab0bd7f8dcafa3e723.tar.gz",
+      "sha256": "b818995fb02d0573b42d25c273ce8dc21ecb408b904fd1d59874cb32b77b6a57",
+      "size": 12865722
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/external-secrets-8488600898e856d74a7e0f53ed5e3cc79d89f4e8.tar.gz",
+      "sha256": "29874406c7593cf93c09d189050f7f5537c38f6ba3257b53886a57ba9bb2e241",
+      "size": 20964567
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/flux-kustomize-controller-186fb3b29138ce82ff61ba1a9370b96a3dd598fe.tar.gz",
+      "sha256": "cf2f1a08dc378fb52b0eba23fdeb9c9715683fb69657ce19928b18e2f58147bf",
+      "size": 648039
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/flux-source-controller-208961aa7bf334cbef95bee390712b27a925dec2.tar.gz",
+      "sha256": "c7eaa49aaebde8f39d603aaf861700e6245c370eb30a538ca04c733cbd087fa7",
+      "size": 652628
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/gateway-api-1ab0781ac715b26a25ff201ce444058a47703c4c.tar.gz",
+      "sha256": "86a59658567af7429483f760e690a164c7572f01f07769cf7e85d82bc7779559",
+      "size": 5397964
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/grafana-7a0ab968961a165318ab95ff678908c3b9bc3240.tar.gz",
+      "sha256": "afb9997e54b3212ceae723a37cd07728a3c4c9f02accc19a2c3d95d4cef66804",
+      "size": 456883
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/harbor-helm-acb552529b7c73d86840130eee226f17dc79a5ab.tar.gz",
+      "sha256": "26e1bc93acc11754ee4bc8b3c329e747d5da32461d73ce7182bb2c0e566f0b42",
+      "size": 423340
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/harness-gitops-agent-c4bfa0297cfbd27f0cc591f26a9ec39119ddbcb0.tar.gz",
+      "sha256": "1d5e4799338701d0ddd71ea9ca81da31ac0f94d3b0b24d82da28edfcc1a6d45d",
+      "size": 57316
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/jenkins-helm-41eeb20f3f00dda2515d2c5724b1343c5a237762.tar.gz",
+      "sha256": "69cb66b88df093452f866e73019aef90fa10b556e6ba384db2da8aecf4cfa604",
+      "size": 124777
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/kyverno-dc12fe22eb32b0aa8c4ba39e4b2f2a3bf5aacf34.tar.gz",
+      "sha256": "1f1b02a855ab3dde475d6aaffbcb8d1df7d220519c6d581302eee65cf174448a",
+      "size": 4964600
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/metrics-server-4062beeed6ef996ba3ff7164967edafd3470e2e4.tar.gz",
+      "sha256": "bfc25193152381c350cf2e89262e8b6ad1168a47423c28c7c6a7c23c19714a21",
+      "size": 142779
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/neo4j-helm-bd85d80c591e016fcf12e9960d626712ffddb642.tar.gz",
+      "sha256": "9952d9d06de3bd86573201310bdbb60e4c6880a4f3ff8b42a0f33cd3f1c456ab",
+      "size": 2382830
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/onlyoffice-docs-c0e9bdfc515858758cbe4bf23eeec23376595e70.tar.gz",
+      "sha256": "b038ab4921a06b3f391245c2543ae9f90132f11e3f0cb26b6e86b4379d3e8e16",
+      "size": 109722
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/onlyoffice-docspace-ae9cfca78e8485491a3cd7fcffe875abd3737579.tar.gz",
+      "sha256": "1626c919dafbd509361cb7b94ce5dff32eba0707e48b2905d439652cfb554ee0",
+      "size": 103205
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/opencost-4242feee70e745ea540fc5d3177d4899b307dc2d.tar.gz",
+      "sha256": "2cdbe4b874ac84b584c0ec5ffa65d44b90af58cf42730e734f954ca95f61d44d",
+      "size": 43708
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/opentelemetry-b1f24a2f0cc9bcee70bd1bf8e7b989240496385f.tar.gz",
+      "sha256": "8f209c916521c6dd0ee3125af498cf60e7020f6953302976a35fb1c4d6e9a9dd",
+      "size": 943503
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/prometheus-community-ed5d7d9b5933bcb0ea93f3f0a806e9db4f2b5988.tar.gz",
+      "sha256": "42aba1c3641cb7997bfd684261f7025e36460af983ce4e5dc10dfcf1b6e9b0f6",
+      "size": 1714458
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/prometheus-operator-146a99723a91c4b96abc41aeb46a147b04cf092b.tar.gz",
+      "sha256": "1282d1a23f36fce965d73e8ecbc8e328688501a30355fe4483e57fac47fd71d1",
+      "size": 4191779
+    },
+    {
+      "path": "a8-coverage-corpus/repositories/valkey-helm-dd2d78213ae4e7b229074d473612999c7324d9be.tar.gz",
+      "sha256": "0c8b3c3de6e66ef5e9ec52fd2f9045dc05466b4dc9dde31002853fbcb8e728c4",
+      "size": 114265
+    },
+    {
+      "path": "a8-coverage-corpus/results/implemented-a8-archive-values-namespace-correction-replay.json",
+      "sha256": "6f798f406257fa546c6fb52d135db4f192f733073c8a04a572213ff61817d785",
+      "size": 54011
+    },
+    {
+      "path": "a8-coverage-corpus/results/implemented-a8-nested-archive-correction-replay.json",
+      "sha256": "7951a0ee0794eb7ebcbc2183bf30e5bcd0991108d20cb402d75374903a02fd67",
+      "size": 53928
+    },
+    {
+      "path": "a8-coverage-corpus/results/implemented-a8-replay-classification.json",
+      "sha256": "1c91f32012325c3a76db135df3a79830e7aec448c2427c7d7b3272bb14d6349c",
+      "size": 27976
+    },
+    {
+      "path": "a8-coverage-corpus/results/implemented-a8-replay.json",
+      "sha256": "5db3d839fc0c5d2b2167cc89d0e0f4822af8cc22d97be7b44181963b1b9266da",
+      "size": 53968
+    },
+    {
+      "path": "a8-coverage-corpus/results/implemented-a8-version-binding-correction-replay.json",
+      "sha256": "43602d07dc757cc34fad064db7c1e1836202285ac81d5e80025cea7b29cbf668",
+      "size": 54006
+    },
+    {
+      "path": "a8-coverage-corpus/tools/helm-v4.2.4-darwin-arm64",
+      "sha256": "ebf04b3606784d48568cf386483ac2b81fc747ed77859da4ba4f77df4c5e81d3",
+      "size": 61803778
+    },
+    {
+      "path": "a8-coverage-corpus/tools/kustomize",
+      "sha256": "c7b2b13703ff6d8f06d88f22f7737bea7f7c072a151b39440875e3e046a13899",
+      "size": 14367442
+    },
+    {
+      "path": "a8-coverage-corpus/tools/kustomize_v5.7.1_darwin_arm64.tar.gz",
+      "sha256": "073e9d16d5a235e2ff83e62d6b76edb5d962adbc33be1e4860c4b3f1f39b33b9",
+      "size": 5516432
+    }
+  ],
+  "schema_version": "iac-guard-v-a8-coverage-corpus-content-lock-v1"
+}
