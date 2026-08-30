@@ -7,12 +7,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-pypi-0.1.0a7
+  group: publish-pypi-0.1.0a8
   cancel-in-progress: false
 
 jobs:
   publish-pypi:
-    name: Publish 0.1.0a7 to PyPI
+    name: Publish 0.1.0a8 to PyPI
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -24,10 +24,10 @@ jobs:
       - name: Download and verify the reviewed GitHub Release artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v0.1.0-alpha.7
-          RELEASE_COMMIT: 0263d3cfe16fccf917e9b06d755b8a05743ec476
-          WHEEL_SHA256: da3da52eaa26513529160c08184df6d7b1dea6753c7ee38e903a0741d8dfe728
-          SDIST_SHA256: 0e5d3e433dae6aa928c6ceffa932e449ce467974f744e743b93f8a0937ce3871
+          RELEASE_TAG: v0.1.0-alpha.8
+          RELEASE_COMMIT: aa82d1879786986a5e62dad55fa0fea8b8bbbcea
+          WHEEL_SHA256: ef62cfedd3c4f8a3fa2bbdf4bad241a17c0f2c076a37cd6fc7bb008a0476015c
+          SDIST_SHA256: 41a1b999e3945b50c8d08f29c6f9f05467468734515ef042f7a8af5dc6f3f45b
         run: |
           set -euo pipefail
           test "${GITHUB_REPOSITORY}" = "lokesh0186/iac-guard-v"
@@ -36,12 +36,12 @@ jobs:
           gh release download "${RELEASE_TAG}" \
             --repo "${GITHUB_REPOSITORY}" \
             --dir dist \
-            --pattern 'iac_guard_v-0.1.0a7-py3-none-any.whl' \
-            --pattern 'iac_guard_v-0.1.0a7.tar.gz'
+            --pattern 'iac_guard_v-0.1.0a8-py3-none-any.whl' \
+            --pattern 'iac_guard_v-0.1.0a8.tar.gz'
           test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 2
           printf '%s  %s\n' \
-            "${WHEEL_SHA256}" 'dist/iac_guard_v-0.1.0a7-py3-none-any.whl' \
-            "${SDIST_SHA256}" 'dist/iac_guard_v-0.1.0a7.tar.gz' \
+            "${WHEEL_SHA256}" 'dist/iac_guard_v-0.1.0a8-py3-none-any.whl' \
+            "${SDIST_SHA256}" 'dist/iac_guard_v-0.1.0a8.tar.gz' \
             | sha256sum --check --strict -
 
       - name: Publish the byte-identical artifacts with Trusted Publishing
