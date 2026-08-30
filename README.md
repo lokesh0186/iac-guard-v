@@ -224,10 +224,9 @@ for the fail-closed trust architecture.
 For the evolving software project, cite the
 [Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
-The most recent archived release before a8 is IaC-Guard-V `0.1.0a7`, identified by
-[Version DOI `10.5281/zenodo.22118759`](https://doi.org/10.5281/zenodo.22118759).
-The a8 Version DOI will be added after Zenodo publishes the release under the same
-concept record.
+The IaC-Guard-V `0.1.0a8` archive is identified by
+[Version DOI `10.5281/zenodo.22167878`](https://doi.org/10.5281/zenodo.22167878).
+It remains part of the same concept record.
 
 Machine-readable citation metadata is available in
 [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).

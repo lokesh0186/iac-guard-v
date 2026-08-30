@@ -265,6 +265,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "XXXX.XXXXX" not in readme
     assert "not yet a published release" not in readme
     assert "package version `0.1.0a8` is not published" not in readme
+    assert "10.5281/zenodo.22167878" in readme
 
     advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
     for statement in (
@@ -321,6 +322,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "correction released in `0.1.0a7`" in changelog
     assert "The Unreleased correction above" not in changelog
     assert "prepared, not published" not in changelog
+    assert "10.5281/zenodo.22167878" in changelog
 
 
 def test_public_deepsec_evidence_is_sanitized_and_bound() -> None:

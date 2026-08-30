@@ -5,6 +5,13 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [0.1.0a8] - 2026-08-29
 
+### Archive
+
+- Archived IaC-Guard-V `0.1.0a8` under Version DOI
+  [`10.5281/zenodo.22167878`](https://doi.org/10.5281/zenodo.22167878). The evolving
+  software project continues to use Concept DOI
+  [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
+
 ### Added
 
 - Scanner-neutral protected-artifact, target-identity, property-observation, and

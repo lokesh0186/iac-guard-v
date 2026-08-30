@@ -37,3 +37,10 @@ final verdict.
 
 These constraints are part of the release contract, not temporary success-path
 omissions. Alpha 8 does not claim broad Helm or Kustomize support.
+
+## Public release identities
+
+- GitHub prerelease: [`v0.1.0-alpha.8`](https://github.com/lokesh0186/iac-guard-v/releases/tag/v0.1.0-alpha.8)
+- PyPI: [`iac-guard-v 0.1.0a8`](https://pypi.org/project/iac-guard-v/0.1.0a8/)
+- Version DOI: [`10.5281/zenodo.22167878`](https://doi.org/10.5281/zenodo.22167878)
+- Concept DOI: [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272)
