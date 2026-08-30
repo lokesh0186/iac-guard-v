@@ -1,0 +1,42 @@
+{
+  "schema_version": "public-reproduction-materialization-v1",
+  "classification": "CORROBORATION",
+  "upstream_head_sha": "1340fe9cdae651a0e36fc27a4322b2a2f5872223",
+  "tool": {
+    "name": "kustomize",
+    "version": "v5.7.1",
+    "executable_sha256": "c7b2b13703ff6d8f06d88f22f7737bea7f7c072a151b39440875e3e046a13899"
+  },
+  "operational_condition": {
+    "needs_clair_pg_upgrade": true,
+    "managed_components": ["redis", "clairpostgres"],
+    "unmanaged_components": ["clair"],
+    "components": [
+      "../components/redis",
+      "../components/clairpostgres",
+      "../components/clairpgupgrade/base"
+    ]
+  },
+  "reproduction_control": {
+    "path": "materialization/kustomization.yaml",
+    "sha256": "7fca148cd07259efa2417588b3c1e6f9d570fc91c1f95c7712c7f95d6a8e4a81",
+    "namespace": "quay-a8-validation",
+    "name_prefix": "a8-",
+    "common_labels": {
+      "quay-operator/quayregistry": "a8"
+    }
+  },
+  "full_render_sha256": "fe4699b9f1138f8d238f118fd29418aa2e3a9238c313190883d16c31217a1105",
+  "relevant_resource_count": 8,
+  "workload_count": 5,
+  "network_policy_count": 3,
+  "rendered_snapshot_sha256": "71139ca49419048afd61948b9541f73c1c169fbc63ac29d0ef9727d1a3a54e73",
+  "rendered_artifact_manifest_sha256": "71e39cab2aeb5bb8ff401b6de8ccce703a70f39b97c3c20204c1b374b5d992b2",
+  "rendered_resource_inventory_sha256": "4aceb47a85499afe1245edc6471d3eeb0037d7b365119ec4931d189a2fde190c",
+  "report_sha256": "530a2a58a93f1769303133da8be71e6524ed80b21fa383d195aaaa98bf02d501",
+  "limitations": {
+    "iac_guard_v_kustomize_accept_used": false,
+    "complete_repository_generated_kustomization_claimed_supported": false,
+    "reason": "The repository-generated control uses legacy vars outside the bounded a8 Kustomize contract; native rendering is retained only as selector-preserving corroboration."
+  }
+}

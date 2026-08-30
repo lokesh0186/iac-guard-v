@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: quay-a8-validation
+namePrefix: a8-
+resources:
+  - ../base
+components:
+  - ../components/redis
+  - ../components/clairpostgres
+  - ../components/clairpgupgrade/base
+secretGenerator:
+  - name: quay-config-secret
+    options:
+      disableNameSuffixHash: true
+    literals:
+      - config.yaml={}
+commonLabels:
+  quay-operator/quayregistry: a8
+vars:
+  - name: QE_K8S_CONFIG_SECRET
+    objref:
+      apiVersion: v1
+      kind: Secret
+      name: quay-config-secret

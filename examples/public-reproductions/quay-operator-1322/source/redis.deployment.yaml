@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: quay-redis
+  labels:
+    quay-component: redis
+  annotations:
+    quay-component: redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      quay-component: redis
+  template:
+    metadata:
+      labels:
+        quay-component: redis
+    spec:
+      serviceAccountName: quay-redis
+      containers:
+        - name: redis-master
+          image: quay.io/sclorg/redis-7-c9s:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 6379
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 4000m
+              memory: 16Gi

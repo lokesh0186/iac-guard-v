@@ -1,0 +1,164 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    quay-component: quay
+  labels:
+    app: quay
+    quay-component: quay
+    quay-operator/quayregistry: a8
+  name: a8-quay-app
+  namespace: quay-a8-validation
+spec:
+  selector:
+    matchLabels:
+      app: quay
+      quay-component: quay-app
+      quay-operator/quayregistry: a8
+  template:
+    metadata:
+      labels:
+        app: quay
+        quay-component: quay-app
+        quay-monitor: "true"
+        quay-operator/quayregistry: a8
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: quay-component
+                  operator: In
+                  values:
+                  - quay-app
+              topologyKey: kubernetes.io/hostname
+            weight: 100
+      containers:
+      - args:
+        - registry-nomigrate
+        env:
+        - name: QE_K8S_CONFIG_SECRET
+          value: a8-quay-config-secret
+        - name: QE_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: DEBUGLOG
+          value: "false"
+        - name: WORKER_COUNT_WEB
+          value: "4"
+        - name: WORKER_COUNT_SECSCAN
+          value: "2"
+        - name: WORKER_COUNT_REGISTRY
+          value: "8"
+        - name: HTTP_PROXY
+          valueFrom:
+            secretKeyRef:
+              key: HTTP_PROXY
+              name: quay-proxy-config
+        - name: HTTPS_PROXY
+          valueFrom:
+            secretKeyRef:
+              key: HTTPS_PROXY
+              name: quay-proxy-config
+        - name: NO_PROXY
+          valueFrom:
+            secretKeyRef:
+              key: NO_PROXY
+              name: quay-proxy-config
+        image: quay.io/projectquay/quay:latest
+        livenessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /health/instance
+            port: 8080
+            scheme: HTTP
+          periodSeconds: 15
+          timeoutSeconds: 10
+        name: quay-app
+        ports:
+        - containerPort: 8443
+          protocol: TCP
+        - containerPort: 8080
+          protocol: TCP
+        - containerPort: 8081
+          protocol: TCP
+        - containerPort: 9091
+          protocol: TCP
+        - containerPort: 55443
+          protocol: TCP
+        readinessProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /health/instance
+            port: 8080
+            scheme: HTTP
+          periodSeconds: 15
+          timeoutSeconds: 10
+        resources:
+          limits:
+            cpu: 2000m
+            memory: 8Gi
+          requests:
+            cpu: 2000m
+            memory: 8Gi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            add:
+            - NET_BIND_SERVICE
+            drop:
+            - ALL
+          runAsNonRoot: true
+        startupProbe:
+          failureThreshold: 10
+          httpGet:
+            path: /health/instance
+            port: 8080
+            scheme: HTTP
+          periodSeconds: 15
+          timeoutSeconds: 20
+        volumeMounts:
+        - mountPath: /conf/stack
+          name: config
+          readOnly: false
+        - mountPath: /conf/stack/extra_ca_certs
+          name: extra-ca-certs
+          readOnly: true
+        - mountPath: /run/secrets/postgresql
+          name: postgres-certs
+        - mountPath: /.postgresql
+          name: postgres-certs-store
+      serviceAccountName: a8-quay-app
+      volumes:
+      - name: config
+        projected:
+          sources:
+          - secret:
+              name: a8-quay-config-secret
+          - secret:
+              name: quay-config-tls
+      - name: extra-ca-certs
+        projected:
+          sources:
+          - configMap:
+              name: a8-cluster-service-ca
+          - configMap:
+              name: a8-cluster-trusted-ca
+          - secret:
+              name: extra-ca-certs
+      - name: postgres-certs
+        projected:
+          sources:
+          - secret:
+              name: postgresql-ca
+              optional: true
+          - secret:
+              name: postgresql-client-certs
+              optional: true
+      - emptyDir:
+          sizeLimit: 5Mi
+        name: postgres-certs-store

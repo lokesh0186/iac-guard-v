@@ -1,0 +1,83 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    quay-component: clair-postgres
+  labels:
+    quay-component: clair-postgres
+    quay-operator/quayregistry: a8
+  name: a8-clair-postgres
+  namespace: quay-a8-validation
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      quay-component: clair-postgres
+      quay-operator/quayregistry: a8
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        quay-component: clair-postgres
+        quay-operator/quayregistry: a8
+    spec:
+      containers:
+      - env:
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: database-username
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: database-name
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-password
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-root-password
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_SHARED_BUFFERS
+          value: 256MB
+        - name: POSTGRESQL_MAX_CONNECTIONS
+          value: "2000"
+        image: quay.io/sclorg/postgresql-15-c9s:latest
+        imagePullPolicy: IfNotPresent
+        name: clair-postgres
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        readinessProbe:
+          exec:
+            command:
+            - /usr/libexec/check-container
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        volumeMounts:
+        - mountPath: /usr/share/pgsql/postgresql.conf.sample
+          name: clair-postgres-conf-sample
+          subPath: postgresql.conf.sample
+        - mountPath: /var/lib/pgsql/data
+          name: postgres-data
+      serviceAccountName: a8-clair-postgres
+      terminationGraceperiodSeconds: 600
+      volumes:
+      - configMap:
+          name: a8-clair-postgres-conf-sample
+        name: clair-postgres-conf-sample
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: a8-clair-postgres-15

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clair-postgres
+  labels:
+    quay-component: clair-postgres
+  annotations:
+    quay-component: clair-postgres
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      quay-component: clair-postgres
+  template:
+    metadata:
+      labels:
+        quay-component: clair-postgres
+    spec:
+      terminationGraceperiodSeconds: 600
+      serviceAccountName: clair-postgres
+      volumes:
+        - name: clair-postgres-conf-sample
+          configMap:
+            name: clair-postgres-conf-sample
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: clair-postgres-15
+      containers:
+        - name: clair-postgres
+          image: quay.io/sclorg/postgresql-15-c9s:latest
+          imagePullPolicy: "IfNotPresent"
+          ports:
+            - containerPort: 5432
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - /usr/libexec/check-container
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          env:
+            - name: POSTGRESQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: clairpostgres-config-secret
+                  key: database-username
+            - name: POSTGRESQL_DATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: clairpostgres-config-secret
+                  key: database-name
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clairpostgres-config-secret
+                  key: database-password
+            - name: POSTGRESQL_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: clairpostgres-config-secret
+                  key: database-root-password
+            - name: POSTGRESQL_SHARED_BUFFERS
+              value: 256MB
+            - name: POSTGRESQL_MAX_CONNECTIONS
+              value: "2000"
+          volumeMounts:
+            - name: clair-postgres-conf-sample
+              mountPath: /usr/share/pgsql/postgresql.conf.sample
+              subPath: postgresql.conf.sample
+            - name: postgres-data
+              mountPath: /var/lib/pgsql/data
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi

@@ -1,0 +1,66 @@
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  annotations:
+    quay-component: clair-postgres-upgrade
+  labels:
+    quay-component: clair-postgres-upgrade
+    quay-operator/quayregistry: a8
+  name: a8-clair-postgres-upgrade
+  namespace: quay-a8-validation
+spec:
+  backoffLimit: 50
+  template:
+    metadata:
+      labels:
+        quay-operator/quayregistry: a8
+    spec:
+      containers:
+      - args:
+        - |
+          run-postgresql --version || (echo "postgres migration command failed, cleaning up..." && rm -rf /var/lib/pgsql/data/* && exit 1)
+        command:
+        - /bin/sh
+        - -c
+        env:
+        - name: POSTGRESQL_MIGRATION_REMOTE_HOST
+          valueFrom:
+            secretKeyRef:
+              key: clair-db-old-host
+              name: clair-config-secret
+        - name: POSTGRESQL_MIGRATION_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-root-password
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_SHARED_BUFFERS
+          value: 256MB
+        - name: POSTGRESQL_MAX_CONNECTIONS
+          value: "2000"
+        image: quay.io/sclorg/postgresql-15-c9s:latest
+        imagePullPolicy: IfNotPresent
+        name: clair-postgres-15
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        volumeMounts:
+        - mountPath: /usr/share/pgsql/postgresql.conf.sample
+          name: clair-postgres-conf-sample
+          subPath: postgresql.conf.sample
+        - mountPath: /var/lib/pgsql/data
+          name: clair-postgres-15
+      restartPolicy: OnFailure
+      serviceAccountName: a8-clair-postgres
+      terminationGraceperiodSeconds: 600
+      volumes:
+      - configMap:
+          name: a8-clair-postgres-conf-sample
+        name: clair-postgres-conf-sample
+      - name: clair-postgres-15
+        persistentVolumeClaim:
+          claimName: a8-clair-postgres-15

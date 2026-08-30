@@ -1,0 +1,62 @@
+{
+  "schema_version": "public-reproduction-source-identity-v1",
+  "repository": "https://github.com/quay/quay-operator",
+  "pull_request": 1322,
+  "pull_request_url": "https://github.com/quay/quay-operator/pull/1322",
+  "state_at_final_recheck": "OPEN",
+  "base_sha": "bff5e1b5315f02bfc2373cb2e7039fb7e653a783",
+  "head_sha": "1340fe9cdae651a0e36fc27a4322b2a2f5872223",
+  "head_tree_sha": "4527f67d7f4a258ac84c64ccccd42fc737db0a93",
+  "complete_source_manifest_sha256": "81da943bca7568cb28ff8fea827c6c38f8fcc8cff7fc8bcae2d1e7dbeaace77f",
+  "head_changed_from_confirmed_candidate": false,
+  "relevant_files": [
+    {
+      "packet_path": "source/clair-pg-old.deployment.yaml",
+      "upstream_path": "kustomize/components/clairpgupgrade/base/clair-pg-old.deployment.yaml",
+      "git_blob_sha1": "419e45a5f16a0c7173f47f33f9038b32dc3f1e52",
+      "sha256": "acd942c5327dd78f7f924ea34dbf53dcbefbb17a2acbb0286c422f97013078d9"
+    },
+    {
+      "packet_path": "source/clair-pg-upgrade.job.yaml",
+      "upstream_path": "kustomize/components/clairpgupgrade/base/clair-pg-upgrade.job.yaml",
+      "git_blob_sha1": "30bd086ee67c0fbb0a522915378e1ce9b98ccf77",
+      "sha256": "c0a93eb424b87630c18ede532d67ea429f8a47986f5c611a863a7f222017fc74"
+    },
+    {
+      "packet_path": "source/clair-postgres.deployment.yaml",
+      "upstream_path": "kustomize/components/clairpostgres/postgres.deployment.yaml",
+      "git_blob_sha1": "9330b062e56d94c7d7633c657cbf0a774466687e",
+      "sha256": "b9bdf1775cde5f8ff086bf99f1bcf646f36669c3b9062af122ad278e06ffacab"
+    },
+    {
+      "packet_path": "source/clairpostgres.networkpolicy.yaml",
+      "upstream_path": "kustomize/components/clairpostgres/clairpostgres.networkpolicy.yaml",
+      "git_blob_sha1": "2871c5153af09bd31282199797ffc4fc4074e82e",
+      "sha256": "a2a21735919a84ac603519ab8c32c1714e2584c1ea9ea87ecc33e0cef2b4b533"
+    },
+    {
+      "packet_path": "source/quay.deployment.yaml",
+      "upstream_path": "kustomize/base/quay.deployment.yaml",
+      "git_blob_sha1": "e734e8a9f2438d64e7bf28021b2e6007f656c146",
+      "sha256": "b86cfa21c4c11358161434bec3250961ce88944d7db2f4c4fe3627340f1bc9c9"
+    },
+    {
+      "packet_path": "source/quay.networkpolicy.yaml",
+      "upstream_path": "kustomize/base/quay.networkpolicy.yaml",
+      "git_blob_sha1": "78affe880e5d13d81ac6d957a5fa560bd4a9b3f9",
+      "sha256": "d0192e9e30d5c8cc6c3327a85a93837a710de8beb0185cdd9a8295f0fcfa543b"
+    },
+    {
+      "packet_path": "source/redis.deployment.yaml",
+      "upstream_path": "kustomize/components/redis/redis.deployment.yaml",
+      "git_blob_sha1": "d4b718233c15ef5225eed8320f36fc6ef85572a3",
+      "sha256": "fd634c0055284b0c364b5c37f97a675422479b60d059242a722233446bcfe6f8"
+    },
+    {
+      "packet_path": "source/redis.networkpolicy.yaml",
+      "upstream_path": "kustomize/components/redis/redis.networkpolicy.yaml",
+      "git_blob_sha1": "679ab606b29aaa840214116239c8ab5937e5a099",
+      "sha256": "0636fad9ab5418774361a3854b62a5636df61340f0b0af733ad517b666d283d4"
+    }
+  ]
+}

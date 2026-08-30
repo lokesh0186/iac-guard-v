@@ -1,0 +1,36 @@
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  annotations:
+    quay-operator/network-policy: restrictive
+    quay-operator/network-policy-reason: Allow access to Redis only from Quay pods
+  labels:
+    quay-component: redis
+    quay-operator/quayregistry: a8
+  name: a8-redis-allow-only-from-quay-pods
+  namespace: quay-a8-validation
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          quay-component: quay-app
+          quay-operator/quayregistry: a8
+    - podSelector:
+        matchLabels:
+          quay-component: quay-app-upgrade
+          quay-operator/quayregistry: a8
+    - podSelector:
+        matchLabels:
+          quay-component: quay-mirror
+          quay-operator/quayregistry: a8
+    ports:
+    - port: 6379
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      quay-component: redis
+      quay-operator/quayregistry: a8
+  policyTypes:
+  - Ingress

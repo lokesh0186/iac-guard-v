@@ -1,0 +1,38 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    quay-component: redis
+  labels:
+    quay-component: redis
+    quay-operator/quayregistry: a8
+  name: a8-quay-redis
+  namespace: quay-a8-validation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      quay-component: redis
+      quay-operator/quayregistry: a8
+  template:
+    metadata:
+      labels:
+        quay-component: redis
+        quay-operator/quayregistry: a8
+    spec:
+      containers:
+      - image: quay.io/sclorg/redis-7-c9s:latest
+        imagePullPolicy: IfNotPresent
+        name: redis-master
+        ports:
+        - containerPort: 6379
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 4000m
+            memory: 16Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+      serviceAccountName: a8-quay-redis

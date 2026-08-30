@@ -1,0 +1,54 @@
+{
+  "schema_version": "public-reproduction-selected-properties-v1",
+  "rule_id": "CKV2_K8S_6",
+  "applicable_network_policy_count": 3,
+  "targets": [
+    {
+      "logical_identity": "apps/v1/Deployment/clair-postgres-old",
+      "authoritative_source_identity": "apps/v1/Deployment/default/clair-postgres-old",
+      "rendered_identity": "apps/v1/Deployment/quay-a8-validation/a8-clair-postgres-old",
+      "pod_template_labels": {
+        "quay-component": "clair-postgres-old",
+        "quay-operator/quayregistry": "a8"
+      },
+      "selecting_network_policy_count": 0,
+      "selector_disjoint_count": 3,
+      "outcome": "VIOLATED",
+      "reason": "CANDIDATE_PROPERTY_VIOLATED",
+      "graph_evidence": "PASS",
+      "authoritative_report": "REPORT.json",
+      "authoritative_report_sha256": "ba7e311c54e4026b7678786f21d81e57ce9a6e4c10cd3d87c7c86106743998ee",
+      "source_snapshot_sha256": "d4fe01c56a542df7652234ee7cba9a7b99e205f24362674e7fcadae4ed072519",
+      "source_input_manifest_sha256": "2681994a9671efd5f3466ff87c9372ad1a2782b6b58a7647d64eb9e32ffee083"
+    },
+    {
+      "logical_identity": "batch/v1/Job/clair-postgres-upgrade",
+      "committed_source_identity": "batch/v1/Job/default/clair-postgres-upgrade",
+      "rendered_identity": "batch/v1/Job/quay-a8-validation/a8-clair-postgres-upgrade",
+      "rendered_pod_template_labels": {
+        "quay-operator/quayregistry": "a8"
+      },
+      "selecting_network_policy_count": 0,
+      "selector_disjoint_count": 3,
+      "outcome": "VIOLATED",
+      "reason": "CANDIDATE_PROPERTY_VIOLATED",
+      "graph_evidence": "PASS",
+      "report": "REPORT-rendered.json",
+      "report_sha256": "530a2a58a93f1769303133da8be71e6524ed80b21fa383d195aaaa98bf02d501",
+      "rendered_snapshot_sha256": "71139ca49419048afd61948b9541f73c1c169fbc63ac29d0ef9727d1a3a54e73",
+      "rendered_input_manifest_sha256": "54000985194512fbe007467b0c507c428244a6dc6d9c73a133d40d44bc8e0c9f",
+      "source_boundary": "The exact-source report governs this Job but Checkov classifies the unlabeled raw Job pod template outside CKV2_K8S_6 primary addressability. The violated outcome is bound to the native rendered universe."
+    }
+  ],
+  "scanner_integrity": "PASS",
+  "parser_file_completeness": {
+    "files_discovered": 8,
+    "files_parsed": 8,
+    "files_failed": 0,
+    "parse_errors": 0,
+    "expected_resources": 8,
+    "expected_resources_observed": 8,
+    "expected_resources_missing": 0,
+    "unexpected_resources_observed": 0
+  }
+}

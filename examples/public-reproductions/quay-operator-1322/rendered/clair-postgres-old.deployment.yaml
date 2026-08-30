@@ -1,0 +1,89 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    quay-component: clair-postgres-old
+  labels:
+    quay-component: clair-postgres-old
+    quay-operator/quayregistry: a8
+  name: a8-clair-postgres-old
+  namespace: quay-a8-validation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      quay-component: clair-postgres-old
+      quay-operator/quayregistry: a8
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        quay-component: clair-postgres-old
+        quay-operator/quayregistry: a8
+    spec:
+      containers:
+      - env:
+        - name: POSTGRESQL_USER
+          valueFrom:
+            secretKeyRef:
+              key: database-username
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_DATABASE
+          valueFrom:
+            secretKeyRef:
+              key: database-name
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-password
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: database-root-password
+              name: a8-clairpostgres-config-secret-46f8b28mk5
+        - name: POSTGRESQL_SHARED_BUFFERS
+          value: 256MB
+        - name: POSTGRESQL_MAX_CONNECTIONS
+          value: "2000"
+        image: quay.io/sclorg/postgresql-13-c9s:latest
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          postStart:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - ' until pg_isready; do echo ''Waiting for PostgreSQL to start...'';
+                sleep 2; done; if [[ -f /proc/sys/crypto/fips_enabled && $(< /proc/sys/crypto/fips_enabled)
+                -eq 1 ]]; then echo ''password_encryption = scram-sha-256'' >> $PGDATA/postgresql.conf;
+                echo ''host all all 0.0.0.0/0 scram-sha-256'' >> $PGDATA/pg_hba.conf;
+                pg_ctl reload; psql -c "ALTER SYSTEM SET password_encryption TO ''scram-sha-256'';";
+                psql -c "SELECT pg_reload_conf();"; psql -c "ALTER USER $POSTGRESQL_USER
+                WITH PASSWORD ''$POSTGRESQL_PASSWORD'';"; fi'
+        name: postgres
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+        volumeMounts:
+        - mountPath: /usr/share/pgsql/postgresql.conf.sample
+          name: clair-postgres-conf-sample
+          subPath: postgresql.conf.sample
+        - mountPath: /var/lib/pgsql/data
+          name: postgres-data
+      serviceAccountName: a8-clair-postgres
+      terminationGraceperiodSeconds: 600
+      volumes:
+      - configMap:
+          name: a8-clair-postgres-conf-sample
+        name: clair-postgres-conf-sample
+      - name: postgres-data
+        persistentVolumeClaim:
+          claimName: a8-clair-postgres-13
