@@ -1,0 +1,132 @@
+---
+# Source: dgraph/templates/zero/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: "adjudicate-dgraph-zero"
+  namespace: dgraph-system
+  labels:
+    app: dgraph
+    app.kubernetes.io/component: zero
+    app.kubernetes.io/instance: adjudicate
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: dgraph
+    app.kubernetes.io/version: v25.3.1
+    chart: dgraph-25.3.1-preview2
+    component: zero
+    helm.sh/chart: dgraph-25.3.1-preview2
+    heritage: Helm
+    release: adjudicate
+spec:
+  serviceName: adjudicate-dgraph-zero-headless
+  replicas: 3
+  podManagementPolicy: "Parallel"
+  updateStrategy:
+    type: "RollingUpdate"
+  selector:
+    matchLabels:
+      app: dgraph
+      release: adjudicate
+      component: zero
+  template:
+    metadata:
+      name: adjudicate-dgraph-zero
+      annotations:
+        prometheus.io/path: /debug/prometheus_metrics
+        prometheus.io/port: "6080"
+        prometheus.io/scrape: "true"
+      labels:
+        app: dgraph
+        app.kubernetes.io/component: zero
+        app.kubernetes.io/instance: adjudicate
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: dgraph
+        app.kubernetes.io/version: v25.3.1
+        chart: dgraph-25.3.1-preview2
+        component: zero
+        helm.sh/chart: dgraph-25.3.1-preview2
+        heritage: Helm
+        release: adjudicate
+    spec:
+      serviceAccountName: dgraph
+      automountServiceAccountToken: true
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: component
+                  operator: In
+                  values:
+                  - zero
+              topologyKey: kubernetes.io/hostname      
+      containers:
+      - name: adjudicate-dgraph-zero
+        image: docker.io/dgraph/dgraph:v25.3.1
+        ports:
+        - containerPort: 5080
+          name: grpc-zero
+        - containerPort: 6080
+          name: http-zero
+        imagePullPolicy: "IfNotPresent"
+        env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        command:
+          - bash
+          - "-c"
+          - |
+            set -ex
+            [[ `hostname` =~ -([0-9]+)$ ]] || exit 1
+              ordinal=${BASH_REMATCH[1]}
+              idx=$(($ordinal + 1))
+              if [[ $ordinal -eq 0 ]]; then
+                exec dgraph zero --my=$(hostname -f | awk '{gsub(/\.$/,""); print $0}'):5080 --raft idx=$idx --replicas 5 
+              else
+                exec dgraph zero --my=$(hostname -f | awk '{gsub(/\.$/,""); print $0}'):5080 --peer adjudicate-dgraph-zero-0.adjudicate-dgraph-zero-headless.${POD_NAMESPACE}.svc.cluster.local:5080 --raft idx=$idx --replicas 5 
+              fi
+        resources:
+          requests:
+            memory: 100Mi
+        livenessProbe:
+          httpGet:
+            port: 6080
+            path: /health
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 6
+        readinessProbe:
+          httpGet:
+            port: 6080
+            path: /state
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 6
+        volumeMounts:
+        - name: datadir
+          mountPath: /dgraph
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - name: datadir
+        persistentVolumeClaim:
+          claimName: datadir
+  volumeClaimTemplates:
+    - metadata:
+        name: datadir
+        annotations:
+          volume.alpha.kubernetes.io/storage-class: anything
+      spec:
+        accessModes:
+          - "ReadWriteOnce"
+        resources:
+          requests:
+            storage: "32Gi"
+

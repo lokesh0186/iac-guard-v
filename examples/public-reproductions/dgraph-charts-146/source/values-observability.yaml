@@ -1,0 +1,28 @@
+## Prometheus Operator ServiceMonitor for the alpha and zero metrics endpoints.
+## Default off — requires the Prometheus Operator CRDs to be installed; a
+## stock install with this disabled imposes no CRD dependency.
+serviceMonitor:
+  enabled: false
+  # namespace: monitoring
+  labels: {}
+  interval: 30s
+  scrapeTimeout: 10s
+  path: /debug/prometheus_metrics
+
+## Prometheus Operator PrometheusRule with conservative default alerts for
+## alpha/zero instance availability and backup CronJob failures.
+## Default off — requires the Prometheus Operator CRDs to be installed; a
+## stock install with this disabled imposes no CRD dependency.
+prometheusRule:
+  enabled: false
+  labels: {}
+  defaultRules: true
+  extraRules: []
+
+## Optional NetworkPolicy restricting ingress to the dgraph pods. Default off
+## so it can't silently break connectivity on clusters whose CNI does not
+## enforce NetworkPolicy.
+networkPolicy:
+  enabled: false
+  clientPodLabels: {}
+  extraIngress: []

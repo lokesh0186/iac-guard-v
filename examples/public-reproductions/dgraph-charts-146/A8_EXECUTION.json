@@ -1,0 +1,59 @@
+{
+  "schema_version": "public-reproduction-iac-guard-execution-v1",
+  "verifier": {
+    "name": "IaC-Guard-V",
+    "version": "0.1.0a8",
+    "source_commit": "aa82d1879786986a5e62dad55fa0fea8b8bbbcea",
+    "pypi": "iac-guard-v==0.1.0a8",
+    "software_doi": "10.5281/zenodo.22167878",
+    "public_wheel_sha256": "ef62cfedd3c4f8a3fa2bbdf4bad241a17c0f2c076a37cd6fc7bb008a0476015c"
+  },
+  "scanner": {
+    "name": "checkov",
+    "version": "3.3.0",
+    "installed_distribution_digest": "b95fd2d9b9f8e2e074362dd5c73fd19547978cb14e0d9651d3f4a410029aa139",
+    "scanner_environment_digest": "889666d36a3076e8d752b4914a1b86b446b8a733e67cea4209069ef9ef703ee5"
+  },
+  "authoritative_run_scope": {
+    "upstream_head_sha": "fe013a6d24ef21b6812cd2f55f28246f444ef563",
+    "chart": "charts/dgraph",
+    "release_name": "adjudicate",
+    "namespace": "dgraph-system",
+    "kube_version": "1.31.0",
+    "networkPolicy.enabled": true,
+    "serviceMonitor.enabled": false,
+    "service_monitor_exclusion_reason": "IaC-Guard-V 0.1.0a8 cannot authoritatively admit the external ServiceMonitor CRD without local CRD namespace-provenance evidence. The ServiceMonitor layer is retained separately as native-render corroboration.",
+    "property": {
+      "rule_id": "CKV2_K8S_6",
+      "resource_address": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+      "file_path": "rendered.yaml"
+    }
+  },
+  "result": {
+    "report_path": "REPORT.json",
+    "report_sha256": "b0697e23858a7b542cda4ebd0e20fbef13bcfa31e4d2cf97e079364fef89b57a",
+    "verdict": "VERIFIED",
+    "exit_code": 0,
+    "property_outcome": "SATISFIED",
+    "property_reason": "CANDIDATE_PROPERTY_SATISFIED",
+    "graph_status": "PASS",
+    "graph_reason": "GRAPH_EVIDENCE_COMPLETE",
+    "relation_type": "kubernetes_network_policy_selector",
+    "relation_source": "networking.k8s.io/v1/NetworkPolicy/dgraph-system/adjudicate-dgraph",
+    "relation_target": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+    "candidate_snapshot_sha256": "43fa2e4ed69cca59b99e8d1e577976b15b68a50eaaa7ebdf15defeaf6dd6e9cd",
+    "artifact_manifest_sha256": "9db4bbbcf943b549d9328b75b761dcde2172387815b966389551c3c2ad15ea52",
+    "resource_inventory_sha256": "9d7b3dc4cd03c8bb71afc13f753f6d7daa6eb1a4d26769df95ff4d2e6d142351",
+    "rendered_bundle_sha256": "4b4ab0cdc04fd41679d42b2e32482fef54045932152ef5bc57dcda9125b1089c",
+    "graph_input_manifest_sha256": "463d6e7c23729b1f4b5db3e1ad7d2786a7d0dfc610f754770c9c87820101fce7",
+    "policy_definition_sha256": "dc7a0c220f041397c8c0c29cb4dca9f0c09c35006ebee74f628f22af696d63c5",
+    "policy_inventory_sha256": "bc120aac2cdc76e87084c554fda047f2e5c75c786c92a1b9dbe5b10b3839a480",
+    "materialized_universe_identity": "d7a1ce18cdc333e1923e23ec82105513dcf6abc899dffd45b4de830747c20e5a",
+    "raw_scanner_output_sha256": "b2efc7331940117fa8f99b14b96d667a341bcc3e4050393c8c2506dd64e3a5a6",
+    "expected_resources": 12,
+    "observed_resources": 12,
+    "missing_resources": 0,
+    "unexpected_resources": 0
+  },
+  "claim_boundary": "IaC-Guard-V authoritatively establishes the rendered NetworkPolicy-to-Zero selection relationship and binds exact policy/target evidence. It does not model ServiceMonitor endpoint resolution or experimentally prove dropped Prometheus traffic."
+}

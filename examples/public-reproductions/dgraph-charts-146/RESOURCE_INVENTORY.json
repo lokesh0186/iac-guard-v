@@ -1,0 +1,123 @@
+{
+  "schema_version": "public-reproduction-resource-inventory-v1",
+  "resource_count": 13,
+  "resources": [
+    {
+      "api_version": "apps/v1",
+      "kind": "StatefulSet",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-alpha",
+      "source_file": "dgraph/templates/alpha/statefulset.yaml",
+      "document_index": 0,
+      "source_file_sha256": "907ef3a0d122dbd22d26bf18eca24177b25c85025b0a15760dddcf3fd35ac8e1"
+    },
+    {
+      "api_version": "v1",
+      "kind": "Service",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-alpha-headless",
+      "source_file": "dgraph/templates/alpha/svc-headless.yaml",
+      "document_index": 0,
+      "source_file_sha256": "3e97d7a06423142ea71d5dafe76378be029489a3206b038afe0e0fa988f895f5"
+    },
+    {
+      "api_version": "v1",
+      "kind": "Service",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-alpha",
+      "source_file": "dgraph/templates/alpha/svc.yaml",
+      "document_index": 0,
+      "source_file_sha256": "65e3b681a1a1b792eaad8913015328e5ea61dbdb02868821d915518d121b53cb"
+    },
+    {
+      "api_version": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph",
+      "source_file": "dgraph/templates/networkpolicy.yaml",
+      "document_index": 0,
+      "source_file_sha256": "1485e44a339e3a0565a110f29774757c364b034fcbba9dd8e6917518a0a36adc"
+    },
+    {
+      "api_version": "v1",
+      "kind": "ServiceAccount",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-pre-upgrade",
+      "source_file": "dgraph/templates/pre-upgrade-statefulset-cleanup.yaml",
+      "document_index": 0,
+      "source_file_sha256": "8ad4d094657c0f491df9a489364d809422a8d28c7cc3ba2cc72a1e3ae2aab7dd"
+    },
+    {
+      "api_version": "rbac.authorization.k8s.io/v1",
+      "kind": "Role",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-pre-upgrade",
+      "source_file": "dgraph/templates/pre-upgrade-statefulset-cleanup.yaml",
+      "document_index": 1,
+      "source_file_sha256": "8ad4d094657c0f491df9a489364d809422a8d28c7cc3ba2cc72a1e3ae2aab7dd"
+    },
+    {
+      "api_version": "rbac.authorization.k8s.io/v1",
+      "kind": "RoleBinding",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-pre-upgrade",
+      "source_file": "dgraph/templates/pre-upgrade-statefulset-cleanup.yaml",
+      "document_index": 2,
+      "source_file_sha256": "8ad4d094657c0f491df9a489364d809422a8d28c7cc3ba2cc72a1e3ae2aab7dd"
+    },
+    {
+      "api_version": "batch/v1",
+      "kind": "Job",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-pre-upgrade",
+      "source_file": "dgraph/templates/pre-upgrade-statefulset-cleanup.yaml",
+      "document_index": 3,
+      "source_file_sha256": "8ad4d094657c0f491df9a489364d809422a8d28c7cc3ba2cc72a1e3ae2aab7dd"
+    },
+    {
+      "api_version": "v1",
+      "kind": "ServiceAccount",
+      "namespace": "dgraph-system",
+      "name": "dgraph",
+      "source_file": "dgraph/templates/serviceaccount.yaml",
+      "document_index": 0,
+      "source_file_sha256": "cbf5fed17221bca14aa15f56af1575e2458d3a6567ca8f7e27eb2fbbdbc48c07"
+    },
+    {
+      "api_version": "monitoring.coreos.com/v1",
+      "kind": "ServiceMonitor",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph",
+      "source_file": "dgraph/templates/servicemonitor.yaml",
+      "document_index": 0,
+      "source_file_sha256": "2ef154979077df1e463bbff990704529fc50cb1c741c0a57462d3f5ce703606e"
+    },
+    {
+      "api_version": "apps/v1",
+      "kind": "StatefulSet",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-zero",
+      "source_file": "dgraph/templates/zero/statefulset.yaml",
+      "document_index": 0,
+      "source_file_sha256": "6c466a764d13de74eab84f9b9978c13371cf11396316b892fb0bce71f0aba258"
+    },
+    {
+      "api_version": "v1",
+      "kind": "Service",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-zero-headless",
+      "source_file": "dgraph/templates/zero/svc-headless.yaml",
+      "document_index": 0,
+      "source_file_sha256": "3a92c2a93d630d6a98bb3d268e3123d5a7989c18f888c2f7f1516c12eb5d678a"
+    },
+    {
+      "api_version": "v1",
+      "kind": "Service",
+      "namespace": "dgraph-system",
+      "name": "adjudicate-dgraph-zero",
+      "source_file": "dgraph/templates/zero/svc.yaml",
+      "document_index": 0,
+      "source_file_sha256": "d17a5e9491f8c6b034eaba5e21169d0c51f3bece63ccb0ee4ce17ff97a071dc0"
+    }
+  ]
+}

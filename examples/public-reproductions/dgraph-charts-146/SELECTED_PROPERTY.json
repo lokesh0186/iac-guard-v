@@ -1,0 +1,122 @@
+{
+  "schema_version": "public-reproduction-selected-property-v1",
+  "verdict": "VERIFIED",
+  "result_kind": "candidate_acceptance",
+  "verification_mode": "candidate_acceptance",
+  "exit_code": 0,
+  "property": {
+    "evaluation": {
+      "evaluated_keys": [
+        "resource_type"
+      ],
+      "file_path": "rendered.yaml",
+      "graph_evidence": {
+        "edges": [
+          {
+            "relation_key": "spec.podSelector:226019d4b7a5390da18535959d40aca836297589ba4b36b177f9a55a4450b4b0",
+            "relation_type": "kubernetes_network_policy_selector",
+            "source": {
+              "artifact_kind": "kubernetes_yaml",
+              "file_path": "rendered.yaml",
+              "resource_address": "networking.k8s.io/v1/NetworkPolicy/dgraph-system/adjudicate-dgraph",
+              "resource_type": "NetworkPolicy"
+            },
+            "target": {
+              "artifact_kind": "kubernetes_yaml",
+              "file_path": "rendered.yaml",
+              "resource_address": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+              "resource_type": "StatefulSet"
+            }
+          }
+        ],
+        "input_manifest_sha256": "463d6e7c23729b1f4b5db3e1ad7d2786a7d0dfc610f754770c9c87820101fce7",
+        "participants": [
+          {
+            "artifact_kind": "kubernetes_yaml",
+            "file_path": "rendered.yaml",
+            "resource_address": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+            "resource_type": "StatefulSet"
+          },
+          {
+            "artifact_kind": "kubernetes_yaml",
+            "file_path": "rendered.yaml",
+            "resource_address": "networking.k8s.io/v1/NetworkPolicy/dgraph-system/adjudicate-dgraph",
+            "resource_type": "NetworkPolicy"
+          }
+        ],
+        "policy_definition_sha256": "dc7a0c220f041397c8c0c29cb4dca9f0c09c35006ebee74f628f22af696d63c5",
+        "policy_inventory_sha256": "bc120aac2cdc76e87084c554fda047f2e5c75c786c92a1b9dbe5b10b3839a480",
+        "primary": {
+          "artifact_kind": "kubernetes_yaml",
+          "file_path": "rendered.yaml",
+          "resource_address": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+          "resource_type": "StatefulSet"
+        },
+        "query_identity_sha256": "9033d3cda28b096118097cc61e89ff1c54ae4e70406f8c1ac46023c98f0941e1",
+        "reason_code": "GRAPH_EVIDENCE_COMPLETE",
+        "source_snapshot_sha256": "43fa2e4ed69cca59b99e8d1e577976b15b68a50eaaa7ebdf15defeaf6dd6e9cd",
+        "status": "PASS"
+      },
+      "native_result": "PASSED",
+      "occurrence_token": "checkov-occurrence-v1:0f72272f2cef6265c04d433fca517b075547b70ec76fd4710d4f0fe226329211",
+      "resource_address": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+      "rule_id": "CKV2_K8S_6",
+      "scanner": "checkov",
+      "scanner_version": "3.3.0",
+      "source_bucket": "passed_checks"
+    },
+    "outcome": "SATISFIED",
+    "reason_code": "CANDIDATE_PROPERTY_SATISFIED",
+    "resource": {
+      "artifact_kind": "kubernetes_yaml",
+      "file_path": "rendered.yaml",
+      "resource_address": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+      "scanner_native_lookup": "StatefulSet.dgraph-system.adjudicate-dgraph-zero"
+    },
+    "selector": {
+      "file_path": "rendered.yaml",
+      "resource_address": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+      "rule_id": "CKV2_K8S_6"
+    }
+  },
+  "candidate_snapshot": {
+    "snapshot_sha256": "43fa2e4ed69cca59b99e8d1e577976b15b68a50eaaa7ebdf15defeaf6dd6e9cd",
+    "artifact_manifest_sha256": "9db4bbbcf943b549d9328b75b761dcde2172387815b966389551c3c2ad15ea52",
+    "resource_inventory_sha256": "9d7b3dc4cd03c8bb71afc13f753f6d7daa6eb1a4d26769df95ff4d2e6d142351"
+  },
+  "evidence_universe": {
+    "status": "PASS",
+    "reason_code": "TARGET_RELEVANT_SCANNER_EVIDENCE_COMPLETE",
+    "governed_resource_count": 12
+  },
+  "scanner": {
+    "name": "checkov",
+    "version": "3.3.0",
+    "status": "PASS",
+    "ruleset_integrity": "PASS",
+    "resource_coverage": {
+      "expected_resources_missing": 0,
+      "expected_resources_observed": 12,
+      "inventory_completion_basis": [
+        "kubernetes_graph_primary_aliases"
+      ],
+      "resources_expected": 12,
+      "resources_observed": 12,
+      "summary_resources_reported": 15,
+      "unexpected_resources_observed": 0
+    }
+  },
+  "materialization": {
+    "status": "PASS",
+    "reason_code": "DETERMINISTIC_MULTI_CHART_UNIVERSE_BOUND",
+    "universe_identity": "d7a1ce18cdc333e1923e23ec82105513dcf6abc899dffd45b4de830747c20e5a",
+    "combined_output": {
+      "chart_count": 1,
+      "document_inventory_sha256": "6260510109162c38548fd7d6d750a515335e94a72d10775539048be4b16ef058",
+      "rendered_bundle_bytes": 17104,
+      "rendered_bundle_path": "rendered.yaml",
+      "rendered_bundle_sha256": "4b4ab0cdc04fd41679d42b2e32482fef54045932152ef5bc57dcda9125b1089c",
+      "resource_count": 12
+    }
+  }
+}

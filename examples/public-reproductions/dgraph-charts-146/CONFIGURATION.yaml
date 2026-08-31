@@ -1,0 +1,10 @@
+# Conditional feature-composition configuration used for the native render.
+# Both features default to false in the chart. This file enables them together
+# and preserves the relevant default empty custom-ingress state explicitly.
+serviceMonitor:
+  enabled: true
+
+networkPolicy:
+  enabled: true
+  clientPodLabels: {}
+  extraIngress: []

@@ -1,0 +1,119 @@
+{
+  "schema_version": "dgraph-charts-146-relationship-evidence-v1",
+  "upstream_head_sha": "fe013a6d24ef21b6812cd2f55f28246f444ef563",
+  "configuration": {
+    "serviceMonitor.enabled": true,
+    "networkPolicy.enabled": true,
+    "networkPolicy.clientPodLabels": {},
+    "networkPolicy.extraIngress": []
+  },
+  "service_monitor": {
+    "identity": "monitoring.coreos.com/v1/ServiceMonitor/dgraph-system/adjudicate-dgraph",
+    "target_namespace": "dgraph-system",
+    "service_selector": {
+      "match_labels": {
+        "app": "dgraph",
+        "release": "adjudicate"
+      },
+      "match_expressions": [
+        {
+          "key": "monitor",
+          "operator": "Exists"
+        }
+      ]
+    },
+    "selected_services": [
+      "v1/Service/dgraph-system/adjudicate-dgraph-alpha",
+      "v1/Service/dgraph-system/adjudicate-dgraph-zero"
+    ],
+    "zero_endpoint": {
+      "port_name": "http-zero",
+      "path": "/debug/prometheus_metrics",
+      "interval": "30s",
+      "scrape_timeout": "10s"
+    }
+  },
+  "zero_service": {
+    "identity": "v1/Service/dgraph-system/adjudicate-dgraph-zero",
+    "service_selector": {
+      "app": "dgraph",
+      "release": "adjudicate",
+      "component": "zero"
+    },
+    "resolved_port": {
+      "name": "http-zero",
+      "protocol": "TCP",
+      "port": 6080,
+      "target_port": 6080
+    }
+  },
+  "zero_workload": {
+    "identity": "apps/v1/StatefulSet/dgraph-system/adjudicate-dgraph-zero",
+    "pod_template_labels": {
+      "app": "dgraph",
+      "app.kubernetes.io/component": "zero",
+      "app.kubernetes.io/instance": "adjudicate",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "dgraph",
+      "app.kubernetes.io/version": "v25.3.1",
+      "chart": "dgraph-25.3.1-preview2",
+      "component": "zero",
+      "helm.sh/chart": "dgraph-25.3.1-preview2",
+      "heritage": "Helm",
+      "release": "adjudicate"
+    },
+    "container": {
+      "name": "adjudicate-dgraph-zero",
+      "port_name": "http-zero",
+      "protocol": "TCP",
+      "container_port": 6080
+    }
+  },
+  "network_policy": {
+    "identity": "networking.k8s.io/v1/NetworkPolicy/dgraph-system/adjudicate-dgraph",
+    "pod_selector": {
+      "app": "dgraph",
+      "release": "adjudicate"
+    },
+    "selects_zero": true,
+    "policy_types": [
+      "Ingress"
+    ],
+    "zero_ingress_isolated_under_standard_kubernetes_semantics": true,
+    "all_rendered_network_policies_selecting_zero": [
+      "networking.k8s.io/v1/NetworkPolicy/dgraph-system/adjudicate-dgraph"
+    ],
+    "complete_applicable_ingress_rule_inventory": [
+      {
+        "rule_index": 0,
+        "peer": {
+          "pod_selector": {
+            "app": "dgraph",
+            "release": "adjudicate"
+          },
+          "namespace_selector": null,
+          "ip_block": null,
+          "effective_namespace_scope": "same namespace as the policy"
+        },
+        "ports": null,
+        "effective_destination_ports": "all",
+        "matches_ordinary_prometheus_source": false,
+        "reason": "An ordinary Prometheus or PrometheusAgent pod is not a same-release Dgraph pod."
+      }
+    ],
+    "conditional_client_rule": {
+      "rendered": false,
+      "reason": "networkPolicy.clientPodLabels is empty",
+      "source_contract": "When configured, the rule is for Alpha client access and contains TCP 8080 and TCP 9080, not TCP 6080."
+    },
+    "extra_ingress_rules": [],
+    "any_rendered_rule_permits_ordinary_monitoring_source_to_tcp_6080": false
+  },
+  "resolved_declared_path": [
+    "Prometheus or PrometheusAgent source external to this chart",
+    "ServiceMonitor dgraph-system/adjudicate-dgraph endpoint http-zero",
+    "Service dgraph-system/adjudicate-dgraph-zero TCP 6080 targetPort 6080",
+    "StatefulSet Zero pod container adjudicate-dgraph-zero TCP 6080"
+  ],
+  "conservative_conclusion": "The chart-rendered rule set contains no ingress allowance for an ordinary monitoring source to the declared Zero TCP 6080 endpoint when both optional features are enabled and extraIngress is empty. A separate additive policy, a user-provided extraIngress rule, CNI behavior, or Kubernetes node-origin semantics can change runtime reachability."
+}

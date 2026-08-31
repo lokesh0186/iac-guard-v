@@ -1,0 +1,59 @@
+{
+  "schema_version": "public-reproduction-materialization-v1",
+  "classification": "CORROBORATING_CONFIGURATION_SEMANTICS",
+  "upstream_head_sha": "fe013a6d24ef21b6812cd2f55f28246f444ef563",
+  "tool": {
+    "name": "helm",
+    "version": "v4.2.4+g3900f43",
+    "executable_sha256": "ebf04b3606784d48568cf386483ac2b81fc747ed77859da4ba4f77df4c5e81d3"
+  },
+  "render_control": {
+    "release_name": "adjudicate",
+    "namespace": "dgraph-system",
+    "kube_version": "1.31.0",
+    "values_file": "CONFIGURATION.yaml",
+    "values_file_sha256": "eca98826df1192c6054d4e9284ee97e8134ddc6e0fa2856b7705007b6caaada9",
+    "service_monitor_enabled": true,
+    "network_policy_enabled": true,
+    "client_pod_labels": {},
+    "extra_ingress": []
+  },
+  "determinism": {
+    "render_count": 2,
+    "byte_identical_output_directories": true,
+    "rendered_file_set_sha256": "6864c5f3a72c8fa7ec77209addce481e842d25194f1223b90ebfa234a0672420",
+    "digest_construction": "SHA256 of sorted shasum lines over every relative rendered file path"
+  },
+  "resource_inventory_path": "RESOURCE_INVENTORY.json",
+  "resource_inventory_sha256": "e4c13bc23d5fcfab4c04d1ba4a4ca21bbb3089896d76774b58d21af355a1533f",
+  "rendered_resource_count": 13,
+  "retained_relationship_artifacts": [
+    {
+      "path": "rendered/servicemonitor.yaml",
+      "sha256": "2ef154979077df1e463bbff990704529fc50cb1c741c0a57462d3f5ce703606e"
+    },
+    {
+      "path": "rendered/zero-service.yaml",
+      "sha256": "d17a5e9491f8c6b034eaba5e21169d0c51f3bece63ccb0ee4ce17ff97a071dc0"
+    },
+    {
+      "path": "rendered/zero-statefulset.yaml",
+      "sha256": "6c466a764d13de74eab84f9b9978c13371cf11396316b892fb0bce71f0aba258"
+    },
+    {
+      "path": "rendered/networkpolicy.yaml",
+      "sha256": "1485e44a339e3a0565a110f29774757c364b034fcbba9dd8e6917518a0a36adc"
+    }
+  ],
+  "lint": {
+    "command": "helm lint charts/dgraph --values CONFIGURATION.yaml",
+    "exit_code": 0,
+    "result": "1 chart(s) linted, 0 chart(s) failed"
+  },
+  "limitations": {
+    "live_cluster_used": false,
+    "live_packet_tested": false,
+    "network_policy_enforcement_claimed_universal": false,
+    "external_additive_network_policies_excluded": true
+  }
+}

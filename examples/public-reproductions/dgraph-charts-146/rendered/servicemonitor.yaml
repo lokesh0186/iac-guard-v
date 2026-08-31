@@ -1,0 +1,38 @@
+---
+# Source: dgraph/templates/servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: adjudicate-dgraph
+  namespace: dgraph-system
+  labels:
+    app: dgraph
+    app.kubernetes.io/instance: adjudicate
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: dgraph
+    app.kubernetes.io/version: v25.3.1
+    chart: dgraph-25.3.1-preview2
+    helm.sh/chart: dgraph-25.3.1-preview2
+    heritage: Helm
+    release: adjudicate
+spec:
+  namespaceSelector:
+    matchNames:
+      - dgraph-system
+  selector:
+    matchLabels:
+      app: dgraph
+      release: adjudicate
+    matchExpressions:
+      - key: monitor
+        operator: Exists
+  endpoints:
+    - port: http-alpha
+      path: /debug/prometheus_metrics
+      interval: 30s
+      scrapeTimeout: 10s
+    - port: http-zero
+      path: /debug/prometheus_metrics
+      interval: 30s
+      scrapeTimeout: 10s
+

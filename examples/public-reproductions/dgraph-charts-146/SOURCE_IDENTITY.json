@@ -1,0 +1,66 @@
+{
+  "schema_version": "public-reproduction-source-identity-v1",
+  "repository": "https://github.com/dgraph-io/charts",
+  "pull_request": 146,
+  "pull_request_url": "https://github.com/dgraph-io/charts/pull/146",
+  "state_at_final_recheck": "OPEN",
+  "final_recheck_utc": "2026-08-31T00:19:33Z",
+  "base_sha": "794d90eed9d480932a5c9e08323c0bd795fc8e6a",
+  "head_sha": "fe013a6d24ef21b6812cd2f55f28246f444ef563",
+  "head_tree_sha1": "fd770dd5f0f22fab92dfea78f69ed9308b903711",
+  "chart_tree_sha1": "b374ebf4227ff9bd281ab70866074c868e67ad93",
+  "chart_tree_inventory_path": "CHART_TREE.txt",
+  "chart_tree_inventory_sha256": "eea47648f1d3f340c9ccdab5acd2a1ac352a4fa144dff03fc3383f7b7dc88647",
+  "head_changed_from_confirmed_candidate": false,
+  "commit_count": 1,
+  "review_comment_count": 4,
+  "issue_comment_count": 0,
+  "exact_duplicate_found": false,
+  "relevant_files": [
+    {
+      "packet_path": "source/Chart.yaml",
+      "upstream_path": "charts/dgraph/Chart.yaml",
+      "git_blob_sha1": "edc4489aafbcbf90c36f3d8002feac7d3847a8cc",
+      "sha256": "0c1f0baf5c6124b2b372b28bce37562595cd24970adac91dcb25a3eb218ded23"
+    },
+    {
+      "packet_path": null,
+      "upstream_path": "charts/dgraph/values.yaml",
+      "git_blob_sha1": "f13902669ba6769e52edb4742519272c3deccaee",
+      "sha256": "85c68018bc68569a30eeacd1e99a6a2a2d37972ede7dd85512f19dee97cd5644",
+      "retained_excerpt_path": "source/values-observability.yaml",
+      "retained_excerpt_lines": "742-769",
+      "retained_excerpt_sha256": "dbe1b5826441f251194272a9771a32d7d54c2259881b67dc108e1e60b2759748"
+    },
+    {
+      "packet_path": "source/helpers.tpl",
+      "upstream_path": "charts/dgraph/templates/_helpers.tpl",
+      "git_blob_sha1": "66137b39e96cc228cd8270357a421c1b39148ad0",
+      "sha256": "bb614c7ef78ac39ef1a729e4ebe8e54f6579ac98e342c322fd7cfb54b06a47af"
+    },
+    {
+      "packet_path": "source/networkpolicy.yaml",
+      "upstream_path": "charts/dgraph/templates/networkpolicy.yaml",
+      "git_blob_sha1": "d5690fb4dfdd1fff0069fc76229a2224851db150",
+      "sha256": "09a6c11ae7a06f93f409718224b3336ccfe52e3759ff4a8ffca0549b9e85daf6"
+    },
+    {
+      "packet_path": "source/servicemonitor.yaml",
+      "upstream_path": "charts/dgraph/templates/servicemonitor.yaml",
+      "git_blob_sha1": "6e291c0246558bb1b4d15e4d87e08a529d9006d7",
+      "sha256": "c11e32d4fd236ff919233b2678b24e8e8cede7753b085ffc7d71e1b8ebb2aefc"
+    },
+    {
+      "packet_path": "source/zero-service.yaml",
+      "upstream_path": "charts/dgraph/templates/zero/svc.yaml",
+      "git_blob_sha1": "fb5fd35bbabd467473a0b3f6daa81c49d376a52b",
+      "sha256": "18224e27ebd6f1f864ccb8dcd0a4699331a01766e5d56acf5f0c0b756598d404"
+    },
+    {
+      "packet_path": "source/zero-statefulset.yaml",
+      "upstream_path": "charts/dgraph/templates/zero/statefulset.yaml",
+      "git_blob_sha1": "27c5b9e61f8b17ee2aec77717f0e3afcd4864d64",
+      "sha256": "e6fddb06d176ca798a17f1419f8fccc047f699856a810d690a02f449635188ac"
+    }
+  ]
+}
