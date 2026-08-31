@@ -93,6 +93,17 @@ This roadmap records intent, not a delivery commitment.
 - Keep general Helm interpretation, remote resolution, live-cluster lookup, unsupported
   dynamic semantics, and advisory KICS/Trivy results outside the authoritative path.
 
+## `0.1.0a9` - Witness-first native semantic relationships
+
+- Add scanner-independent, versioned native property contracts over protected
+  deterministic Kubernetes and Terraform artifacts.
+- Prove the reviewed NetworkPolicy, Service, port, monitoring, RBAC, workload-closure,
+  and exact source-local Terraform reference relationships with mechanical witnesses.
+- Preserve Checkov 3.3.0 authority, advisory-only KICS/Trivy status, scanner-neutral
+  evidence, and all alpha 8 materialization semantics.
+- Keep project intent, runtime enforcement, general CRD interpretation, general network
+  topology, and general Terraform evaluation outside the property verdict.
+
 ## Candidate next-alpha work
 
 These candidates are prioritized by real-world compatibility findings, not

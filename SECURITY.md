@@ -1,6 +1,6 @@
 # Security Policy
 
-IaC-Guard-V `0.1.0a8` is a technical alpha for trusted local input, with a pinned
+IaC-Guard-V `0.1.0a9` is a technical alpha for trusted local input, with a pinned
 Checkov `3.3.0` scanner contract. It is not yet a production hardened-container
 release.
 

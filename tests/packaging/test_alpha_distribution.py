@@ -1,13 +1,15 @@
-"""Public 0.1.0a8 distribution and clean-install boundary."""
+"""Public 0.1.0a9 distribution and clean-install boundary."""
 from __future__ import annotations
 
 import email
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tarfile
+import tomllib
 import zipfile
 from pathlib import Path
 
@@ -16,7 +18,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0a8"
+VERSION = "0.1.0a9"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -30,6 +32,53 @@ FORBIDDEN_DISTRIBUTION_PARTS = {
     "controls",
     "paper.pdf",
 }
+SENSITIVE_DISTRIBUTION_PARTS = {
+    "A8_NEXT_TIER_A_EVIDENCE",
+    "A9_NATIVE_PROPERTY_DESIGN",
+    "a8-implementation",
+    "a9-implementation",
+    "a9-product-value-audit",
+    "a9-release",
+    "external-impact-evidence",
+    "paperoutreachstrat",
+    "private-screening",
+    "private-research",
+    "implementation-evidence",
+    "release-working-evidence",
+    "tmp",
+}
+ALLOWED_SDIST_ROOT_FILES = {
+    ".gitignore",
+    "CHANGELOG.md",
+    "CITATION.cff",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "NOTICE",
+    "PKG-INFO",
+    "README.md",
+    "RESEARCH_SNAPSHOT.md",
+    "ROADMAP.md",
+    "SECURITY.md",
+    "pyproject.toml",
+}
+ALLOWED_SDIST_EXACT_FILES = {
+    "packaging/iac_guard_v_no_bytecode.pth",
+    "docs/ADVANCED_INSTALLATION.md",
+    "docs/ALPHA_RELEASE_CHECKLIST.md",
+    "docs/CANDIDATE_ACCEPTANCE.md",
+    "docs/HELM_MATERIALIZATION.md",
+    "docs/KUSTOMIZE_MATERIALIZATION.md",
+    "docs/NAMESPACE_PROVENANCE.md",
+    "docs/NATIVE_PROPERTIES.md",
+    "docs/RELEASE_NOTES_0.1.0a9.md",
+    "docs/SECURITY_MODEL.md",
+    "docs/SUPPORTED_SCOPE.md",
+    "docs/spec/THREAT_MODEL.md",
+}
+ALLOWED_SDIST_PREFIXES = (
+    "src/iac_guard_v/",
+    "examples/checkov-before-after/",
+)
 TEST_CAPABILITY_MARKERS = (
     b"phase_e_test_support",
     b"make_test_container_runtime",
@@ -53,6 +102,24 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/kustomize-engine-v5.7.1.json",
     "iac_guard_v/scanner_core.py",
     "iac_guard_v/terraform_parser.py",
+    "iac_guard_v/native_properties/__init__.py",
+    "iac_guard_v/native_properties/__main__.py",
+    "iac_guard_v/native_properties/engine.py",
+    "iac_guard_v/native_properties/evidence.py",
+    "iac_guard_v/native_properties/model.py",
+    "iac_guard_v/native_properties/network_policy.py",
+    "iac_guard_v/native_properties/prometheus_operator.py",
+    "iac_guard_v/native_properties/public.py",
+    "iac_guard_v/native_properties/rbac.py",
+    "iac_guard_v/native_properties/registry.py",
+    "iac_guard_v/native_properties/report.py",
+    "iac_guard_v/native_properties/selectors.py",
+    "iac_guard_v/native_properties/services.py",
+    "iac_guard_v/native_properties/terraform.py",
+    "iac_guard_v/native_properties/universe.py",
+    "iac_guard_v/native_properties/contracts/prometheus-operator-v1.json",
+    "iac_guard_v/schemas/native-property-request-v1.schema.json",
+    "iac_guard_v/schemas/native-property-report-v1.schema.json",
     "iac_guard_v/examples/checkov-before-after/before.tf",
     "iac_guard_v/examples/checkov-before-after/after.tf",
     "iac_guard_v_no_bytecode.pth",
@@ -86,6 +153,22 @@ def _forbidden_path(name: str) -> bool:
     return bool(relative and relative[0] in FORBIDDEN_DISTRIBUTION_PARTS)
 
 
+def _sdist_relative(name: str) -> str:
+    parts = Path(name).parts
+    if parts and parts[0].startswith("iac_guard_v-"):
+        parts = parts[1:]
+    return "/".join(parts)
+
+
+def _approved_sdist_file(name: str) -> bool:
+    relative = _sdist_relative(name)
+    return (
+        relative in ALLOWED_SDIST_ROOT_FILES
+        or relative in ALLOWED_SDIST_EXACT_FILES
+        or relative.startswith(ALLOWED_SDIST_PREFIXES)
+    )
+
+
 def test_alpha_metadata_and_version_are_consistent(alpha_artifacts) -> None:
     wheel, _sdist = alpha_artifacts
     with zipfile.ZipFile(wheel) as archive:
@@ -113,6 +196,7 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
     with tarfile.open(sdist, "r:gz") as archive:
         members = tuple(archive.getmembers())
         sdist_names = tuple(member.name for member in members)
+        sdist_files = tuple(member.name for member in members if member.isfile())
         product_python += b"\n".join(
             archive.extractfile(member).read()
             for member in members
@@ -120,6 +204,11 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
         )
 
     assert not any(_forbidden_path(name) for name in (*wheel_names, *sdist_names))
+    assert not any(
+        set(Path(_sdist_relative(name)).parts) & SENSITIVE_DISTRIBUTION_PARTS
+        for name in sdist_files
+    )
+    assert all(_approved_sdist_file(name) for name in sdist_files)
     assert not any(marker in product_python for marker in TEST_CAPABILITY_MARKERS)
     assert REQUIRED_WHEEL_FILES <= set(wheel_names)
     assert "iac_guard_v/oracles/preconditions.py" in wheel_names
@@ -149,7 +238,59 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
     assert any(name.endswith("docs/SUPPORTED_SCOPE.md") for name in sdist_names)
     assert any(name.endswith("docs/KUSTOMIZE_MATERIALIZATION.md") for name in sdist_names)
     assert any(name.endswith("docs/CANDIDATE_ACCEPTANCE.md") for name in sdist_names)
-    assert any(name.endswith("docs/RELEASE_NOTES_0.1.0a8.md") for name in sdist_names)
+    assert any(name.endswith("docs/RELEASE_NOTES_0.1.0a9.md") for name in sdist_names)
+    assert any(name.endswith("docs/NATIVE_PROPERTIES.md") for name in sdist_names)
+
+
+def test_sdist_exact_allowlist_rejects_recursive_readme_license_decoys(
+    tmp_path: Path,
+) -> None:
+    configuration = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    sdist_config = configuration["tool"]["hatch"]["build"]["targets"]["sdist"]
+    assert "include" not in sdist_config
+    selected = tuple(sdist_config["only-include"])
+    assert "README.md" in selected
+    assert "LICENSE" in selected
+
+    project = tmp_path / "project"
+    project.mkdir()
+    for relative in selected:
+        source = ROOT / relative
+        target = project / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if source.is_dir():
+            shutil.copytree(source, target)
+        else:
+            shutil.copy2(source, target)
+
+    decoys = (
+        "private-screening/README.md",
+        "research/README.md",
+        "design/LICENSE",
+        "nested/private/LICENSE.txt",
+    )
+    for relative in decoys:
+        path = project / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("must not ship\n", encoding="utf-8")
+
+    output = tmp_path / "dist"
+    completed = subprocess.run(
+        [sys.executable, "-m", "build", "--sdist", "--outdir", str(output)],
+        cwd=project,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=180,
+    )
+    assert completed.returncode == 0, completed.stderr
+    archive_path = next(output.glob(f"iac_guard_v-{VERSION}.tar.gz"))
+    with tarfile.open(archive_path, "r:gz") as archive:
+        names = {_sdist_relative(name) for name in archive.getnames()}
+
+    assert "README.md" in names
+    assert "LICENSE" in names
+    assert not set(decoys) & names
 
 
 def test_fresh_artifacts_have_stable_nonempty_hashes(alpha_artifacts) -> None:
@@ -233,6 +374,47 @@ def test_wheel_installs_and_runs_outside_source_checkout(
     assert diagnosis["product_version"] == VERSION
     assert diagnosis["checkov"]["reason_code"] == "CHECKOV_NOT_FOUND"
     assert diagnosis["hardened_container"]["status"] == "INCONCLUSIVE"
+
+    native_root = tmp_path / "native-rendered"
+    native_root.mkdir()
+    (native_root / "objects.yaml").write_text(
+        """apiVersion: apps/v1
+kind: Deployment
+metadata: {name: app}
+spec: {template: {metadata: {labels: {app: demo}}, spec: {containers: [{name: app, image: example}]}}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: app}
+spec: {podSelector: {matchLabels: {app: demo}}, ingress: []}
+""",
+        encoding="utf-8",
+    )
+    native_config = tmp_path / "native.json"
+    native_config.write_text(json.dumps({
+        "schema_version": "native-property-request-v1",
+        "root": "native-rendered",
+        "artifact_class": "kubernetes_rendered",
+        "requests": [{
+            "request_id": "selection",
+            "property_id": "IACGV_K8S_WORKLOAD_POLICY_SELECTED_V1",
+            "property_version": "1",
+            "subject_identity": "apps/v1/Deployment/default/app",
+            "parameters": {},
+        }],
+    }), encoding="utf-8")
+    native_script = (
+        "import sys;"
+        f"sys.path.insert(0,{str(installed)!r});"
+        "from iac_guard_v.native_properties.__main__ import main;"
+        f"raise SystemExit(main(['--config',{str(native_config)!r},'--format','json']))"
+    )
+    native = subprocess.run(
+        [sys.executable, "-c", native_script], cwd=tmp_path, env=environment,
+        capture_output=True, text=True, check=False, timeout=60,
+    )
+    assert native.returncode == 0, native.stderr
+    assert json.loads(native.stdout)["summary"]["SATISFIED"] == 1
     assert not tuple(installed.rglob("__pycache__"))
 
 
@@ -240,7 +422,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
         "Verify that an infrastructure-as-code security fix actually fixed",
-        "python -m pip install iac-guard-v==0.1.0a8",
+        "python -m pip install iac-guard-v==0.1.0a9",
         "iac-guard demo",
         "Coder `demo-env-templates` PR #180",
         "25cff91e2c039ddc648541a06191f4b9b9a813b7",
@@ -253,6 +435,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "docs/SECURITY_MODEL.md",
         "docs/KUSTOMIZE_MATERIALIZATION.md",
         "Checkov as the only authoritative scanner path",
+        "witness-first, scanner-independent native property contracts",
         "general Helm interpretation",
         "awaiting a public arXiv identifier",
     ):
@@ -264,7 +447,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "arXiv:ADD" not in readme
     assert "XXXX.XXXXX" not in readme
     assert "not yet a published release" not in readme
-    assert "package version `0.1.0a8` is not published" not in readme
+    assert "package version `0.1.0a9` is not published" not in readme
     assert "10.5281/zenodo.22167878" in readme
 
     advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
@@ -274,7 +457,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "PYTHONDONTWRITEBYTECODE=1",
         "bc-python-hcl2",
         "may remain quiet for several minutes",
-        "iac-guard-v==0.1.0a8",
+        "iac-guard-v==0.1.0a9",
     ):
         assert statement in advanced
 
@@ -292,18 +475,18 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "remote URLs" in kustomize
     assert "Helm chart inflation" in kustomize
 
-    release_notes = (ROOT / "docs/RELEASE_NOTES_0.1.0a8.md").read_text(
+    release_notes = (ROOT / "docs/RELEASE_NOTES_0.1.0a9.md").read_text(
         encoding="utf-8"
     )
     for statement in (
-        "scanner-neutral verifier/evidence architecture",
-        "nested local dependency closure",
-        "Helm-compatible dependency-version binding",
-        "Equivalent duplicate named-template handling",
-        "Bounded namespace-provenance improvements",
-        "Bounded deterministic local Kustomize",
-        "55-surface corpus",
-        "General Helm interpretation is not supported",
+        "witness-first native property framework",
+        "NetworkPolicy selection and direction-specific isolation",
+        "Service-to-workload and ServicePort-to-container-port resolution",
+        "Bounded ServiceMonitor and PodMonitor composition",
+        "RBAC binding identity and scope relationships",
+        "Exact source-local Terraform resource-reference relationships",
+        "Mechanical property violations do not automatically establish project defects",
+        "general Kubernetes network reachability",
         "KICS and Trivy remain advisory",
     ):
         assert statement in release_notes

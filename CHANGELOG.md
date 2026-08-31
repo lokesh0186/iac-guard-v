@@ -3,6 +3,31 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
+## [0.1.0a9] - 2026-08-31
+
+### Added
+
+- A witness-first native semantic property framework with independent property,
+  request, implementation, evidence, and semantic-version identities over protected
+  deterministic artifacts.
+- Bounded Kubernetes identity/selector semantics, NetworkPolicy selection and
+  direction-specific isolation, caller-supplied workload closure, Service/workload and
+  ServicePort/container-port resolution, and additive NetworkPolicy path composition.
+- Reviewed `monitoring.coreos.com/v1` ServiceMonitor and PodMonitor composition without
+  introducing a general custom-resource interpreter.
+- RBAC binding identity and scope relationships, including valid cross-namespace
+  ServiceAccount subjects, plus exact source-local Terraform resource-reference
+  relationships.
+
+### Security
+
+- Every native outcome carries a validated mechanical witness and fails closed on
+  incomplete identity, unsupported semantics, or ambiguity.
+- Checkov 3.3.0 authority is unchanged; KICS and Trivy remain advisory; no scanner
+  voting or PASS-from-absence inference is used.
+- Native properties establish configuration semantics, not project intent, live
+  Kubernetes/cloud behavior, vulnerabilities, outages, or general security.
+
 ## [0.1.0a8] - 2026-08-29
 
 ### Archive

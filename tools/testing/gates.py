@@ -101,6 +101,7 @@ D7_TESTS = (
     "tests/unit/test_helm_public_a4.py",
     "tests/unit/test_helm_a8_extensions.py",
     "tests/unit/test_kustomize_materialization_a8.py",
+    "tests/unit/test_legacy_coverage_preservation_a9.py",
 )
 
 HELM_TESTS = (
@@ -113,6 +114,15 @@ HELM_TESTS = (
 
 KUSTOMIZE_TESTS = (
     "tests/unit/test_kustomize_materialization_a8.py",
+)
+
+NATIVE_PROPERTY_TESTS = (
+    "tests/unit/test_native_properties_a9.py",
+    "tests/unit/test_native_kubernetes_a9.py",
+    "tests/unit/test_native_terraform_a9.py",
+    "tests/unit/test_native_public_cli_a9.py",
+    "tests/unit/test_native_adversarial_a9.py",
+    "tests/unit/test_native_coverage_a9.py",
 )
 
 COVERAGE_GATES = (
@@ -150,6 +160,26 @@ COVERAGE_GATES = (
         "kustomize-materializer",
         KUSTOMIZE_TESTS,
         ("iac_guard_v.kustomize",),
+        branch=True,
+    ),
+    CoverageGate(
+        "native-property-core",
+        NATIVE_PROPERTY_TESTS,
+        (
+            "iac_guard_v.native_properties.engine",
+            "iac_guard_v.native_properties.evidence",
+            "iac_guard_v.native_properties.model",
+            "iac_guard_v.native_properties.network_policy",
+            "iac_guard_v.native_properties.prometheus_operator",
+            "iac_guard_v.native_properties.public",
+            "iac_guard_v.native_properties.rbac",
+            "iac_guard_v.native_properties.registry",
+            "iac_guard_v.native_properties.report",
+            "iac_guard_v.native_properties.selectors",
+            "iac_guard_v.native_properties.services",
+            "iac_guard_v.native_properties.terraform",
+            "iac_guard_v.native_properties.universe",
+        ),
         branch=True,
     ),
 )

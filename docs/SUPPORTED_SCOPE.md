@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a8`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a9`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -33,6 +33,9 @@ It includes:
   contracts, with Checkov remaining the sole authoritative scanner path;
 - bounded deterministic local Kustomize materialization under the closed contract in
   [Kustomize materialization](KUSTOMIZE_MATERIALIZATION.md).
+- witness-first scanner-independent native semantic properties for the bounded
+  Kubernetes NetworkPolicy, Service, monitoring, RBAC, and source-local Terraform
+  relationship families documented in [Native semantic properties](NATIVE_PROPERTIES.md).
 
 Native execution is `reduced-isolation` and supports only input controlled by
 the operator. A production hostile-input container and GitHub Action have not

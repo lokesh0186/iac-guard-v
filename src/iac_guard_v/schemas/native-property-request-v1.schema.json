@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iac-guard-v.invalid/schemas/native-property-request-v1.schema.json",
+  "title": "IaC-Guard-V native property request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "root", "artifact_class", "requests"],
+  "properties": {
+    "schema_version": {"const": "native-property-request-v1"},
+    "root": {"type": "string", "minLength": 1},
+    "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source"]},
+    "default_namespace": {"type": "string", "minLength": 1},
+    "requests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_id", "property_id", "subject_identity"],
+        "properties": {
+          "request_id": {"type": "string", "minLength": 1},
+          "property_id": {"type": "string", "pattern": "^IACGV_[A-Z0-9_]+_V1$"},
+          "property_version": {"const": "1"},
+          "subject_identity": {"type": "string", "minLength": 1},
+          "parameters": {"type": "object"}
+        }
+      }
+    }
+  }
+}

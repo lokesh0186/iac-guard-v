@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iac-guard-v.invalid/schemas/native-property-report-v1.schema.json",
+  "title": "IaC-Guard-V native property report v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "product_semantics", "protected_universe", "registry_identity", "observations", "summary", "exit_code", "report_digest"],
+  "properties": {
+    "schema_version": {"const": "native-property-report-v1"},
+    "product_semantics": {"const": "scanner-independent protected-manifest semantics"},
+    "protected_universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "artifact_class", "input_manifest_digest", "resource_inventory_digest"],
+      "properties": {
+        "identity": {"$ref": "#/$defs/sha256"},
+        "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source"]},
+        "input_manifest_digest": {"$ref": "#/$defs/sha256"},
+        "resource_inventory_digest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "registry_identity": {"$ref": "#/$defs/sha256"},
+    "observations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request", "definition", "result", "reason_code", "subject_provenance", "witness", "observation_digest"],
+        "properties": {
+          "request": {"type": "object"},
+          "definition": {"type": "object"},
+          "result": {"enum": ["SATISFIED", "VIOLATED", "NOT_EVALUATED", "UNSUPPORTED", "ERROR"]},
+          "reason_code": {"type": "string", "minLength": 1},
+          "subject_provenance": {"type": "object"},
+          "witness": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["witness_type", "contents", "witness_digest"],
+            "properties": {
+              "witness_type": {"type": "string", "minLength": 1},
+              "contents": {"type": "object"},
+              "witness_digest": {"$ref": "#/$defs/sha256"}
+            }
+          },
+          "observation_digest": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SATISFIED", "VIOLATED", "NOT_EVALUATED", "UNSUPPORTED", "ERROR", "TOTAL"],
+      "properties": {
+        "SATISFIED": {"type": "integer", "minimum": 0},
+        "VIOLATED": {"type": "integer", "minimum": 0},
+        "NOT_EVALUATED": {"type": "integer", "minimum": 0},
+        "UNSUPPORTED": {"type": "integer", "minimum": 0},
+        "ERROR": {"type": "integer", "minimum": 0},
+        "TOTAL": {"type": "integer", "minimum": 0}
+      }
+    },
+    "exit_code": {"enum": [0, 1, 3, 4]},
+    "report_digest": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

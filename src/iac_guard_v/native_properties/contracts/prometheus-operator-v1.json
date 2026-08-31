@@ -1,0 +1,35 @@
+{
+  "api_version": "monitoring.coreos.com/v1",
+  "contract": "iac-guard-v-prometheus-operator-monitor-target-v1",
+  "upstream_identity": {
+    "repository": "prometheus-operator/prometheus-operator",
+    "commit": "5e7d09f3e8a3a7398aa3bcea79f1713680be0f51",
+    "service_monitor_crd": {
+      "path": "example/prometheus-operator-crd-full/monitoring.coreos.com_servicemonitors.yaml",
+      "sha256": "7dd4206947c94bc76f71daa07c45a1010a5d697c54fe079f8207b0e82026a26a"
+    },
+    "pod_monitor_crd": {
+      "path": "example/prometheus-operator-crd-full/monitoring.coreos.com_podmonitors.yaml",
+      "sha256": "eef45bb50df838a85226eb6b03c0c7094c54d605776bdf2ec149f17fba8a1df0"
+    }
+  },
+  "kinds": {
+    "PodMonitor": {
+      "endpoint_list": "spec.podMetricsEndpoints",
+      "supported_target_fields": ["port", "portNumber", "targetPort"],
+      "target": "protected pod-template labels and declared container ports"
+    },
+    "ServiceMonitor": {
+      "endpoint_list": "spec.endpoints",
+      "supported_target_fields": ["port", "targetPort"],
+      "target": "protected Service labels, ServicePort and selected pod-template ports"
+    }
+  },
+  "namespace_selector": {
+    "absent_or_empty": "monitor namespace",
+    "any_true": "all protected namespaces",
+    "match_names": "exact listed namespaces"
+  },
+  "source_contract": "Prometheus workload identity is caller-bound unless protected configuration proves it",
+  "upstream_contract": "Prometheus Operator monitoring.coreos.com/v1 generated API and full CRDs reviewed 2026-08-31"
+}

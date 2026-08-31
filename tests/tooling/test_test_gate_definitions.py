@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_all_gate_paths_exist_and_thresholds_remain_90() -> None:
     validate_paths(ROOT)
-    assert len(COVERAGE_GATES) == 9
+    assert len(COVERAGE_GATES) == 10
     assert all(gate.threshold == 90 for gate in COVERAGE_GATES)
     assert all(gate.modules for gate in COVERAGE_GATES)
     assert all(gate.tests for gate in COVERAGE_GATES)

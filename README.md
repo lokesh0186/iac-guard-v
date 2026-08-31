@@ -13,7 +13,8 @@ IaC-Guard-V works with changes written by people, AI coding agents, and remediat
 tools. It binds scanner evidence to the exact before/after files and resources, then
 fails closed when the evidence is incomplete or unverifiable.
 
-> **Status:** `0.1.0a8` technical alpha · Checkov-authoritative · trusted local input only.
+> **Status:** `0.1.0a9` technical alpha · native semantic verification plus reviewed
+> Checkov-authoritative paths · trusted local input only.
 > The hardened hostile-input container and GitHub Action are not released.
 
 ## Why IaC-Guard-V?
@@ -35,7 +36,7 @@ Uncertainty is reported as `INCONCLUSIVE`, never as success.
 Install the public package and run the deterministic offline demo:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a8
+python -m pip install iac-guard-v==0.1.0a9
 iac-guard --version
 iac-guard demo
 ```
@@ -126,6 +127,7 @@ certification. See the
 | `iac-guard kustomize-accept --config ...` | Evaluate properties after one bounded deterministic local Kustomize build. |
 | `iac-guard pr ...` | Materialize exact Git base/head objects and verify changed targets. |
 | `iac-guard explain report.json` | Validate and explain an existing `report-v1`. |
+| `python -m iac_guard_v.native_properties --config native.json` | Evaluate versioned scanner-independent properties over one protected local artifact. |
 
 Git-aware verification does not modify the current checkout, index, branch, or
 worktree:
@@ -194,6 +196,16 @@ Kustomize materialization. These are closed contracts: general Helm interpretati
 remote dependency/resource resolution, `lookup` or other live-cluster state, and
 unsupported dynamic semantics are not supported and remain fail closed.
 
+`0.1.0a9` adds witness-first, scanner-independent native property contracts over the
+same protected deterministic artifacts. The bounded inventory covers Kubernetes
+identity and selectors, NetworkPolicy selection/isolation/closure, Service and port
+resolution, NetworkPolicy path composition, reviewed ServiceMonitor/PodMonitor
+composition, RBAC identity/scope relationships, and exact source-local Terraform
+references. Native results are `SATISFIED`, `VIOLATED`, `NOT_EVALUATED`,
+`UNSUPPORTED`, or `ERROR`; every result carries a mechanically validated witness.
+Mechanical property violations do not automatically establish project defects or
+runtime behavior.
+
 KICS and Trivy remain advisory/future adapter work; OpenTofu, kubeconform, TFLint, and
 multi-scanner consensus remain experimental, advisory, or future work. Candidate
 acceptance is limited to explicitly selected properties under a complete protected
@@ -212,6 +224,7 @@ for the fail-closed trust architecture.
 - [Helm materialization](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/HELM_MATERIALIZATION.md)
 - [Kustomize materialization](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/KUSTOMIZE_MATERIALIZATION.md)
 - [Candidate acceptance](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/CANDIDATE_ACCEPTANCE.md)
+- [Native semantic properties](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/NATIVE_PROPERTIES.md)
 - [Example walkthrough](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/EXAMPLE_WALKTHROUGH.md)
 - [Public reproduction packet guidance](https://github.com/lokesh0186/iac-guard-v/blob/main/examples/public-reproductions/README.md)
 - [Security policy](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md)
@@ -224,9 +237,10 @@ for the fail-closed trust architecture.
 For the evolving software project, cite the
 [Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
-The IaC-Guard-V `0.1.0a8` archive is identified by
+The most recent archived release before a9 is IaC-Guard-V `0.1.0a8`, identified by
 [Version DOI `10.5281/zenodo.22167878`](https://doi.org/10.5281/zenodo.22167878).
-It remains part of the same concept record.
+The a9 Version DOI will be added after Zenodo publishes the release under the same
+concept record.
 
 Machine-readable citation metadata is available in
 [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).
