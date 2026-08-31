@@ -448,7 +448,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "XXXX.XXXXX" not in readme
     assert "not yet a published release" not in readme
     assert "package version `0.1.0a9` is not published" not in readme
-    assert "10.5281/zenodo.22167878" in readme
+    assert "10.5281/zenodo.22216372" in readme
 
     advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
     for statement in (

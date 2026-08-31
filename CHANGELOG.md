@@ -5,6 +5,13 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [0.1.0a9] - 2026-08-31
 
+### Archive
+
+- Archived IaC-Guard-V `0.1.0a9` under Version DOI
+  [`10.5281/zenodo.22216372`](https://doi.org/10.5281/zenodo.22216372). The evolving
+  software project continues to use Concept DOI
+  [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
+
 ### Added
 
 - A witness-first native semantic property framework with independent property,

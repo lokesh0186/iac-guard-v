@@ -7,12 +7,11 @@ or publication. Run it only from the owner-reviewed release commit with a clean 
 
 The evolving IaC-Guard-V software project is archived by Zenodo:
 
-- Version DOI: [`10.5281/zenodo.22167878`](https://doi.org/10.5281/zenodo.22167878)
+- Version DOI: [`10.5281/zenodo.22216372`](https://doi.org/10.5281/zenodo.22216372)
 - Concept DOI: [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272)
 
-The Version DOI identifies the published alpha 8 archive immediately preceding a9. The
-Concept DOI identifies the evolving software project. Neither identifier is the
-pending paper identifier.
+The Version DOI identifies the published alpha 9 archive. The Concept DOI identifies
+the evolving software project. Neither identifier is the pending paper identifier.
 
 ## Publication-metadata boundary
 

@@ -63,3 +63,10 @@ engine or replace infrastructure scanners.
 Every supported native verdict is bound to exact protected input, resource-universe,
 property-definition, implementation, and witness identities. Uncertainty remains an
 explicit result rather than being converted into success.
+
+## Public release identities
+
+- GitHub prerelease: [v0.1.0-alpha.9](https://github.com/lokesh0186/iac-guard-v/releases/tag/v0.1.0-alpha.9)
+- PyPI: [iac-guard-v 0.1.0a9](https://pypi.org/project/iac-guard-v/0.1.0a9/)
+- Version DOI: [`10.5281/zenodo.22216372`](https://doi.org/10.5281/zenodo.22216372)
+- Concept DOI: [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272)
