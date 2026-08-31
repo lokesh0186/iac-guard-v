@@ -9,9 +9,13 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import tomllib
 import zipfile
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 compatibility
+    import tomli as tomllib
 
 import pytest
 from packaging.specifiers import SpecifierSet
