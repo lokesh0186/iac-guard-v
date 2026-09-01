@@ -1,17 +1,17 @@
-# IaC-Guard-V 0.1.0a9 release gate
+# IaC-Guard-V 0.1.0a10 release gate
 
 This checklist prepares reviewed artifacts; it does not authorize a push, tag, upload,
 or publication. Run it only from the owner-reviewed release commit with a clean tree.
 
-## Most recent published archive
+## Archive relationship
 
 The evolving IaC-Guard-V software project is archived by Zenodo:
 
-- Version DOI: [`10.5281/zenodo.22216372`](https://doi.org/10.5281/zenodo.22216372)
 - Concept DOI: [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272)
 
-The Version DOI identifies the published alpha 9 archive. The Concept DOI identifies
-the evolving software project. Neither identifier is the pending paper identifier.
+The release-specific alpha 10 Version DOI is recorded after Zenodo publication in the
+immutable public release record. The Concept DOI identifies the evolving software
+project and must remain unchanged. Neither identifier is the pending paper identifier.
 
 ## Publication-metadata boundary
 
@@ -49,13 +49,15 @@ python -m build --outdir dist
 ```
 
 - [ ] `dist/` was absent or empty immediately before `python -m build`.
-- [ ] Exactly one `0.1.0a9` wheel and one `0.1.0a9` sdist were created.
+- [ ] Exactly one `0.1.0a10` wheel and one `0.1.0a10` sdist were created.
 - [ ] Package-content tests pass against a separately created empty output directory.
 - [ ] The wheel contains workflow.py, all three reporters, all public schemas, the
       protected oracle policy, packaged demo fixture, the RECORD-bound no-bytecode
       startup policy, native-property registry and contracts, LICENSE, and NOTICE.
 - [ ] Wheel and sdist exclude paper.pdf, frozen research/benchmark material, tests,
-      tools, scripts, and test-only evidence capabilities.
+      tools, scripts, a10 design/implementation evidence, and test-only capabilities.
+- [ ] Contract schemas, public intent-contract documentation, and all ten contract
+      implementation modules are present in the exact reviewed artifacts.
 
 Record the exact reviewed artifact hashes without rebuilding them:
 

@@ -13,8 +13,8 @@ IaC-Guard-V works with changes written by people, AI coding agents, and remediat
 tools. It binds scanner evidence to the exact before/after files and resources, then
 fails closed when the evidence is incomplete or unverifiable.
 
-> **Status:** `0.1.0a9` technical alpha · native semantic verification plus reviewed
-> Checkov-authoritative paths · trusted local input only.
+> **Status:** `0.1.0a10` technical alpha · declared intent contracts, native semantic
+> verification, and reviewed Checkov-authoritative paths · trusted local input only.
 > The hardened hostile-input container and GitHub Action are not released.
 
 ## Why IaC-Guard-V?
@@ -36,7 +36,7 @@ Uncertainty is reported as `INCONCLUSIVE`, never as success.
 Install the public package and run the deterministic offline demo:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a9
+python -m pip install iac-guard-v==0.1.0a10
 iac-guard --version
 iac-guard demo
 ```
@@ -125,6 +125,8 @@ certification. See the
 | `iac-guard helm-verify ...` | Deterministically render and verify local Helm charts. |
 | `iac-guard helm-accept --config ...` | Evaluate properties across one protected multi-chart Helm universe. |
 | `iac-guard kustomize-accept --config ...` | Evaluate properties after one bounded deterministic local Kustomize build. |
+| `iac-guard contract lint/plan ...` | Validate or compile one declared infrastructure intent contract. |
+| `iac-guard verify --contract ...` | Evaluate a contract against one protected deterministic artifact universe. |
 | `iac-guard pr ...` | Materialize exact Git base/head objects and verify changed targets. |
 | `iac-guard explain report.json` | Validate and explain an existing `report-v1`. |
 | `python -m iac_guard_v.native_properties --config native.json` | Evaluate versioned scanner-independent properties over one protected local artifact. |
@@ -206,6 +208,13 @@ references. Native results are `SATISFIED`, `VIOLATED`, `NOT_EVALUATED`,
 Mechanical property violations do not automatically establish project defects or
 runtime behavior.
 
+`0.1.0a10` adds declared infrastructure intent contracts over those immutable a9
+properties. The one `.iac-guard-v/contracts.yaml` convention binds verifier-derived
+provenance, protected typed activation values, explicit include/exclude denominators,
+non-vacuous cardinality, responsibility metadata, exact compiled native requests, and
+witness-first aggregate results. Contract violations remain mechanical declared-intent
+results, not automatic project-defect or runtime claims.
+
 KICS and Trivy remain advisory/future adapter work; OpenTofu, kubeconform, TFLint, and
 multi-scanner consensus remain experimental, advisory, or future work. Candidate
 acceptance is limited to explicitly selected properties under a complete protected
@@ -225,6 +234,7 @@ for the fail-closed trust architecture.
 - [Kustomize materialization](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/KUSTOMIZE_MATERIALIZATION.md)
 - [Candidate acceptance](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/CANDIDATE_ACCEPTANCE.md)
 - [Native semantic properties](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/NATIVE_PROPERTIES.md)
+- [Declared infrastructure intent contracts](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/INTENT_CONTRACTS.md)
 - [Example walkthrough](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/EXAMPLE_WALKTHROUGH.md)
 - [Public reproduction packet guidance](https://github.com/lokesh0186/iac-guard-v/blob/main/examples/public-reproductions/README.md)
 - [Security policy](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md)
@@ -237,9 +247,9 @@ for the fail-closed trust architecture.
 For the evolving software project, cite the
 [Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
-The current archived release is IaC-Guard-V `0.1.0a9`, identified by
-[Version DOI `10.5281/zenodo.22216372`](https://doi.org/10.5281/zenodo.22216372).
-It remains part of the same evolving-software concept record.
+The current release is IaC-Guard-V `0.1.0a10`. Its immutable GitHub, PyPI, artifact,
+and version-DOI identities are recorded in the public release record after all services
+agree. It remains part of the evolving-software Concept DOI record above.
 
 Machine-readable citation metadata is available in
 [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).

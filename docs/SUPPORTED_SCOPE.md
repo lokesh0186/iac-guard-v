@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a9`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0a10`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -111,6 +111,7 @@ semantics remain fail closed.
 | Candidate acceptance | Supported only for explicitly selected properties under complete governed, scanner-addressable, and target-relevant evidence universes; it never claims `FIXED`. |
 | Helm materialization | Supported only for local, client-side, deterministic charts under the bounded contract, including ordered multi-chart candidate universes, bounded aliases and nested local dependency closure, Helm-compatible dependency-version binding, equivalent duplicate named templates, [protected namespace provenance](NAMESPACE_PROVENANCE.md), bounded action/`tpl` analysis, and exactly resolvable dynamic include/template targets. This is not general Helm interpretation. |
 | Kustomize materialization | Supported only for the closed, local, deterministic v5.7.1 contract in [Kustomize materialization](KUSTOMIZE_MATERIALIZATION.md); remote resources, Helm inflation, plugins/exec, unknown control keys, and unbound input paths fail closed. |
+| Declared intent contracts | Supported through the one `.iac-guard-v/contracts.yaml` convention and exact immutable a9 native property versions. Provenance, activation, include/exclude, cardinality, responsibility, requests, and witnesses are explicit. See [Intent contracts](INTENT_CONTRACTS.md). |
 | Multi-scanner consensus | Advisory only and disconnected from the final verdict. |
 | Hardened container and composite Action | Not released. |
 
@@ -129,6 +130,8 @@ IaC-Guard-V does not call a change `VERIFIED` when:
 - required evidence comes only from caller-authored assertions.
 - Helm or Kustomize input requires remote resolution, live cluster state, an unsupported
   dynamic expression, or behavior outside the closed local grammar.
+- a required contract clause is inactive, unsupported, ambiguous, unresolved, or lacks
+  a non-vacuous protected subject/target denominator.
 
 These conditions produce an invalid request, `FAILED`, or `INCONCLUSIVE`
 according to the protected contract. An empty result is not a successful repair.

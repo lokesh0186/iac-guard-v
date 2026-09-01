@@ -3,6 +3,38 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
+## [0.1.0a10] - 2026-09-01
+
+### Added
+
+- A closed declared-intent contract layer using one
+  `.iac-guard-v/contracts.yaml` convention, strict schema/canonical identity, and
+  deterministic compilation to immutable a9 native property requests.
+- Verifier-derived project, user, research-hypothesis, and suggested-contract
+  provenance; protected typed activation evidence; explicit include/exclude
+  denominators; non-vacuous cardinality; and responsibility metadata.
+- Witness-first clause aggregation, semantically validated JSON contract reports,
+  deterministic contract exit codes, and `contract lint`, `contract plan`,
+  `verify --contract`, and contract-aware `explain` CLI paths.
+- Protected effective Helm-value activation evidence bound to the same deterministic
+  materialization semantics, including defaults, values files, supported overrides,
+  and local dependency contexts where provenance is exact.
+- Typed historical reproducibility reasons for missing scanner, bundle, render-input,
+  materialization, baseline, and candidate identities without environment emulation.
+
+### Security
+
+- Contract uncertainty, ambiguous subject identity, unknown activation, zero subject
+  matches, unsupported properties, and incomplete native evidence remain fail closed.
+- A project-authored contract requires exact canonical bytes in the declared local Git
+  commit; user/research contracts cannot self-promote through YAML contents or paths.
+- Checkov 3.3.0 and all a9 native semantics are unchanged. KICS and Trivy remain
+  advisory; no voting, PASS-from-absence, cloud/runtime lookup, arbitrary CRD
+  interpretation, or general Terraform evaluation was added.
+- Contract violations establish only the supplied declared invariant. They do not
+  automatically establish a project defect, vulnerability, outage, runtime behavior,
+  or project-author intent.
+
 ## [0.1.0a9] - 2026-08-31
 
 ### Archive

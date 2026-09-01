@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iac-guard-v.io/schemas/infrastructure-contract-report-v1alpha1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "product_version", "product_semantics", "contract", "protected_universe", "native_registry_identity", "compiler_identity", "activation", "plan", "clauses", "summary", "result", "reason_code", "exit_code", "report_digest"],
+  "properties": {
+    "schema_version": {"const": "infrastructure-contract-report-v1alpha1"},
+    "product_version": {"type": "string", "minLength": 1},
+    "product_semantics": {"const": "declared intent over protected deterministic native-property evidence; no automatic project-defect or runtime claim"},
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "name", "schema_identity", "canonical_digest", "canonical_payload", "responsibility", "source"],
+      "properties": {
+        "identity": {"$ref": "#/$defs/digest"},
+        "name": {"type": "string"},
+        "schema_identity": {"$ref": "#/$defs/digest"},
+        "canonical_digest": {"$ref": "#/$defs/digest"},
+        "canonical_payload": {"type": "object"},
+        "responsibility": {
+          "type": "object",
+          "required": ["class"],
+          "properties": {
+            "class": {"enum": ["PROJECT_MANAGED", "USER_MANAGED", "EXTERNAL_SYSTEM", "OUT_OF_CONTRACT"]},
+            "reason": {"type": "string"}
+          },
+          "additionalProperties": false
+        },
+        "source": {"type": "object"}
+      }
+    },
+    "protected_universe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identity", "artifact_class", "input_manifest", "input_manifest_digest", "resource_inventory", "resource_inventory_digest"],
+      "properties": {
+        "identity": {"$ref": "#/$defs/digest"},
+        "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source"]},
+        "input_manifest": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["file_path", "sha256", "size"],
+            "properties": {
+              "file_path": {"type": "string", "minLength": 1},
+              "sha256": {"$ref": "#/$defs/digest"},
+              "size": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        "input_manifest_digest": {"$ref": "#/$defs/digest"},
+        "resource_inventory": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "resource_inventory_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "native_registry_identity": {"$ref": "#/$defs/digest"},
+    "compiler_identity": {"$ref": "#/$defs/digest"},
+    "activation": {"type": "object"},
+    "plan": {"type": "object"},
+    "clauses": {"type": "array", "items": {"type": "object"}},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["SATISFIED", "VIOLATED", "NOT_EVALUATED", "UNSUPPORTED", "ERROR", "TOTAL"],
+      "properties": {
+        "SATISFIED": {"type": "integer", "minimum": 0},
+        "VIOLATED": {"type": "integer", "minimum": 0},
+        "NOT_EVALUATED": {"type": "integer", "minimum": 0},
+        "UNSUPPORTED": {"type": "integer", "minimum": 0},
+        "ERROR": {"type": "integer", "minimum": 0},
+        "TOTAL": {"type": "integer", "minimum": 0}
+      }
+    },
+    "result": {"enum": ["SATISFIED", "VIOLATED", "NOT_EVALUATED", "UNSUPPORTED", "ERROR"]},
+    "reason_code": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+    "exit_code": {"enum": [0, 10, 11, 12, 21]},
+    "report_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

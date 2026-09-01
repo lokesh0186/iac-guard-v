@@ -11,12 +11,13 @@ identity/matching, and the locked/offline Checkov adapter. No model-provider pat
 """
 from __future__ import annotations
 
-__version__ = "0.1.0a9"
+__version__ = "0.1.0a10"
 
 from . import (  # noqa: F401
     api,
     adapters,
     config,
+    contracts,
     diffing,
     engine,
     enums,
@@ -37,6 +38,7 @@ __all__ = [
     "adapters",
     "api",
     "config",
+    "contracts",
     "diffing",
     "engine",
     "enums",

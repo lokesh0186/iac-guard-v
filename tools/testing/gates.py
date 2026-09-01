@@ -102,6 +102,7 @@ D7_TESTS = (
     "tests/unit/test_helm_a8_extensions.py",
     "tests/unit/test_kustomize_materialization_a8.py",
     "tests/unit/test_legacy_coverage_preservation_a9.py",
+    "tests/unit/test_contract_cli_a10.py",
 )
 
 HELM_TESTS = (
@@ -123,6 +124,15 @@ NATIVE_PROPERTY_TESTS = (
     "tests/unit/test_native_public_cli_a9.py",
     "tests/unit/test_native_adversarial_a9.py",
     "tests/unit/test_native_coverage_a9.py",
+)
+
+CONTRACT_TESTS = (
+    "tests/unit/test_contract_adversarial_a10.py",
+    "tests/unit/test_contract_core_a10.py",
+    "tests/unit/test_contract_cli_a10.py",
+    "tests/unit/test_contract_differential_a10.py",
+    "tests/unit/test_contract_helm_a10.py",
+    "tests/unit/test_contract_real_world_a10.py",
 )
 
 COVERAGE_GATES = (
@@ -181,6 +191,22 @@ COVERAGE_GATES = (
             "iac_guard_v.native_properties.universe",
         ),
         branch=True,
+    ),
+    CoverageGate(
+        "intent-contract-core",
+        CONTRACT_TESTS,
+        (
+            "iac_guard_v.contracts.activation",
+            "iac_guard_v.contracts.evaluator",
+            "iac_guard_v.contracts.helm_values",
+            "iac_guard_v.contracts.historical",
+            "iac_guard_v.contracts.model",
+            "iac_guard_v.contracts.parser",
+            "iac_guard_v.contracts.planner",
+            "iac_guard_v.contracts.provenance",
+            "iac_guard_v.contracts.public",
+            "iac_guard_v.contracts.report",
+        ),
     ),
 )
 

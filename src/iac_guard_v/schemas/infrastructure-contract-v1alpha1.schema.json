@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://iac-guard-v.io/schemas/infrastructure-contract-v1alpha1.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {"const": "iac-guard-v.io/v1alpha1"},
+    "kind": {"const": "InfrastructureContract"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": {"type": "string", "pattern": "^[a-z0-9](?:[-a-z0-9.]{0,62}[a-z0-9])?$"}
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactClass", "subjects", "responsibility", "expect"],
+      "properties": {
+        "artifactClass": {"enum": ["kubernetes_rendered", "terraform_source"]},
+        "when": {"$ref": "#/$defs/activationExpression"},
+        "subjects": {"$ref": "#/$defs/subjects"},
+        "responsibility": {"$ref": "#/$defs/responsibility"},
+        "expect": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {"$ref": "#/$defs/clause"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "safeId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "scalar": {
+      "anyOf": [
+        {"type": "string", "maxLength": 1024},
+        {"type": "boolean"},
+        {"type": "integer"},
+        {"type": "number"},
+        {"type": "null"}
+      ]
+    },
+    "valueCondition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*$", "maxLength": 512},
+        "context": {"type": "string", "pattern": "^(?:\\.|charts/[A-Za-z0-9_.-]+(?:/charts/[A-Za-z0-9_.-]+)*)$", "maxLength": 512},
+        "equals": {"$ref": "#/$defs/scalar"},
+        "present": {"type": "boolean"},
+        "requireOrigin": {"enum": ["ANY_PROTECTED", "DEFAULT", "VALUES_FILE", "SET", "SET_STRING", "DEPENDENCY", "GLOBAL_OR_IMPORT", "DIRECT_INPUT"]}
+      },
+      "oneOf": [
+        {"required": ["equals"], "not": {"required": ["present"]}},
+        {"required": ["present"], "not": {"required": ["equals"]}}
+      ]
+    },
+    "activationExpression": {
+      "oneOf": [
+        {"type": "object", "additionalProperties": false, "required": ["value"], "properties": {"value": {"$ref": "#/$defs/valueCondition"}}},
+        {"type": "object", "additionalProperties": false, "required": ["all"], "properties": {"all": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/activationExpression"}}}},
+        {"type": "object", "additionalProperties": false, "required": ["any"], "properties": {"any": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/activationExpression"}}}}
+      ]
+    },
+    "labelExpression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "operator"],
+      "properties": {
+        "key": {"type": "string", "minLength": 1, "maxLength": 253},
+        "operator": {"enum": ["In", "NotIn", "Exists", "DoesNotExist"]},
+        "values": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+      }
+    },
+    "labelSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "matchLabels": {"type": "object", "propertyNames": {"minLength": 1, "maxLength": 253}, "additionalProperties": {"type": "string"}},
+        "matchExpressions": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/labelExpression"}}
+      }
+    },
+    "selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["apiVersions", "kinds", "namespaces", "labelSelector"],
+      "properties": {
+        "apiVersions": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "kinds": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "namespaces": {"type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "labelSelector": {"$ref": "#/$defs/labelSelector"}
+      }
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "identities": {"type": "array", "maxItems": 512, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 1024}},
+        "selector": {"$ref": "#/$defs/selector"}
+      },
+      "anyOf": [{"required": ["identities"]}, {"required": ["selector"]}]
+    },
+    "cardinality": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "min": {"type": "integer", "minimum": 0, "maximum": 100000, "default": 1},
+        "max": {"type": "integer", "minimum": 0, "maximum": 100000},
+        "allowEmpty": {"type": "boolean", "default": false}
+      }
+    },
+    "subjects": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include"],
+      "properties": {
+        "include": {"$ref": "#/$defs/selection"},
+        "exclude": {"type": "object", "additionalProperties": false, "required": ["identities"], "properties": {"identities": {"type": "array", "maxItems": 512, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 1024}}}},
+        "cardinality": {"$ref": "#/$defs/cardinality"}
+      }
+    },
+    "responsibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class"],
+      "properties": {
+        "class": {"enum": ["PROJECT_MANAGED", "USER_MANAGED", "EXTERNAL_SYSTEM", "OUT_OF_CONTRACT"]},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 512}
+      }
+    },
+    "property": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["namespace", "id", "version"],
+      "properties": {
+        "namespace": {"const": "iac_guard_v"},
+        "id": {"$ref": "#/$defs/safeId"},
+        "version": {"type": "string", "pattern": "^[1-9][0-9]{0,7}$"}
+      }
+    },
+    "relationCardinality": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "targetMin": {"type": "integer", "minimum": 0, "maximum": 100000},
+        "targetMax": {"type": "integer", "minimum": 0, "maximum": 100000}
+      }
+    },
+    "clause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "property"],
+      "properties": {
+        "id": {"$ref": "#/$defs/safeId"},
+        "property": {"$ref": "#/$defs/property"},
+        "parameters": {"type": "object"},
+        "relationCardinality": {"$ref": "#/$defs/relationCardinality"},
+        "required": {"type": "boolean", "default": true}
+      }
+    }
+  }
+}

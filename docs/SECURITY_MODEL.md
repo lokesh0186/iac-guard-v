@@ -90,6 +90,22 @@ requested workload. Unknown selectors and unexplained scanner omissions remain
 `INCONCLUSIVE`; filenames, chart ownership, ordering, and absent output are never
 irrelevance evidence.
 
+## Declared-intent contract boundary
+
+The a10 contract parser accepts only a closed, size/depth-bounded YAML schema with no
+aliases, duplicate keys, code, imports, network access, or runtime lookup. Project
+authorship is derived only from the canonical protected repository path; a caller
+cannot self-assert it. Effective activation values are identity-bound to protected
+inputs and, for Helm, to the same materialization evidence used for rendering.
+
+Every included, excluded, unresolved, and selected subject remains in the plan witness.
+Zero-match is not vacuous truth. Contract clauses compile only to exact packaged native
+property IDs/versions, and compiled/direct native results are differential-tested.
+Responsibility metadata never rewrites native truth. Report hashes, native witnesses,
+registry identity, schema identity, compiler identity, and source provenance are
+semantically revalidated. Contract verdicts do not assert project defects, runtime
+enforcement, vulnerabilities, or outages.
+
 ## Scanner and validator authority
 
 Checkov `3.3.0` is the supported scanner path for this release. Experimental

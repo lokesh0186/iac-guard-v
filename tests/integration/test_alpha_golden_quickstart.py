@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0a9"
+VERSION = "0.1.0a10"
 
 
 def _run(
@@ -132,6 +132,64 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     assert diagnosis["checkov"]["status"] == "PASS"
     assert diagnosis["validator_registry"]["status"] == "PASS"
     assert diagnosis["hardened_container"]["status"] == "INCONCLUSIVE"
+
+    # The installed artifact must also execute the a10 scanner-independent contract
+    # path without importing from the source checkout.
+    contract_project = external / "contract-project"
+    contract_rendered = contract_project / "rendered"
+    (contract_project / ".iac-guard-v").mkdir(parents=True)
+    contract_rendered.mkdir()
+    (contract_rendered / "objects.yaml").write_text("""apiVersion: apps/v1
+kind: Deployment
+metadata: {name: app, namespace: demo}
+spec:
+  template:
+    metadata: {labels: {app: demo}}
+    spec: {containers: [{name: app, image: example}]}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: app, namespace: demo}
+spec: {podSelector: {matchLabels: {app: demo}}, ingress: []}
+""", encoding="utf-8")
+    contract_path = contract_project / ".iac-guard-v/contracts.yaml"
+    contract_path.write_text("""apiVersion: iac-guard-v.io/v1alpha1
+kind: InfrastructureContract
+metadata: {name: deployment-policy}
+spec:
+  artifactClass: kubernetes_rendered
+  subjects:
+    include: {identities: [apps/v1/Deployment/demo/app]}
+  responsibility: {class: PROJECT_MANAGED}
+  expect:
+    - id: selected
+      property:
+        namespace: iac_guard_v
+        id: IACGV_K8S_WORKLOAD_POLICY_SELECTED_V1
+        version: "1"
+""", encoding="utf-8")
+    contract_report = run_directory / "installed-contract.json"
+    contract_run = _run([
+        command, "verify", "--contract", contract_path,
+        "--project-root", contract_project,
+        "--contract-root", contract_rendered,
+        "--source-commit", "7" * 40,
+        "--contract-provenance", "USER_AUTHORED",
+        "--format", "json", "--output", contract_report,
+    ], cwd=run_directory, environment=environment)
+    assert contract_run.returncode == 0, contract_run.stderr
+    contract_payload = json.loads(contract_run.stdout)
+    assert contract_payload["result"] == "SATISFIED"
+    assert contract_payload["contract"]["source"]["provenance"] == "USER_AUTHORED"
+    contract_validated = _run([
+        python, "-c",
+        "import json,sys; from iac_guard_v.contracts.report import "
+        "validate_contract_report_payload; "
+        "validate_contract_report_payload(json.load(open(sys.argv[1], encoding='utf-8')))",
+        contract_report,
+    ], cwd=run_directory, environment=environment)
+    assert contract_validated.returncode == 0, contract_validated.stderr
+    assert str(external) not in json.dumps(contract_payload, sort_keys=True)
 
     demo_reports: list[dict] = []
     first_verified_seconds = 0.0

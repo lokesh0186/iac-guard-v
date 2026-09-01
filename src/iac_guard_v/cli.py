@@ -32,6 +32,16 @@ from .config import (
     load_public_helm_acceptance_config,
     load_public_kustomize_acceptance_config,
 )
+from .contracts import (
+    ContractExecutionInput, lint_contract, prepare_contract_plan,
+    prepare_contract_run,
+)
+from .contracts.model import ContractProvenance
+from .contracts.public import plan_payload
+from .contracts.report import (
+    render_contract_console,
+    validate_contract_report_payload,
+)
 from .helm import HelmRenderSpec
 from .models import DomainError
 from .report import OperationalReportV1, render_console, validate_report_payload
@@ -238,6 +248,10 @@ def _parser() -> argparse.ArgumentParser:
     request_source = verify_parser.add_mutually_exclusive_group(required=True)
     request_source.add_argument("--config", type=Path)
     request_source.add_argument("--before", type=Path)
+    request_source.add_argument(
+        "--contract", type=Path,
+        help="verify one declared infrastructure contract",
+    )
     verify_parser.add_argument("--after", type=Path)
     target_mode = verify_parser.add_mutually_exclusive_group()
     target_mode.add_argument("--target", action="append")
@@ -250,6 +264,7 @@ def _parser() -> argparse.ArgumentParser:
     verify_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
     verify_parser.add_argument("--output", type=Path)
     verify_parser.add_argument("--quiet", action="store_true")
+    _add_contract_execution_arguments(verify_parser)
     accept_parser = subcommands.add_parser(
         "accept",
         help="verify explicit security properties on one candidate snapshot",
@@ -345,6 +360,25 @@ def _parser() -> argparse.ArgumentParser:
     explain_parser.add_argument("--format", choices=_REPORT_FORMATS, default="console")
     explain_parser.add_argument("--output", type=Path)
     explain_parser.add_argument("--quiet", action="store_true")
+    contract_parser = subcommands.add_parser(
+        "contract", help="lint or plan a declared infrastructure contract"
+    )
+    contract_commands = contract_parser.add_subparsers(
+        dest="contract_command", required=True
+    )
+    lint_parser = contract_commands.add_parser(
+        "lint", help="validate contract bytes, syntax, schema, and declarations"
+    )
+    lint_parser.add_argument("--contract", required=True, type=Path)
+    lint_parser.add_argument("--format", choices=("json", "console"), default="console")
+    plan_parser = contract_commands.add_parser(
+        "plan", help="compile exact native requests without hiding uncertainty"
+    )
+    plan_parser.add_argument("--contract", required=True, type=Path)
+    plan_parser.add_argument("--format", choices=("json", "console"), default="json")
+    plan_parser.add_argument("--output", type=Path)
+    plan_parser.add_argument("--quiet", action="store_true")
+    _add_contract_execution_arguments(plan_parser)
     for name in ("scan", "differential"):
         workflow_parser = subcommands.add_parser(
             name,
@@ -402,6 +436,29 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _add_contract_execution_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--project-root", type=Path)
+    protected = parser.add_mutually_exclusive_group()
+    protected.add_argument("--contract-root", type=Path)
+    protected.add_argument("--contract-helm-chart", type=Path)
+    parser.add_argument("--activation-values", type=Path)
+    parser.add_argument(
+        "--contract-provenance", choices=tuple(item.value for item in ContractProvenance)
+    )
+    parser.add_argument("--source-commit", default="WORKTREE")
+    parser.add_argument("--default-namespace", default="default")
+    parser.add_argument("--contract-helm-executable", type=Path)
+    parser.add_argument("--contract-helm-release-name", default="iac-guard-contract")
+    parser.add_argument("--contract-helm-namespace", default="default")
+    parser.add_argument("--contract-helm-kube-version")
+    parser.add_argument("--contract-helm-api-version", action="append")
+    parser.add_argument("--contract-helm-values", action="append")
+    parser.add_argument("--contract-helm-set", action="append")
+    parser.add_argument("--contract-helm-set-string", action="append")
+    parser.add_argument("--contract-helm-include-crds", action="store_true")
+    parser.add_argument("--contract-helm-include-tests", action="store_true")
+
+
 def _parse_target_selector(value: str) -> PublicTarget:
     if type(value) is not str or "=" not in value:
         raise DomainError("target selector must use RULE_ID=RESOURCE_ADDRESS")
@@ -435,6 +492,73 @@ def _parse_helm_override(value: str) -> tuple[str, str]:
     if not key or not content:
         raise DomainError("Helm override must contain a nonblank key and value")
     return key, content
+
+
+def _contract_execution_input(args, contract_path: Path) -> ContractExecutionInput:
+    project_root = args.project_root
+    if project_root is None:
+        raise DomainError("contract execution requires --project-root")
+    provenance = (
+        ContractProvenance(args.contract_provenance)
+        if args.contract_provenance is not None else None
+    )
+    helm_spec = None
+    protected_root = args.contract_root
+    if args.contract_helm_chart is not None:
+        executable = args.contract_helm_executable
+        if executable is None:
+            discovered = shutil.which("helm")
+            if discovered is None:
+                raise DomainError("contract Helm execution could not find Helm")
+            executable = Path(discovered)
+        if args.contract_helm_kube_version is None:
+            raise DomainError("contract Helm execution requires --contract-helm-kube-version")
+        helm_spec = HelmRenderSpec(
+            chart_root=args.contract_helm_chart,
+            helm_executable=executable,
+            release_name=args.contract_helm_release_name,
+            namespace=args.contract_helm_namespace,
+            kube_version=args.contract_helm_kube_version,
+            values_files=tuple(args.contract_helm_values or ()),
+            set_values=tuple(
+                _parse_helm_override(item) for item in (args.contract_helm_set or ())
+            ),
+            set_strings=tuple(
+                _parse_helm_override(item)
+                for item in (args.contract_helm_set_string or ())
+            ),
+            api_versions=tuple(args.contract_helm_api_version or ()),
+            include_crds=args.contract_helm_include_crds,
+            include_tests=args.contract_helm_include_tests,
+            protected_repository_root=project_root,
+        )
+    if protected_root is None and helm_spec is None:
+        raise DomainError("contract execution requires --contract-root or --contract-helm-chart")
+    return ContractExecutionInput(
+        contract_path=contract_path,
+        project_root=project_root,
+        protected_root=protected_root,
+        helm_spec=helm_spec,
+        activation_values_path=args.activation_values,
+        requested_provenance=provenance,
+        source_commit=args.source_commit,
+        default_namespace=args.default_namespace,
+    )
+
+
+def _write_contract_report(args, report) -> int:
+    rendered = (
+        report.canonical_json()
+        if args.format == "json" else render_contract_console(report)
+    )
+    if args.output is not None:
+        write_new_regular_file(
+            args.output, report.canonical_json().encode("utf-8"),
+            max_bytes=25 * 1024 * 1024,
+        )
+    if not args.quiet:
+        sys.stdout.write(rendered)
+    return report.exit_code
 
 
 def _helm_request(args) -> PublicHelmVerificationRequest | OperationalReportV1:
@@ -796,11 +920,37 @@ def _read_report(path: Path) -> dict:
         raise DomainError("report is not strict UTF-8 JSON") from exc
     if type(payload) is not dict:
         raise DomainError("report-v1 must be a JSON object")
-    validate_report_payload(payload)
+    if payload.get("schema_version") == "infrastructure-contract-report-v1alpha1":
+        validate_contract_report_payload(payload)
+    else:
+        validate_report_payload(payload)
     return payload
 
 
 def _explain_report(value: dict) -> str:
+    if value.get("schema_version") == "infrastructure-contract-report-v1alpha1":
+        lines = [
+            "IaC-Guard-V infrastructure contract explanation",
+            f"contract: {value['contract']['name']}",
+            f"provenance: {value['contract']['source']['provenance']}",
+            f"activation: {value['activation']['status']}",
+            f"result: {value['result']} ({value['reason_code']})",
+            "clauses:",
+        ]
+        lines.extend(
+            f"  {item['clause_id']}: {item['result']} ({item['reason_code']})"
+            for item in value["clauses"]
+        )
+        lines.append(
+            "interpretation: mechanical declared-IaC contract verdict only; "
+            "not an automatic project defect or runtime claim"
+        )
+        if value["contract"]["source"]["provenance"] == "RESEARCH_HYPOTHESIS":
+            lines.append(
+                "provenance notice: This invariant was supplied by the researcher "
+                "and is not claimed to represent project-authored intent."
+            )
+        return "\n".join(lines) + "\n"
     lines = [
         "IaC-Guard-V report explanation",
         f"kind: {value['result_kind']}",
@@ -906,12 +1056,57 @@ def _explain_report(value: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = None
     try:
         args = _parser().parse_args(argv)
+        if args.command == "contract":
+            if args.contract_command == "lint":
+                linted = lint_contract(args.contract)
+                payload = {
+                    "schema_version": "infrastructure-contract-lint-v1alpha1",
+                    "status": "VALID",
+                    **linted,
+                    "provenance": "NOT_EVALUATED_BY_LINT",
+                }
+                if args.format == "json":
+                    sys.stdout.write(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n")
+                else:
+                    sys.stdout.write(
+                        "IaC-Guard-V contract lint\n"
+                        f"contract: {linted['contract_name']}\n"
+                        "provenance: NOT_EVALUATED_BY_LINT\n"
+                        "status: VALID\n"
+                    )
+                return 0
+            execution = _contract_execution_input(args, args.contract)
+            with prepare_contract_plan(execution) as run:
+                rendered = plan_payload(run)
+                if args.format == "console":
+                    rendered = (
+                        "IaC-Guard-V contract plan\n"
+                        f"contract: {run.contract.name}\n"
+                        f"activation: {run.plan.activation.status.value}\n"
+                        f"subjects: {len(run.plan.subjects.selected)}\n"
+                        f"native requests: {sum(len(item.requests) for item in run.plan.clauses)}\n"
+                        f"status: {run.plan.plan_result} ({run.plan.reason_code})\n"
+                    )
+                _write_text_artifact(rendered, args.output, quiet=args.quiet)
+                return {
+                    "SATISFIED": 0,
+                    "VIOLATED": 10,
+                    "NOT_EVALUATED": 11,
+                    "UNSUPPORTED": 12,
+                    "ERROR": 21,
+                }[run.plan.plan_result]
         if args.command == "demo":
             return _real_demo(args) if args.real else _offline_demo(args)
         if args.command == "explain":
             value = _read_report(args.report)
+            if (
+                value.get("schema_version") == "infrastructure-contract-report-v1alpha1"
+                and args.format not in {"json", "console"}
+            ):
+                raise DomainError("contract reports support JSON or console explanation")
             if args.format == "json":
                 rendered = json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n"
             elif args.format == "console":
@@ -1002,6 +1197,20 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 0
         if args.command == "verify":
+            if args.contract is not None:
+                if any((
+                    args.after is not None, bool(args.target),
+                    args.all_baseline_findings, bool(args.framework),
+                    args.local_trusted, args.checkov_executable is not None,
+                )):
+                    raise DomainError(
+                        "--contract cannot be combined with differential scanner arguments"
+                    )
+                if args.format not in {"json", "console"}:
+                    raise DomainError("contract verification supports JSON or console output")
+                execution = _contract_execution_input(args, args.contract)
+                with prepare_contract_run(execution) as run:
+                    return _write_contract_report(args, run.report)
             if args.config is not None:
                 if any((
                     args.after is not None,
@@ -1104,20 +1313,33 @@ def main(argv: list[str] | None = None) -> int:
             )
         raise DomainError("unsupported command")
     except DomainError as exc:
+        contract_request = bool(
+            args is not None and (
+                args.command == "contract"
+                or (args.command == "verify" and getattr(args, "contract", None) is not None)
+            )
+        )
+        exit_code = 20 if contract_request else 2
         sys.stderr.write(json.dumps({
             "schema_version": "request-error-v1",
-            "exit_code": 2,
-            "reason_code": "INVALID_REQUEST",
+            "exit_code": exit_code,
+            "reason_code": "INVALID_CONTRACT" if contract_request else "INVALID_REQUEST",
             "detail": redact_detail(str(exc)),
         }, sort_keys=True, separators=(",", ":")) + "\n")
-        return 2
+        return exit_code
     except Exception:
+        contract_request = bool(
+            args is not None and (
+                args.command == "contract"
+                or (args.command == "verify" and getattr(args, "contract", None) is not None)
+            )
+        )
         sys.stderr.write(json.dumps({
             "schema_version": "request-error-v1",
-            "exit_code": 4,
+            "exit_code": 21 if contract_request else 4,
             "reason_code": "UNEXPECTED_INTERNAL_ERROR",
         }, sort_keys=True, separators=(",", ":")) + "\n")
-        return 4
+        return 21 if contract_request else 4
 
 
 if __name__ == "__main__":

@@ -104,6 +104,17 @@ This roadmap records intent, not a delivery commitment.
 - Keep project intent, runtime enforcement, general CRD interpretation, general network
   topology, and general Terraform evaluation outside the property verdict.
 
+## `0.1.0a10` - Declared infrastructure intent contracts
+
+- Compile one strict `.iac-guard-v/contracts.yaml` declaration to immutable a9 native
+  property requests without changing native or scanner semantics.
+- Bind verifier-derived provenance, typed protected activation values, exact
+  include/exclude denominators, non-vacuous cardinality, and explicit responsibility.
+- Aggregate required clauses fail closed and preserve every native witness; never infer
+  that a contract violation is a project defect, vulnerability, outage, or runtime fact.
+- Preserve Checkov 3.3.0 authority, advisory-only KICS/Trivy status, QRS, and every a9
+  property/materialization boundary.
+
 ## Candidate next-alpha work
 
 These candidates are prioritized by real-world compatibility findings, not
@@ -114,6 +125,10 @@ promised release dates:
 - Evaluate OpenTofu `.tofu` support after a trusted Checkov release supports it
   and additional external demand justifies the complete parser/evidence surface.
 - Complete the native-Linux UID/GID 65532 bind-mount portability proof.
+- Evaluate target-bound Trivy/KICS authority and additional Terraform relationship
+  primitives only under separate evidence-based design gates.
+- Pursue small project-authored contract/CI integrations for already documented
+  invariants; our own examples do not count as adoption.
 
 Private scanner-case screening remains limited to `observation`,
 `semantic-difference`, `blocked`, and `not-reproducible` until each path has
