@@ -1,0 +1,32 @@
+{
+  "chart": {
+    "application_version": "0.44.1",
+    "asset_url": "https://github.com/falcosecurity/charts/releases/download/falco-9.1.0/falco-9.1.0.tgz",
+    "name": "falco",
+    "published_chart_sha256": "2a767d6aeccf2392c5e263ae1f5e0950520affe3a9908ff7986ac213649c45b4",
+    "release_published_at": "2026-06-11T10:06:22Z",
+    "release_url": "https://github.com/falcosecurity/charts/releases/tag/falco-9.1.0",
+    "repository": "https://github.com/falcosecurity/charts",
+    "source_commit": "53586de4fb9d8d02006131ade702b161cd7e06e3",
+    "source_tree": "ce376e495fdb9ee84daf44b118adc759090bd231",
+    "tag": "falco-9.1.0",
+    "version": "9.1.0"
+  },
+  "current_state_check": {
+    "checked_at": "2026-09-01T14:13:20Z",
+    "default_branch": "master",
+    "default_branch_commit": "f7b497b8e9fcc509e7c3de31517e5ea953a4e4d2",
+    "default_branch_tree": "8c1e8955482cd0bb1f3993f574c248588ffc89fa",
+    "relationship_template_gates_unchanged": true
+  },
+  "verifier": {
+    "concept_doi": "10.5281/zenodo.22088272",
+    "name": "IaC-Guard-V",
+    "native_property_registry_identity": "de9a293ea2d3da8dbdbbbe3b12aa5b5d212ba789af225ea714b18d91dc501f90",
+    "pypi": "iac-guard-v==0.1.0a10",
+    "release_source": "038bf38256706ffc83485bf5f33eb3c4992e3857",
+    "version": "0.1.0a10",
+    "version_doi": "10.5281/zenodo.22226912",
+    "wheel_sha256": "6ff89229083c88b3d9c35b9be21646e722dfccaf2e6b2ccf3d215bb4c2a3b57e"
+  }
+}

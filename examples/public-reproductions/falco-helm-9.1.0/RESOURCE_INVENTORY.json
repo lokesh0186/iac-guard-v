@@ -1,0 +1,61 @@
+{
+  "case_a": {
+    "configuration": {
+      "metrics.enabled": false,
+      "metrics.service.create": true,
+      "serviceMonitor.create": true
+    },
+    "matching_services": [],
+    "resources": [
+      "apps/v1/DaemonSet/a10-impact/a10-impact-falco",
+      "monitoring.coreos.com/v1/ServiceMonitor/a10-impact/a10-impact-falco",
+      "rbac.authorization.k8s.io/v1/Role/a10-impact/a10-impact-falco",
+      "rbac.authorization.k8s.io/v1/RoleBinding/a10-impact/a10-impact-falco",
+      "v1/ConfigMap/a10-impact/a10-impact-falco",
+      "v1/ConfigMap/a10-impact/a10-impact-falco-falcoctl",
+      "v1/ServiceAccount/a10-impact/a10-impact-falco"
+    ]
+  },
+  "case_b": {
+    "configuration": {
+      "metrics.enabled": true,
+      "metrics.service.create": true,
+      "serviceMonitor.create": true
+    },
+    "matching_services": [
+      "v1/Service/a10-impact/a10-impact-falco-metrics"
+    ],
+    "resources": [
+      "apps/v1/DaemonSet/a10-impact/a10-impact-falco",
+      "monitoring.coreos.com/v1/ServiceMonitor/a10-impact/a10-impact-falco",
+      "rbac.authorization.k8s.io/v1/Role/a10-impact/a10-impact-falco",
+      "rbac.authorization.k8s.io/v1/RoleBinding/a10-impact/a10-impact-falco",
+      "v1/ConfigMap/a10-impact/a10-impact-falco",
+      "v1/ConfigMap/a10-impact/a10-impact-falco-falcoctl",
+      "v1/Service/a10-impact/a10-impact-falco-metrics",
+      "v1/ServiceAccount/a10-impact/a10-impact-falco"
+    ]
+  },
+  "monitor": {
+    "endpoint_port": "metrics",
+    "identity": "monitoring.coreos.com/v1/ServiceMonitor/a10-impact/a10-impact-falco",
+    "namespace_selection": [
+      "a10-impact"
+    ],
+    "selector": {
+      "app.kubernetes.io/instance": "a10-impact",
+      "app.kubernetes.io/name": "falco",
+      "type": "falco-metrics"
+    }
+  },
+  "positive_control_resolution": {
+    "container_occurrence": "apps/v1/DaemonSet/a10-impact/a10-impact-falco#containers[0]/falco",
+    "container_port": 8765,
+    "protocol": "TCP",
+    "service": "v1/Service/a10-impact/a10-impact-falco-metrics",
+    "service_port": 8765,
+    "service_port_name": "metrics",
+    "target_port": 8765,
+    "workload": "apps/v1/DaemonSet/a10-impact/a10-impact-falco"
+  }
+}

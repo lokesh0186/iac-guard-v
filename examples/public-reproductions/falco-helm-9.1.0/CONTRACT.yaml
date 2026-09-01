@@ -1,0 +1,30 @@
+apiVersion: iac-guard-v.io/v1alpha1
+kind: InfrastructureContract
+metadata:
+  name: falco-monitoring-relationship-research
+spec:
+  artifactClass: kubernetes_rendered
+  when:
+    value:
+      path: serviceMonitor.create
+      equals: true
+  subjects:
+    include:
+      identities:
+        - monitoring.coreos.com/v1/ServiceMonitor/a10-impact/a10-impact-falco
+    cardinality:
+      min: 1
+      max: 1
+  responsibility:
+    class: PROJECT_MANAGED
+    reason: Research hypothesis for the chart's built-in Falco monitoring relationship.
+  expect:
+    - id: monitor-resolves-service
+      property:
+        namespace: iac_guard_v
+        id: IACGV_PROM_SERVICEMONITOR_RESOLVES_SERVICE_PORT_V1
+        version: "1"
+      parameters:
+        endpoint_index: 0
+      relationCardinality:
+        targetMin: 1
