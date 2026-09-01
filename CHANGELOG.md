@@ -5,6 +5,13 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [0.1.0a10] - 2026-09-01
 
+### Archive
+
+- Archived IaC-Guard-V `0.1.0a10` under Version DOI
+  [`10.5281/zenodo.22226912`](https://doi.org/10.5281/zenodo.22226912). The evolving
+  software project continues to use Concept DOI
+  [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
+
 ### Added
 
 - A closed declared-intent contract layer using one

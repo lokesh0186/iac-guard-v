@@ -247,9 +247,11 @@ for the fail-closed trust architecture.
 For the evolving software project, cite the
 [Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
-The current release is IaC-Guard-V `0.1.0a10`. Its immutable GitHub, PyPI, artifact,
-and version-DOI identities are recorded in the public release record after all services
-agree. It remains part of the evolving-software Concept DOI record above.
+The current release is IaC-Guard-V `0.1.0a10`, archived under
+[Version DOI `10.5281/zenodo.22226912`](https://doi.org/10.5281/zenodo.22226912).
+Its immutable GitHub, PyPI, artifact, provenance, and DOI identities are recorded in the
+[public release record](https://github.com/lokesh0186/iac-guard-v/blob/main/A10_PUBLIC_RELEASE_RECORD.md).
+It remains part of the evolving-software Concept DOI record above.
 
 Machine-readable citation metadata is available in
 [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).
