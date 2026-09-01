@@ -1,0 +1,29 @@
+{
+  "chart": {
+    "application_version": "1.14.6",
+    "name": "coredns",
+    "release_published_at": "2026-07-29T13:34:40Z",
+    "release_url": "https://github.com/coredns/helm/releases/tag/coredns-1.47.0",
+    "repository": "https://github.com/coredns/helm",
+    "source_commit": "fd5b836b84e80f6ca5be9b59b77e4d2dd3505467",
+    "source_tree": "7e1d80e7366f7f97f65fc91debf4f4fd989657a4",
+    "tag": "coredns-1.47.0",
+    "version": "1.47.0"
+  },
+  "current_state_check": {
+    "checked_at": "2026-09-01T01:33:53Z",
+    "default_branch": "master",
+    "default_branch_commit": "d117803645848b23780f10a306c236a46bc624dd",
+    "relationship_templates_unchanged_from_release": true
+  },
+  "verifier": {
+    "concept_doi": "10.5281/zenodo.22088272",
+    "name": "IaC-Guard-V",
+    "native_property_registry_identity": "de9a293ea2d3da8dbdbbbe3b12aa5b5d212ba789af225ea714b18d91dc501f90",
+    "pypi": "iac-guard-v==0.1.0a9",
+    "release_source": "b4045c1e25e1abb10d55912698ea7130f13d54db",
+    "version": "0.1.0a9",
+    "version_doi": "10.5281/zenodo.22216372",
+    "wheel_sha256": "64727745b787fdb473712eed1c4cd332ee27b12553ab3edc34194045f637ee00"
+  }
+}

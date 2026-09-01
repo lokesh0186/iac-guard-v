@@ -1,0 +1,41 @@
+{
+  "case_a": {
+    "matching_service_count": 0,
+    "native_reason": "SERVICEMONITOR_TARGET_UNRESOLVED",
+    "native_result": "VIOLATED",
+    "protected_universe_identity": "38e5139657dc4bface8c5ac75ba3d0efbd145d19ecff912184543ab45f96582d",
+    "render_pair_byte_identical": true,
+    "render_sha256": "706e01ebc5d54261c29b41b36fdb4f4fdd0e3c4069b288c856a1af492f8c2f9f",
+    "report_digest": "6cf2ef5e070c8e6035fa92c7e41675f5ede4a6e616e0c905eac93eae34f98c05",
+    "report_file_sha256": "1b2ccb97fd705a3e316c4c7ead9018fb1854ec3c256a7c7e80682ddc8d6d7b5c",
+    "values": {
+      "prometheus.monitor.enabled": true,
+      "prometheus.service.enabled": false
+    },
+    "witness_digest": "a1ff4a57a02ff8f1632b4183e6d2130c112770603a46ec49c12c771ab29ac324"
+  },
+  "case_b": {
+    "matching_service_count": 1,
+    "matching_service_identity": "v1/Service/a9-impact/a9-impact-coredns-metrics",
+    "native_reason": "SERVICEMONITOR_TARGET_RESOLVED",
+    "native_result": "SATISFIED",
+    "protected_universe_identity": "9d9d86498ad029b0efc2304e0ca90808a044f912900ee183d1ef461a7587ef5f",
+    "render_pair_byte_identical": true,
+    "render_sha256": "cab7531d54b0e71a895bc15fd4f4aa0dfd6839c39d94df47b62d03aa8b969719",
+    "report_digest": "b77d3cb44147ef9729b8c23fd7c37f2ca0cd4a59bc9e2176b66b0818a28fbc65",
+    "report_file_sha256": "1af7a2666a786af4de33550696202384adb2ff7f2a19ee43b107fa1e45b44fa9",
+    "resolved_protocol": "TCP",
+    "resolved_target_port": 9153,
+    "values": {
+      "prometheus.monitor.enabled": true,
+      "prometheus.service.enabled": true
+    },
+    "witness_digest": "0ce1e32efdf9abeb1890bda6b233a57b95267ff3acd629f52d41cdef6a6330df"
+  },
+  "property": {
+    "id": "IACGV_PROM_SERVICEMONITOR_RESOLVES_SERVICE_PORT_V1",
+    "namespace": "iac_guard_v",
+    "version": "1"
+  },
+  "schema": "coredns-helm-1.47.0-ab-comparison-v1"
+}

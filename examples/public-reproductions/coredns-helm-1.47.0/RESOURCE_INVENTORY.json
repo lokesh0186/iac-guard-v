@@ -1,0 +1,79 @@
+{
+  "case_a": {
+    "configuration": {
+      "prometheus.monitor.enabled": true,
+      "prometheus.service.enabled": false
+    },
+    "resource_count": 6,
+    "resources": [
+      "v1/ConfigMap/a9-impact/a9-impact-coredns",
+      "rbac.authorization.k8s.io/v1/ClusterRole/_cluster/a9-impact-coredns",
+      "rbac.authorization.k8s.io/v1/ClusterRoleBinding/_cluster/a9-impact-coredns",
+      "v1/Service/a9-impact/a9-impact-coredns",
+      "apps/v1/Deployment/a9-impact/a9-impact-coredns",
+      "monitoring.coreos.com/v1/ServiceMonitor/default/a9-impact-coredns"
+    ],
+    "services": [
+      {
+        "identity": "v1/Service/a9-impact/a9-impact-coredns",
+        "matches_service_monitor": false,
+        "nonmatch_reason": "required label app.kubernetes.io/component=metrics is absent",
+        "ports": [
+          {"name": "udp-53", "port": 53, "protocol": "UDP", "targetPort": 53},
+          {"name": "tcp-53", "port": 53, "protocol": "TCP", "targetPort": 53}
+        ]
+      }
+    ]
+  },
+  "case_b": {
+    "configuration": {
+      "prometheus.monitor.enabled": true,
+      "prometheus.service.enabled": true
+    },
+    "resource_count": 7,
+    "resources": [
+      "v1/ConfigMap/a9-impact/a9-impact-coredns",
+      "rbac.authorization.k8s.io/v1/ClusterRole/_cluster/a9-impact-coredns",
+      "rbac.authorization.k8s.io/v1/ClusterRoleBinding/_cluster/a9-impact-coredns",
+      "v1/Service/a9-impact/a9-impact-coredns-metrics",
+      "v1/Service/a9-impact/a9-impact-coredns",
+      "apps/v1/Deployment/a9-impact/a9-impact-coredns",
+      "monitoring.coreos.com/v1/ServiceMonitor/default/a9-impact-coredns"
+    ],
+    "services": [
+      {
+        "identity": "v1/Service/a9-impact/a9-impact-coredns-metrics",
+        "labels": {
+          "app.kubernetes.io/component": "metrics",
+          "app.kubernetes.io/instance": "a9-impact",
+          "app.kubernetes.io/name": "coredns",
+          "k8s-app": "coredns"
+        },
+        "matches_service_monitor": true,
+        "ports": [
+          {"name": "metrics", "port": 9153, "protocol": "TCP", "targetPort": 9153}
+        ],
+        "selected_workload": "apps/v1/Deployment/a9-impact/a9-impact-coredns",
+        "resolved_container_occurrence": "apps/v1/Deployment/a9-impact/a9-impact-coredns#containers[0]/coredns",
+        "resolved_container_port": 9153
+      },
+      {
+        "identity": "v1/Service/a9-impact/a9-impact-coredns",
+        "matches_service_monitor": false,
+        "nonmatch_reason": "required label app.kubernetes.io/component=metrics is absent"
+      }
+    ]
+  },
+  "service_monitor": {
+    "endpoint": {"port": "metrics", "protocol": "TCP"},
+    "identity": "monitoring.coreos.com/v1/ServiceMonitor/default/a9-impact-coredns",
+    "namespace_selection": ["a9-impact"],
+    "rendered_metadata_namespace": null,
+    "selector": {
+      "app.kubernetes.io/component": "metrics",
+      "app.kubernetes.io/instance": "a9-impact",
+      "app.kubernetes.io/name": "coredns",
+      "k8s-app": "coredns"
+    }
+  }
+}
