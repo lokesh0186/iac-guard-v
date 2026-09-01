@@ -3,7 +3,14 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
-## [0.1.0b1] - Unreleased
+## [0.1.0b1] - 2026-09-01
+
+### Archive
+
+- Archived IaC-Guard-V `0.1.0b1` under Version DOI
+  [`10.5281/zenodo.22239516`](https://doi.org/10.5281/zenodo.22239516). The evolving
+  software project continues to use Concept DOI
+  [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
 ### Added
 

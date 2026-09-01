@@ -266,10 +266,11 @@ for the fail-closed trust architecture.
 For the evolving software project, cite the
 [Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
-IaC-Guard-V `0.1.0b1` retains that Concept DOI. Its version-specific DOI and immutable
-GitHub, PyPI, artifact, provenance, and release-record identities are added only after
-publication; no Beta1 version DOI is claimed in this source candidate. Historical a10
-release identities remain recorded in the
+IaC-Guard-V `0.1.0b1` retains that Concept DOI and is archived under
+[Version DOI `10.5281/zenodo.22239516`](https://doi.org/10.5281/zenodo.22239516).
+Its immutable GitHub, PyPI, artifact, provenance, and validation identities are in the
+[Beta1 public release record](https://github.com/lokesh0186/iac-guard-v/blob/main/BETA1_PUBLIC_RELEASE_RECORD.md).
+Historical a10 release identities remain recorded in the
 [a10 public release record](https://github.com/lokesh0186/iac-guard-v/blob/main/A10_PUBLIC_RELEASE_RECORD.md).
 
 Machine-readable citation metadata is available in
