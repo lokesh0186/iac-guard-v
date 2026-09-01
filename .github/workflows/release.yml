@@ -7,12 +7,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-pypi-0.1.0a9
+  group: publish-pypi-0.1.0a10
   cancel-in-progress: false
 
 jobs:
   publish-pypi:
-    name: Publish 0.1.0a9 to PyPI
+    name: Publish 0.1.0a10 to PyPI
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -24,10 +24,10 @@ jobs:
       - name: Download and verify the reviewed GitHub Release artifacts
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v0.1.0-alpha.9
-          RELEASE_COMMIT: b4045c1e25e1abb10d55912698ea7130f13d54db
-          WHEEL_SHA256: 64727745b787fdb473712eed1c4cd332ee27b12553ab3edc34194045f637ee00
-          SDIST_SHA256: c13c20886cf86ab6f86b98b0d3c7de6a3995c12536ef31633cb45029207a8d2e
+          RELEASE_TAG: v0.1.0-alpha.10
+          RELEASE_COMMIT: 038bf38256706ffc83485bf5f33eb3c4992e3857
+          WHEEL_SHA256: 6ff89229083c88b3d9c35b9be21646e722dfccaf2e6b2ccf3d215bb4c2a3b57e
+          SDIST_SHA256: 0df0104985e202c176d3f66cd1231334b03585c72b6870dc5db3379c3b932b47
         run: |
           set -euo pipefail
           test "${GITHUB_REPOSITORY}" = "lokesh0186/iac-guard-v"
@@ -36,12 +36,12 @@ jobs:
           gh release download "${RELEASE_TAG}" \
             --repo "${GITHUB_REPOSITORY}" \
             --dir dist \
-            --pattern 'iac_guard_v-0.1.0a9-py3-none-any.whl' \
-            --pattern 'iac_guard_v-0.1.0a9.tar.gz'
+            --pattern 'iac_guard_v-0.1.0a10-py3-none-any.whl' \
+            --pattern 'iac_guard_v-0.1.0a10.tar.gz'
           test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 2
           printf '%s  %s\n' \
-            "${WHEEL_SHA256}" 'dist/iac_guard_v-0.1.0a9-py3-none-any.whl' \
-            "${SDIST_SHA256}" 'dist/iac_guard_v-0.1.0a9.tar.gz' \
+            "${WHEEL_SHA256}" 'dist/iac_guard_v-0.1.0a10-py3-none-any.whl' \
+            "${SDIST_SHA256}" 'dist/iac_guard_v-0.1.0a10.tar.gz' \
             | sha256sum --check --strict -
 
       - name: Publish the byte-identical artifacts with Trusted Publishing
