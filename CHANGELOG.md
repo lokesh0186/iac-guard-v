@@ -3,6 +3,52 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
+## [0.1.0b1] - Unreleased
+
+### Added
+
+- A distinct protected OpenTofu source mode for `.tofu`, `.tofu.json`, `.tf`, and
+  `.tf.json`, including reviewed same-basename precedence, effective/shadowed source
+  evidence, bounded override ordering, and contained local-module closure.
+- `IACGV_OPENTOFU_REFERENCE_RESOLVES_V1` for exact witness-backed direct source-local
+  OpenTofu references under the bounded protected file-set contract.
+- Deterministic property/support discovery, native-mode doctor diagnostics, safe
+  `SUGGESTED_CONTRACT` initialization, tested CI guidance, and a generated support
+  matrix that separates native, authoritative scanner, advisory, and fail-closed
+  capabilities.
+
+### Compatibility
+
+- All 17 existing native property IDs, versions, meanings, and witness obligations are
+  unchanged. `IACGV_TF_REFERENCE_RESOLVES_V1` remains `.tf`-only and does not acquire
+  OpenTofu precedence behavior.
+- Contract `iac-guard-v.io/v1alpha1` and report
+  `infrastructure-contract-report-v1alpha1` retain their a10 meanings. The exact
+  retained KAITO, Kueue, and Thanos contracts require no edits or migration warning.
+
+### Hardened
+
+- Added public API/CLI/schema snapshots, historical-report compatibility checks,
+  content-bound compatibility corpora, deterministic evidence checks, narrow package
+  allowlists, sensitive-path rejection, and artifact-only installation validation.
+- Preserved the clean Python 3.10-3.13, packaging, supply-chain, and frozen QRS release
+  gates without lowering coverage thresholds.
+
+### Scanner policy
+
+- Checkov 3.3.0 authority is unchanged and remains limited to previously reviewed
+  supported paths. KICS and Trivy retain their advisory boundaries. Zero findings do
+  not establish target pass, and scanner voting is not used.
+
+### Limitations
+
+- OpenTofu and Terraform evaluation remains source-local and bounded. Remote modules,
+  provider/cloud/runtime state, `init`/`plan`/`apply`, live Kubernetes, arbitrary CRD
+  semantics, and general Helm interpretation remain unsupported or fail closed.
+- Project intent is authoritative only through an explicit protected contract with the
+  corresponding provenance. A mechanical violation is not automatically a project
+  defect, vulnerability, outage, or runtime claim.
+
 ## [0.1.0a10] - 2026-09-01
 
 ### Archive

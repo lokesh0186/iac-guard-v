@@ -124,7 +124,26 @@ def test_help_explains_canonical_command_modes_target_and_exits(capsys) -> None:
     assert "iac-guard verify --before BEFORE --after AFTER" in top
     assert "Exit codes: 0 VERIFIED" in top
     assert "reduced isolation" in top
-    assert "canonical alpha command" in top
+    assert "canonical command" in top
+    assert "canonical alpha command" not in top
+    normalized_top = " ".join(top.split())
+    assert "initialize, lint, or plan a declared infrastructure contract" in normalized_top
+
+    try:
+        CLI.main(["contract", "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    contract_help = capsys.readouterr().out
+    assert "{init,lint,plan}" in contract_help
+    assert "write a reviewed suggested-contract template" in contract_help
+
+    try:
+        CLI.main(["contract", "init", "--help"])
+    except SystemExit as exc:
+        assert exc.code == 0
+    contract_init_help = capsys.readouterr().out
+    assert "--family" in contract_init_help
+    assert "--output" in contract_init_help
 
     try:
         CLI.main(["verify", "--help"])

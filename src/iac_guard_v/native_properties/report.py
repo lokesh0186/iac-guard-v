@@ -10,6 +10,9 @@ import jsonschema
 
 from ..models import DomainError, canonical_identifier, canonical_resource_scope
 from .evidence import validate_native_observation, validate_native_witness_payload
+from .compatibility import (
+    A10_NATIVE_REGISTRY_IDENTITY, validate_a10_definition_snapshot,
+)
 from .model import (
     NativePropertyObservation, NativePropertyResult, canonical_digest, thaw_json,
 )
@@ -136,7 +139,8 @@ def validate_native_report_payload(payload: dict) -> None:
     exit_code = body.pop("exit_code")
     if canonical_digest(body) != report_digest:
         raise DomainError("native-property-report-v1 digest is not canonical")
-    if payload["registry_identity"] != native_registry_identity():
+    historical = payload["registry_identity"] == A10_NATIVE_REGISTRY_IDENTITY
+    if payload["registry_identity"] != native_registry_identity() and not historical:
         raise DomainError("native-property-report-v1 registry identity is stale or forged")
     universe_identity = payload["protected_universe"]["identity"]
     request_ids = []
@@ -146,8 +150,13 @@ def validate_native_report_payload(payload: dict) -> None:
         witness = observation["witness"]
         property_id = request.get("property_id")
         packaged = NATIVE_PROPERTY_REGISTRY.get(property_id)
-        if packaged is None or definition != packaged.canonical_dict():
+        if historical:
+            validate_a10_definition_snapshot(definition)
+        elif packaged is None or definition != packaged.canonical_dict():
             raise DomainError("native-property-report-v1 definition is not the packaged definition")
+        definition_version = definition.get("property_version")
+        definition_artifact = definition.get("artifact_class")
+        definition_witness = definition.get("witness_type")
         if set(request) != {
             "request_id", "property_id", "property_version", "artifact_class",
             "subject_identity", "parameters", "parameters_digest",
@@ -157,8 +166,8 @@ def validate_native_report_payload(payload: dict) -> None:
         request_ids.append(canonical_identifier(request["request_id"], "native request ID"))
         canonical_resource_scope(request["subject_identity"], "native subject identity")
         if (
-            request.get("property_version") != packaged.property_version
-            or request.get("artifact_class") != packaged.artifact_class.value
+            request.get("property_version") != definition_version
+            or request.get("artifact_class") != definition_artifact
             or request.get("protected_universe_identity") != universe_identity
         ):
             raise DomainError("native-property-report-v1 request binding is contradictory")
@@ -166,12 +175,12 @@ def validate_native_report_payload(payload: dict) -> None:
             raise DomainError("native-property-report-v1 parameter digest is not canonical")
         try:
             jsonschema.Draft202012Validator(
-                thaw_json(packaged.parameter_schema)
+                definition["parameter_schema"]
             ).validate(request["parameters"])
         except jsonschema.ValidationError as exc:
             raise DomainError("native-property-report-v1 parameters violate the packaged definition") from exc
         canonical_identifier(observation["reason_code"], "native reason code")
-        if witness.get("witness_type") != packaged.witness_type:
+        if witness.get("witness_type") != definition_witness:
             raise DomainError("native-property-report-v1 witness type disagrees with the definition")
         expected_witness = canonical_digest({
             "witness_type": witness.get("witness_type"),

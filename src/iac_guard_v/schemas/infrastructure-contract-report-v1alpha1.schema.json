@@ -36,7 +36,7 @@
       "required": ["identity", "artifact_class", "input_manifest", "input_manifest_digest", "resource_inventory", "resource_inventory_digest"],
       "properties": {
         "identity": {"$ref": "#/$defs/digest"},
-        "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source"]},
+        "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source", "opentofu_source"]},
         "input_manifest": {
           "type": "array",
           "items": {

@@ -124,7 +124,9 @@ class PublicHelmVerificationRequest:
         if self.all_baseline_findings == bool(self.selectors):
             raise DomainError("Helm verification requires explicit targets or all findings")
         if self.execution_isolation is not ExecutionIsolation.REDUCED_ISOLATION:
-            raise DomainError("Helm alpha supports only explicit local-trusted execution")
+            raise DomainError(
+                "Bounded Helm verification supports only explicit local-trusted execution"
+            )
         if not isinstance(self.checkov_executable, Path):
             raise DomainError("Helm verification requires an explicit Checkov executable")
         try:
@@ -238,7 +240,9 @@ class PublicHelmAcceptanceRequest:
         if len(property_keys) != len(set(property_keys)):
             raise DomainError("Helm acceptance properties must be unique")
         if self.execution_isolation is not ExecutionIsolation.REDUCED_ISOLATION:
-            raise DomainError("Helm alpha supports only explicit local-trusted execution")
+            raise DomainError(
+                "Bounded Helm verification supports only explicit local-trusted execution"
+            )
         if not isinstance(self.checkov_executable, Path):
             raise DomainError("Helm acceptance requires an explicit Checkov executable")
         try:

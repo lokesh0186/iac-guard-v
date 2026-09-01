@@ -1,0 +1,13 @@
+name: Feature request
+description: Propose one bounded verification or compatibility improvement.
+title: "Feature: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: demand
+    attributes: {label: Concrete external demand and invariant}
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes: {label: Protected local evidence and fail-closed boundary}
+    validations: {required: true}

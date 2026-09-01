@@ -1,0 +1,24 @@
+name: Suspected false SATISFIED
+description: High-priority report for an authoritative result that may be unsound.
+title: "False SATISFIED: "
+labels: [bug, correctness]
+body:
+  - type: input
+    id: property
+    attributes: {label: Property or contract clause ID/version}
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes: {label: Exact protected evidence and report identity}
+    validations: {required: true}
+  - type: textarea
+    id: reproduction
+    attributes: {label: Minimal public reproduction}
+    validations: {required: true}
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety
+      options:
+        - label: I removed credentials, private paths, and undisclosed third-party evidence.
+          required: true

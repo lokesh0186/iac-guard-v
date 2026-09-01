@@ -4,7 +4,7 @@ IaC-Guard-V native properties are scanner-independent verification contracts ove
 content-bound, deterministic infrastructure artifact. They do not replace Checkov,
 KICS, or Trivy, and they do not change the authority of any a8 scanner path.
 
-The `0.1.0a9` native boundary is additive and versioned separately:
+The native boundary is additive and versioned separately from package maturity:
 
 - request: `native-property-request-v1`;
 - evidence: `native-property-report-v1`;
@@ -56,6 +56,8 @@ The a9 implementation contains only the final authorized families:
 - allowlisted `monitoring.coreos.com/v1` ServiceMonitor and PodMonitor target graphs;
 - RBAC roleRef, ServiceAccount subject, and scope relationships;
 - direct source-local Terraform resource references.
+- direct source-local OpenTofu references over the distinct protected
+  `opentofu-fileset-v1` source mode.
 
 The packaged registry records every property version, parameter-schema digest,
 semantic-contract digest, implementation/module digest, semantic version binding,
@@ -67,6 +69,9 @@ Every result, including uncertainty, has a structured witness. Authoritative res
 are rejected unless their property-specific witness mechanically agrees with the
 result. Serialized reports are revalidated against the packaged definition registry,
 parameter, witness, observation, report, input-universe, and implementation identities.
+
+Use `iac-guard properties list` or `iac-guard properties describe PROPERTY_ID` to
+inspect the exact registry, semantic-contract digest, artifact class, and witness.
 
 Unresolved named ports, incomplete policy sets, unknown Pod IPs against `ipBlock`,
 ambiguous selectors or identities, unsupported monitor contracts, external RBAC
@@ -90,5 +95,6 @@ subject `namespace` field does not become a ServiceAccount-style identity.
 There are no new generic security-context checks or public Terraform attribute checks.
 KICS and Trivy remain advisory; Checkov 3.3.0 retains its existing a8 authority. There
 is no voting, inferred scanner PASS, arbitrary CRD interpreter, authorization simulator,
-general Terraform evaluator, remote dependency resolver, cloud API, or live cluster
-path.
+general Terraform/OpenTofu evaluator, remote dependency resolver, cloud API, or live
+cluster path. Terraform V1 remains `.tf`-only and does not inherit OpenTofu precedence
+or JSON behavior. See [OpenTofu source verification](OPENTOFU.md).

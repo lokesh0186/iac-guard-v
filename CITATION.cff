@@ -8,8 +8,7 @@ authors:
     email: lokesh0186@gmail.com
     affiliation: "Independent Researcher"
 type: software
-version: 0.1.0a10
-date-released: 2026-09-01
+version: 0.1.0b1
 license: Apache-2.0
 repository-code: "https://github.com/lokesh0186/iac-guard-v"
 url: "https://github.com/lokesh0186/iac-guard-v"

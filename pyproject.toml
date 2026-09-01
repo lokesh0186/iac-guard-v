@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iac-guard-v"
-version = "0.1.0a10"
-description = "Differential verification for infrastructure-as-code changes: did the fix actually fix it?"
+version = "0.1.0b1"
+description = "Fail-closed verification of declared infrastructure invariants over protected IaC"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 license = "Apache-2.0"
@@ -13,7 +13,7 @@ license-files = ["LICENSE", "NOTICE"]
 authors = [{ name = "Lokesh Chauhan" }]
 keywords = ["infrastructure-as-code", "terraform", "kubernetes", "verification", "devsecops"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.10",
@@ -81,6 +81,7 @@ only-include = [
   "LICENSE",
   "SECURITY.md",
   "CONTRIBUTING.md",
+  "SUPPORT.md",
   "ROADMAP.md",
   "CHANGELOG.md",
   "NOTICE",
@@ -88,7 +89,7 @@ only-include = [
   "packaging/iac_guard_v_no_bytecode.pth",
   "examples/checkov-before-after",
   "docs/ADVANCED_INSTALLATION.md",
-  "docs/ALPHA_RELEASE_CHECKLIST.md",
+  "docs/BETA_RELEASE_CHECKLIST.md",
   "docs/SECURITY_MODEL.md",
   "docs/SUPPORTED_SCOPE.md",
   "docs/HELM_MATERIALIZATION.md",
@@ -97,7 +98,10 @@ only-include = [
   "docs/CANDIDATE_ACCEPTANCE.md",
   "docs/NATIVE_PROPERTIES.md",
   "docs/INTENT_CONTRACTS.md",
-  "docs/RELEASE_NOTES_0.1.0a10.md",
+  "docs/OPENTOFU.md",
+  "docs/SUPPORT_MATRIX.md",
+  "docs/CI.md",
+  "docs/RELEASE_NOTES_0.1.0b1.md",
   "docs/spec/THREAT_MODEL.md",
   "pyproject.toml",
 ]

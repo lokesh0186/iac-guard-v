@@ -23,6 +23,7 @@ from .network_policy import (
     evaluate_workload_isolated,
     evaluate_workload_selected,
 )
+from .opentofu_reference import evaluate_opentofu_reference_resolves
 from .prometheus_operator import (
     evaluate_monitoring_ingress,
     evaluate_pod_monitor,
@@ -60,6 +61,7 @@ _EVALUATORS: dict[str, Evaluator] = {
     "IACGV_K8S_RBAC_SERVICEACCOUNT_SUBJECT_RESOLVES_V1": evaluate_service_account_subjects,
     "IACGV_K8S_RBAC_BINDING_SCOPE_CONSISTENT_V1": evaluate_binding_scope,
     "IACGV_TF_REFERENCE_RESOLVES_V1": evaluate_reference_resolves,
+    "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1": evaluate_opentofu_reference_resolves,
 }
 
 

@@ -20,7 +20,7 @@
       "additionalProperties": false,
       "required": ["artifactClass", "subjects", "responsibility", "expect"],
       "properties": {
-        "artifactClass": {"enum": ["kubernetes_rendered", "terraform_source"]},
+        "artifactClass": {"enum": ["kubernetes_rendered", "terraform_source", "opentofu_source"]},
         "when": {"$ref": "#/$defs/activationExpression"},
         "subjects": {"$ref": "#/$defs/subjects"},
         "responsibility": {"$ref": "#/$defs/responsibility"},

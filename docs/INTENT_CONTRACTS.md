@@ -1,6 +1,6 @@
 # Declared infrastructure intent contracts
 
-IaC-Guard-V 0.1.0a10 verifies a closed, versioned infrastructure contract against
+IaC-Guard-V verifies a closed, versioned infrastructure contract against
 protected deterministic artifacts. Contracts state expected truth; the existing a9
 native properties establish mechanical truth. A contract verdict never automatically
 means that a project has a bug, vulnerability, outage, or runtime failure.
@@ -47,6 +47,9 @@ the resolved subject denominator.
 ## Commands
 
 ```bash
+iac-guard contract init --family rbac-closure \
+  --output .iac-guard-v/contracts.yaml
+
 iac-guard contract lint --contract .iac-guard-v/contracts.yaml
 
 iac-guard contract plan --contract .iac-guard-v/contracts.yaml \
@@ -104,6 +107,11 @@ responsibility scope.
 
 Exit codes are 0 satisfied, 10 violated, 11 inactive/not evaluated, 12 unsupported,
 20 invalid contract, and 21 contract execution error.
+
+Beta package maturity does not change the contract API. Beta1 retains
+`iac-guard-v.io/v1alpha1` and accepts existing a10 contract bytes without migration or
+deprecation warnings. `opentofu_source` is additive vocabulary that compiles only to
+`IACGV_OPENTOFU_REFERENCE_RESOLVES_V1`.
 
 Contracts do not infer intent, vote scanners, call cloud APIs, query a live cluster,
 simulate authorization, prove CNI enforcement, evaluate arbitrary CRDs, resolve remote

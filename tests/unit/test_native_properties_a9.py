@@ -51,7 +51,8 @@ def _request(universe, property_id: str, subject: str, parameters=None, request_
 
 
 def test_registry_is_closed_versioned_and_scanner_independent() -> None:
-    assert len(NATIVE_PROPERTY_REGISTRY) == 17
+    assert len(NATIVE_PROPERTY_REGISTRY) == 18
+    assert "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1" in NATIVE_PROPERTY_REGISTRY
     assert len(native_registry_identity()) == 64
     assert all(item.property_namespace == "iac_guard_v" for item in NATIVE_PROPERTY_REGISTRY.values())
     assert all(item.property_version == "1" for item in NATIVE_PROPERTY_REGISTRY.values())

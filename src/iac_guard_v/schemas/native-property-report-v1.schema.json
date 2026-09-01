@@ -14,7 +14,7 @@
       "required": ["identity", "artifact_class", "input_manifest_digest", "resource_inventory_digest"],
       "properties": {
         "identity": {"$ref": "#/$defs/sha256"},
-        "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source"]},
+        "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source", "opentofu_source"]},
         "input_manifest_digest": {"$ref": "#/$defs/sha256"},
         "resource_inventory_digest": {"$ref": "#/$defs/sha256"}
       }

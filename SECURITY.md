@@ -1,6 +1,6 @@
 # Security Policy
 
-IaC-Guard-V `0.1.0a10` is a technical alpha for trusted local input, with a pinned
+IaC-Guard-V `0.1.0b1` is a Beta 1 prerelease for trusted local input, with a pinned
 Checkov `3.3.0` scanner contract. It is not yet a production hardened-container
 release.
 
@@ -8,7 +8,7 @@ release.
 
 | Version | Security support |
 | --- | --- |
-| `0.1.x` alpha | Yes, within the documented alpha boundary. |
+| Latest `0.1.x` prerelease | Yes, within its documented bounded support matrix. |
 | Earlier or unreleased builds | No. Upgrade to the latest published `0.1.x` release. |
 
 ## Reporting a vulnerability
@@ -38,8 +38,10 @@ forwarded or published without the reporter's and project owner's authorization.
   Contract provenance, activation, exclusions, cardinality, and responsibility are
   explicit; a mechanical contract violation is not automatically a project defect,
   vulnerability, outage, or runtime claim.
+- OpenTofu verification uses a distinct protected source mode. It does not fetch
+  modules, run providers, or execute `init`, `plan`, or `apply`.
 - The hardened production container and GitHub Action are not released. Do not use
-  the alpha to evaluate hostile pull-request content.
+  the beta to evaluate hostile pull-request content.
 - The project does not defend against arbitrary hostile Python already running in its
   trusted interpreter.
 
@@ -52,3 +54,11 @@ The accessible product summary is in
 IaC-Guard-V has no telemetry or model-provider integration. Reports can nevertheless
 contain repository-relative paths, resource identities, and scanner diagnostics.
 Review artifacts before sharing them and keep protected cache material private.
+
+## Suspected false SATISFIED
+
+A credible false `SATISFIED` report is treated as a high-priority correctness issue.
+Use the dedicated issue form for non-sensitive evidence or the private advisory channel
+when disclosure itself is sensitive. The project freezes the evidence, reproduces the
+case, fixes it generically, adds an adversarial regression, and reviews property/schema
+version impact. Do not include private infrastructure or credentials.

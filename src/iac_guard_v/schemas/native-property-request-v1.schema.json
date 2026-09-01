@@ -8,7 +8,7 @@
   "properties": {
     "schema_version": {"const": "native-property-request-v1"},
     "root": {"type": "string", "minLength": 1},
-    "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source"]},
+    "artifact_class": {"enum": ["kubernetes_rendered", "terraform_source", "opentofu_source"]},
     "default_namespace": {"type": "string", "minLength": 1},
     "requests": {
       "type": "array",

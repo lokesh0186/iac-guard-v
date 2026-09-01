@@ -1,0 +1,17 @@
+name: Integration proposal
+description: Propose a concise project-specific contract or CI integration.
+title: "Integration: "
+labels: [integration]
+body:
+  - type: textarea
+    id: invariant
+    attributes: {label: Explicit documented project invariant}
+    validations: {required: true}
+  - type: textarea
+    id: integration
+    attributes: {label: Proposed contract and read-only CI command}
+    validations: {required: true}
+  - type: textarea
+    id: provenance
+    attributes: {label: Intent provenance and current test gap}
+    validations: {required: true}

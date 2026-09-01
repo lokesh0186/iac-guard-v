@@ -103,6 +103,7 @@ D7_TESTS = (
     "tests/unit/test_kustomize_materialization_a8.py",
     "tests/unit/test_legacy_coverage_preservation_a9.py",
     "tests/unit/test_contract_cli_a10.py",
+    "tests/unit/test_beta1_api_ux.py",
 )
 
 HELM_TESTS = (
@@ -124,6 +125,8 @@ NATIVE_PROPERTY_TESTS = (
     "tests/unit/test_native_public_cli_a9.py",
     "tests/unit/test_native_adversarial_a9.py",
     "tests/unit/test_native_coverage_a9.py",
+    "tests/unit/test_native_opentofu_beta1.py",
+    "tests/unit/test_beta1_api_ux.py",
 )
 
 CONTRACT_TESTS = (
@@ -180,6 +183,8 @@ COVERAGE_GATES = (
             "iac_guard_v.native_properties.evidence",
             "iac_guard_v.native_properties.model",
             "iac_guard_v.native_properties.network_policy",
+            "iac_guard_v.native_properties.opentofu",
+            "iac_guard_v.native_properties.opentofu_reference",
             "iac_guard_v.native_properties.prometheus_operator",
             "iac_guard_v.native_properties.public",
             "iac_guard_v.native_properties.rbac",
@@ -189,6 +194,7 @@ COVERAGE_GATES = (
             "iac_guard_v.native_properties.services",
             "iac_guard_v.native_properties.terraform",
             "iac_guard_v.native_properties.universe",
+            "iac_guard_v.beta_support",
         ),
         branch=True,
     ),

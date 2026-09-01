@@ -30,6 +30,16 @@ _TERRAFORM_CONTRACT = canonical_digest({
     "provider_evaluation": False,
     "plan_instances": False,
 })
+_OPENTOFU_CONTRACT = canonical_digest({
+    "language": "OpenTofu",
+    "file_set": "opentofu-fileset-v1",
+    "extensions": [".tf", ".tf.json", ".tofu", ".tofu.json"],
+    "precedence": ".tofu shadows same-basename .tf within syntax family",
+    "scope": "exact direct source-local resource traversals with bounded local modules",
+    "provider_evaluation": False,
+    "plan_instances": False,
+    "remote_modules": False,
+})
 
 
 def _module_identity(*modules: str) -> NativePropertyImplementationIdentity:
@@ -54,6 +64,9 @@ def _module_identity(*modules: str) -> NativePropertyImplementationIdentity:
         selected.add("native_properties/contracts/prometheus-operator-v1.json")
     if any(item.endswith("terraform.py") for item in modules):
         selected.add("terraform_parser.py")
+    if any(item.endswith("opentofu_reference.py") for item in modules):
+        selected.add("terraform_parser.py")
+        selected.add("native_properties/opentofu.py")
     for module in sorted(selected):
         digest = hashlib.sha256(package.joinpath(module).read_bytes()).hexdigest()
         records.append((module.replace("/", ".").removesuffix(".py").removesuffix(".json"), digest))
@@ -115,11 +128,21 @@ def _definition(
             "kubernetes": _KUBERNETES_CONTRACT,
             "prometheus_operator": prometheus_operator_contract_digest(),
         })
-        if monitor else (_KUBERNETES_CONTRACT if artifact is NativeArtifactClass.KUBERNETES_RENDERED else _TERRAFORM_CONTRACT)
+        if monitor else (
+            _KUBERNETES_CONTRACT
+            if artifact is NativeArtifactClass.KUBERNETES_RENDERED
+            else _OPENTOFU_CONTRACT
+            if artifact is NativeArtifactClass.OPENTOFU_SOURCE
+            else _TERRAFORM_CONTRACT
+        )
     )
     binding = NativeSemanticVersionBinding(
-        "kubernetes" if artifact is NativeArtifactClass.KUBERNETES_RENDERED else "terraform",
-        "v1.34.0" if artifact is NativeArtifactClass.KUBERNETES_RENDERED else "source-hcl-v1",
+        "kubernetes" if artifact is NativeArtifactClass.KUBERNETES_RENDERED else (
+            "opentofu" if artifact is NativeArtifactClass.OPENTOFU_SOURCE else "terraform"
+        ),
+        "v1.34.0" if artifact is NativeArtifactClass.KUBERNETES_RENDERED else (
+            "source-fileset-v1" if artifact is NativeArtifactClass.OPENTOFU_SOURCE else "source-hcl-v1"
+        ),
         binding_digest,
     )
     capabilities = NativePropertyCapabilities(True, True, True, relationship, source_span)
@@ -141,6 +164,7 @@ def _definition(
 
 _K8S = NativeArtifactClass.KUBERNETES_RENDERED
 _TF = NativeArtifactClass.TERRAFORM_SOURCE
+_OT = NativeArtifactClass.OPENTOFU_SOURCE
 
 _DEFINITIONS = (
     _definition(
@@ -274,6 +298,26 @@ _DEFINITIONS = (
         },
         "An exact direct source-local traversal at the bound attribute path resolves to the expected protected Terraform resource; provider evaluation is excluded.",
         "terraform_reference_v1", "native_properties/terraform.py", source_span=True,
+    ),
+    _definition(
+        "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1", _OT, "opentofu_resource",
+        _schema({
+            "attribute_path": {"type": "array", "minItems": 1, "items": {"anyOf": [_STRING, {"type": "integer", "minimum": 0}]}},
+            "expected_target": _STRING,
+            "mode": {"enum": ["DIRECT", "TRANSITIVE"]},
+            "complete_expected_domain": _BOOL,
+            "reference_contract_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        }, ("attribute_path", "expected_target")) | {
+            "allOf": [{
+                "if": {
+                    "properties": {"complete_expected_domain": {"const": True}},
+                    "required": ["complete_expected_domain"],
+                },
+                "then": {"required": ["reference_contract_digest"]},
+            }]
+        },
+        "An exact direct source-local traversal in the protected effective OpenTofu file set resolves to the expected protected resource; precedence, bounded overrides, local-module identity, and shadowed files are witnessed while provider/runtime evaluation and remote acquisition are excluded.",
+        "opentofu_reference_v1", "native_properties/opentofu_reference.py", source_span=True,
     ),
 )
 

@@ -16,6 +16,9 @@ from ..native_properties.evidence import (
     validate_native_observation,
     validate_native_witness_payload,
 )
+from ..native_properties.compatibility import (
+    is_a10_contract_identity, validate_a10_definition_snapshot,
+)
 from ..native_properties.model import NativePropertyResult, canonical_digest, thaw_json
 from ..native_properties.registry import NATIVE_PROPERTY_REGISTRY, native_registry_identity
 from ..native_properties.universe import ProtectedNativeUniverse
@@ -151,12 +154,16 @@ def _payload_body(
     }
 
 
-def _validate_native_payload(observation: dict, universe_identity: str) -> None:
+def _validate_native_payload(
+    observation: dict, universe_identity: str, *, historical_a10: bool = False
+) -> None:
     request = observation.get("request", {})
     definition = observation.get("definition", {})
     witness = observation.get("witness", {})
     packaged = NATIVE_PROPERTY_REGISTRY.get(request.get("property_id"))
-    if packaged is None or definition != packaged.canonical_dict():
+    if historical_a10:
+        validate_a10_definition_snapshot(definition)
+    elif packaged is None or definition != packaged.canonical_dict():
         raise DomainError("contract report native definition is stale or forged")
     if request.get("protected_universe_identity") != universe_identity:
         raise DomainError("contract report native request belongs to another universe")
@@ -525,14 +532,21 @@ def _validate_contract_report_payload(payload: dict) -> None:
     exit_code = body.pop("exit_code")
     if contract_digest(body) != report_digest:
         raise DomainError("contract report digest is contradictory")
-    if payload["native_registry_identity"] != native_registry_identity():
-        raise DomainError("contract report native registry is stale")
-    if payload["compiler_identity"] != contract_implementation_identity():
-        raise DomainError("contract report compiler identity is stale")
-    if payload["contract"]["schema_identity"] != contract_schema_identity():
-        raise DomainError("contract report schema identity is stale")
-    if payload["product_version"] != __version__:
-        raise DomainError("contract report product version is stale")
+    historical_a10 = is_a10_contract_identity(
+        product_version=payload["product_version"],
+        registry_identity=payload["native_registry_identity"],
+        compiler_identity=payload["compiler_identity"],
+        schema_identity=payload["contract"]["schema_identity"],
+    )
+    if not historical_a10:
+        if payload["native_registry_identity"] != native_registry_identity():
+            raise DomainError("contract report native registry is stale")
+        if payload["compiler_identity"] != contract_implementation_identity():
+            raise DomainError("contract report compiler identity is stale")
+        if payload["contract"]["schema_identity"] != contract_schema_identity():
+            raise DomainError("contract report schema identity is stale")
+        if payload["product_version"] != __version__:
+            raise DomainError("contract report product version is stale")
     if _exit(ContractResult(payload["result"])) != exit_code:
         raise DomainError("contract report exit code disagrees with result")
     _validate_contract_and_plan(payload)
@@ -567,7 +581,10 @@ def _validate_contract_report_payload(payload: dict) -> None:
         if canonical_digest(clause_body) != observation_digest:
             raise DomainError("contract clause observation digest is contradictory")
         for observation in clause["native_observations"]:
-            _validate_native_payload(observation, payload["protected_universe"]["identity"])
+            _validate_native_payload(
+                observation, payload["protected_universe"]["identity"],
+                historical_a10=historical_a10,
+            )
         expected_result, expected_reason, expected_count = _expected_clause_result(
             planned, clause["native_observations"]
         )

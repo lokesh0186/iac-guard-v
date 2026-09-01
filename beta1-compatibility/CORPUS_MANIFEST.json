@@ -1,0 +1,17 @@
+{
+  "schema_version": "beta1-opentofu-corpus-v1",
+  "frozen_before_execution": true,
+  "cases": [
+    {"id":"opentofu-official-multiple-blocks","repository":"opentofu/opentofu","commit":"b12cdf4ba43fe3d5535a77fb0f6164490f2e887f","root":"testing/equivalence-tests/tests/multiple_block_types","request":"PROTECTED_FILE_SET","expected_class":"SUPPORTED_OR_FAIL_CLOSED"},
+    {"id":"azure-alz-root","repository":"Azure/terraform-azurerm-avm-ptn-alz","commit":"2f13f4c72e3065c1455510fc401262bafcaa7c41","root":".","request":"PROTECTED_FILE_SET","expected_class":"SUPPORTED_OR_FAIL_CLOSED"},
+    {"id":"vehagn-home-assistant","repository":"vehagn/homelab","commit":"55b728bd53c63993459c38bcb7ca6dd32e82ecb5","root":"tofu/home-assistant","request":{"property":"IACGV_OPENTOFU_REFERENCE_RESOLVES_V1","subject":"proxmox_virtual_environment_vm.home_assistant","attribute_path":["disk",0,"file_id"],"expected_target":"proxmox_virtual_environment_file.haos_generic_image"},"expected_class":"SUPPORTED_OR_FAIL_CLOSED"},
+    {"id":"genai-prereqs","repository":"GoogleCloudPlatform/genai-factory","commit":"8a2d3249632b0ad4ea4b47000e4be4b15f68440d","root":"cloud-run-rag-search/0-prereqs","request":"PROTECTED_FILE_SET","expected_class":"SUPPORTED_OR_FAIL_CLOSED"},
+    {"id":"filterql-root","repository":"adamhl8/filterql","commit":"389282b671b741442b2839560dc9d42f2fab55d2","root":".","request":"PROTECTED_FILE_SET","expected_class":"SUPPORTED_OR_FAIL_CLOSED"},
+    {"id":"aws-vpc-root","repository":"terraform-aws-modules/terraform-aws-vpc","commit":"cf0e3ca46fd51f47bf095957f2a6ac6127c89045","root":".","request":{"property":"IACGV_OPENTOFU_REFERENCE_RESOLVES_V1","subject":"aws_vpc_dhcp_options_association.this","attribute_path":["dhcp_options_id"],"expected_target":"aws_vpc_dhcp_options.this"},"expected_class":"SUPPORTED_OR_FAIL_CLOSED"},
+    {"id":"cloudposse-tgw-hub","repository":"cloudposse/terraform-aws-components","commit":"1f74a966a0b40ce7e5cae5baec690e5356cf46b8","root":"deprecated/tgw/hub","request":"PROTECTED_FILE_SET","expected_class":"SUPPORTED_OR_FAIL_CLOSED"}
+  ],
+  "preexecution_exclusions": [
+    {"repository":"opentofu/registry","commit":"b5a0004680e88e611a7df29070cd51f0e704fc6d","reason":"NO_OPENTOFU_OR_TERRAFORM_MODULE_ROOT"},
+    {"repository":"gruntwork-io/terragrunt-infrastructure-live-example","commit":"d106b47ad1e22cae3a841cd495eae48e9bbe3a03","reason":"NO_DIRECT_OPENTOFU_OR_TERRAFORM_SOURCE_ROOT"}
+  ]
+}

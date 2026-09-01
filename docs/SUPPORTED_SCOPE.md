@@ -1,6 +1,6 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0a10`. The concise
+This document records the exact boundary of IaC-Guard-V `0.1.0b1`. The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 
@@ -36,6 +36,9 @@ It includes:
 - witness-first scanner-independent native semantic properties for the bounded
   Kubernetes NetworkPolicy, Service, monitoring, RBAC, and source-local Terraform
   relationship families documented in [Native semantic properties](NATIVE_PROPERTIES.md).
+- bounded protected OpenTofu source mode for `.tf`, `.tofu`, `.tf.json`, and
+  `.tofu.json`, with explicit winning/shadowed files, bounded overrides, literal local
+  modules, and exact source-local V1 reference witnesses.
 
 Native execution is `reduced-isolation` and supports only input controlled by
 the operator. A production hostile-input container and GitHub Action have not
@@ -100,12 +103,12 @@ semantics remain fail closed.
 
 | Area | Status |
 | --- | --- |
-| Checkov `3.3.0` | Supported scanner path for the technical alpha. |
+| Checkov `3.3.0` | Authoritative only on previously reviewed scanner paths. |
 | Terraform `.tf` | Supported within the protected parser and exact-target boundary. |
 | Kubernetes YAML and Checkov Kubernetes findings | Supported where an exact target can be bound. |
 | KICS and Trivy | Advisory/future adapter work; they cannot establish authoritative target `PASS` or change the verdict. |
 | kubeconform and TFLint | Experimental/advisory validation evidence. |
-| OpenTofu `.tofu` / `.tofu.json` | Not supported in the public alpha. |
+| OpenTofu source mode | Bounded native reference V1 support with exact file-set precedence and fail-closed local-module closure. |
 | Terraform `.tf.json` | Explicitly unsupported/inconclusive end to end. |
 | Checkov CKV2/graph findings | Supported only for bounded connection-query shapes with complete participant and relationship evidence; every other shape remains inconclusive. |
 | Candidate acceptance | Supported only for explicitly selected properties under complete governed, scanner-addressable, and target-relevant evidence universes; it never claims `FIXED`. |
@@ -114,6 +117,10 @@ semantics remain fail closed.
 | Declared intent contracts | Supported through the one `.iac-guard-v/contracts.yaml` convention and exact immutable a9 native property versions. Provenance, activation, include/exclude, cardinality, responsibility, requests, and witnesses are explicit. See [Intent contracts](INTENT_CONTRACTS.md). |
 | Multi-scanner consensus | Advisory only and disconnected from the final verdict. |
 | Hardened container and composite Action | Not released. |
+
+The generated [tested support matrix](SUPPORT_MATRIX.md) separates materialization,
+native semantics, and scanner authority so that advisory evidence is not described as
+authoritative support.
 
 ## Deliberate fail-closed outcomes
 

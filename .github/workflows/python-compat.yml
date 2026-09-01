@@ -82,6 +82,6 @@ jobs:
           find /tmp/iacgv-checkov330 -name __pycache__ -type d -prune -exec rm -rf {} +
           find /tmp/iacgv-checkov330 -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
           PYTHONDONTWRITEBYTECODE=1 PATH=/tmp/iacgv-checkov330/bin:/usr/bin:/bin PYTHONPATH=src /tmp/iacgv-checkov330/bin/python -m pytest tests/integration/test_checkov_integration.py -q
-      - name: Run installed-wheel golden alpha workflow
+      - name: Run installed-wheel golden artifact workflow
         run: |
           PYTHONDONTWRITEBYTECODE=1 PATH=/tmp/iacgv-checkov330/bin:/usr/bin:/bin PYTHONPATH=src /tmp/iacgv-checkov330/bin/python -m pytest tests/integration/test_alpha_golden_quickstart.py -q

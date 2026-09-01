@@ -1,4 +1,4 @@
-"""Public 0.1.0a10 distribution and clean-install boundary."""
+"""Beta1 distribution and clean-install boundary."""
 from __future__ import annotations
 
 import email
@@ -22,7 +22,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0a10"
+VERSION = "0.1.0b1"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -41,6 +41,8 @@ SENSITIVE_DISTRIBUTION_PARTS = {
     "A9_NATIVE_PROPERTY_DESIGN",
     "a10-design",
     "a10-implementation",
+    "beta1-compatibility",
+    "beta1-implementation",
     "a8-implementation",
     "a9-implementation",
     "a9-product-value-audit",
@@ -65,19 +67,23 @@ ALLOWED_SDIST_ROOT_FILES = {
     "RESEARCH_SNAPSHOT.md",
     "ROADMAP.md",
     "SECURITY.md",
+    "SUPPORT.md",
     "pyproject.toml",
 }
 ALLOWED_SDIST_EXACT_FILES = {
     "packaging/iac_guard_v_no_bytecode.pth",
     "docs/ADVANCED_INSTALLATION.md",
-    "docs/ALPHA_RELEASE_CHECKLIST.md",
+    "docs/BETA_RELEASE_CHECKLIST.md",
     "docs/CANDIDATE_ACCEPTANCE.md",
     "docs/HELM_MATERIALIZATION.md",
     "docs/KUSTOMIZE_MATERIALIZATION.md",
     "docs/NAMESPACE_PROVENANCE.md",
     "docs/NATIVE_PROPERTIES.md",
     "docs/INTENT_CONTRACTS.md",
-    "docs/RELEASE_NOTES_0.1.0a10.md",
+    "docs/OPENTOFU.md",
+    "docs/SUPPORT_MATRIX.md",
+    "docs/CI.md",
+    "docs/RELEASE_NOTES_0.1.0b1.md",
     "docs/SECURITY_MODEL.md",
     "docs/SUPPORTED_SCOPE.md",
     "docs/spec/THREAT_MODEL.md",
@@ -96,6 +102,8 @@ TEST_CAPABILITY_MARKERS = (
 )
 REQUIRED_WHEEL_FILES = {
     "iac_guard_v/workflow.py",
+    "iac_guard_v/beta_api.py",
+    "iac_guard_v/beta_support.py",
     "iac_guard_v/reporters/sarif.py",
     "iac_guard_v/reporters/markdown.py",
     "iac_guard_v/reporters/junit.py",
@@ -112,9 +120,12 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/native_properties/__init__.py",
     "iac_guard_v/native_properties/__main__.py",
     "iac_guard_v/native_properties/engine.py",
+    "iac_guard_v/native_properties/compatibility.py",
     "iac_guard_v/native_properties/evidence.py",
     "iac_guard_v/native_properties/model.py",
     "iac_guard_v/native_properties/network_policy.py",
+    "iac_guard_v/native_properties/opentofu.py",
+    "iac_guard_v/native_properties/opentofu_reference.py",
     "iac_guard_v/native_properties/prometheus_operator.py",
     "iac_guard_v/native_properties/public.py",
     "iac_guard_v/native_properties/rbac.py",
@@ -136,6 +147,7 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/contracts/provenance.py",
     "iac_guard_v/contracts/public.py",
     "iac_guard_v/contracts/report.py",
+    "iac_guard_v/beta_support.py",
     "iac_guard_v/schemas/infrastructure-contract-v1alpha1.schema.json",
     "iac_guard_v/schemas/infrastructure-contract-report-v1alpha1.schema.json",
     "iac_guard_v/schemas/native-property-request-v1.schema.json",
@@ -197,7 +209,7 @@ def test_alpha_metadata_and_version_are_consistent(alpha_artifacts) -> None:
     assert metadata["Name"] == "iac-guard-v"
     assert metadata["Version"] == VERSION
     assert SpecifierSet(metadata["Requires-Python"]) == SpecifierSet(">=3.10,<3.14")
-    assert "Development Status :: 3 - Alpha" in metadata.get_all("Classifier")
+    assert "Development Status :: 4 - Beta" in metadata.get_all("Classifier")
     assert f'__version__ = "{VERSION}"' in (
         ROOT / "src/iac_guard_v/__init__.py"
     ).read_text(encoding="utf-8")
@@ -243,6 +255,7 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
         "RESEARCH_SNAPSHOT.md",
         "SECURITY.md",
         "CONTRIBUTING.md",
+        "SUPPORT.md",
         "ROADMAP.md",
         "CHANGELOG.md",
         "NOTICE",
@@ -252,15 +265,20 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
     } <= public_sdist_files
     assert "LICENSE" in public_sdist_files
     assert any(name.endswith("docs/spec/THREAT_MODEL.md") for name in sdist_names)
-    assert any(name.endswith("docs/ALPHA_RELEASE_CHECKLIST.md") for name in sdist_names)
+    assert any(name.endswith("docs/BETA_RELEASE_CHECKLIST.md") for name in sdist_names)
     assert any(name.endswith("docs/ADVANCED_INSTALLATION.md") for name in sdist_names)
     assert any(name.endswith("docs/SECURITY_MODEL.md") for name in sdist_names)
     assert any(name.endswith("docs/SUPPORTED_SCOPE.md") for name in sdist_names)
     assert any(name.endswith("docs/KUSTOMIZE_MATERIALIZATION.md") for name in sdist_names)
     assert any(name.endswith("docs/CANDIDATE_ACCEPTANCE.md") for name in sdist_names)
     assert any(name.endswith("docs/INTENT_CONTRACTS.md") for name in sdist_names)
-    assert any(name.endswith("docs/RELEASE_NOTES_0.1.0a10.md") for name in sdist_names)
+    assert any(name.endswith("docs/RELEASE_NOTES_0.1.0b1.md") for name in sdist_names)
+    assert not any(name.endswith("docs/ALPHA_RELEASE_CHECKLIST.md") for name in sdist_names)
+    assert not any(name.endswith("docs/RELEASE_NOTES_0.1.0a10.md") for name in sdist_names)
     assert any(name.endswith("docs/NATIVE_PROPERTIES.md") for name in sdist_names)
+    assert any(name.endswith("docs/OPENTOFU.md") for name in sdist_names)
+    assert any(name.endswith("docs/SUPPORT_MATRIX.md") for name in sdist_names)
+    assert any(name.endswith("docs/CI.md") for name in sdist_names)
 
 
 def test_sdist_exact_allowlist_rejects_recursive_readme_license_decoys(
@@ -439,15 +457,15 @@ spec: {podSelector: {matchLabels: {app: demo}}, ingress: []}
     assert not tuple(installed.rglob("__pycache__"))
 
 
-def test_public_alpha_docs_state_current_boundaries() -> None:
+def test_public_beta_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
-        "Verify that an infrastructure-as-code security fix actually fixed",
-        "python -m pip install iac-guard-v==0.1.0a10",
-        "iac-guard demo",
+        "fail-closed verifier for declared infrastructure invariants",
+        "python -m pip install iac-guard-v==0.1.0b1",
+        "iac-guard doctor --mode native",
         "Coder `demo-env-templates` PR #180",
         "25cff91e2c039ddc648541a06191f4b9b9a813b7",
-        "technical alpha",
+        "Beta 1 prerelease",
         "reduced-isolation",
         "trusted local input only",
         "may remain quiet for several minutes",
@@ -455,7 +473,7 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "docs/SUPPORTED_SCOPE.md",
         "docs/SECURITY_MODEL.md",
         "docs/KUSTOMIZE_MATERIALIZATION.md",
-        "Checkov as the only authoritative scanner path",
+        "reviewed Checkov-authoritative paths",
         "witness-first, scanner-independent native property contracts",
         "declared infrastructure intent contracts",
         "general Helm interpretation",
@@ -479,16 +497,16 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
         "PYTHONDONTWRITEBYTECODE=1",
         "bc-python-hcl2",
         "may remain quiet for several minutes",
-        "iac-guard-v==0.1.0a10",
+        "iac-guard-v==0.1.0b1",
     ):
         assert statement in advanced
 
     supported = (ROOT / "docs/SUPPORTED_SCOPE.md").read_text(encoding="utf-8")
     assert "zero `EXACT` mappings" in supported
-    assert "OpenTofu `.tofu` / `.tofu.json`" in supported
+    assert "OpenTofu source mode" in supported
     assert "production hostile-input support" in supported
     assert "This is not general Helm interpretation" in supported
-    assert "Advisory/future adapter work" in supported
+    assert "KICS and Trivy" in supported
 
     kustomize = (ROOT / "docs/KUSTOMIZE_MATERIALIZATION.md").read_text(
         encoding="utf-8"
@@ -497,18 +515,23 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "remote URLs" in kustomize
     assert "Helm chart inflation" in kustomize
 
-    release_notes = (ROOT / "docs/RELEASE_NOTES_0.1.0a10.md").read_text(
+    release_notes = (ROOT / "docs/RELEASE_NOTES_0.1.0b1.md").read_text(
         encoding="utf-8"
     )
     for statement in (
-        "fail-closed verification of declared infrastructure intent contracts",
-        "typed protected activation evidence",
-        "exact include/exclude subject resolution",
-        "deterministic compilation to immutable a9 native property IDs",
-        "contract violation a project defect",
+        "bounded OpenTofu source verification",
+        "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1",
+        "IACGV_TF_REFERENCE_RESOLVES_V1",
+        "iac-guard-v.io/v1alpha1",
+        "All 17 native properties",
         "KICS and Trivy remain advisory",
     ):
         assert statement in release_notes
+
+    citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
+    assert "version: 0.1.0b1" in citation
+    assert "date-released:" not in citation
+    assert 'doi: "10.5281/zenodo.22088272"' in citation
 
     security_model = (ROOT / "docs/SECURITY_MODEL.md").read_text(encoding="utf-8")
     assert "V7 consensus is disconnected" in security_model
@@ -516,10 +539,12 @@ def test_public_alpha_docs_state_current_boundaries() -> None:
     assert "no telemetry, model-provider SDK" in security_model
 
     security_policy = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
-    assert f"IaC-Guard-V `{VERSION}` is a technical alpha" in security_policy
+    assert f"IaC-Guard-V `{VERSION}` is a Beta 1 prerelease" in security_policy
     assert "Checkov `3.3.0` scanner contract" in security_policy
 
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [0.1.0b1] - Unreleased" in changelog
+    assert "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1" in changelog
     assert "## [0.1.0a1] - 2026-08-20" in changelog
     assert "correction released in `0.1.0a7`" in changelog
     assert "The Unreleased correction above" not in changelog
@@ -711,11 +736,23 @@ def test_public_teranode_evidence_is_sanitized_and_bound() -> None:
 
 
 def test_release_checklist_requires_paper_absence_without_fake_identifier() -> None:
-    checklist = (ROOT / "docs/ALPHA_RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
-    assert "rm -rf dist build" in checklist
-    assert "`paper.pdf` is absent from the current tree" in checklist
-    assert "must not publish" in checklist
-    assert "Do not push a tag" in checklist
+    checklist = (ROOT / "docs/BETA_RELEASE_CHECKLIST.md").read_text(encoding="utf-8")
+    assert "0.1.0b1" in checklist
+    assert "v0.1.0-beta.1" in checklist
+    assert "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1" in checklist
+    assert "Python 3.10, 3.11, 3.12, and 3.13" in checklist
+    assert "90%" in checklist
+    assert "4,842/4,842" in checklist
+    assert "Trusted Publishing" in checklist
+    assert "PyPI-only" in checklist
+    assert "Zenodo" in checklist
+    normalized_checklist = " ".join(checklist.split())
+    assert (
+        "`paper.pdf`, credentials, private absolute paths, `.pyc`, `__pycache__`, "
+        "and temporary build/test files are absent from release inputs"
+    ) in normalized_checklist
+    assert "does not itself authorize" in checklist
+    assert "Publication items above remain unchecked" in checklist
     assert not (ROOT / "paper.pdf").exists()
 
 

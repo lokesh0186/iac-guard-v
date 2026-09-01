@@ -1,6 +1,6 @@
 # Kustomize materialization
 
-IaC-Guard-V 0.1.0a8 can evaluate explicitly selected candidate properties after one
+IaC-Guard-V can evaluate explicitly selected candidate properties after one
 bounded local Kustomize build. This is a closed deterministic materialization contract,
 not general Kustomize support.
 

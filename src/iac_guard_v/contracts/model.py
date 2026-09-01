@@ -138,7 +138,9 @@ class InfrastructureContract:
     def __post_init__(self) -> None:
         if type(self.name) is not str or _SAFE_NAME.fullmatch(self.name) is None:
             raise DomainError("contract name is invalid")
-        if self.artifact_class not in {"kubernetes_rendered", "terraform_source"}:
+        if self.artifact_class not in {
+            "kubernetes_rendered", "terraform_source", "opentofu_source"
+        }:
             raise DomainError("contract artifact class is unsupported")
         for name in ("subjects", "responsibility", "canonical_payload"):
             object.__setattr__(self, name, contract_canonical_json(getattr(self, name), name))

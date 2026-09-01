@@ -6,15 +6,16 @@
 [![License](https://img.shields.io/pypi/l/iac-guard-v)](https://github.com/lokesh0186/iac-guard-v/blob/main/LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22088272.svg)](https://doi.org/10.5281/zenodo.22088272)
 
-**Verify that an infrastructure-as-code security fix actually fixed the intended
-finding without hiding evidence, deleting the target, or introducing a regression.**
+**IaC-Guard-V is a fail-closed verifier for declared infrastructure invariants over
+protected, deterministically materialized infrastructure as code.**
 
 IaC-Guard-V works with changes written by people, AI coding agents, and remediation
 tools. It binds scanner evidence to the exact before/after files and resources, then
 fails closed when the evidence is incomplete or unverifiable.
 
-> **Status:** `0.1.0a10` technical alpha · declared intent contracts, native semantic
-> verification, and reviewed Checkov-authoritative paths · trusted local input only.
+> **Status:** `0.1.0b1` Beta 1 prerelease · declared intent contracts,
+> native semantic verification, bounded OpenTofu source support, and reviewed Checkov-authoritative paths
+> · trusted local input only.
 > The hardened hostile-input container and GitHub Action are not released.
 
 ## Why IaC-Guard-V?
@@ -36,9 +37,10 @@ Uncertainty is reported as `INCONCLUSIVE`, never as success.
 Install the public package and run the deterministic offline demo:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a10
+python -m pip install iac-guard-v==0.1.0b1
 iac-guard --version
-iac-guard demo
+iac-guard doctor --mode native
+iac-guard properties list
 ```
 
 ```text
@@ -120,6 +122,10 @@ certification. See the
 | `iac-guard demo` | Show deterministic illustrative outcomes offline. |
 | `iac-guard demo --real --local-trusted ...` | Run the packaged Checkov before/after fixture. |
 | `iac-guard doctor --mode local-trusted ...` | Check whether the selected local verification environment is usable. |
+| `iac-guard doctor --mode native` | Check native/contract readiness without requiring a scanner. |
+| `iac-guard properties list/describe` | Discover exact native property versions and evidence contracts. |
+| `iac-guard contract init --family ...` | Create a non-evidentiary `SUGGESTED_CONTRACT` template without inferring intent. |
+| `iac-guard support` | Show the bounded materialization/native/scanner capability matrix. |
 | `iac-guard verify ...` | Verify exact before/after directories. |
 | `iac-guard accept ...` | Evaluate explicit properties on one candidate without claiming a repair. |
 | `iac-guard helm-verify ...` | Deterministically render and verify local Helm charts. |
@@ -215,8 +221,16 @@ non-vacuous cardinality, responsibility metadata, exact compiled native requests
 witness-first aggregate results. Contract violations remain mechanical declared-intent
 results, not automatic project-defect or runtime claims.
 
-KICS and Trivy remain advisory/future adapter work; OpenTofu, kubeconform, TFLint, and
-multi-scanner consensus remain experimental, advisory, or future work. Candidate
+`0.1.0b1` retains the `iac-guard-v.io/v1alpha1` contract and
+`infrastructure-contract-report-v1alpha1` report semantics, preserves all 17 earlier
+native V1 properties, and adds the distinct
+`IACGV_OPENTOFU_REFERENCE_RESOLVES_V1` property. OpenTofu mode protects `.tf`, `.tofu`,
+`.tf.json`, and `.tofu.json` file sets with explicit precedence, shadowing, bounded
+override, and local-module evidence. It does not change Terraform V1 or claim general
+OpenTofu evaluation.
+
+KICS and Trivy remain advisory; kubeconform, TFLint, and multi-scanner consensus remain
+experimental, advisory, or future work. Candidate
 acceptance is limited to explicitly selected properties under a complete protected
 universe; it is not a generic claim that newly introduced infrastructure is safe.
 These boundaries cannot silently change the final verdict.
@@ -235,6 +249,11 @@ for the fail-closed trust architecture.
 - [Candidate acceptance](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/CANDIDATE_ACCEPTANCE.md)
 - [Native semantic properties](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/NATIVE_PROPERTIES.md)
 - [Declared infrastructure intent contracts](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/INTENT_CONTRACTS.md)
+- [OpenTofu source verification](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/OPENTOFU.md)
+- [Tested support matrix](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/SUPPORT_MATRIX.md)
+- [CI integration](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/CI.md)
+- [Beta1 release notes](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/RELEASE_NOTES_0.1.0b1.md)
+- [Beta release checklist](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/BETA_RELEASE_CHECKLIST.md)
 - [Example walkthrough](https://github.com/lokesh0186/iac-guard-v/blob/main/docs/EXAMPLE_WALKTHROUGH.md)
 - [Public reproduction packet guidance](https://github.com/lokesh0186/iac-guard-v/blob/main/examples/public-reproductions/README.md)
 - [Security policy](https://github.com/lokesh0186/iac-guard-v/blob/main/SECURITY.md)
@@ -247,11 +266,11 @@ for the fail-closed trust architecture.
 For the evolving software project, cite the
 [Concept DOI `10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272).
 
-The current release is IaC-Guard-V `0.1.0a10`, archived under
-[Version DOI `10.5281/zenodo.22226912`](https://doi.org/10.5281/zenodo.22226912).
-Its immutable GitHub, PyPI, artifact, provenance, and DOI identities are recorded in the
-[public release record](https://github.com/lokesh0186/iac-guard-v/blob/main/A10_PUBLIC_RELEASE_RECORD.md).
-It remains part of the evolving-software Concept DOI record above.
+IaC-Guard-V `0.1.0b1` retains that Concept DOI. Its version-specific DOI and immutable
+GitHub, PyPI, artifact, provenance, and release-record identities are added only after
+publication; no Beta1 version DOI is claimed in this source candidate. Historical a10
+release identities remain recorded in the
+[a10 public release record](https://github.com/lokesh0186/iac-guard-v/blob/main/A10_PUBLIC_RELEASE_RECORD.md).
 
 Machine-readable citation metadata is available in
 [CITATION.cff](https://github.com/lokesh0186/iac-guard-v/blob/main/CITATION.cff).

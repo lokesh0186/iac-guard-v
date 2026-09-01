@@ -12,6 +12,8 @@ We especially welcome:
 - bounded scanner or validator adapters with explicit evidence contracts;
 - documentation and onboarding improvements;
 - real-world before/after cases with exact file and resource identities.
+- concise declared-invariant contracts with explicit intent provenance;
+- OpenTofu file-set and source-local reference compatibility fixtures.
 
 If a change would add a new framework, materializer, or public trust surface,
 open an issue first so its contract and maintenance scope can be agreed before
@@ -50,6 +52,8 @@ python -m build
   trust assertions to a public input surface.
 - Do not commit credentials, protected caches, private scanner candidates, or local
   absolute paths.
+- KICS and Trivy advisory evidence must never be promoted to target PASS by absence,
+  agreement, or voting.
 
 ## Changes and tests
 

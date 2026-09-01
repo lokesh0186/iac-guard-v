@@ -168,8 +168,14 @@ class ContractPlan:
 
 
 def _resource_records(universe: ProtectedNativeUniverse) -> tuple[tuple[str, str, str, str, Mapping[str, str]], ...]:
-    if universe.artifact_class is NativeArtifactClass.TERRAFORM_SOURCE:
-        return tuple((item.identity, "terraform", item.resource_type, "_source", MappingProxyType({})) for item in universe.terraform_resources)
+    if universe.artifact_class in {
+        NativeArtifactClass.TERRAFORM_SOURCE, NativeArtifactClass.OPENTOFU_SOURCE
+    }:
+        language = (
+            "opentofu" if universe.artifact_class is NativeArtifactClass.OPENTOFU_SOURCE
+            else "terraform"
+        )
+        return tuple((item.identity, language, item.resource_type, "_source", MappingProxyType({})) for item in universe.terraform_resources)
     workloads = {item.identity: item for item in universe.workloads}
     records = []
     for resource in universe.kubernetes_resources:

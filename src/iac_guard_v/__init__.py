@@ -11,7 +11,7 @@ identity/matching, and the locked/offline Checkov adapter. No model-provider pat
 """
 from __future__ import annotations
 
-__version__ = "0.1.0a10"
+__version__ = "0.1.0b1"
 
 from . import (  # noqa: F401
     api,
@@ -31,6 +31,7 @@ from . import (  # noqa: F401
     redaction,
     report,
     scanner_core,
+    native_properties,
 )
 
 __all__ = [
@@ -46,6 +47,7 @@ __all__ = [
     "kustomize",
     "matching",
     "models",
+    "native_properties",
     "normalisation",
     "policy",
     "process",

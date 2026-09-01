@@ -1,6 +1,6 @@
 # Advanced installation and workflows
 
-IaC-Guard-V `0.1.0a10` uses a protected product environment and a separate
+IaC-Guard-V `0.1.0b1` uses a protected product environment and a separate
 Checkov `3.3.0` environment for real verification. This is the tested native
 path for operator-controlled input. Native execution is reduced isolation; it
 is not suitable for hostile pull-request content.
@@ -9,12 +9,18 @@ For an immediate, non-evidentiary introduction, an ordinary installation is
 enough:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0a10
+python -m pip install iac-guard-v==0.1.0b1
 iac-guard demo
 ```
 
 The offline demo illustrates the verdict model. Follow the protected setup
 below before relying on real scanner evidence.
+
+The native OpenTofu reference path parses protected source and does not require a
+`tofu` executable. Helm and Kustomize executables are required only for their bounded
+materialization commands and are governed by the exact prerequisites in
+[Helm materialization](HELM_MATERIALIZATION.md) and
+[Kustomize materialization](KUSTOMIZE_MATERIALIZATION.md).
 
 ## Choose a Python interpreter
 
@@ -26,13 +32,13 @@ Install a standalone, uv-managed interpreter instead:
 ```bash
 brew install uv
 uv python install 3.12
-ALPHA_PYTHON="$(uv python find --managed-python 3.12)"
+BETA_PYTHON="$(uv python find --managed-python 3.12)"
 ```
 
 On a Python installation that already supports copied-file environments:
 
 ```bash
-ALPHA_PYTHON="$(command -v python3)"
+BETA_PYTHON="$(command -v python3)"
 ```
 
 ## Install from PyPI
@@ -44,11 +50,11 @@ compiling bytecode:
 ```bash
 python3 -m pip install --upgrade pip
 
-"$ALPHA_PYTHON" -m venv --copies --without-pip .venv-iac-guard
-"$ALPHA_PYTHON" -m venv --copies --without-pip .venv-checkov330
+"$BETA_PYTHON" -m venv --copies --without-pip .venv-iac-guard
+"$BETA_PYTHON" -m venv --copies --without-pip .venv-checkov330
 
 python3 -m pip --python .venv-iac-guard/bin/python install --no-compile \
-  'iac-guard-v==0.1.0a10'
+  'iac-guard-v==0.1.0b1'
 python3 -m pip --python .venv-checkov330/bin/python install --no-compile \
   'checkov==3.3.0'
 ```
@@ -94,7 +100,7 @@ real demo a second time without cache cleanup to reproduce the release smoke.
 
 Real verification may remain quiet for several minutes while Checkov runs and
 IaC-Guard-V captures and validates its output. The conclusion is printed only
-after the evidence is complete. The external macOS alpha smoke reached its first
+after the evidence is complete. The reviewed external macOS smoke reached its first
 `VERIFIED` result in approximately three minutes.
 
 ## Verify your own before/after directories
@@ -205,7 +211,7 @@ python3 -m pip install 'build>=1.2,<2'
 python3 -m build --outdir dist
 ```
 
-Use the freshly built wheel in place of `iac-guard-v==0.1.0a10` in the protected
+Use the freshly built wheel in place of `iac-guard-v==0.1.0b1` in the protected
 installation commands above.
 
 ## Reports

@@ -18,6 +18,7 @@ from ..fingerprints import canonicalize_kubernetes_identity
 from ..models import DomainError, canonical_repo_path
 from ..terraform_parser import TerraformParserError, parse_terraform_structure
 from .model import NativeArtifactClass, canonical_digest
+from .opentofu import OPENTOFU_FILESET_CONTRACT, load_opentofu_file_set
 
 
 _WORKLOAD_TEMPLATE_PATHS: dict[str, tuple[str, ...]] = {
@@ -259,13 +260,22 @@ class TerraformResource:
     source_sha256: str
     body: Mapping[str, Any]
     source_text: str
+    source_mode: str = "terraform"
+    module_identity: str = "root"
+    attribute_sources: Mapping[str, Mapping[str, Any]] | None = None
 
     def provenance_dict(self) -> dict[str, Any]:
-        return {
+        value = {
             "identity": self.identity,
             "file_path": self.file_path,
             "source_sha256": self.source_sha256,
         }
+        if self.source_mode != "terraform":
+            value.update({
+                "source_mode": self.source_mode,
+                "module_identity": self.module_identity,
+            })
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,6 +290,9 @@ class ProtectedNativeUniverse:
     input_manifest_digest: str
     resource_inventory_digest: str
     identity: str
+    source_file_semantics: tuple[Mapping[str, Any], ...] = ()
+    source_set_digest: str | None = None
+    module_issues: tuple[Mapping[str, Any], ...] = ()
     _trusted_context: InitVar[object] = None
 
     def __post_init__(self, _trusted_context: object) -> None:
@@ -299,12 +312,26 @@ class ProtectedNativeUniverse:
         )
         if self.resource_inventory_digest != canonical_digest(inventory):
             raise DomainError("native resource inventory digest is not canonical")
-        expected_identity = canonical_digest({
+        identity_body = {
             "artifact_class": self.artifact_class.value,
             "default_namespace": self.default_namespace,
             "input_manifest_digest": self.input_manifest_digest,
             "resource_inventory_digest": self.resource_inventory_digest,
-        })
+        }
+        if self.artifact_class is NativeArtifactClass.OPENTOFU_SOURCE:
+            if type(self.source_set_digest) is not str:
+                raise DomainError("OpenTofu universe requires a source-set digest")
+            if canonical_digest({
+                "contract": OPENTOFU_FILESET_CONTRACT,
+                "files": [dict(item) for item in self.source_file_semantics],
+                "modules": sorted({item["module_identity"] for item in self.source_file_semantics}),
+                "issues": [dict(item) for item in self.module_issues],
+            }) != self.source_set_digest:
+                raise DomainError("OpenTofu source-set evidence is contradictory")
+            identity_body["source_set_digest"] = self.source_set_digest
+        elif self.source_file_semantics or self.source_set_digest is not None or self.module_issues:
+            raise DomainError("non-OpenTofu universe must not contain OpenTofu evidence")
+        expected_identity = canonical_digest(identity_body)
         if self.identity != expected_identity:
             raise DomainError("native protected universe identity is not canonical")
 
@@ -529,6 +556,39 @@ def _load_terraform(
     return tuple(source_files), tuple(resources)
 
 
+def _load_opentofu(
+    root: Path,
+) -> tuple[
+    tuple[NativeSourceFile, ...], tuple[TerraformResource, ...],
+    tuple[Mapping[str, Any], ...], str, tuple[Mapping[str, Any], ...],
+]:
+    loaded = load_opentofu_file_set(root, _read_regular_file)
+    source_files = tuple(
+        NativeSourceFile(item.file_path, item.sha256, item.size) for item in loaded.files
+    )
+    evidence = tuple(MappingProxyType(item.canonical_dict()) for item in loaded.files)
+    issues = tuple(MappingProxyType(dict(item)) for item in loaded.module_issues)
+    by_path = {item.file_path: item for item in loaded.files}
+    resources: list[TerraformResource] = []
+    for item in loaded.resources:
+        origins = MappingProxyType({
+            key: MappingProxyType(dict(value))
+            for key, value in sorted(item.attribute_sources.items())
+        })
+        primary = next(iter(origins.values()), None)
+        if primary is None:
+            raise DomainError("OpenTofu resource contains no protected attributes")
+        file_path = primary["file_path"]
+        file_record = by_path[file_path]
+        resources.append(TerraformResource(
+            item.identity, item.resource_type, item.resource_name,
+            file_path, file_record.sha256,
+            _freeze(dict(item.body), f"OpenTofu resource {item.identity}"),
+            primary["source_text"], "opentofu", item.module_identity, origins,
+        ))
+    return source_files, tuple(resources), evidence, loaded.source_set_digest, issues
+
+
 def load_protected_native_universe(
     root: Path,
     artifact_class: NativeArtifactClass,
@@ -546,23 +606,37 @@ def load_protected_native_universe(
         raise DomainError("native artifact class must be exact")
     if type(default_namespace) is not str or not default_namespace.strip() or "/" in default_namespace:
         raise DomainError("native default namespace is malformed")
+    source_file_semantics: tuple[Mapping[str, Any], ...] = ()
+    source_set_digest: str | None = None
+    module_issues: tuple[Mapping[str, Any], ...] = ()
     if artifact_class is NativeArtifactClass.KUBERNETES_RENDERED:
         source_files, resources, workloads = _load_kubernetes(resolved, default_namespace)
         terraform_resources: tuple[TerraformResource, ...] = ()
         inventory = [item.identity for item in resources]
-    else:
+    elif artifact_class is NativeArtifactClass.TERRAFORM_SOURCE:
         source_files, terraform_resources = _load_terraform(resolved)
+        resources = ()
+        workloads = ()
+        inventory = [item.identity for item in terraform_resources]
+    else:
+        (
+            source_files, terraform_resources, source_file_semantics,
+            source_set_digest, module_issues,
+        ) = _load_opentofu(resolved)
         resources = ()
         workloads = ()
         inventory = [item.identity for item in terraform_resources]
     input_digest = canonical_digest([item.canonical_dict() for item in source_files])
     inventory_digest = canonical_digest(inventory)
-    identity = canonical_digest({
+    identity_body = {
         "artifact_class": artifact_class.value,
         "default_namespace": default_namespace,
         "input_manifest_digest": input_digest,
         "resource_inventory_digest": inventory_digest,
-    })
+    }
+    if artifact_class is NativeArtifactClass.OPENTOFU_SOURCE:
+        identity_body["source_set_digest"] = source_set_digest
+    identity = canonical_digest(identity_body)
     return ProtectedNativeUniverse(
         resolved,
         artifact_class,
@@ -574,7 +648,10 @@ def load_protected_native_universe(
         input_digest,
         inventory_digest,
         identity,
-        _TRUSTED_NATIVE_UNIVERSE_CONTEXT,
+        source_file_semantics,
+        source_set_digest,
+        module_issues,
+        _trusted_context=_TRUSTED_NATIVE_UNIVERSE_CONTEXT,
     )
 
 

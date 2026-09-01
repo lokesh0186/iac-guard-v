@@ -55,6 +55,11 @@ _REQUIRED_AUTHORITATIVE_KEYS: dict[str, frozenset[str]] = {
         "source", "attribute_path", "expected_target", "observed_references",
         "complete_local_universe", "reference_contract_digest",
     }),
+    "opentofu_reference_v1": frozenset({
+        "source_mode", "fileset_contract", "source_set_digest", "protected_files",
+        "source", "attribute_path", "expected_target", "observed_references",
+        "complete_local_universe", "reference_contract_digest", "attribute_origin",
+    }),
 }
 
 
@@ -276,6 +281,33 @@ def validate_native_witness_payload(
             or len(contents["reference_contract_digest"]) != 64
         ):
             raise DomainError("violated Terraform reference lacks a complete reviewed domain")
+    elif witness_type == "opentofu_reference_v1" and result in {
+        NativePropertyResult.SATISFIED, NativePropertyResult.VIOLATED
+    }:
+        if contents.get("source_mode") != "opentofu":
+            raise DomainError("OpenTofu witness must bind the OpenTofu source mode")
+        if contents.get("fileset_contract") != "opentofu-fileset-v1":
+            raise DomainError("OpenTofu witness file-set contract is unsupported")
+        if type(contents.get("source_set_digest")) is not str:
+            raise DomainError("OpenTofu witness lacks a source-set digest")
+        protected = contents.get("protected_files")
+        if type(protected) is not list or not protected:
+            raise DomainError("OpenTofu witness lacks protected file evidence")
+        observed = contents.get("observed_references")
+        expected_target = contents.get("expected_target")
+        if type(observed) is not list or type(expected_target) is not str:
+            raise DomainError("OpenTofu reference witness is malformed")
+        expected = expected_target in observed
+        if (result is NativePropertyResult.SATISFIED) != expected:
+            raise DomainError("OpenTofu reference witness/result disagree")
+        if result is NativePropertyResult.SATISFIED and not contents.get("reference_span"):
+            raise DomainError("satisfied OpenTofu reference requires an exact source span")
+        if result is NativePropertyResult.VIOLATED and (
+            contents.get("complete_local_universe") is not True
+            or type(contents.get("reference_contract_digest")) is not str
+            or len(contents["reference_contract_digest"]) != 64
+        ):
+            raise DomainError("violated OpenTofu reference lacks a complete reviewed domain")
 
 
 def validate_native_observation(observation: NativePropertyObservation) -> None:

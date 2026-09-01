@@ -26,6 +26,7 @@ class NativePropertyResult(str, Enum):
 class NativeArtifactClass(str, Enum):
     KUBERNETES_RENDERED = "kubernetes_rendered"
     TERRAFORM_SOURCE = "terraform_source"
+    OPENTOFU_SOURCE = "opentofu_source"
 
 
 def canonical_json(value: Any, label: str = "value") -> Any:

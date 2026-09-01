@@ -52,6 +52,10 @@ from .workflow import (
     bind_inventory_targets, command_receipt, create_reduced_isolation_lock,
     materialize_git_comparison, public_config_payload, write_new_regular_file,
 )
+from .beta_support import (
+    describe_property, initialize_contract, property_catalog, scanner_diagnostics,
+    support_matrix,
+)
 
 
 _REPORT_FORMATS = ("json", "console", "sarif", "markdown", "junit")
@@ -66,11 +70,15 @@ class DoctorReportV1:
         "reason_code": "VALIDATOR_REGISTRY_NOT_EVALUATED",
         "remediation": "Run doctor in the protected bytecode-free product environment.",
     })
+    scanner_adapters: object = field(default_factory=lambda: {
+        "schema_version": "scanner-diagnostics-v1", "scanners": [], "voting": False,
+    })
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "checkov", _freeze(self.checkov))
         object.__setattr__(self, "hardened_container", _freeze(self.hardened_container))
         object.__setattr__(self, "validator_registry", _freeze(self.validator_registry))
+        object.__setattr__(self, "scanner_adapters", _freeze(self.scanner_adapters))
 
     def canonical_dict(self) -> dict:
         return {
@@ -79,6 +87,7 @@ class DoctorReportV1:
             "checkov": _thaw(self.checkov),
             "hardened_container": _thaw(self.hardened_container),
             "validator_registry": _thaw(self.validator_registry),
+            "scanner_adapters": _thaw(self.scanner_adapters),
         }
 
     def canonical_json(self) -> str:
@@ -123,9 +132,17 @@ def _thaw(value):
 def doctor(
     mode: str = "all", checkov_executable: Path | None = None,
 ) -> DoctorReportV1:
-    if mode not in {"all", "local-trusted", "hardened-container"}:
+    if mode not in {"all", "native", "local-trusted", "hardened-container"}:
         raise DomainError("doctor mode is unsupported")
-    if checkov_executable is not None:
+    if mode == "native" and checkov_executable is not None:
+        raise DomainError("--checkov-executable is not valid for native doctor mode")
+    if mode == "native":
+        discovered = None
+        checkov = {
+            "status": "NOT_REQUIRED", "reason_code": "NATIVE_MODE_SCANNER_NOT_REQUIRED",
+            "remediation": "none",
+        }
+    elif checkov_executable is not None:
         if not isinstance(checkov_executable, Path):
             raise DomainError("doctor Checkov executable must be pathlib.Path")
         if mode == "hardened-container":
@@ -135,13 +152,13 @@ def doctor(
         discovered = str(checkov_executable)
     else:
         discovered = shutil.which("checkov")
-    if discovered is None:
+    if mode != "native" and discovered is None:
         checkov = {
             "status": "UNAVAILABLE",
             "reason_code": "CHECKOV_NOT_FOUND",
             "remediation": "python -m pip install --no-compile checkov==3.3.0",
         }
-    else:
+    elif mode != "native":
         try:
             executable = Path(discovered).resolve(strict=True)
             version = _version(executable)
@@ -211,7 +228,9 @@ def doctor(
                 "PYTHONDONTWRITEBYTECODE=1 before Python starts."
             ),
         }
-    return DoctorReportV1(checkov, hardened, validator_registry)
+    return DoctorReportV1(
+        checkov, hardened, validator_registry, scanner_diagnostics(checkov)
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -219,12 +238,12 @@ def _parser() -> argparse.ArgumentParser:
         prog="iac-guard",
         description="Fail-closed before/after verification for infrastructure-as-code repairs.",
         epilog=(
-            "Canonical alpha command:\n"
+            "Canonical verification command:\n"
             "  iac-guard verify --before BEFORE --after AFTER "
             "--all-baseline-findings --local-trusted\n\n"
             "Exit codes: 0 VERIFIED, 1 FAILED, 2 invalid request, "
             "3 INCONCLUSIVE, 4 internal error.\n"
-            "The canonical alpha command is verify. Local trusted mode is reduced "
+            "The canonical command is verify. Local trusted mode is reduced "
             "isolation for operator-controlled input only."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -233,7 +252,7 @@ def _parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
     verify_parser = subcommands.add_parser(
         "verify",
-        help="verify one before/after repair (canonical alpha command)",
+        help="verify one before/after repair (canonical command)",
         description=(
             "Verify explicit targets or every exact failed baseline finding. "
             "Target grammar: RULE_ID=RESOURCE_ADDRESS or RULE_ID=RESOURCE_ADDRESS@FILE."
@@ -337,7 +356,7 @@ def _parser() -> argparse.ArgumentParser:
         "doctor", help="diagnose readiness for one selected isolation mode"
     )
     doctor_parser.add_argument(
-        "--mode", choices=("local-trusted", "hardened-container", "all"), default="all"
+        "--mode", choices=("native", "local-trusted", "hardened-container", "all"), default="all"
     )
     doctor_parser.add_argument(
         "--checkov-executable", type=Path,
@@ -361,11 +380,24 @@ def _parser() -> argparse.ArgumentParser:
     explain_parser.add_argument("--output", type=Path)
     explain_parser.add_argument("--quiet", action="store_true")
     contract_parser = subcommands.add_parser(
-        "contract", help="lint or plan a declared infrastructure contract"
+        "contract", help="initialize, lint, or plan a declared infrastructure contract"
     )
     contract_commands = contract_parser.add_subparsers(
         dest="contract_command", required=True
     )
+    contract_init = contract_commands.add_parser(
+        "init", help="write a reviewed suggested-contract template without inferring intent"
+    )
+    contract_init.add_argument(
+        "--family", required=True,
+        choices=(
+            "rbac-closure", "servicemonitor-service", "network-service-path",
+            "workload-policy-closure", "migration-database-path",
+            "terraform-reference", "opentofu-reference",
+        ),
+    )
+    contract_init.add_argument("--output", required=True, type=Path)
+    contract_init.add_argument("--format", choices=("json", "console"), default="console")
     lint_parser = contract_commands.add_parser(
         "lint", help="validate contract bytes, syntax, schema, and declarations"
     )
@@ -379,6 +411,23 @@ def _parser() -> argparse.ArgumentParser:
     plan_parser.add_argument("--output", type=Path)
     plan_parser.add_argument("--quiet", action="store_true")
     _add_contract_execution_arguments(plan_parser)
+    properties_parser = subcommands.add_parser(
+        "properties", help="discover immutable native property definitions"
+    )
+    properties_commands = properties_parser.add_subparsers(
+        dest="properties_command", required=True
+    )
+    properties_list = properties_commands.add_parser("list", help="list native properties")
+    properties_list.add_argument("--format", choices=("json", "console"), default="console")
+    properties_describe = properties_commands.add_parser(
+        "describe", help="describe one exact native property"
+    )
+    properties_describe.add_argument("property_id")
+    properties_describe.add_argument("--format", choices=("json", "console"), default="console")
+    support_parser = subcommands.add_parser(
+        "support", help="show bounded materialization, native, and scanner capabilities"
+    )
+    support_parser.add_argument("--format", choices=("json", "console"), default="console")
     for name in ("scan", "differential"):
         workflow_parser = subcommands.add_parser(
             name,
@@ -567,7 +616,7 @@ def _helm_request(args) -> PublicHelmVerificationRequest | OperationalReportV1:
             raise DomainError("explicit executables require --local-trusted")
         return OperationalReportV1(
             "HARDENED_HELM_UNAVAILABLE",
-            "The alpha Helm materializer supports trusted local client-side input only.",
+            "The bounded Helm materializer supports trusted local client-side input only.",
             "Rerun with --local-trusted for operator-controlled local charts.",
         )
     helm = args.helm_executable
@@ -1059,7 +1108,58 @@ def main(argv: list[str] | None = None) -> int:
     args = None
     try:
         args = _parser().parse_args(argv)
+        if args.command == "properties":
+            payload = (
+                property_catalog() if args.properties_command == "list"
+                else describe_property(args.property_id)
+            )
+            if args.format == "json":
+                sys.stdout.write(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n")
+            elif args.properties_command == "list":
+                sys.stdout.write(
+                    "IaC-Guard-V native properties\n"
+                    f"registry: {payload['registry_identity']}\n" + "".join(
+                        f"{item['property_id']} v{item['property_version']} "
+                        f"[{item['artifact_class']}] witness={item['witness_type']}\n"
+                        for item in payload["properties"]
+                    )
+                )
+            else:
+                item = payload["definition"]
+                sys.stdout.write(
+                    "IaC-Guard-V native property\n"
+                    f"property: {item['property_id']} v{item['property_version']}\n"
+                    f"artifact: {item['artifact_class']}\n"
+                    f"semantic contract: {item['semantic_binding']['contract_digest']}\n"
+                    f"witness: {item['witness_type']}\n"
+                    "uncertainty: fail closed\n"
+                )
+            return 0
+        if args.command == "support":
+            payload = support_matrix()
+            if args.format == "json":
+                sys.stdout.write(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n")
+            else:
+                sys.stdout.write("IaC-Guard-V support matrix\n" + "".join(
+                    f"{item['name']}: materialization={item['materialization']} "
+                    f"native={item['native']} scanner={item['scanner']} "
+                    f"boundary={item['boundary']}\n"
+                    for item in payload["surfaces"]
+                ))
+            return 0
         if args.command == "contract":
+            if args.contract_command == "init":
+                receipt = initialize_contract(args.family, args.output)
+                if args.format == "json":
+                    sys.stdout.write(json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n")
+                else:
+                    sys.stdout.write(
+                        "IaC-Guard-V contract template\n"
+                        f"family: {receipt['family']}\n"
+                        "provenance: SUGGESTED_CONTRACT\n"
+                        f"output: {receipt['output']}\n"
+                    )
+                return 0
             if args.contract_command == "lint":
                 linted = lint_contract(args.contract)
                 payload = {
@@ -1143,7 +1243,8 @@ def main(argv: list[str] | None = None) -> int:
                 and result.validator_registry["status"] == "PASS"
             )
             ready = (
-                local_ready if args.mode == "local-trusted"
+                result.validator_registry["status"] == "PASS" if args.mode == "native"
+                else local_ready if args.mode == "local-trusted"
                 else hardened_ready if args.mode == "hardened-container"
                 else local_ready and hardened_ready
             )
@@ -1175,7 +1276,7 @@ def main(argv: list[str] | None = None) -> int:
                     "The Phase-E hardened execution image has not been released, so its "
                     "runtime lock cannot be created.",
                     "Use an explicit verified reduced-isolation Checkov environment for "
-                    "local alpha evaluation, or wait for the protected image release.",
+                    "local trusted evaluation, or wait for the protected image release.",
                 ), args.format)
             try:
                 assert request.checkov_executable is not None
