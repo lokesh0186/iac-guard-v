@@ -543,7 +543,10 @@ def test_public_beta_docs_state_current_boundaries() -> None:
     assert "Checkov `3.3.0` scanner contract" in security_policy
 
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "## [0.1.0b1] - Unreleased" in changelog
+    assert "## [0.1.0b1] - 2026-09-01" in changelog
+    assert "10.5281/zenodo.22239516" in changelog
+    assert "10.5281/zenodo.22088272" in changelog
+    assert "## [0.1.0b1] - Unreleased" not in changelog
     assert "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1" in changelog
     assert "## [0.1.0a1] - 2026-08-20" in changelog
     assert "correction released in `0.1.0a7`" in changelog
