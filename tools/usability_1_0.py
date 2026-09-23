@@ -78,8 +78,16 @@ def run_usability(wheel: Path) -> dict[str, object]:
             expected=0,
         )
         doctor_payload = json.loads(doctor.stdout)
-        if doctor_payload.get("overall_status") != "PASS":
-            raise RuntimeError("native doctor did not report PASS")
+        if doctor_payload.get("schema_version") != "doctor-v1":
+            raise RuntimeError("native doctor reported an unexpected schema")
+        if doctor_payload.get("product_version") != "1.0.0":
+            raise RuntimeError("native doctor reported the wrong product version")
+        if doctor_payload.get("checkov", {}).get("status") != "NOT_REQUIRED":
+            raise RuntimeError("native mode unexpectedly requires Checkov")
+        if doctor_payload.get("validator_registry", {}).get("status") != "PASS":
+            raise RuntimeError("installed native validator registry did not pass")
+        if doctor_payload.get("scanner_adapters", {}).get("voting") is not False:
+            raise RuntimeError("native doctor unexpectedly enabled scanner voting")
         records.append({"step": "native_doctor", "result": "PASS"})
 
         examples = root / "examples"
