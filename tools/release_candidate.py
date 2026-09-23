@@ -282,7 +282,7 @@ def build_packet(output: Path) -> dict[str, Any]:
         "schema": "iac-guard-v-attestation-identities-v1",
         "local_provenance_statement_sha256": provenance_identity,
         "local_builder": provenance["predicate"]["runDetails"]["builder"]["id"],
-        "authorized_release_builder": "https://github.com/lokesh0186/iac-guard-v/.github/workflows/release.yml@refs/tags/v1.0.0",
+        "authorized_release_builder": "https://github.com/lokesh0186/iac-guard-v/.github/workflows/release.yml@refs/heads/main",
         "github_sigstore_attestation": "PENDING_OWNER_AUTHORIZED_RELEASE_WORKFLOW",
         "pypi_trusted_publisher": "lokesh0186/iac-guard-v:.github/workflows/release.yml:pypi",
     })

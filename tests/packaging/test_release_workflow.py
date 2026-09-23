@@ -17,6 +17,7 @@ def test_release_workflow_promotes_only_reviewed_artifacts() -> None:
     assert "attestations: write" in workflow
     assert "contents: read" in workflow
     assert "RELEASE_TAG: v1.0.0" in workflow
+    assert 'test "${GITHUB_REF}" = "refs/heads/main"' in workflow
     assert "inputs.release_commit" in workflow
     assert "inputs.wheel_sha256" in workflow
     assert "inputs.sdist_sha256" in workflow

@@ -51,6 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           test "${GITHUB_REPOSITORY}" = "lokesh0186/iac-guard-v"
+          test "${GITHUB_REF}" = "refs/heads/main"
           printf '%s' "${RELEASE_COMMIT}" | grep -Eq '^[0-9a-f]{40}$'
           printf '%s' "${WHEEL_SHA256}" | grep -Eq '^[0-9a-f]{64}$'
           printf '%s' "${SDIST_SHA256}" | grep -Eq '^[0-9a-f]{64}$'

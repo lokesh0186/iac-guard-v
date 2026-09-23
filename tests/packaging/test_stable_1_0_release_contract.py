@@ -20,6 +20,15 @@ def test_release_candidate_sensitive_markers_do_not_match_their_own_source() -> 
     assert all(marker not in source for marker in sensitive_markers())
 
 
+def test_release_attestation_identity_matches_protected_environment_branch() -> None:
+    source = (ROOT / "tools" / "release_candidate.py").read_text(encoding="utf-8")
+    assert (
+        "https://github.com/lokesh0186/iac-guard-v/.github/workflows/"
+        "release.yml@refs/heads/main"
+    ) in source
+    assert "release.yml@refs/tags/v1.0.0" not in source
+
+
 RELEASE_DOCUMENTS = (
     "README.md",
     "SUPPORTED_SCOPE.md",

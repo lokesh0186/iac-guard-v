@@ -24,8 +24,10 @@ private paths, immigration material, and private-evidence directory markers.
 The protected release workflow remains manual, requires the exact reviewed commit and
 artifact hashes, downloads rather than rebuilds the reviewed GitHub Release artifacts,
 verifies the whole evidence packet, creates GitHub/Sigstore build provenance, and then
-uses PyPI Trusted Publishing. The workflow is prepared only; it is not executed by this
-program.
+uses PyPI Trusted Publishing. It executes from `main`, matching the live `pypi`
+environment branch policy, while independently requiring the reviewed `v1.0.0` release
+to target the exact authorized source commit. The workflow is prepared only; it is not
+executed by this program.
 
 ## Phase 7: clean-user usability
 
