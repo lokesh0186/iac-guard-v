@@ -1,6 +1,8 @@
 # Supported scope and limitations
 
-This document records the exact boundary of IaC-Guard-V `0.1.0b1`. The concise
+This document preserves detailed implementation boundaries carried into IaC-Guard-V
+`1.0.0`. The release-facing authoritative summary is
+[`../SUPPORTED_SCOPE.md`](../SUPPORTED_SCOPE.md). The concise
 landing-page description is intentionally easier to scan; this page is the
 authoritative user-facing scope statement.
 

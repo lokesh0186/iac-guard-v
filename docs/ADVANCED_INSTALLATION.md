@@ -1,6 +1,6 @@
 # Advanced installation and workflows
 
-IaC-Guard-V `0.1.0b1` uses a protected product environment and a separate
+IaC-Guard-V `1.0.0` uses a protected product environment and a separate
 Checkov `3.3.0` environment for real verification. This is the tested native
 path for operator-controlled input. Native execution is reduced isolation; it
 is not suitable for hostile pull-request content.
@@ -9,7 +9,7 @@ For an immediate, non-evidentiary introduction, an ordinary installation is
 enough:
 
 ```bash
-python -m pip install iac-guard-v==0.1.0b1
+python -m pip install iac-guard-v==1.0.0
 iac-guard demo
 ```
 
@@ -54,7 +54,7 @@ python3 -m pip install --upgrade pip
 "$BETA_PYTHON" -m venv --copies --without-pip .venv-checkov330
 
 python3 -m pip --python .venv-iac-guard/bin/python install --no-compile \
-  'iac-guard-v==0.1.0b1'
+  'iac-guard-v==1.0.0'
 python3 -m pip --python .venv-checkov330/bin/python install --no-compile \
   'checkov==3.3.0'
 ```
@@ -211,7 +211,7 @@ python3 -m pip install 'build>=1.2,<2'
 python3 -m build --outdir dist
 ```
 
-Use the freshly built wheel in place of `iac-guard-v==0.1.0b1` in the protected
+Use the freshly built wheel in place of `iac-guard-v==1.0.0` in the protected
 installation commands above.
 
 ## Reports

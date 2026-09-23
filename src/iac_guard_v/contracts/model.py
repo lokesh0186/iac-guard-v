@@ -13,10 +13,16 @@ from typing import Any, Mapping
 
 from ..models import DomainError, canonical_identifier, canonical_resource_scope
 from ..native_properties.model import canonical_digest
+from .schema_bridge import (
+    CONTRACT_REPORT_V1ALPHA1,
+    CONTRACT_SCHEMA_V1,
+    CONTRACT_SCHEMA_V1ALPHA1,
+    contract_schema_identity_for_version,
+)
 
 
-CONTRACT_SCHEMA_VERSION = "infrastructure-contract-v1alpha1"
-CONTRACT_REPORT_VERSION = "infrastructure-contract-report-v1alpha1"
+CONTRACT_SCHEMA_VERSION = CONTRACT_SCHEMA_V1ALPHA1
+CONTRACT_REPORT_VERSION = CONTRACT_REPORT_V1ALPHA1
 _SAFE_NAME = re.compile(r"^[a-z0-9](?:[-a-z0-9.]{0,62}[a-z0-9])?$")
 
 
@@ -134,6 +140,7 @@ class InfrastructureContract:
     canonical_payload: Mapping[str, Any]
     canonical_digest: str
     source: ContractSourceIdentity
+    schema_version: str = CONTRACT_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
         if type(self.name) is not str or _SAFE_NAME.fullmatch(self.name) is None:
@@ -153,11 +160,13 @@ class InfrastructureContract:
             raise DomainError("contract canonical digest is contradictory")
         if type(self.source) is not ContractSourceIdentity:
             raise DomainError("contract source identity is invalid")
+        if self.schema_version not in {CONTRACT_SCHEMA_VERSION, CONTRACT_SCHEMA_V1}:
+            raise DomainError("contract schema version is unsupported")
 
     @property
     def identity(self) -> str:
         return contract_digest({
-            "schema_version": CONTRACT_SCHEMA_VERSION,
+            "schema_version": self.schema_version,
             "name": self.name,
             "provenance": self.source.provenance.value,
             "source": self.source.canonical_dict(),
@@ -194,6 +203,7 @@ def contract_implementation_identity() -> str:
     names = (
         "activation.py", "evaluator.py", "helm_values.py", "historical.py",
         "model.py", "parser.py", "planner.py", "provenance.py", "public.py", "report.py",
+        "schema_bridge.py",
     )
     records = []
     for name in names:
@@ -214,11 +224,8 @@ def contract_implementation_identity() -> str:
     return canonical_digest(records)
 
 
-def contract_schema_identity() -> str:
-    payload = files("iac_guard_v").joinpath(
-        "schemas/infrastructure-contract-v1alpha1.schema.json"
-    ).read_bytes()
-    return hashlib.sha256(payload).hexdigest()
+def contract_schema_identity(schema_version: str = CONTRACT_SCHEMA_VERSION) -> str:
+    return contract_schema_identity_for_version(schema_version)
 
 
 def canonical_contract_bytes(payload: Mapping[str, Any]) -> bytes:

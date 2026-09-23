@@ -1,17 +1,10 @@
 # Support
 
-The latest published prerelease and its documented Python 3.10-3.13 environments are
-supported within the bounded static-verification model in
-[`docs/SUPPORTED_SCOPE.md`](docs/SUPPORTED_SCOPE.md). Older prereleases receive no
-forward feature backports.
+The current 1.x line is supported within the bounded static-verification model in
+[`SUPPORTED_SCOPE.md`](SUPPORTED_SCOPE.md). Python 3.10 through 3.13 are supported.
+Python 3.14 is not part of the 1.0 matrix.
 
-Open a public bug report for a minimal non-sensitive reproduction. Use GitHub's private
-security-advisory channel for credential exposure or a security-boundary issue. Never
-post private infrastructure, credentials, scanner caches, or undisclosed third-party
-evidence.
-
-A credible false `SATISFIED` report is high priority. Include the exact product
-version, property/contract version, protected input identity, report, expected result,
-and the smallest shareable fixture. The response process freezes the evidence,
-reproduces it, classifies the semantic/version impact, fixes the issue generically,
-and adds an adversarial regression.
+See [`SUPPORT_POLICY.md`](SUPPORT_POLICY.md) for compatibility, maintenance, and
+reporting commitments. Open a public bug report for a minimal non-sensitive
+reproduction. Use GitHub's private security-advisory channel for a suspected false
+`SATISFIED` result, credential exposure, or security-boundary issue.

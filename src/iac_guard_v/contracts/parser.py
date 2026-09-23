@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +16,11 @@ from .model import (
     contract_digest,
 )
 from .provenance import _regular_bytes, derive_contract_source
+from .schema_bridge import (
+    CONTRACT_API_V1ALPHA1,
+    contract_schema_for_api_version,
+    schema_version_for_api_version,
+)
 
 
 class _ContractLoader(yaml.SafeLoader):
@@ -43,10 +47,8 @@ def _unique_mapping(loader: _ContractLoader, node: MappingNode, deep: bool = Fal
 _ContractLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _unique_mapping)
 
 
-def contract_schema() -> dict:
-    return json.loads(files("iac_guard_v").joinpath(
-        "schemas/infrastructure-contract-v1alpha1.schema.json"
-    ).read_text(encoding="utf-8"))
+def contract_schema(api_version: str = CONTRACT_API_V1ALPHA1) -> dict:
+    return contract_schema_for_api_version(api_version)
 
 
 def _depth(value: Any, current: int = 0) -> int:
@@ -70,7 +72,9 @@ def _parse_contract_content(content: bytes) -> dict:
     if _depth(payload) > 16:
         raise DomainError("contract document nesting exceeds the limit")
     try:
-        jsonschema.Draft202012Validator(contract_schema()).validate(payload)
+        jsonschema.Draft202012Validator(
+            contract_schema(payload.get("apiVersion"))
+        ).validate(payload)
     except jsonschema.ValidationError as exc:
         raise DomainError(f"infrastructure contract violation: {exc.message}") from exc
     canonical = json.loads(canonical_contract_bytes(payload))
@@ -129,6 +133,7 @@ def load_contract(
         canonical,
         contract_digest(canonical),
         source,
+        schema_version=schema_version_for_api_version(canonical["apiVersion"]),
     )
 
 

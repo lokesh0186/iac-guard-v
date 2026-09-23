@@ -104,6 +104,7 @@ D7_TESTS = (
     "tests/unit/test_legacy_coverage_preservation_a9.py",
     "tests/unit/test_contract_cli_a10.py",
     "tests/unit/test_beta1_api_ux.py",
+    "tests/unit/test_stable_v1_api_cli_freeze.py",
 )
 
 HELM_TESTS = (
@@ -127,6 +128,7 @@ NATIVE_PROPERTY_TESTS = (
     "tests/unit/test_native_coverage_a9.py",
     "tests/unit/test_native_opentofu_beta1.py",
     "tests/unit/test_beta1_api_ux.py",
+    "tests/unit/test_stable_v1_property_freeze.py",
 )
 
 CONTRACT_TESTS = (
@@ -136,6 +138,8 @@ CONTRACT_TESTS = (
     "tests/unit/test_contract_differential_a10.py",
     "tests/unit/test_contract_helm_a10.py",
     "tests/unit/test_contract_real_world_a10.py",
+    "tests/unit/test_stable_v1_schema_bridge.py",
+    "tests/unit/test_stable_v1_external_replay.py",
 )
 
 COVERAGE_GATES = (
@@ -165,6 +169,7 @@ COVERAGE_GATES = (
             "iac_guard_v.cli",
             "iac_guard_v.config",
             "iac_guard_v.report",
+            "iac_guard_v.stable_api",
         ),
         branch=True,
     ),
@@ -194,6 +199,7 @@ COVERAGE_GATES = (
             "iac_guard_v.native_properties.services",
             "iac_guard_v.native_properties.terraform",
             "iac_guard_v.native_properties.universe",
+            "iac_guard_v.native_properties.stable_v1",
             "iac_guard_v.beta_support",
         ),
         branch=True,
@@ -212,6 +218,7 @@ COVERAGE_GATES = (
             "iac_guard_v.contracts.provenance",
             "iac_guard_v.contracts.public",
             "iac_guard_v.contracts.report",
+            "iac_guard_v.contracts.schema_bridge",
         ),
     ),
 )

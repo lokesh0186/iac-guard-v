@@ -1,4 +1,4 @@
-"""Installed-wheel, real-Checkov golden adoption path for the public alpha."""
+"""Installed-wheel, real-Checkov golden adoption path for the stable release."""
 from __future__ import annotations
 
 import copy
@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0b1"
+VERSION = "1.0.0"
 
 
 def _run(
@@ -64,7 +64,7 @@ def test_installed_wheel_real_checkov_golden_path(tmp_path: Path) -> None:
     artifacts = tmp_path / "artifacts"
     artifacts.mkdir()
     build = _run(
-        [sys.executable, "-m", "build", "--wheel", "--outdir", artifacts],
+        [sys.executable, "-m", "build", "--no-isolation", "--wheel", "--outdir", artifacts],
         cwd=ROOT, environment={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     )
     assert build.returncode == 0, build.stderr

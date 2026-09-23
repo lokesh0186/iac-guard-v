@@ -1,0 +1,15 @@
+{
+  "schema_version": "native-property-request-v1",
+  "root": "rendered",
+  "artifact_class": "kubernetes_rendered",
+  "default_namespace": "demo",
+  "requests": [
+    {
+      "request_id": "metrics-port-resolution",
+      "property_id": "IACGV_K8S_SERVICE_PORT_RESOLVES_TO_CONTAINER_PORT_V1",
+      "property_version": "1",
+      "subject_identity": "v1/Service/demo/web-metrics",
+      "parameters": {"service_port": {"name": "metrics", "protocol": "TCP"}}
+    }
+  ]
+}

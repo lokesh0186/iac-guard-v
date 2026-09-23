@@ -1,18 +1,31 @@
-name: Publish reviewed PyPI artifacts
+name: Publish reviewed 1.0.0 artifacts
 
 on:
   workflow_dispatch:
+    inputs:
+      release_commit:
+        description: Exact reviewed 40-character source commit
+        required: true
+        type: string
+      wheel_sha256:
+        description: Reviewed wheel SHA-256
+        required: true
+        type: string
+      sdist_sha256:
+        description: Reviewed sdist SHA-256
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: publish-pypi-0.1.0b1
+  group: publish-pypi-1.0.0
   cancel-in-progress: false
 
 jobs:
   publish-pypi:
-    name: Publish 0.1.0b1 to PyPI
+    name: Attest and publish 1.0.0 to PyPI
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -20,32 +33,59 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      attestations: write
     steps:
-      - name: Download and verify the reviewed GitHub Release artifacts
+      - name: Check out the reviewed source identity
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.release_commit }}
+          fetch-depth: 0
+
+      - name: Download and verify the reviewed GitHub Release packet
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v0.1.0-beta.1
-          RELEASE_COMMIT: b538ad931f193aa7786694080a0beca2a04bbd76
-          WHEEL_SHA256: 4d5418ba9b4bb1cb9306eeb857732da19de37d896d9a932c4a54a5cb5a751244
-          SDIST_SHA256: 7be64ff19d16b58e434737c0369ca0d300bdd195f2141c260e984851dbf90c37
+          RELEASE_TAG: v1.0.0
+          RELEASE_COMMIT: ${{ inputs.release_commit }}
+          WHEEL_SHA256: ${{ inputs.wheel_sha256 }}
+          SDIST_SHA256: ${{ inputs.sdist_sha256 }}
         run: |
           set -euo pipefail
           test "${GITHUB_REPOSITORY}" = "lokesh0186/iac-guard-v"
+          printf '%s' "${RELEASE_COMMIT}" | grep -Eq '^[0-9a-f]{40}$'
+          printf '%s' "${WHEEL_SHA256}" | grep -Eq '^[0-9a-f]{64}$'
+          printf '%s' "${SDIST_SHA256}" | grep -Eq '^[0-9a-f]{64}$'
+          test "$(git rev-parse HEAD)" = "${RELEASE_COMMIT}"
           test "$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json targetCommitish --jq .targetCommitish)" = "${RELEASE_COMMIT}"
-          mkdir dist
-          gh release download "${RELEASE_TAG}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --dir dist \
-            --pattern 'iac_guard_v-0.1.0b1-py3-none-any.whl' \
-            --pattern 'iac_guard_v-0.1.0b1.tar.gz'
-          test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 2
+          mkdir review dist
+          gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --dir review
+          test -f review/iac_guard_v-1.0.0-py3-none-any.whl
+          test -f review/iac_guard_v-1.0.0.tar.gz
+          test -f review/SHA256SUMS
+          test -f review/iac_guard_v-1.0.0.cdx.json
+          test -f review/SOURCE_MANIFEST.sha256
+          test -f review/PROVENANCE.intoto.json
+          test -f review/DEPENDENCIES.json
+          test -f review/LICENSE_INVENTORY.json
+          test -f review/SECURITY_AUDIT.json
+          test -f review/ATTESTATION_IDENTITIES.json
+          test -f review/RELEASE_CANDIDATE.json
+          test "$(find review -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 11
+          (cd review && sha256sum --check --strict SHA256SUMS)
           printf '%s  %s\n' \
-            "${WHEEL_SHA256}" 'dist/iac_guard_v-0.1.0b1-py3-none-any.whl' \
-            "${SDIST_SHA256}" 'dist/iac_guard_v-0.1.0b1.tar.gz' \
+            "${WHEEL_SHA256}" 'review/iac_guard_v-1.0.0-py3-none-any.whl' \
+            "${SDIST_SHA256}" 'review/iac_guard_v-1.0.0.tar.gz' \
             | sha256sum --check --strict -
+          cp review/iac_guard_v-1.0.0-py3-none-any.whl dist/
+          cp review/iac_guard_v-1.0.0.tar.gz dist/
+          test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 2
+
+      - name: Create GitHub build provenance attestations
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: review/*
 
       - name: Publish the byte-identical artifacts with Trusted Publishing
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1, reviewed 2026-08-20
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
         with:
           packages-dir: dist/
           print-hash: true

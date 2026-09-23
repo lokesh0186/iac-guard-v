@@ -11,7 +11,8 @@ import jsonschema
 from ..models import DomainError, canonical_identifier, canonical_resource_scope
 from .evidence import validate_native_observation, validate_native_witness_payload
 from .compatibility import (
-    A10_NATIVE_REGISTRY_IDENTITY, validate_a10_definition_snapshot,
+    A10_NATIVE_REGISTRY_IDENTITY, BETA1_NATIVE_REGISTRY_IDENTITY,
+    validate_a10_definition_snapshot, validate_beta1_definition_snapshot,
 )
 from .model import (
     NativePropertyObservation, NativePropertyResult, canonical_digest, thaw_json,
@@ -139,8 +140,13 @@ def validate_native_report_payload(payload: dict) -> None:
     exit_code = body.pop("exit_code")
     if canonical_digest(body) != report_digest:
         raise DomainError("native-property-report-v1 digest is not canonical")
-    historical = payload["registry_identity"] == A10_NATIVE_REGISTRY_IDENTITY
-    if payload["registry_identity"] != native_registry_identity() and not historical:
+    historical_a10 = payload["registry_identity"] == A10_NATIVE_REGISTRY_IDENTITY
+    historical_beta1 = payload["registry_identity"] == BETA1_NATIVE_REGISTRY_IDENTITY
+    if (
+        payload["registry_identity"] != native_registry_identity()
+        and not historical_a10
+        and not historical_beta1
+    ):
         raise DomainError("native-property-report-v1 registry identity is stale or forged")
     universe_identity = payload["protected_universe"]["identity"]
     request_ids = []
@@ -150,8 +156,10 @@ def validate_native_report_payload(payload: dict) -> None:
         witness = observation["witness"]
         property_id = request.get("property_id")
         packaged = NATIVE_PROPERTY_REGISTRY.get(property_id)
-        if historical:
+        if historical_a10:
             validate_a10_definition_snapshot(definition)
+        elif historical_beta1:
+            validate_beta1_definition_snapshot(definition)
         elif packaged is None or definition != packaged.canonical_dict():
             raise DomainError("native-property-report-v1 definition is not the packaged definition")
         definition_version = definition.get("property_version")

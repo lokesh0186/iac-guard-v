@@ -1,0 +1,15 @@
+{
+  "schema_version": "native-property-request-v1",
+  "root": "rendered",
+  "artifact_class": "kubernetes_rendered",
+  "default_namespace": "demo",
+  "requests": [
+    {
+      "request_id": "ingress-policy-selection",
+      "property_id": "IACGV_K8S_WORKLOAD_POLICY_SELECTED_V1",
+      "property_version": "1",
+      "subject_identity": "apps/v1/Deployment/demo/web",
+      "parameters": {"policy_identity": "networking.k8s.io/v1/NetworkPolicy/demo/web"}
+    }
+  ]
+}

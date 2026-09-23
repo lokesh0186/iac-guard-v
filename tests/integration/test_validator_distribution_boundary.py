@@ -13,7 +13,7 @@ def test_wheel_and_sdist_contain_no_validator_test_capability(tmp_path: Path) ->
     root = Path(__file__).parents[2]
     output = tmp_path / "dist"
     completed = subprocess.run(
-        [sys.executable, "-m", "build", "--outdir", str(output)],
+        [sys.executable, "-m", "build", "--no-isolation", "--outdir", str(output)],
         cwd=root, capture_output=True, text=True, check=False, timeout=120,
     )
     assert completed.returncode == 0, completed.stderr

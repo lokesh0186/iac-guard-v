@@ -1,15 +1,15 @@
 # Security Policy
 
-IaC-Guard-V `0.1.0b1` is a Beta 1 prerelease for trusted local input, with a pinned
-Checkov `3.3.0` scanner contract. It is not yet a production hardened-container
-release.
+IaC-Guard-V `1.0.0` supports operator-controlled local input under the bounded
+security model in [`SECURITY_MODEL.md`](SECURITY_MODEL.md). It does not claim to be a
+hostile-input sandbox. Checkov `3.3.0` is authoritative only on reviewed paths.
 
 ## Supported versions
 
 | Version | Security support |
 | --- | --- |
-| Latest `0.1.x` prerelease | Yes, within its documented bounded support matrix. |
-| Earlier or unreleased builds | No. Upgrade to the latest published `0.1.x` release. |
+| Latest `1.x` release | Yes, within its documented bounded support matrix. |
+| `0.1.x` prereleases | Migration support only. Upgrade to the latest `1.x` release. |
 
 ## Reporting a vulnerability
 
@@ -29,8 +29,8 @@ forwarded or published without the reporter's and project owner's authorization.
   `VERIFIED`.
 - Native mode is explicitly `reduced-isolation` and is suitable only for locally
   trusted input.
-- Checkov remains the only authoritative scanner path. KICS and Trivy remain advisory
-  and cannot establish a protected target `PASS` or change the final verdict.
+- Checkov is authoritative only on separately reviewed paths. KICS and Trivy remain
+  advisory and cannot establish a protected target `PASS` or change the final verdict.
 - Helm and Kustomize materialization are closed local contracts, not general
   interpreters. Remote resolution, live cluster state, and unsupported dynamic
   semantics fail closed.
@@ -40,13 +40,13 @@ forwarded or published without the reporter's and project owner's authorization.
   vulnerability, outage, or runtime claim.
 - OpenTofu verification uses a distinct protected source mode. It does not fetch
   modules, run providers, or execute `init`, `plan`, or `apply`.
-- The hardened production container and GitHub Action are not released. Do not use
-  the beta to evaluate hostile pull-request content.
+- Do not use local execution to evaluate hostile pull-request content. No supported
+  mode silently claims hostile-input containment.
 - The project does not defend against arbitrary hostile Python already running in its
   trusted interpreter.
 
 The accessible product summary is in
-[`docs/SECURITY_MODEL.md`](docs/SECURITY_MODEL.md); the normative detail is in
+[`SECURITY_MODEL.md`](SECURITY_MODEL.md); the normative detail is in
 [`docs/spec/THREAT_MODEL.md`](docs/spec/THREAT_MODEL.md).
 
 ## Sensitive data

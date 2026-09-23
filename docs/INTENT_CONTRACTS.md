@@ -108,9 +108,9 @@ responsibility scope.
 Exit codes are 0 satisfied, 10 violated, 11 inactive/not evaluated, 12 unsupported,
 20 invalid contract, and 21 contract execution error.
 
-Beta package maturity does not change the contract API. Beta1 retains
-`iac-guard-v.io/v1alpha1` and accepts existing a10 contract bytes without migration or
-deprecation warnings. `opentofu_source` is additive vocabulary that compiles only to
+Version 1.0 retains `iac-guard-v.io/v1alpha1`, adds an equivalent explicit
+`iac-guard-v.io/v1` bridge, and accepts existing a10 and Beta1 contract bytes without
+migration or deprecation warnings. `opentofu_source` is additive vocabulary that compiles only to
 `IACGV_OPENTOFU_REFERENCE_RESOLVES_V1`.
 
 Contracts do not infer intent, vote scanners, call cloud APIs, query a live cluster,

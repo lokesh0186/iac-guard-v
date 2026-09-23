@@ -1,4 +1,4 @@
-"""Publication workflow boundary for the reviewed 0.1.0b1 artifacts."""
+"""Publication workflow boundary for reviewed IaC-Guard-V 1.0 artifacts."""
 from pathlib import Path
 
 
@@ -14,23 +14,31 @@ def test_release_workflow_promotes_only_reviewed_artifacts() -> None:
     assert "push:" not in workflow
     assert "environment:\n      name: pypi" in workflow
     assert "id-token: write" in workflow
+    assert "attestations: write" in workflow
     assert "contents: read" in workflow
-    assert "v0.1.0-beta.1" in workflow
-    assert "b538ad931f193aa7786694080a0beca2a04bbd76" in workflow
-    assert "4d5418ba9b4bb1cb9306eeb857732da19de37d896d9a932c4a54a5cb5a751244" in workflow
-    assert "7be64ff19d16b58e434737c0369ca0d300bdd195f2141c260e984851dbf90c37" in workflow
-    assert "sha256sum --check --strict" in workflow
-    assert "find dist -maxdepth 1 -type f" in workflow
+    assert "RELEASE_TAG: v1.0.0" in workflow
+    assert "inputs.release_commit" in workflow
+    assert "inputs.wheel_sha256" in workflow
+    assert "inputs.sdist_sha256" in workflow
+    assert "iac_guard_v-1.0.0-py3-none-any.whl" in workflow
+    assert "iac_guard_v-1.0.0.tar.gz" in workflow
+    assert "sha256sum --check --strict SHA256SUMS" in workflow
+    assert "PROVENANCE.intoto.json" in workflow
+    assert "SOURCE_MANIFEST.sha256" in workflow
     assert "python -m build" not in workflow
     assert "skip-existing" not in workflow
 
 
-def test_release_workflow_pins_the_publisher_action() -> None:
+def test_release_workflow_pins_publication_and_attestation_actions() -> None:
     workflow = WORKFLOW.read_text(encoding="utf-8")
 
+    assert (
+        "actions/attest@"
+        "508db95dd578ae2727ebd6217d5ba78e4fbda05d"
+    ) in workflow
     assert (
         "pypa/gh-action-pypi-publish@"
         "dc37677b2e1c63e2034f94d8a5b11f265b73ba33"
     ) in workflow
-    assert "pypa/gh-action-pypi-publish@release/" not in workflow
+    assert "actions/attest@v" not in workflow
     assert "pypa/gh-action-pypi-publish@v" not in workflow

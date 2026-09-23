@@ -36,6 +36,7 @@ from .contracts import (
     ContractExecutionInput, lint_contract, prepare_contract_plan,
     prepare_contract_run,
 )
+from .contracts.schema_bridge import is_contract_report_version
 from .contracts.model import ContractProvenance
 from .contracts.public import plan_payload
 from .contracts.report import (
@@ -969,7 +970,7 @@ def _read_report(path: Path) -> dict:
         raise DomainError("report is not strict UTF-8 JSON") from exc
     if type(payload) is not dict:
         raise DomainError("report-v1 must be a JSON object")
-    if payload.get("schema_version") == "infrastructure-contract-report-v1alpha1":
+    if is_contract_report_version(payload.get("schema_version")):
         validate_contract_report_payload(payload)
     else:
         validate_report_payload(payload)
@@ -977,7 +978,7 @@ def _read_report(path: Path) -> dict:
 
 
 def _explain_report(value: dict) -> str:
-    if value.get("schema_version") == "infrastructure-contract-report-v1alpha1":
+    if is_contract_report_version(value.get("schema_version")):
         lines = [
             "IaC-Guard-V infrastructure contract explanation",
             f"contract: {value['contract']['name']}",
@@ -1203,7 +1204,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "explain":
             value = _read_report(args.report)
             if (
-                value.get("schema_version") == "infrastructure-contract-report-v1alpha1"
+                is_contract_report_version(value.get("schema_version"))
                 and args.format not in {"json", "console"}
             ):
                 raise DomainError("contract reports support JSON or console explanation")

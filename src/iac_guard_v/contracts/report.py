@@ -5,7 +5,6 @@ import json
 import re
 from collections import Counter
 from dataclasses import dataclass
-from importlib.resources import files
 from typing import Any
 
 import jsonschema
@@ -17,7 +16,8 @@ from ..native_properties.evidence import (
     validate_native_witness_payload,
 )
 from ..native_properties.compatibility import (
-    is_a10_contract_identity, validate_a10_definition_snapshot,
+    is_a10_contract_identity, is_beta1_contract_identity,
+    validate_a10_definition_snapshot, validate_beta1_definition_snapshot,
 )
 from ..native_properties.model import NativePropertyResult, canonical_digest, thaw_json
 from ..native_properties.registry import NATIVE_PROPERTY_REGISTRY, native_registry_identity
@@ -25,7 +25,6 @@ from ..native_properties.universe import ProtectedNativeUniverse
 from .evaluator import ClauseObservation
 from .model import (
     CONTRACT_REPORT_VERSION,
-    CONTRACT_SCHEMA_VERSION,
     ContractResult,
     InfrastructureContract,
     contract_digest,
@@ -35,6 +34,12 @@ from .model import (
 )
 from .parser import contract_schema
 from .planner import ContractPlan
+from .schema_bridge import (
+    contract_report_schema,
+    report_version_for_schema_version,
+    schema_version_for_api_version,
+    schema_version_for_report_version,
+)
 
 
 _SEMANTICS = (
@@ -43,10 +48,8 @@ _SEMANTICS = (
 )
 
 
-def _schema() -> dict:
-    return json.loads(files("iac_guard_v").joinpath(
-        "schemas/infrastructure-contract-report-v1alpha1.schema.json"
-    ).read_text(encoding="utf-8"))
+def _schema(report_version: str = CONTRACT_REPORT_VERSION) -> dict:
+    return contract_report_schema(report_version)
 
 
 def _exit(result: ContractResult) -> int:
@@ -116,12 +119,12 @@ def _payload_body(
 ) -> dict[str, Any]:
     counts = Counter(item.result.value for item in clauses)
     return {
-        "schema_version": CONTRACT_REPORT_VERSION,
+        "schema_version": report_version_for_schema_version(contract.schema_version),
         "product_version": __version__,
         "product_semantics": _SEMANTICS,
         "contract": {
             "identity": contract.identity, "name": contract.name,
-            "schema_identity": contract_schema_identity(),
+            "schema_identity": contract_schema_identity(contract.schema_version),
             "canonical_digest": contract.canonical_digest,
             "canonical_payload": contract_thaw(contract.canonical_payload),
             "responsibility": thaw_json(contract.responsibility),
@@ -155,14 +158,16 @@ def _payload_body(
 
 
 def _validate_native_payload(
-    observation: dict, universe_identity: str, *, historical_a10: bool = False
+    observation: dict, universe_identity: str, *, historical_snapshot: str | None = None
 ) -> None:
     request = observation.get("request", {})
     definition = observation.get("definition", {})
     witness = observation.get("witness", {})
     packaged = NATIVE_PROPERTY_REGISTRY.get(request.get("property_id"))
-    if historical_a10:
+    if historical_snapshot == "a10":
         validate_a10_definition_snapshot(definition)
+    elif historical_snapshot == "beta1":
+        validate_beta1_definition_snapshot(definition)
     elif packaged is None or definition != packaged.canonical_dict():
         raise DomainError("contract report native definition is stale or forged")
     if request.get("protected_universe_identity") != universe_identity:
@@ -369,7 +374,9 @@ def _validate_contract_and_plan(payload: dict) -> None:
     contract_record = payload["contract"]
     canonical = contract_record["canonical_payload"]
     try:
-        jsonschema.Draft202012Validator(contract_schema()).validate(canonical)
+        jsonschema.Draft202012Validator(
+            contract_schema(canonical.get("apiVersion"))
+        ).validate(canonical)
     except jsonschema.ValidationError as exc:
         raise DomainError(f"contract report canonical contract is invalid: {exc.message}") from exc
     if not any(item.get("required", True) for item in canonical["spec"]["expect"]):
@@ -381,8 +388,11 @@ def _validate_contract_and_plan(payload: dict) -> None:
     if canonical["spec"]["responsibility"] != contract_record["responsibility"]:
         raise DomainError("contract report responsibility is contradictory")
     source = contract_record["source"]
+    schema_version = schema_version_for_api_version(canonical["apiVersion"])
+    if schema_version_for_report_version(payload["schema_version"]) != schema_version:
+        raise DomainError("contract report schema version disagrees with its contract")
     expected_identity = contract_digest({
-        "schema_version": CONTRACT_SCHEMA_VERSION,
+        "schema_version": schema_version,
         "name": contract_record["name"],
         "provenance": source["provenance"],
         "source": source,
@@ -524,7 +534,7 @@ def _validate_contract_and_plan(payload: dict) -> None:
 
 def _validate_contract_report_payload(payload: dict) -> None:
     try:
-        jsonschema.Draft202012Validator(_schema()).validate(payload)
+        jsonschema.Draft202012Validator(_schema(payload.get("schema_version"))).validate(payload)
     except jsonschema.ValidationError as exc:
         raise DomainError(f"contract report schema violation: {exc.message}") from exc
     body = dict(payload)
@@ -538,12 +548,21 @@ def _validate_contract_report_payload(payload: dict) -> None:
         compiler_identity=payload["compiler_identity"],
         schema_identity=payload["contract"]["schema_identity"],
     )
-    if not historical_a10:
+    historical_beta1 = is_beta1_contract_identity(
+        product_version=payload["product_version"],
+        registry_identity=payload["native_registry_identity"],
+        compiler_identity=payload["compiler_identity"],
+        schema_identity=payload["contract"]["schema_identity"],
+    )
+    if not historical_a10 and not historical_beta1:
         if payload["native_registry_identity"] != native_registry_identity():
             raise DomainError("contract report native registry is stale")
         if payload["compiler_identity"] != contract_implementation_identity():
             raise DomainError("contract report compiler identity is stale")
-        if payload["contract"]["schema_identity"] != contract_schema_identity():
+        canonical_schema_version = schema_version_for_api_version(
+            payload["contract"]["canonical_payload"].get("apiVersion")
+        )
+        if payload["contract"]["schema_identity"] != contract_schema_identity(canonical_schema_version):
             raise DomainError("contract report schema identity is stale")
         if payload["product_version"] != __version__:
             raise DomainError("contract report product version is stale")
@@ -583,7 +602,9 @@ def _validate_contract_report_payload(payload: dict) -> None:
         for observation in clause["native_observations"]:
             _validate_native_payload(
                 observation, payload["protected_universe"]["identity"],
-                historical_a10=historical_a10,
+                historical_snapshot=(
+                    "a10" if historical_a10 else "beta1" if historical_beta1 else None
+                ),
             )
         expected_result, expected_reason, expected_count = _expected_clause_result(
             planned, clause["native_observations"]

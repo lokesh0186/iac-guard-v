@@ -2,7 +2,7 @@
 
 The CLI is the canonical CI interface. Native and contract verification is read-only,
 requires no cluster/cloud credentials, has no telemetry, and does not invoke model
-providers. Beta1 is for trusted repository input; do not use `pull_request_target` to
+providers. Local execution is for trusted repository input; do not use `pull_request_target` to
 check out and execute an untrusted pull-request head.
 
 ## GitHub Actions
@@ -25,7 +25,7 @@ jobs:
       - uses: actions/setup-python@COMMIT_SHA_FOR_V5
         with:
           python-version: "3.12"
-      - run: python -m pip install --no-compile 'iac-guard-v==0.1.0b1'
+      - run: python -m pip install --no-compile 'iac-guard-v==1.0.0'
       - run: iac-guard doctor --mode native --format json
       - run: iac-guard contract lint --contract .iac-guard-v/contracts.yaml
       - run: ./project-owned-deterministic-render-command
@@ -39,7 +39,7 @@ jobs:
 ```
 
 Replace the action placeholders with reviewed immutable commit SHAs. The repository
-does not publish a composite action in Beta1.
+does not publish a composite action in 1.0.
 
 ## Generic CI
 

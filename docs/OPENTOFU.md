@@ -1,6 +1,6 @@
 # Bounded OpenTofu source verification
 
-IaC-Guard-V Beta1 adds a distinct protected OpenTofu source mode and the native
+IaC-Guard-V 1.0 retains a distinct protected OpenTofu source mode and the native
 property `IACGV_OPENTOFU_REFERENCE_RESOLVES_V1`. It does not route OpenTofu files
 through Terraform V1 semantics.
 
@@ -11,7 +11,7 @@ hashes, module identities, file classes, and the reason for precedence. A malfor
 winning file fails closed; IaC-Guard-V never falls back to a valid shadowed file.
 
 Normal files are parsed before `override.tofu`, `*_override.tofu`, and JSON override
-equivalents. Beta1 models only exact top-level scalar replacement on an existing
+equivalents. The 1.0 boundary models only exact top-level scalar replacement on an existing
 resource. Nested/complex override expressions are `UNSUPPORTED`. Literal local child
 modules are protected recursively. Missing modules are `NOT_EVALUATED`; remote,
 dynamic, cyclic, escaping, and symlinked module sources are unsupported or rejected.

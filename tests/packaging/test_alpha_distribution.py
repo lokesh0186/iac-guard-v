@@ -1,4 +1,4 @@
-"""Beta1 distribution and clean-install boundary."""
+"""Stable 1.0 distribution and clean-install boundary."""
 from __future__ import annotations
 
 import email
@@ -22,7 +22,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "0.1.0b1"
+VERSION = "1.0.0"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -67,6 +67,14 @@ ALLOWED_SDIST_ROOT_FILES = {
     "RESEARCH_SNAPSHOT.md",
     "ROADMAP.md",
     "SECURITY.md",
+    "SECURITY_MODEL.md",
+    "SUPPORTED_SCOPE.md",
+    "COMPATIBILITY.md",
+    "NATIVE_PROPERTIES.md",
+    "SCANNER_AUTHORITY.md",
+    "MIGRATION_0_1_0B1_TO_1_0.md",
+    "RELEASE_NOTES_1_0.md",
+    "SUPPORT_POLICY.md",
     "SUPPORT.md",
     "pyproject.toml",
 }
@@ -91,6 +99,7 @@ ALLOWED_SDIST_EXACT_FILES = {
 ALLOWED_SDIST_PREFIXES = (
     "src/iac_guard_v/",
     "examples/checkov-before-after/",
+    "examples/quickstart/",
 )
 TEST_CAPABILITY_MARKERS = (
     b"phase_e_test_support",
@@ -117,10 +126,12 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/kustomize-engine-v5.7.1.json",
     "iac_guard_v/scanner_core.py",
     "iac_guard_v/terraform_parser.py",
+    "iac_guard_v/stable_api.py",
     "iac_guard_v/native_properties/__init__.py",
     "iac_guard_v/native_properties/__main__.py",
     "iac_guard_v/native_properties/engine.py",
     "iac_guard_v/native_properties/compatibility.py",
+    "iac_guard_v/native_properties/stable_v1.py",
     "iac_guard_v/native_properties/evidence.py",
     "iac_guard_v/native_properties/model.py",
     "iac_guard_v/native_properties/network_policy.py",
@@ -147,6 +158,7 @@ REQUIRED_WHEEL_FILES = {
     "iac_guard_v/contracts/provenance.py",
     "iac_guard_v/contracts/public.py",
     "iac_guard_v/contracts/report.py",
+    "iac_guard_v/contracts/schema_bridge.py",
     "iac_guard_v/beta_support.py",
     "iac_guard_v/schemas/infrastructure-contract-v1alpha1.schema.json",
     "iac_guard_v/schemas/infrastructure-contract-report-v1alpha1.schema.json",
@@ -163,7 +175,7 @@ def alpha_artifacts(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, Pat
     output = tmp_path_factory.mktemp("alpha-dist")
     assert tuple(output.iterdir()) == ()
     completed = subprocess.run(
-        [sys.executable, "-m", "build", "--outdir", str(output)],
+        [sys.executable, "-m", "build", "--no-isolation", "--outdir", str(output)],
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -209,7 +221,7 @@ def test_alpha_metadata_and_version_are_consistent(alpha_artifacts) -> None:
     assert metadata["Name"] == "iac-guard-v"
     assert metadata["Version"] == VERSION
     assert SpecifierSet(metadata["Requires-Python"]) == SpecifierSet(">=3.10,<3.14")
-    assert "Development Status :: 4 - Beta" in metadata.get_all("Classifier")
+    assert "Development Status :: 5 - Production/Stable" in metadata.get_all("Classifier")
     assert f'__version__ = "{VERSION}"' in (
         ROOT / "src/iac_guard_v/__init__.py"
     ).read_text(encoding="utf-8")
@@ -254,6 +266,14 @@ def test_wheel_and_sdist_are_public_product_only(alpha_artifacts) -> None:
         "README.md",
         "RESEARCH_SNAPSHOT.md",
         "SECURITY.md",
+        "SECURITY_MODEL.md",
+        "SUPPORTED_SCOPE.md",
+        "COMPATIBILITY.md",
+        "NATIVE_PROPERTIES.md",
+        "SCANNER_AUTHORITY.md",
+        "MIGRATION_0_1_0B1_TO_1_0.md",
+        "RELEASE_NOTES_1_0.md",
+        "SUPPORT_POLICY.md",
         "CONTRIBUTING.md",
         "SUPPORT.md",
         "ROADMAP.md",
@@ -315,7 +335,7 @@ def test_sdist_exact_allowlist_rejects_recursive_readme_license_decoys(
 
     output = tmp_path / "dist"
     completed = subprocess.run(
-        [sys.executable, "-m", "build", "--sdist", "--outdir", str(output)],
+        [sys.executable, "-m", "build", "--no-isolation", "--sdist", "--outdir", str(output)],
         cwd=project,
         capture_output=True,
         text=True,
@@ -457,27 +477,19 @@ spec: {podSelector: {matchLabels: {app: demo}}, ingress: []}
     assert not tuple(installed.rglob("__pycache__"))
 
 
-def test_public_beta_docs_state_current_boundaries() -> None:
+def test_public_stable_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
         "fail-closed verifier for declared infrastructure invariants",
-        "python -m pip install iac-guard-v==0.1.0b1",
+        "python -m pip install 'iac-guard-v==1.0.0'",
         "iac-guard doctor --mode native",
-        "Coder `demo-env-templates` PR #180",
-        "25cff91e2c039ddc648541a06191f4b9b9a813b7",
-        "Beta 1 prerelease",
-        "reduced-isolation",
-        "trusted local input only",
-        "may remain quiet for several minutes",
-        "docs/ADVANCED_INSTALLATION.md",
-        "docs/SUPPORTED_SCOPE.md",
-        "docs/SECURITY_MODEL.md",
-        "docs/KUSTOMIZE_MATERIALIZATION.md",
-        "reviewed Checkov-authoritative paths",
-        "witness-first, scanner-independent native property contracts",
-        "declared infrastructure intent contracts",
-        "general Helm interpretation",
-        "awaiting a public arXiv identifier",
+        "exact set of 18 native properties",
+        "Python 3.14 is not in the",
+        "Missing, ambiguous, unsupported, or",
+        "existing `iac-guard-v.io/v1alpha1` form",
+        "Trivy and KICS are advisory by default",
+        "Do not use `pull_request_target`",
+        "MIGRATION_0_1_0B1_TO_1_0.md",
     ):
         assert statement in readme
     assert "After publication, replace the local wheel path" not in readme
@@ -490,23 +502,11 @@ def test_public_beta_docs_state_current_boundaries() -> None:
     assert "package version `0.1.0a10` is not published" not in readme
     assert "10.5281/zenodo.22088272" in readme
 
-    advanced = (ROOT / "docs/ADVANCED_INSTALLATION.md").read_text(encoding="utf-8")
-    for statement in (
-        "uv python find --managed-python 3.12",
-        "--copies --without-pip",
-        "PYTHONDONTWRITEBYTECODE=1",
-        "bc-python-hcl2",
-        "may remain quiet for several minutes",
-        "iac-guard-v==0.1.0b1",
-    ):
-        assert statement in advanced
-
-    supported = (ROOT / "docs/SUPPORTED_SCOPE.md").read_text(encoding="utf-8")
-    assert "zero `EXACT` mappings" in supported
-    assert "OpenTofu source mode" in supported
-    assert "production hostile-input support" in supported
-    assert "This is not general Helm interpretation" in supported
-    assert "KICS and Trivy" in supported
+    supported = (ROOT / "SUPPORTED_SCOPE.md").read_text(encoding="utf-8")
+    assert "18 IDs" in supported
+    assert "OpenTofu support is" in supported
+    assert "operator-controlled input" in supported
+    assert "Trivy 0.73.0 and KICS 2.1.20" in supported
 
     kustomize = (ROOT / "docs/KUSTOMIZE_MATERIALIZATION.md").read_text(
         encoding="utf-8"
@@ -515,32 +515,29 @@ def test_public_beta_docs_state_current_boundaries() -> None:
     assert "remote URLs" in kustomize
     assert "Helm chart inflation" in kustomize
 
-    release_notes = (ROOT / "docs/RELEASE_NOTES_0.1.0b1.md").read_text(
+    release_notes = (ROOT / "RELEASE_NOTES_1_0.md").read_text(
         encoding="utf-8"
     )
     for statement in (
-        "bounded OpenTofu source verification",
-        "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1",
-        "IACGV_TF_REFERENCE_RESOLVES_V1",
-        "iac-guard-v.io/v1alpha1",
-        "All 17 native properties",
-        "KICS and Trivy remain advisory",
+        "existing 18 native V1 properties",
+        "v1alpha1 contracts and reports",
+        "32 cases: 32 unchanged",
+        "Trivy and KICS remain advisory",
     ):
         assert statement in release_notes
 
     citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
-    assert "version: 0.1.0b1" in citation
-    assert "date-released:" not in citation
+    assert "version: 1.0.0" in citation
     assert 'doi: "10.5281/zenodo.22088272"' in citation
 
-    security_model = (ROOT / "docs/SECURITY_MODEL.md").read_text(encoding="utf-8")
-    assert "V7 consensus is disconnected" in security_model
-    assert "There is no silent downgrade" in security_model
-    assert "no telemetry, model-provider SDK" in security_model
+    security_model = (ROOT / "SECURITY_MODEL.md").read_text(encoding="utf-8")
+    assert "Missing output is not a pass" in security_model
+    assert "does not load dynamic verifier plugins" in security_model
+    assert "does not claim containment" in security_model
 
     security_policy = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
-    assert f"IaC-Guard-V `{VERSION}` is a Beta 1 prerelease" in security_policy
-    assert "Checkov `3.3.0` scanner contract" in security_policy
+    assert "private GitHub security-advisory channel" in security_policy
+    assert "Checkov `3.3.0` is authoritative only on reviewed paths" in security_policy
 
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert "## [0.1.0b1] - 2026-09-01" in changelog

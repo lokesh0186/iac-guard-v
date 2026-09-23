@@ -10,6 +10,9 @@ from .model import canonical_digest
 A10_NATIVE_REGISTRY_IDENTITY = "de9a293ea2d3da8dbdbbbe3b12aa5b5d212ba789af225ea714b18d91dc501f90"
 A10_CONTRACT_COMPILER_IDENTITY = "7990eeae19c6e93b7a6cee68ef3c2c582c2f85ef86d88029c50bfa48905daff7"
 A10_CONTRACT_SCHEMA_IDENTITY = "c6baff537d854c2cea8204a5fc740d88bee79e9abb91b2aa5389dafbee4a65cc"
+BETA1_NATIVE_REGISTRY_IDENTITY = "ae1238dfde6fc626b1cb2016b9a79c1ea1fc274b01f62ab7a35a7d002703ae79"
+BETA1_CONTRACT_COMPILER_IDENTITY = "cc18378fa30b404936315a27bc39c8a1112e29445ede2300198e8d8509a9d33b"
+BETA1_CONTRACT_SCHEMA_IDENTITY = "eb21630e90cf29f724fd6b0886d31a4004249c87d4af25fd698dbee5e90ce721"
 
 _A10_DEFINITION_DIGESTS = {
     "IACGV_K8S_COMPONENT_POLICY_CLOSURE_V1": "f59fa6a019985fec42f8b45eb060b0587e4ef136e7245982e321f523dbd283aa",
@@ -31,12 +34,40 @@ _A10_DEFINITION_DIGESTS = {
     "IACGV_TF_REFERENCE_RESOLVES_V1": "7493c1f18a1a4f9f8410f5d9ed98efb72857dbefc1241a1798d750c4ee89b75e",
 }
 
+_BETA1_DEFINITION_DIGESTS = {
+    "IACGV_K8S_COMPONENT_POLICY_CLOSURE_V1": "b17b708b36c99d39b7e2968acbc53a15411696c1b60b67e5b039ff293aa76bff",
+    "IACGV_K8S_MONITORING_INGRESS_PATH_ALLOWED_V1": "af08bba58dac16d9c4a791c0b71d995db2f47e9529cb4bb54a0064f7489afe0e",
+    "IACGV_K8S_NETWORK_EGRESS_PATH_ALLOWED_V1": "63fa18b83ffccb20edd49edabe082145b03c8d4d345f3b169d7bf31a109a5302",
+    "IACGV_K8S_NETWORK_INGRESS_PATH_ALLOWED_V1": "dbbb46a7e3d8a9eeaeffd446b72396e23b42aa5a0f4e52ad565f7be6cb56408d",
+    "IACGV_K8S_POD_NETWORK_PATH_ALLOWED_V1": "037ff6d85ab951d80c8f19522e693c745bcdd9c9645f6a8bec6797e72a2f23ef",
+    "IACGV_K8S_RBAC_BINDING_SCOPE_CONSISTENT_V1": "4ea76b4f6292dc394393db20f74470cf20a3358db45b4566ad4f0fdc09701e27",
+    "IACGV_K8S_RBAC_ROLE_REF_RESOLVES_V1": "dcebb87078d50d8b8d2ed80d6f8f2fb9b93c0c5e3887e8747bf1b5b9733ca252",
+    "IACGV_K8S_RBAC_SERVICEACCOUNT_SUBJECT_RESOLVES_V1": "8bf8c0c7e382e45e1394621f6e218cc894fc781481e29bcd1223defae5c47449",
+    "IACGV_K8S_SERVICE_PORT_RESOLVES_TO_CONTAINER_PORT_V1": "5d1cb59dff4a3192a43520337b1b130231669c2d72ffe439b1ae0972209a0edd",
+    "IACGV_K8S_SERVICE_SELECTS_WORKLOAD_V1": "f4647372b7e15f0481e81d386a1bf968c8c2bc2a05f1814d73ffac459eb693ad",
+    "IACGV_K8S_TRAFFIC_PATH_DENIED_BY_RENDERED_POLICY_SET_V1": "86dabe2c23080372ab8fd22591a4843c623a1162ff74250ad17c6a0346501d72",
+    "IACGV_K8S_WORKLOAD_EGRESS_ISOLATED_V1": "b2b6640a2504335308a47844e7ddcf17cabc337eba760efd51cd6fdf8151640e",
+    "IACGV_K8S_WORKLOAD_INGRESS_ISOLATED_V1": "20dbcbe7964bc4ccc5ecbd5c5d3e457decad3e2b4e6685d887a93dbef77a4da6",
+    "IACGV_K8S_WORKLOAD_POLICY_SELECTED_V1": "00c8b6378ed400ae1f21743397d2ff832552c98d2d15e1799912eceaa2163294",
+    "IACGV_OPENTOFU_REFERENCE_RESOLVES_V1": "867460f2e2f8b3851bc88ee3c719a7751197ac93e2bb916258f60fd8938760af",
+    "IACGV_PROM_PODMONITOR_RESOLVES_CONTAINER_PORT_V1": "0b1ecf92091c9eb37cf606e17096698a12ea7c13b0bd8bcd243cf2d885fac383",
+    "IACGV_PROM_SERVICEMONITOR_RESOLVES_SERVICE_PORT_V1": "24343aa7ba5efef0b6b353c7130d41844a5e1ba24172c94a4bde02aca3ee4a1e",
+    "IACGV_TF_REFERENCE_RESOLVES_V1": "e0653922133bfbf699456abc81155b9468e9a84e5fb2a80f08356fa755a0e995",
+}
+
 
 def validate_a10_definition_snapshot(definition: Mapping[str, Any]) -> None:
     property_id = definition.get("property_id")
     expected = _A10_DEFINITION_DIGESTS.get(property_id)
     if expected is None or canonical_digest(definition) != expected:
         raise DomainError("historical native definition is not in the frozen a10 registry")
+
+
+def validate_beta1_definition_snapshot(definition: Mapping[str, Any]) -> None:
+    property_id = definition.get("property_id")
+    expected = _BETA1_DEFINITION_DIGESTS.get(property_id)
+    if expected is None or canonical_digest(definition) != expected:
+        raise DomainError("historical native definition is not in the frozen Beta1 registry")
 
 
 def is_a10_contract_identity(
@@ -51,8 +82,22 @@ def is_a10_contract_identity(
     )
 
 
+def is_beta1_contract_identity(
+    *, product_version: str, registry_identity: str,
+    compiler_identity: str, schema_identity: str,
+) -> bool:
+    return (
+        product_version == "0.1.0b1"
+        and registry_identity == BETA1_NATIVE_REGISTRY_IDENTITY
+        and compiler_identity == BETA1_CONTRACT_COMPILER_IDENTITY
+        and schema_identity == BETA1_CONTRACT_SCHEMA_IDENTITY
+    )
+
+
 __all__ = [
     "A10_CONTRACT_COMPILER_IDENTITY", "A10_CONTRACT_SCHEMA_IDENTITY",
     "A10_NATIVE_REGISTRY_IDENTITY", "is_a10_contract_identity",
-    "validate_a10_definition_snapshot",
+    "BETA1_CONTRACT_COMPILER_IDENTITY", "BETA1_CONTRACT_SCHEMA_IDENTITY",
+    "BETA1_NATIVE_REGISTRY_IDENTITY", "is_beta1_contract_identity",
+    "validate_a10_definition_snapshot", "validate_beta1_definition_snapshot",
 ]

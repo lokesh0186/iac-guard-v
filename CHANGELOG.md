@@ -3,6 +3,27 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
+## [1.0.0] - Release candidate
+
+### Stable contract
+
+- Froze the existing 18 native V1 properties, public CLI and Python exports, result
+  and provenance enums, schemas, witness meanings, and exit-code behavior for 1.x.
+- Added the equivalent stable-v1 contract bridge while retaining exact v1alpha1
+  compatibility.
+- Completed a 32-case external compatibility replay with zero breaking or newly
+  unsupported consumers.
+
+### Release quality
+
+- Added stable scope, security, compatibility, migration, native-property,
+  scanner-authority, support, and release documentation with packaged quickstarts.
+- Added deterministic repeat-build, clean-wheel usability, SBOM, dependency/license,
+  source-manifest, checksum, provenance, and Trusted Publishing release gates.
+
+The date and version DOI are added only after explicit owner authorization and public
+publication.
+
 ## [0.1.0b1] - 2026-09-01
 
 ### Archive

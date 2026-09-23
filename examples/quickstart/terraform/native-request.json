@@ -1,0 +1,20 @@
+{
+  "schema_version": "native-property-request-v1",
+  "root": "source",
+  "artifact_class": "terraform_source",
+  "requests": [
+    {
+      "request_id": "bucket-notification-reference",
+      "property_id": "IACGV_TF_REFERENCE_RESOLVES_V1",
+      "property_version": "1",
+      "subject_identity": "aws_s3_bucket_notification.events",
+      "parameters": {
+        "attribute_path": ["bucket"],
+        "expected_target": "aws_s3_bucket.logs",
+        "mode": "DIRECT",
+        "complete_expected_domain": true,
+        "reference_contract_digest": "1111111111111111111111111111111111111111111111111111111111111111"
+      }
+    }
+  ]
+}
