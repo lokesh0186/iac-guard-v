@@ -24,8 +24,6 @@ VERSION = "1.0.0"
 WHEEL_NAME = f"iac_guard_v-{VERSION}-py3-none-any.whl"
 SDIST_NAME = f"iac_guard_v-{VERSION}.tar.gz"
 SENSITIVE_MARKERS = (
-    b"/" + b"Users" + b"/",
-    b"\\" + b"Users" + b"\\",
     b"garima" + b"chauhan",
     b"EB" + b"-1A",
     b"US" + b"CIS",
@@ -34,6 +32,12 @@ SENSITIVE_MARKERS = (
     b"private" + b"-screening",
 )
 DIRECT_DEPENDENCIES = ("PyYAML", "python-hcl2", "jsonschema", "packaging")
+
+
+def sensitive_markers() -> tuple[bytes, ...]:
+    """Return private identities, not generic path examples used by redaction tests."""
+    runtime_paths = (os.fsencode(ROOT), os.fsencode(Path.home()))
+    return tuple(dict.fromkeys(SENSITIVE_MARKERS + runtime_paths))
 
 
 def _run(arguments: list[str], *, cwd: Path = ROOT, env: dict[str, str] | None = None) -> str:
@@ -173,7 +177,11 @@ def build_packet(output: Path) -> dict[str, Any]:
         shutil.copy2(first_sdist, sdist)
 
     payload = _archive_bytes(wheel, sdist)
-    leaked = [marker.decode("utf-8", errors="replace") for marker in SENSITIVE_MARKERS if marker in payload]
+    leaked = [
+        marker.decode("utf-8", errors="replace")
+        for marker in sensitive_markers()
+        if marker in payload
+    ]
     if leaked:
         raise RuntimeError(f"private or sensitive marker in distribution: {leaked}")
 
