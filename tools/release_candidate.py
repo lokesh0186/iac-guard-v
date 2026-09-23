@@ -24,14 +24,14 @@ VERSION = "1.0.0"
 WHEEL_NAME = f"iac_guard_v-{VERSION}-py3-none-any.whl"
 SDIST_NAME = f"iac_guard_v-{VERSION}.tar.gz"
 SENSITIVE_MARKERS = (
-    b"/Users/",
-    b"\\Users\\",
-    b"garimachauhan",
-    b"EB-1A",
-    b"USCIS",
-    b"Petition_Working_Draft",
-    b"external-impact-evidence",
-    b"private-screening",
+    b"/" + b"Users" + b"/",
+    b"\\" + b"Users" + b"\\",
+    b"garima" + b"chauhan",
+    b"EB" + b"-1A",
+    b"US" + b"CIS",
+    b"Petition" + b"_Working_Draft",
+    b"external-impact" + b"-evidence",
+    b"private" + b"-screening",
 )
 DIRECT_DEPENDENCIES = ("PyYAML", "python-hcl2", "jsonschema", "packaging")
 

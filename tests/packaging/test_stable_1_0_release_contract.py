@@ -9,9 +9,17 @@ import pytest
 from iac_guard_v import __version__
 from iac_guard_v.native_properties.__main__ import main as native_main
 from iac_guard_v.native_properties.stable_v1 import STABLE_V1_PROPERTY_DIGESTS
+from tools.release_candidate import SENSITIVE_MARKERS
 
 
 ROOT = Path(__file__).parents[2]
+
+
+def test_release_candidate_sensitive_markers_do_not_match_their_own_source() -> None:
+    source = (ROOT / "tools" / "release_candidate.py").read_bytes()
+    assert all(marker not in source for marker in SENSITIVE_MARKERS)
+
+
 RELEASE_DOCUMENTS = (
     "README.md",
     "SUPPORTED_SCOPE.md",
