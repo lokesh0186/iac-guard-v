@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use the software, cite this record; if you use the frozen research artifact, also cite the QRS 2026 paper below."
+message: "Cite the paper for the research and the Zenodo software DOI for the software artifact."
 title: IaC-Guard-V
 authors:
   - family-names: Chauhan
@@ -33,12 +33,4 @@ preferred-citation:
       given-names: Lokesh
       orcid: "https://orcid.org/0009-0004-1544-6424"
   year: 2026
-  conference:
-    name: "26th International Conference on Software Quality, Reliability, and Security (QRS 2026)"
-    city: Florence
-    country: IT
-    date-start: 2026-07-22
-    date-end: 2026-07-25
-  collection-title: "Lecture Notes in Computer Science"
-  publisher:
-    name: "Springer"
+  url: "https://arxiv.org/abs/2609.28488"

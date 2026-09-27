@@ -4,6 +4,17 @@
 [![Python compatibility](https://github.com/lokesh0186/iac-guard-v/actions/workflows/python-compat.yml/badge.svg?branch=main)](https://github.com/lokesh0186/iac-guard-v/actions/workflows/python-compat.yml)
 [![License](https://img.shields.io/pypi/l/iac-guard-v)](LICENSE)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22088272.svg)](https://doi.org/10.5281/zenodo.22088272)
+[![arXiv](https://img.shields.io/badge/arXiv-2609.28488-b31b1b.svg)](https://arxiv.org/abs/2609.28488)
+
+## Paper
+
+**IaC-Guard-V: A Verification Framework for LLM-Generated Infrastructure-as-Code Repairs**
+
+Accepted as a regular paper at QRS 2026.
+
+- Preprint: [arXiv:2609.28488](https://arxiv.org/abs/2609.28488)
+- Artifact: [this repository](https://github.com/lokesh0186/iac-guard-v)
+- Software archive: [Zenodo concept DOI 10.5281/zenodo.22088272](https://doi.org/10.5281/zenodo.22088272); [v1.0.0 DOI 10.5281/zenodo.22926372](https://doi.org/10.5281/zenodo.22926372)
 
 IaC-Guard-V is a fail-closed verifier for declared infrastructure invariants over
 protected, deterministically materialized infrastructure as code. Version 1.0 supports
@@ -165,9 +176,10 @@ artifact is historical evidence and is not required to understand or use the pro
 
 ## Citation and license
 
-Use the concept DOI [`10.5281/zenodo.22088272`](https://doi.org/10.5281/zenodo.22088272)
-for the evolving software. The final 1.0 version DOI is added only after the authorized
-Zenodo archive exists. Machine-readable metadata is in [CITATION.cff](CITATION.cff).
+For the paper, cite [arXiv:2609.28488](https://arxiv.org/abs/2609.28488). For the
+evolving software, use the [Zenodo concept DOI](https://doi.org/10.5281/zenodo.22088272);
+for the exact 1.0.0 archive, use the [version DOI](https://doi.org/10.5281/zenodo.22926372).
+Machine-readable metadata is in [CITATION.cff](CITATION.cff).
 
 IaC-Guard-V is licensed under the [Apache License 2.0](LICENSE). Third-party tools are
 not bundled and retain their own licenses and trademarks.

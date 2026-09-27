@@ -40,5 +40,9 @@ materialization, hostile-input sandboxing, and scanner consensus are not in 1.0.
 Trivy and KICS remain advisory by default. IaC-Guard-V results prove only the selected
 mechanical predicate over protected evidence.
 
-The software DOI remains the concept DOI until the authorized 1.0 Zenodo version
-archive is created. No version DOI is invented in this candidate.
+## Paper and archive
+
+The research paper is available as [arXiv:2609.28488](https://arxiv.org/abs/2609.28488)
+and was accepted as a regular paper at QRS 2026. The software has a
+[concept DOI](https://doi.org/10.5281/zenodo.22088272) and a
+[v1.0.0 version DOI](https://doi.org/10.5281/zenodo.22926372).
