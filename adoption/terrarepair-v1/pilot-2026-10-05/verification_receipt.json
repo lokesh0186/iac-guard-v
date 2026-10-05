@@ -1,0 +1,12 @@
+{
+  "checkov_executable_sha256": "e31079fb60c230eacd86da19754b44d4dd8bc24fb1d6e59cdd25f6d716a61822",
+  "checkov_version": "3.3.0",
+  "created_utc": "2026-10-05T22:18:32+00:00",
+  "iac_guard_executable_sha256": "7405ee117be2b779c3c1f77aa7d18b8a3daa9429c5420479bf14b3b79e761d4c",
+  "iac_guard_v_version": "1.0.0",
+  "manifest_sha256": "57b6ad6b1bc58ca62436bc245e7ab24c4077be44c05c77be572b50a5a2602e13",
+  "meaning": "Unsigned run record; inspect raw reports before citing outcomes",
+  "results_sha256": "191497f81a3b816bfc474ebc9805ed86c6081b61d8bb9964c08ad07f77b4b036",
+  "schema": "iac-guard-repair-receipt-v1",
+  "summary_csv_sha256": "2cf3a628871a0da0e3fd3dd7f99d63128ab4d5403092678429eb1c04369f4cfd"
+}

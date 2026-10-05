@@ -1,0 +1,122 @@
+{
+  "cases": [
+    {
+      "id": "terrarepair-135",
+      "original_block_sha256": "7d6e31491f39914d1aa0c09a556372a14b243e32d324c3b8bf1d3162b20921bb",
+      "patch_sha256": "08842d1fe21bbd3f0e8b928dd47a8bbfe8297eb91f7085fb49357f9097b5470f",
+      "repaired_block_sha256": "49ddecd66b3eb5dc21de0c1c83febf69fa29586fb5d8f01740e5de7f3b43f7aa",
+      "sample_number": 135,
+      "source_file_sha256": "242feb266e4ed7fc3a2725f88bade8b0029d46bbda3d66b60c4936381f7deda9",
+      "source_repository": "terragoat/aws",
+      "target": "CKV_AWS_79=aws_instance.db_app",
+      "target_file": "db-app.tf"
+    },
+    {
+      "id": "terrarepair-066",
+      "original_block_sha256": "1071d9ec9053124c3bac06d29e2c3c8045995a492cff2d50dc54a2867c959878",
+      "patch_sha256": "19e4a96c1694ab62c74fafc7cb51d32456199b1920a94e9e86fb1ff7baa88eef",
+      "repaired_block_sha256": "6b04a64597bca42d884826655f5b6c90592aa79cb6a3091512c69dd0a88d679b",
+      "sample_number": 66,
+      "source_file_sha256": "3730de7315f341a920a61f1586e655673899e5c87efb4a7b9d7d89c40b6469bf",
+      "source_repository": "modules/compute",
+      "target": "CKV_AWS_338=aws_cloudwatch_log_group.km_log_group",
+      "target_file": "main.tf"
+    },
+    {
+      "id": "terrarepair-108",
+      "original_block_sha256": "8cf2267df1dd1a2bdb0724bfda25a51b8d3a7b09ab843f0d07b88aeb7ee1adda",
+      "patch_sha256": "b850c7facf0544f9f06d6cb42d26901a05405dff8afe205320df8b0fe3021717",
+      "repaired_block_sha256": "96b3b253f5f1afe5caeddc3aa0254c2ef4d9523de64380ce5f831c4d3e6a5d87",
+      "sample_number": 108,
+      "source_file_sha256": "efe8810128f5316343a4b61ac9b53e39440afed051deffeef6237b9f58061c11",
+      "source_repository": "scenarios/ssrf-iam-breach",
+      "target": "CKV_AWS_79=aws_instance.web-app-instance",
+      "target_file": "main.tf"
+    },
+    {
+      "id": "terrarepair-030",
+      "original_block_sha256": "f005318f39cbc0aad2ddbab6a49772c8a6ea5a9539a11cbfe620b576998d709e",
+      "patch_sha256": "10f8d8c006a28e867e8cc215c13e6637503504ae2d43024bcd239bbe1fc6ad78",
+      "repaired_block_sha256": "a9c556b82630fcf448a932f78f4d275f1f4b4d889cf06d9df5c90645036c7c5a",
+      "sample_number": 30,
+      "source_file_sha256": "242feb266e4ed7fc3a2725f88bade8b0029d46bbda3d66b60c4936381f7deda9",
+      "source_repository": "terragoat/aws",
+      "target": "CKV_AWS_23=aws_security_group_rule.ingress",
+      "target_file": "db-app.tf"
+    },
+    {
+      "id": "terrarepair-035",
+      "original_block_sha256": "eb0a2c2ffe83fe8449c308f4402d224f3c2f9a1d64b864ab7d5c0a2982b4fcbb",
+      "patch_sha256": "cb3ca7b7825c483e46067f1036152758b38ad3ceafe63fff16849f173a1f3479",
+      "repaired_block_sha256": "c8ca64e2c923a3802762ac45ba8c2fdcd3c2ca3829976e4b3aa981b3fcf46103",
+      "sample_number": 35,
+      "source_file_sha256": "5fcc2d4cf052fb2032d9470179f63a903d280b99cf5b1bb2db6e15200ecd9428",
+      "source_repository": "terragoat/aws",
+      "target": "CKV_AWS_189=aws_ebs_volume.web_host_storage",
+      "target_file": "ec2.tf"
+    },
+    {
+      "id": "terrarepair-061",
+      "original_block_sha256": "72d24f901d4311106207165326b4d49ad48ab473c7e05888140b25385b9d345e",
+      "patch_sha256": "b58a2a35abdde485a5de00a261d8db4c956064e955d824ce56fe1cbb14774501",
+      "repaired_block_sha256": "2da6282978f618aeadf1f45b57a3c1822d7e54f1c30203b0cdb386517ee6a617",
+      "sample_number": 61,
+      "source_file_sha256": "c743ca589b3c3ca0fa311ec9fc0c135233852314b0c2aea0a0bf6ed5203a2d6c",
+      "source_repository": "terragoat/aws",
+      "target": "CKV_AWS_279=aws_neptune_cluster_snapshot.default",
+      "target_file": "neptune.tf"
+    },
+    {
+      "id": "terrarepair-051",
+      "original_block_sha256": "94020fa41952e09dbf777ee9b63f36f53ccdb3b6b9fd95d7cb2751a3d13f0212",
+      "patch_sha256": "78aef58bc67394e7d180bca8903b3047667c643cb998710656dccfd67a193a9d",
+      "repaired_block_sha256": "211a0cb5c48dbea0c0e806714da8b607b04e958ca3e02bfd4ccadc6229140ba5",
+      "sample_number": 51,
+      "source_file_sha256": "242feb266e4ed7fc3a2725f88bade8b0029d46bbda3d66b60c4936381f7deda9",
+      "source_repository": "terragoat/aws",
+      "target": "CKV_AWS_161=aws_db_instance.default",
+      "target_file": "db-app.tf"
+    },
+    {
+      "id": "terrarepair-069",
+      "original_block_sha256": "add4ce2a9b62d5dabf1376a60450235e0f2c551f695ea42c0f6430dea6d3cc52",
+      "patch_sha256": "ce3fd0f3c85e233af037b1f072c7e1f832f6acf1b84c42e7f09db8fb689c6407",
+      "repaired_block_sha256": "23ee4b5b6d2a3a3ee556f7340b7d438fc4b63e1b17a961536d82501a8667f905",
+      "sample_number": 69,
+      "source_file_sha256": "efe8810128f5316343a4b61ac9b53e39440afed051deffeef6237b9f58061c11",
+      "source_repository": "scenarios/ssrf-iam-breach",
+      "target": "CKV_AWS_286=aws_iam_policy.web-app-instance-policy",
+      "target_file": "main.tf"
+    },
+    {
+      "id": "terrarepair-015",
+      "original_block_sha256": "bd0b754829736f5265b40a809a84618c05f77818947364dafa10a8a65944f740",
+      "patch_sha256": "b13e51039c6a97acbedcfa9d56c0a06ed9374146716db873b041de58899f2e8b",
+      "repaired_block_sha256": "8ec3bec09070bb9f9050aeebbd0b0fbd4e4b16c70886d5f350ed69a470c37fdc",
+      "sample_number": 15,
+      "source_file_sha256": "873fd285159d2de95d3021c5bb853cccb07e658e5e2e3453ab87147e545088d2",
+      "source_repository": "terragoat/aws",
+      "target": "CKV_AWS_50=aws_lambda_function.analysis_lambda",
+      "target_file": "lambda.tf"
+    },
+    {
+      "id": "terrarepair-122",
+      "original_block_sha256": "71b3c69a870e516d76feadb76511411fb68b3d88f0c71145e14077d80ac0415f",
+      "patch_sha256": "829956499fcfb27db84d8afb485db295b95947c6e5ec94c253cb1ce73840a43d",
+      "repaired_block_sha256": "030e9d4766ecc2239ae6525f931d1b6fbe45f1014bdea44f2445684f3fc9ba2d",
+      "sample_number": 122,
+      "source_file_sha256": "b6b7b4e4577b6766d7b133fcd739eebbb02e950c1afa58943f3178e3906a4d27",
+      "source_repository": "terragoat/aws",
+      "target": "CKV_AWS_313=aws_rds_cluster.app6-rds-cluster",
+      "target_file": "rds.tf"
+    }
+  ],
+  "sample_sha256": "5fae1316dd294bbfd0e4e2c6499490abae2547b02d9c9462dee54d8be34322bd",
+  "schema": "terrarepair-v1-adapter-provenance",
+  "selection": "first ten baseline-exact cases in prior predeclared alpha7 rank order",
+  "source_commits": {
+    "kaimonkey": "3feb0bf1a5ab81a79f225407a5ed16db3acd59a4",
+    "terragoat": "729f8da62c6a85ce4af5ad3d123de97776d954c4",
+    "terrarepair": "dd759a88ec831b6777132506b5a9d04522e92a57"
+  }
+}

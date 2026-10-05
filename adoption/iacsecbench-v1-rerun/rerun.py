@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -25,7 +26,8 @@ HASH_FILE = Path(__file__).with_name("inputs.sha256")
 
 
 def command_output(command: list[str], *, cwd: Path | None = None) -> str:
-    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=True)
+    result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, check=True,
+                            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
     return result.stdout.strip()
 
 
@@ -104,6 +106,7 @@ def run(args: argparse.Namespace) -> int:
         text=True,
         check=False,
         timeout=120,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     )
     (output / "doctor.stdout.txt").write_text(doctor.stdout, encoding="utf-8")
     (output / "doctor.stderr.txt").write_text(doctor.stderr, encoding="utf-8")
@@ -150,7 +153,8 @@ def run(args: argparse.Namespace) -> int:
         "--quiet",
     ]
     completed = subprocess.run(
-        command, cwd=repo, capture_output=True, text=True, check=False, timeout=900
+        command, cwd=repo, capture_output=True, text=True, check=False, timeout=900,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
     )
     (output / "verify.stdout.txt").write_text(completed.stdout, encoding="utf-8")
     (output / "verify.stderr.txt").write_text(completed.stderr, encoding="utf-8")

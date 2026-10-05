@@ -1,0 +1,47 @@
+{
+  "fixture_sha256": {
+    "fixtures/cross/main.tf.json": "e432a3ed69df717fccf46ff52249febe02ab3fb215af3215fd1da76f86cec6a8",
+    "fixtures/cross/main.tofu": "e538c6216c7ec39bc850ee63fe1dff853b87be645cb15a88ca60ea52f211ba58",
+    "fixtures/hcl/main.tf": "0111923e7ae7ce619ec7215872872da2887eed1a1f67594122f30ddb718457ea",
+    "fixtures/hcl/main.tofu": "c9e73ff826a17723d7a120ae84773ae3e1ceabc968b970f2f20b04ad761ce718",
+    "fixtures/json/main.tf.json": "8da8d1c2335f907e52a78b682a6693c573225935502d6ff8d50c85f52be6af33",
+    "fixtures/json/main.tofu.json": "21d60a27e7ee3cb29aae60d3bcfb4b62cdc735a6c681bad83f671f0c6450329e"
+  },
+  "go_build_vcs_modified": false,
+  "go_build_vcs_revision": "d3ad0f949a529c47f451a9859b09e60a6a6294de",
+  "interpretation": "Raw capture only; compare findings and parser test against source-precedence expectation",
+  "observations": [
+    {
+      "case": "hcl",
+      "exit_code": 0,
+      "report_sha256": "2201f0bcd57076dc0da5b6436deee1679c57d861339970dc1d32f5ad97a5b822",
+      "targets": [
+        ".",
+        "main.tofu"
+      ]
+    },
+    {
+      "case": "json",
+      "exit_code": 0,
+      "report_sha256": "9f1e93f74a32dd41f1300e2558c102a029b405ca529bf09cba97cbb708e7a768",
+      "targets": [
+        ".",
+        "main.tofu.json"
+      ]
+    },
+    {
+      "case": "cross",
+      "exit_code": 0,
+      "report_sha256": "b0d86d977b40352913b274fcad33926109a46f9236b4844c12fda8f2d78614ec",
+      "targets": [
+        ".",
+        "main.tf.json",
+        "main.tofu"
+      ]
+    }
+  ],
+  "revision": "fix",
+  "trivy_binary_sha256": "5035856d1b321b316a4ad26249e8891c6e0e70d22f19d5169654634d473614c7",
+  "trivy_source_commit": "d3ad0f949a529c47f451a9859b09e60a6a6294de",
+  "trivy_version": "Version: dev"
+}

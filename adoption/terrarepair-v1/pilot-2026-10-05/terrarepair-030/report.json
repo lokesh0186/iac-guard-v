@@ -1,0 +1,1 @@
+{"diagnostic":{"detail":"baseline target discovery is not complete: INVALID_RESULTS_STRUCTURE","reason_code":"BASELINE_TARGET_DISCOVERY_UNAVAILABLE","remediation":"Run doctor --mode local-trusted and repair the exact Checkov 3.3.0 environment."},"exit_code":3,"result_kind":"operational_uncertainty","schema_version":"report-v1","verdict":"INCONCLUSIVE"}
