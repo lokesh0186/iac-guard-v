@@ -1,0 +1,6 @@
+{
+  "schema": "iac-guard-repair-batch-v1",
+  "cases": [
+    {"id": "ebs-encryption", "target": "CKV_AWS_3=aws_ebs_volume.target"}
+  ]
+}

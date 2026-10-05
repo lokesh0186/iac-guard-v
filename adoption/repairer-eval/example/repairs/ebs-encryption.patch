@@ -1,0 +1,10 @@
+diff --git a/main.tf b/main.tf
+--- a/main.tf
++++ b/main.tf
+@@ -1,5 +1,5 @@
+ resource "aws_ebs_volume" "target" {
+   availability_zone = "us-east-1a"
+   size              = 1
+-  encrypted         = false
++  encrypted         = true
+ }
