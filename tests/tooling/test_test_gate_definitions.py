@@ -98,5 +98,7 @@ def test_public_workflow_uses_shared_gates_in_clean_environment() -> None:
     assert "python -m pytest tests/unit/test_fingerprints.py" not in workflow
     assert "python -m venv --copies /tmp/iacgv-compat" in workflow
     assert 'install --no-compile -e ".[compat-test]"' in workflow
+    assert "python -m venv --copies /tmp/iacgv-golden" in workflow
+    assert 'PATH=/tmp/iacgv-golden/bin:/usr/bin:/bin PYTHONPATH=src' in workflow
     assert '"build==1.6.1"' in workflow
     assert f'"{backend.group(1)}"' in workflow
