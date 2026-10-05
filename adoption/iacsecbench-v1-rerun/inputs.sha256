@@ -1,0 +1,8 @@
+0bc1f2423be004363404b137cd2646af3453104be6696c4b6b220aecf014c128  benchmark/internal/cases/ENC-UNENCRYPTED-VOLUME-VULN/expected.json
+8677a84fd1d88c820e03daf474b147e792718b7d6729c3cc1d58591b7a8991c1  benchmark/internal/cases/ENC-UNENCRYPTED-VOLUME-VULN/main.tf
+a4cf5ffef521e3edc2bf022e56abe8d0dbfddb68fc770fda011a25f6e20df796  benchmark/internal/cases/ENC-UNENCRYPTED-VOLUME-VULN/metadata.json
+e5378aea012703e2e9c1abccd07b8e2cefe9f9e3b3dd4f4ab31dd33711b5a5ea  benchmark/internal/cases/ENC-UNENCRYPTED-VOLUME-VULN/variables.tf
+0f12f0504e5a01db99a35dc3cfd8284d6abc01630c9f35824ff8237c7bb307d7  benchmark/internal/cases/ENC-UNENCRYPTED-VOLUME-SAFE/expected.json
+037092ab46516973171292dee03a294f3efa1112410221fa5bcae307d395f397  benchmark/internal/cases/ENC-UNENCRYPTED-VOLUME-SAFE/main.tf
+fb80cf2304ad06c9a32756a1871238b60f439c7c1818bf75b6a76aabae052913  benchmark/internal/cases/ENC-UNENCRYPTED-VOLUME-SAFE/metadata.json
+e5378aea012703e2e9c1abccd07b8e2cefe9f9e3b3dd4f4ab31dd33711b5a5ea  benchmark/internal/cases/ENC-UNENCRYPTED-VOLUME-SAFE/variables.tf
