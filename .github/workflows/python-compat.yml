@@ -74,7 +74,7 @@ jobs:
       - name: Install pinned product scanner in copied-file environment
         run: |
           python -m venv --copies /tmp/iacgv-checkov330
-          /tmp/iacgv-checkov330/bin/python -m pip install --no-compile "checkov==3.3.0" "pytest>=8,<10" "build>=1.2,<2"
+          /tmp/iacgv-checkov330/bin/python -m pip install --no-compile "checkov==3.3.0" "pytest>=8,<10" "build==1.6.1" "hatchling==1.27.0"
       - name: Establish local-only research freeze tag
         run: python tools/ensure_ci_freeze_tag.py
       - name: Run pinned Checkov integration contracts

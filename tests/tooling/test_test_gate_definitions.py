@@ -1,4 +1,5 @@
 """The local gate catalog must remain closed and executable."""
+import re
 from pathlib import Path
 
 import pytest
@@ -89,8 +90,13 @@ def test_ci_runner_stops_on_first_failure(
 
 def test_public_workflow_uses_shared_gates_in_clean_environment() -> None:
     workflow = (ROOT / ".github/workflows/python-compat.yml").read_text(encoding="utf-8")
+    pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    backend = re.search(r'^requires = \["(hatchling==[^"]+)"\]$', pyproject, re.MULTILINE)
+    assert backend is not None
     assert workflow.count("-m tools.testing.ci_gates") == 6
     assert workflow.count('PYTHONDONTWRITEBYTECODE: "1"') == 6
     assert "python -m pytest tests/unit/test_fingerprints.py" not in workflow
     assert "python -m venv --copies /tmp/iacgv-compat" in workflow
     assert 'install --no-compile -e ".[compat-test]"' in workflow
+    assert '"build==1.6.1"' in workflow
+    assert f'"{backend.group(1)}"' in workflow
