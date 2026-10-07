@@ -68,6 +68,12 @@ The separate environments are intentional. Checkov `3.3.0` installs
 Installing both distributions over the same `hcl2` files breaks wheel-RECORD
 provenance and is rejected.
 
+Before the first doctor run, do not invoke Checkov directly or import it from its
+separate environment. Its interpreter can create writable bytecode caches even for
+`checkov --version`. The product startup policy does not govern that separate
+interpreter. See [fresh environment setup](FRESH_ENVIRONMENT.md) and
+[bytecode troubleshooting](TROUBLESHOOTING_BYTECODE.md).
+
 ## Check the environment and run a real demo
 
 ```bash

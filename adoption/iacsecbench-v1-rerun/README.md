@@ -40,7 +40,13 @@ directory **outside** the IaCSecBench checkout. It preserves `FAILED` and
    The script independently checks the resolved commit and case-file hashes.
 2. Install the two separately pinned environments using
    [the protected installation guide](../../docs/ADVANCED_INSTALLATION.md#install-from-pypi).
-   Use `iac-guard-v==1.0.0` and `checkov==3.3.0` exactly.
+   Use `iac-guard-v==1.0.0` and `checkov==3.3.0` exactly. Create both environments
+   with `venv --copies --without-pip` and install through the host installer using
+   `--no-compile`. See [fresh environment setup](../../docs/FRESH_ENVIRONMENT.md).
+   Do not run `checkov --version` or import Checkov directly before the packet;
+   those commands can create bytecode that `doctor` rejects. The packet protects
+   its own version check with `PYTHONDONTWRITEBYTECODE=1`. If this already happened,
+   preserve the doctor output and rebuild into new environment directories.
 3. From an IaC-Guard-V checkout containing this packet, run:
 
 ```bash
@@ -50,6 +56,11 @@ python3.12 adoption/iacsecbench-v1-rerun/rerun.py \
   --checkov /absolute/path/to/.venv-checkov330/bin/checkov \
   --output /absolute/path/to/new-rerun-output
 ```
+
+The packet selects local trusted mode. A missing hardened-container image may be
+reported as `INCONCLUSIVE` by that separate doctor check while the local environment
+passes. This does not claim hostile-input isolation. See the
+[CI trust boundary](../../docs/CI_TRUST_BOUNDARY.md).
 
 The output directory must not exist yet. Installation time is separate from
 verification time; neither has a measured five-minute guarantee for this
