@@ -367,3 +367,16 @@ spec:
     full_acceptance_seconds = time.monotonic() - acceptance_started
     print(f"TIME_TO_FIRST_VERIFIED_SECONDS={first_verified_seconds:.2f}")
     print(f"FULL_GOLDEN_ACCEPTANCE_SECONDS={full_acceptance_seconds:.2f}")
+
+    # Reproduce the independent owner's setup feedback after the fresh path above.
+    # Checkov's standalone interpreter has no product startup policy.
+    unsafe = _run([checkov, "--version"], cwd=run_directory, environment=environment)
+    assert unsafe.returncode == 0, unsafe.stderr
+    assert tuple(scanner_root.rglob("__pycache__"))
+    rejected = _run(
+        [command, "doctor", "--mode", "local-trusted",
+         "--checkov-executable", checkov, "--format", "json"],
+        cwd=run_directory, environment=environment,
+    )
+    assert rejected.returncode != 0
+    assert "CHECKOV_ENVIRONMENT_UNSAFE_BYTECODE" in rejected.stdout
