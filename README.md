@@ -184,5 +184,8 @@ evolving software, use the [Zenodo concept DOI](https://doi.org/10.5281/zenodo.2
 for the exact 1.0.0 archive, use the [version DOI](https://doi.org/10.5281/zenodo.22926372).
 Machine-readable metadata is in [CITATION.cff](CITATION.cff).
 
-IaC-Guard-V is licensed under the [Apache License 2.0](LICENSE). Third-party tools are
-not bundled and retain their own licenses and trademarks.
+IaC-Guard-V is licensed under the [Apache License 2.0](LICENSE). Third-party
+executables are not bundled in the installable wheel or sdist. Historical
+research/replay corpora in the source repository retain pinned tool artifacts for
+reproducibility; see the [a8 Helm provenance qualification](docs/A8_HELM_PROVENANCE.md).
+Third-party tools retain their own licenses and trademarks.
