@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
@@ -219,6 +219,15 @@ def _git_tree_entries(
     paths = [item[0] for item in entries]
     if len(paths) != len(set(paths)):
         raise DomainError("Git tree contains duplicate canonical paths")
+    # Recursive ls-tree omits directories: every listed path is a leaf object.
+    # A listed ancestor therefore conflicts with the descendant's directory.
+    leaf_paths = set(paths)
+    if any(
+        parent.as_posix() in leaf_paths
+        for relative in paths
+        for parent in PurePosixPath(relative).parents
+    ):
+        raise DomainError("Git tree contains a path beneath a non-directory entry")
     return tuple(sorted(entries))
 
 

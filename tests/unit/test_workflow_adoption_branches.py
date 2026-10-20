@@ -132,6 +132,45 @@ def test_object_and_tree_contract_failures(monkeypatch, tmp_path: Path) -> None:
         W._git_tree_entries(executable, tmp_path, "a" * 40)
 
 
+@pytest.mark.parametrize("mode", ["100644", "100755", "120000"])
+@pytest.mark.parametrize("ancestor,descendant", [("a", "a/b"), ("a/b", "a/b/c/d")])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_git_tree_validation_rejects_leaf_ancestors(
+    monkeypatch, mode: str, ancestor: str, descendant: str, reverse: bool,
+) -> None:
+    records = [
+        f"{mode} blob {'a' * 40} 1\t{ancestor}\0".encode(),
+        f"100644 blob {'b' * 40} 1\t{descendant}\0".encode(),
+    ]
+    if reverse:
+        records.reverse()
+    monkeypatch.setattr(W, "_git", lambda *_a, **_k: b"".join(records))
+    with pytest.raises(DomainError, match="beneath a non-directory entry"):
+        W._git_tree_entries(Path("git"), Path("repository"), "c" * 40)
+
+
+@pytest.mark.parametrize(
+    "entries",
+    [
+        (),
+        (("a/b", "100644"),),
+        (("a/b/c", "100644"), ("a/b/d", "100755")),
+        (("a", "120000"),),
+        (("a", "120000"), ("ab/b", "100644")),
+        (("a/link", "120000"), ("a/b", "100644")),
+    ],
+)
+def test_git_tree_validation_preserves_valid_leaf_paths(monkeypatch, entries) -> None:
+    raw = b"".join(
+        f"{mode} blob {'a' * 40} 1\t{relative}\0".encode()
+        for relative, mode in entries
+    )
+    monkeypatch.setattr(W, "_git", lambda *_a, **_k: raw)
+    assert W._git_tree_entries(Path("git"), Path("repository"), "c" * 40) == tuple(
+        sorted((relative, mode, "a" * 40, 1) for relative, mode in entries)
+    )
+
+
 def test_write_all_handles_interrupt_and_zero_write(monkeypatch) -> None:
     calls = iter([InterruptedError(), 2])
 
