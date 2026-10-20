@@ -13,7 +13,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 
 def _run(

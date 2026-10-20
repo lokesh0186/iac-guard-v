@@ -20,7 +20,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 WHEEL_NAME = f"iac_guard_v-{VERSION}-py3-none-any.whl"
 SDIST_NAME = f"iac_guard_v-{VERSION}.tar.gz"
 SENSITIVE_MARKERS = (
@@ -187,7 +187,7 @@ def build_packet(output: Path) -> dict[str, Any]:
 
     metadata = _metadata(wheel)
     if metadata["Version"] != VERSION:
-        raise RuntimeError("wheel metadata version is not 1.0.0")
+        raise RuntimeError("wheel metadata version is not 1.0.1")
     requirements = sorted(metadata.get_all("Requires-Dist", []))
     licenses = [_license_record(name) for name in DIRECT_DEPENDENCIES]
     dependencies = {

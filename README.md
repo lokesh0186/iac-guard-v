@@ -25,13 +25,16 @@ The verifier is offline in native-property and contract modes. It does not call 
 providers, cloud APIs, or a Kubernetes cluster. Missing, ambiguous, unsupported, or
 incomplete evidence never becomes success.
 
+Version 1.0.1 corrects Git tree ancestor validation; see the
+[maintenance release notes](RELEASE_NOTES_1_0_1.md).
+
 ## Install
 
 IaC-Guard-V 1.0 supports Python 3.10, 3.11, 3.12, and 3.13. Python 3.14 is not in the
 1.0 support matrix.
 
 ```bash
-python -m pip install 'iac-guard-v==1.0.0'
+python -m pip install 'iac-guard-v==1.0.1'
 iac-guard --version
 iac-guard doctor --mode native --format json
 iac-guard properties list
@@ -141,7 +144,7 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
-      - run: python -m pip install --no-compile 'iac-guard-v==1.0.0'
+      - run: python -m pip install --no-compile 'iac-guard-v==1.0.1'
       - run: iac-guard doctor --mode native --format json
       - run: iac-guard contract lint --contract .iac-guard-v/contracts.yaml
       - run: ./project-owned-deterministic-render-command

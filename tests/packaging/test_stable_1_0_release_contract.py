@@ -26,7 +26,7 @@ def test_release_attestation_identity_matches_protected_environment_branch() -> 
         "https://github.com/lokesh0186/iac-guard-v/.github/workflows/"
         "release.yml@refs/heads/main"
     ) in source
-    assert "release.yml@refs/tags/v1.0.0" not in source
+    assert "release.yml@refs/tags/v1.0.1" not in source
 
 
 RELEASE_DOCUMENTS = (
@@ -38,14 +38,15 @@ RELEASE_DOCUMENTS = (
     "SCANNER_AUTHORITY.md",
     "MIGRATION_0_1_0B1_TO_1_0.md",
     "RELEASE_NOTES_1_0.md",
+    "RELEASE_NOTES_1_0_1.md",
     "SUPPORT_POLICY.md",
 )
 
 
 def test_stable_version_and_release_documents_are_coherent() -> None:
-    assert __version__ == "1.0.0"
+    assert __version__ == "1.0.1"
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert 'version = "1.0.0"' in pyproject
+    assert 'version = "1.0.1"' in pyproject
     assert 'requires-python = ">=3.10,<3.14"' in pyproject
     assert "Development Status :: 5 - Production/Stable" in pyproject
     for relative in RELEASE_DOCUMENTS:
@@ -55,7 +56,7 @@ def test_stable_version_and_release_documents_are_coherent() -> None:
         assert "EB-1A" not in content
         assert "USCIS" not in content
     citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
-    assert "version: 1.0.0" in citation
+    assert "version: 1.0.1" in citation
     assert "date-released:" not in citation
 
 

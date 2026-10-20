@@ -37,8 +37,8 @@ def _run(
 
 def run_usability(wheel: Path) -> dict[str, object]:
     started = time.monotonic()
-    if not wheel.is_file() or wheel.name != "iac_guard_v-1.0.0-py3-none-any.whl":
-        raise RuntimeError("expected the exact 1.0.0 candidate wheel")
+    if not wheel.is_file() or wheel.name != "iac_guard_v-1.0.1-py3-none-any.whl":
+        raise RuntimeError("expected the exact 1.0.1 candidate wheel")
     records: list[dict[str, object]] = []
     with tempfile.TemporaryDirectory(prefix="iacgv-1.0-clean-user-") as temporary:
         root = Path(temporary)
@@ -69,7 +69,7 @@ def run_usability(wheel: Path) -> dict[str, object]:
         )
         records.append({"step": "install_candidate_wheel", "result": "PASS"})
         version = _run([str(executable), "--version"], cwd=root, environment=environment, expected=0)
-        if version.stdout.strip() != "iac-guard 1.0.0":
+        if version.stdout.strip() != "iac-guard 1.0.1":
             raise RuntimeError("installed command reported the wrong version")
         doctor = _run(
             [str(executable), "doctor", "--mode", "native", "--format", "json"],
@@ -80,7 +80,7 @@ def run_usability(wheel: Path) -> dict[str, object]:
         doctor_payload = json.loads(doctor.stdout)
         if doctor_payload.get("schema_version") != "doctor-v1":
             raise RuntimeError("native doctor reported an unexpected schema")
-        if doctor_payload.get("product_version") != "1.0.0":
+        if doctor_payload.get("product_version") != "1.0.1":
             raise RuntimeError("native doctor reported the wrong product version")
         if doctor_payload.get("checkov", {}).get("status") != "NOT_REQUIRED":
             raise RuntimeError("native mode unexpectedly requires Checkov")

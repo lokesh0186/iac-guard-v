@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iac-guard-v"
-version = "1.0.0"
+version = "1.0.1"
 description = "Fail-closed verification of declared infrastructure invariants over protected IaC"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -88,6 +88,7 @@ only-include = [
   "SCANNER_AUTHORITY.md",
   "MIGRATION_0_1_0B1_TO_1_0.md",
   "RELEASE_NOTES_1_0.md",
+  "RELEASE_NOTES_1_0_1.md",
   "SUPPORT_POLICY.md",
   "CONTRIBUTING.md",
   "SUPPORT.md",

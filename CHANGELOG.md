@@ -3,6 +3,17 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
+## [1.0.1] - 2026-10-20
+
+### Fixed
+
+- Reject Git tree entries that place a file or symlink above another leaf path
+  before materializing objects. Legitimate nested directories and standalone
+  symlinks retain their supported behavior. Reported by Maxym Vlasov in
+  [#41](https://github.com/lokesh0186/iac-guard-v/issues/41).
+- Add validation-only regression coverage for conflicting ancestors, entry order,
+  nested directories, and standalone symlinks.
+
 ## [1.0.0] - Release candidate
 
 ### Stable contract

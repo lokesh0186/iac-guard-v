@@ -1,4 +1,4 @@
-name: Publish reviewed 1.0.0 artifacts
+name: Publish reviewed 1.0.1 artifacts
 
 on:
   workflow_dispatch:
@@ -20,12 +20,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-pypi-1.0.0
+  group: publish-pypi-1.0.1
   cancel-in-progress: false
 
 jobs:
   publish-pypi:
-    name: Attest and publish 1.0.0 to PyPI
+    name: Attest and publish 1.0.1 to PyPI
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -44,7 +44,7 @@ jobs:
       - name: Download and verify the reviewed GitHub Release packet
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: v1.0.0
+          RELEASE_TAG: v1.0.1
           RELEASE_COMMIT: ${{ inputs.release_commit }}
           WHEEL_SHA256: ${{ inputs.wheel_sha256 }}
           SDIST_SHA256: ${{ inputs.sdist_sha256 }}
@@ -59,10 +59,10 @@ jobs:
           test "$(gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --json targetCommitish --jq .targetCommitish)" = "${RELEASE_COMMIT}"
           mkdir review dist
           gh release download "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" --dir review
-          test -f review/iac_guard_v-1.0.0-py3-none-any.whl
-          test -f review/iac_guard_v-1.0.0.tar.gz
+          test -f review/iac_guard_v-1.0.1-py3-none-any.whl
+          test -f review/iac_guard_v-1.0.1.tar.gz
           test -f review/SHA256SUMS
-          test -f review/iac_guard_v-1.0.0.cdx.json
+          test -f review/iac_guard_v-1.0.1.cdx.json
           test -f review/SOURCE_MANIFEST.sha256
           test -f review/PROVENANCE.intoto.json
           test -f review/DEPENDENCIES.json
@@ -73,11 +73,11 @@ jobs:
           test "$(find review -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 11
           (cd review && sha256sum --check --strict SHA256SUMS)
           printf '%s  %s\n' \
-            "${WHEEL_SHA256}" 'review/iac_guard_v-1.0.0-py3-none-any.whl' \
-            "${SDIST_SHA256}" 'review/iac_guard_v-1.0.0.tar.gz' \
+            "${WHEEL_SHA256}" 'review/iac_guard_v-1.0.1-py3-none-any.whl' \
+            "${SDIST_SHA256}" 'review/iac_guard_v-1.0.1.tar.gz' \
             | sha256sum --check --strict -
-          cp review/iac_guard_v-1.0.0-py3-none-any.whl dist/
-          cp review/iac_guard_v-1.0.0.tar.gz dist/
+          cp review/iac_guard_v-1.0.1-py3-none-any.whl dist/
+          cp review/iac_guard_v-1.0.1.tar.gz dist/
           test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" -eq 2
 
       - name: Create GitHub build provenance attestations
