@@ -20,8 +20,15 @@ from iac_guard_v.models import DomainError
 def test_source_loader_uses_source_not_existing_cache(tmp_path: Path) -> None:
     module = tmp_path/'qualification_probe.py'
     module.write_text("VALUE = 'cached'\n")
+    timestamp=module.stat().st_mtime_ns
     py_compile.compile(str(module),doraise=True)
     module.write_text("VALUE = 'source'\n")
+    os.utime(module,ns=(timestamp,timestamp))
+    ordinary=subprocess.run([sys.executable,'-I','-S','-B','-c',
+        'import sys;sys.path.insert(0,sys.argv[1]);import qualification_probe;print(qualification_probe.VALUE)',str(tmp_path)],
+        capture_output=True,text=True)
+    assert ordinary.returncode==0,ordinary.stderr
+    assert ordinary.stdout.strip()=='cached'
     launcher = tmp_path/'launcher'
     launcher.write_text("import qualification_probe; print(qualification_probe.VALUE)\n")
     private = tmp_path/'private'

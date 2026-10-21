@@ -90,6 +90,10 @@ pre-commit-terraform continues to own `CHECKOV_VERSION`:
 | `latest` | Use the resolved version; require its explicit authority profile |
 | Explicit unqualified version | Keep the selected version and fail the scanner-backed request clearly |
 
+Selecting all baseline findings does not silently discard unqualified checks.
+If the requested set contains a property outside the selected version profile,
+that scanner-backed request fails with the compatibility diagnostic.
+
 There is no silent downgrade, substitution or hidden 3.3.0 installation.
 `doctor` reports installed version, profile and qualified properties.
 `CHECKOV_VERSION_UNSUPPORTED_FOR_REQUESTED_PROPERTY` identifies an unknown version
