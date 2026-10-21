@@ -18,6 +18,13 @@ def authority_properties(version: str) -> tuple[str, ...]:
     return tuple(_DATA['versions'].get(version,{}).get('properties',()))
 
 
+def authority_details(version: str) -> dict[str, str]:
+    profile = _DATA['versions'].get(version)
+    if profile is None:
+        return {}
+    return {name: profile[name] for name in ('policy_variant', 'policy_qualification_identity')}
+
+
 class CheckovAuthorityUnavailable(DomainError):
     reason = 'CHECKOV_VERSION_UNSUPPORTED_FOR_REQUESTED_PROPERTY'
 

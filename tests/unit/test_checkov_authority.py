@@ -86,3 +86,26 @@ def test_every_profile_binds_property_definition_and_framework() -> None:
             json.dumps(definitions,sort_keys=True,separators=(',',':')).encode()).hexdigest()
         assert all(d['framework'] in {'terraform','kubernetes'} and len(d['definition_digest'])==64
                    for d in definitions.values())
+
+
+def test_doctor_reports_unknown_version_without_attempting_authority(monkeypatch,tmp_path: Path) -> None:
+    from iac_guard_v import cli
+    executable=tmp_path/'checkov';executable.write_text('qualification-only metadata stand-in\n')
+    probes=[]
+    monkeypatch.setattr(cli,'_version',lambda path: probes.append(path) or '3.3.31')
+    def unexpected_identity(*args):
+        raise AssertionError('Unknown version must not become authoritative')
+    monkeypatch.setattr(cli,'checkov_distribution_identity',unexpected_identity)
+    checkov=cli.doctor('local-trusted',executable).canonical_dict()['checkov']
+    assert checkov['status']=='UNSUPPORTED'
+    assert checkov['version']=='3.3.31'
+    assert checkov['reason_code']=='CHECKOV_VERSION_UNSUPPORTED_FOR_REQUESTED_PROPERTY'
+    assert 'Native properties remain available' in checkov['remediation']
+    assert probes==[executable]
+    assert cli.doctor('native').canonical_dict()['checkov']['status']=='NOT_REQUIRED'
+    assert probes==[executable]
+    assert authority.authority_details('3.3.31')=={}
+    for version in ['3.3.0','3.3.30']:
+        details=authority.authority_details(version)
+        assert details['policy_variant']
+        assert len(details['policy_qualification_identity'])==64

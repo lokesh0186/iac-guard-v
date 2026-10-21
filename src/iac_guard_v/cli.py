@@ -15,7 +15,7 @@ from types import MappingProxyType, SimpleNamespace
 
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
-from .checkov_authority import AUTHORITY_PROFILE, QUALIFIED_VERSIONS, CheckovAuthorityUnavailable, authority_properties, require_authority
+from .checkov_authority import AUTHORITY_PROFILE, QUALIFIED_VERSIONS, CheckovAuthorityUnavailable, authority_details, authority_properties, require_authority
 from .api import (
     BaselineDiscoveryUnavailable,
     _verify_git,
@@ -179,6 +179,7 @@ def doctor(
                 "authority_profile": AUTHORITY_PROFILE,
                 "qualified_versions": list(QUALIFIED_VERSIONS),
                 "qualified_properties": list(authority_properties(version)),
+                **authority_details(version),
                 "scanner_environment_digest": identity.scanner_environment_digest,
                 "policy_inventory_digest": identity.policy_inventory_digest,
                 "installed_distribution_digest": identity.installed_distribution_digest,
