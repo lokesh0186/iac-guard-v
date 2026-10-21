@@ -45,7 +45,7 @@ no unexplained `BREAKING` or `NEWLY_UNSUPPORTED` result. Changing a package pin 
 
 ## Checkov maintenance candidate
 
-The 1.0.2 candidate adds qualified Checkov version/property combinations without
+Version 1.0.2 adds qualified Checkov version/property combinations without
 changing native predicates, report semantics or existing 3.3.0 authority.
 [The Checkov profile](docs/CHECKOV_COMPATIBILITY.md) is an explicit set, not
 a promise to support every patch or future release. Shared installation is an

@@ -230,7 +230,7 @@ Contradictory or forged reports are rejected as invalid requests.
 
 ## Shared Checkov installation candidate
 
-The 1.0.2 maintenance candidate adds an opt-in, build-attested source-only launcher
+The 1.0.2 maintenance version adds an opt-in, build-attested source-only launcher
 for an existing operator-owned Checkov installation. It can be exposed to a small
 product venv using `--system-site-packages`; no second scanner dependency tree is
 required. The installation recipe above remains the strict legacy path.

@@ -15,9 +15,9 @@ integrity, and partial-output evidence.
 The frozen Checkov 3.2.517 research environment remains historical replay evidence,
 not the current product-authoritative runtime.
 
-## 1.0.2 compatibility candidate
+## 1.0.2 compatibility profiles
 
-The local maintenance candidate adds an explicit property/version profile for
+Version 1.0.2 adds an explicit property/version profile for
 Checkov 3.3.1–3.3.30; it does not declare arbitrary versions or checks authoritative.
 The existing 3.3.0 contract remains intact. CKV_K8S_40 is excluded on 3.3.8 and
 newer because its policy semantics changed. Unknown versions and unqualified

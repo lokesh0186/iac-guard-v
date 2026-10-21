@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iac-guard-v"
-version = "1.0.1"
+version = "1.0.2"
 description = "Fail-closed verification of declared infrastructure invariants over protected IaC"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -89,6 +89,8 @@ only-include = [
   "MIGRATION_0_1_0B1_TO_1_0.md",
   "RELEASE_NOTES_1_0.md",
   "RELEASE_NOTES_1_0_1.md",
+    "RELEASE_NOTES_1_0_2.md",
+    "CHECKOV_AUTHORITY_SURFACE.md",
   "SUPPORT_POLICY.md",
   "CONTRIBUTING.md",
   "SUPPORT.md",
@@ -100,6 +102,7 @@ only-include = [
   "examples/checkov-before-after",
   "examples/quickstart",
   "docs/ADVANCED_INSTALLATION.md",
+    "docs/CHECKOV_COMPATIBILITY.md",
   "docs/BETA_RELEASE_CHECKLIST.md",
   "docs/SECURITY_MODEL.md",
   "docs/SUPPORTED_SCOPE.md",

@@ -16,13 +16,13 @@ def test_release_workflow_promotes_only_reviewed_artifacts() -> None:
     assert "id-token: write" in workflow
     assert "attestations: write" in workflow
     assert "contents: read" in workflow
-    assert "RELEASE_TAG: v1.0.1" in workflow
+    assert "RELEASE_TAG: v1.0.2" in workflow
     assert 'test "${GITHUB_REF}" = "refs/heads/main"' in workflow
     assert "inputs.release_commit" in workflow
     assert "inputs.wheel_sha256" in workflow
     assert "inputs.sdist_sha256" in workflow
-    assert "iac_guard_v-1.0.1-py3-none-any.whl" in workflow
-    assert "iac_guard_v-1.0.1.tar.gz" in workflow
+    assert "iac_guard_v-1.0.2-py3-none-any.whl" in workflow
+    assert "iac_guard_v-1.0.2.tar.gz" in workflow
     assert "sha256sum --check --strict SHA256SUMS" in workflow
     assert "PROVENANCE.intoto.json" in workflow
     assert "SOURCE_MANIFEST.sha256" in workflow

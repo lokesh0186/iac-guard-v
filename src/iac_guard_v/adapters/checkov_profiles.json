@@ -1,6 +1,6 @@
 {
   "schema_version": "checkov-authority-profiles-v1",
-  "qualification_status": "LOCAL_QUALIFICATION_PENDING",
+  "qualification_status": "ENGINEERING_QUALIFICATION_COMPLETE",
   "versions": {
     "3.3.0": {
       "package_source_digest": "89c8786c0801c4612da1b29388963d6e336626efb32990940abd9c84021771a4",
