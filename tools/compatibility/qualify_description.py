@@ -13,6 +13,7 @@ from iac_guard_v.enums import Status
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument('--ordinary', type=Path, default=Path('/usr/bin/checkov'))
     parser.add_argument('--controlled', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
@@ -24,7 +25,7 @@ def main() -> int:
                 + description + ' type="ingress"\n from_port=22\n to_port=22\n protocol="tcp"\n cidr_blocks=["10.0.0.0/8"]\n security_group_id="sg-placeholder"\n}\n')
         config = root / 'safe.yml';config.write_text('quiet: false\n')
         results = []
-        for label, exe in [('ordinary', Path('/usr/bin/checkov')), ('controlled', args.controlled)]:
+        for label, exe in [('ordinary', args.ordinary), ('controlled', args.controlled)]:
             command = [str(exe), '-d', str(root), '--framework', 'terraform', '--check', 'CKV_AWS_23',
                 '--config-file', str(config), '--skip-download', '--download-external-modules', 'false',
                 '--skip-results-upload', '--output', 'json', '--compact']
