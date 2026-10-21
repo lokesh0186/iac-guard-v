@@ -9,6 +9,7 @@ import yaml
 from .models import DomainError
 from .native_properties.registry import NATIVE_PROPERTY_REGISTRY, native_registry_identity
 from .workflow import write_new_regular_file
+from .checkov_authority import AUTHORITY_PROFILE, QUALIFIED_VERSIONS
 
 
 SUPPORT_MATRIX_VERSION = "beta-support-matrix-v1"
@@ -18,7 +19,8 @@ SCANNER_DIAGNOSTICS_VERSION = "scanner-diagnostics-v1"
 _SCANNER_CAPABILITY_DECLARATIONS = (
     {
         "name": "checkov",
-        "reviewed_versions": ["3.3.0"],
+        "reviewed_versions": list(QUALIFIED_VERSIONS),
+        "authority_profile": AUTHORITY_PROFILE,
         "authority": "AUTHORITATIVE_REVIEWED_PATHS",
         "artifact_classes": ["kubernetes", "terraform"],
         "exact_target_binding": True,
@@ -198,7 +200,7 @@ def support_matrix() -> dict:
             {"name": "Terraform", "materialization": "SOURCE_LOCAL_TF_ONLY", "native": "REFERENCE_V1", "scanner": "CHECKOV_REVIEWED_PATHS", "boundary": "no plan/provider/remote modules"},
             {"name": "OpenTofu", "materialization": "PROTECTED_FILE_SET_V1", "native": "REFERENCE_V1", "scanner": "NOT_REQUIRED", "boundary": "local static subset; remote modules fail closed"},
             {"name": "Intent contracts", "materialization": "V1ALPHA1", "native": "COMPILED_EXISTING_PROPERTIES", "scanner": "NOT_REQUIRED", "boundary": "explicit intent only"},
-            {"name": "Checkov", "materialization": "ADAPTER", "native": "NO", "scanner": "AUTHORITATIVE_REVIEWED_PATHS", "boundary": "3.3.0 locked identity"},
+            {"name": "Checkov", "materialization": "ADAPTER", "native": "NO", "scanner": "AUTHORITATIVE_REVIEWED_PATHS", "boundary": AUTHORITY_PROFILE},
             {"name": "KICS", "materialization": "ADAPTER", "native": "NO", "scanner": "ADVISORY", "boundary": "zero findings is not target PASS"},
             {"name": "Trivy", "materialization": "ADAPTER", "native": "NO", "scanner": "ADVISORY", "boundary": "no target PASS without exact binding"},
         ],

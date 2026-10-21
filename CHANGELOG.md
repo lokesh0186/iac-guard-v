@@ -3,6 +3,20 @@
 All notable product changes will be documented here. The frozen QRS 2026 research
 artifact has its own immutable provenance and is not rewritten by this changelog.
 
+## [1.0.2] - Unreleased maintenance candidate
+
+- Disable the optional Checkov package-update advisory only in the controlled
+  launcher; retain source-only execution and all runtime provenance checks.
+
+- Add explicit qualified Checkov version/property profiles for 3.3.0–3.3.30.
+  Retain the released 3.3.0 contract. Exclude CKV_K8S_40 on 3.3.8 and newer
+  because its policy semantics changed; unqualified combinations fail closed.
+- Add an opt-in build-attested source-only invocation that reuses an existing
+  Checkov installation through a separate product venv. Preserve the original
+  scanner installation, cache files and ordinary hook path.
+- Add version/property doctor diagnostics, qualification fixtures and an explicit
+  compatibility CI matrix plus a separate latest-version canary.
+
 ## [1.0.1] - 2026-10-20
 
 ### Fixed

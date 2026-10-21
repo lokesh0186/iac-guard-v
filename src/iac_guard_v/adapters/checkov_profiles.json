@@ -1,0 +1,3488 @@
+{
+  "schema_version": "checkov-authority-profiles-v1",
+  "qualification_status": "ENGINEERING_QUALIFICATION_COMPLETE",
+  "versions": {
+    "3.3.0": {
+      "package_source_digest": "89c8786c0801c4612da1b29388963d6e336626efb32990940abd9c84021771a4",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30",
+        "CKV_K8S_40"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "BASELINE_K8S_40",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        },
+        "CKV_K8S_40": {
+          "framework": "kubernetes",
+          "definition_digest": "fc89168711f996ed5983b1b85f5698f0e770a93787b92420bf2c3c80380cc50c"
+        }
+      },
+      "policy_qualification_identity": "a1c4044d5e587f51daadb61b50996bd3c962660f70a64391d71285bc929d96ab"
+    },
+    "3.3.1": {
+      "package_source_digest": "25f5d3154ebff61824d6ddeb2c3c5e59a577de249610dc836fa13f7f8f306f52",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30",
+        "CKV_K8S_40"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "BASELINE_K8S_40",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        },
+        "CKV_K8S_40": {
+          "framework": "kubernetes",
+          "definition_digest": "fc89168711f996ed5983b1b85f5698f0e770a93787b92420bf2c3c80380cc50c"
+        }
+      },
+      "policy_qualification_identity": "a1c4044d5e587f51daadb61b50996bd3c962660f70a64391d71285bc929d96ab"
+    },
+    "3.3.2": {
+      "package_source_digest": "9ced110284272ba06ccb46b84801d064e0a5842d3e747298bc5465d9faa664a9",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30",
+        "CKV_K8S_40"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "BASELINE_K8S_40",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        },
+        "CKV_K8S_40": {
+          "framework": "kubernetes",
+          "definition_digest": "fc89168711f996ed5983b1b85f5698f0e770a93787b92420bf2c3c80380cc50c"
+        }
+      },
+      "policy_qualification_identity": "a1c4044d5e587f51daadb61b50996bd3c962660f70a64391d71285bc929d96ab"
+    },
+    "3.3.3": {
+      "package_source_digest": "5fb3c1120e36c67b9debc61f257af956e7d291d007666a28adfd621223b254ac",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30",
+        "CKV_K8S_40"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "BASELINE_K8S_40",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        },
+        "CKV_K8S_40": {
+          "framework": "kubernetes",
+          "definition_digest": "fc89168711f996ed5983b1b85f5698f0e770a93787b92420bf2c3c80380cc50c"
+        }
+      },
+      "policy_qualification_identity": "a1c4044d5e587f51daadb61b50996bd3c962660f70a64391d71285bc929d96ab"
+    },
+    "3.3.4": {
+      "package_source_digest": "11f2ce836fb0ef6744238c04818299f6af2ef236d8275cba9a183c3dbe8eaff1",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30",
+        "CKV_K8S_40"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "BASELINE_K8S_40",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        },
+        "CKV_K8S_40": {
+          "framework": "kubernetes",
+          "definition_digest": "fc89168711f996ed5983b1b85f5698f0e770a93787b92420bf2c3c80380cc50c"
+        }
+      },
+      "policy_qualification_identity": "a1c4044d5e587f51daadb61b50996bd3c962660f70a64391d71285bc929d96ab"
+    },
+    "3.3.5": {
+      "package_source_digest": "888e39aee6c9474f3109ea9a84d3efe55321e50e21591d4d08343a2877b72842",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30",
+        "CKV_K8S_40"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "BASELINE_K8S_40",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        },
+        "CKV_K8S_40": {
+          "framework": "kubernetes",
+          "definition_digest": "fc89168711f996ed5983b1b85f5698f0e770a93787b92420bf2c3c80380cc50c"
+        }
+      },
+      "policy_qualification_identity": "a1c4044d5e587f51daadb61b50996bd3c962660f70a64391d71285bc929d96ab"
+    },
+    "3.3.6": {
+      "package_source_digest": "e0e2750d44f1fcd23db12c2673abcb8c8a1ff70e27f00545db95b680d1870517",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30",
+        "CKV_K8S_40"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "BASELINE_K8S_40",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        },
+        "CKV_K8S_40": {
+          "framework": "kubernetes",
+          "definition_digest": "fc89168711f996ed5983b1b85f5698f0e770a93787b92420bf2c3c80380cc50c"
+        }
+      },
+      "policy_qualification_identity": "a1c4044d5e587f51daadb61b50996bd3c962660f70a64391d71285bc929d96ab"
+    },
+    "3.3.7": {
+      "package_source_digest": "955aee4bd7e6eaa86c41d3d87348182d494c1c72cc4f1a13d243e3b4c5a8fc85",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30",
+        "CKV_K8S_40"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "BASELINE_K8S_40",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        },
+        "CKV_K8S_40": {
+          "framework": "kubernetes",
+          "definition_digest": "fc89168711f996ed5983b1b85f5698f0e770a93787b92420bf2c3c80380cc50c"
+        }
+      },
+      "policy_qualification_identity": "a1c4044d5e587f51daadb61b50996bd3c962660f70a64391d71285bc929d96ab"
+    },
+    "3.3.8": {
+      "package_source_digest": "3e082bea125f190aadd10aabca2783fb65ff1114df54da1d9139ee54fc883068",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.9": {
+      "package_source_digest": "ad753dfbaf997166a39770c1ad0e083bf92771bb4ad7c5b50f48a39a6f518eb7",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.10": {
+      "package_source_digest": "e7758bfacae03d16409e452eb7632e139a894aac36cfcd4ea0b74a840c4e65ae",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.11": {
+      "package_source_digest": "fdae7b5ad3bf856fadbefcca8365910840b405df92672bcfb85e56131dc1337c",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.12": {
+      "package_source_digest": "2038287324d0d607d2908a6ecbf87963ee8d79156ac0480b66262ee57bab586a",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.13": {
+      "package_source_digest": "fe39df2b4a860360e61d3058002d254fddd9bd4e53f5535f4da06ae83477a71a",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.14": {
+      "package_source_digest": "bafc9e2a9d60152f8a854179f7fdfc0ce9b965fda7f74667e368a579e77f60ca",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.15": {
+      "package_source_digest": "79d958762d0ae99c9f75f85b10c987230ce8496f66440ddd043d153a2982ea22",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.16": {
+      "package_source_digest": "a4cc04ac39c9c829bce0df96bff81a55d8e44d74ed9f2f3fa609112ff712c71f",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.17": {
+      "package_source_digest": "8211170609e062ea5f7b70f48e6965baf57e6bcb1c6da43215f31fb3b28d724a",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.18": {
+      "package_source_digest": "6110f452956a12eca52c47bbe0accc46647af2b7ff202e3f49847b28cae78124",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.19": {
+      "package_source_digest": "856599f6723e847d932cc60affd85f7173fd122c1d7e311d87cdeb2e0a798760",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.20": {
+      "package_source_digest": "4f0c818b7ff7918f6d062b0ede3d6a2321d1e21dee076184ae33f8ee30cf8202",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.21": {
+      "package_source_digest": "a8023f73cbc57fbb319cd40b9d970eadaf7498293df7ac7c724f5afcb19ef583",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.22": {
+      "package_source_digest": "29b7ee7d65a1cc09200444e436441d548c359c5ad0a07c20fb253c5266e61fea",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.23": {
+      "package_source_digest": "d881d40331974e9679844a5af7e9ccb1b99a3f1eb848fd8ab1f3860a47533ee4",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.24": {
+      "package_source_digest": "63fe630a246a5e522695ec961063f4d23ff8ce5949a1f9d14e917e199820f35f",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.25": {
+      "package_source_digest": "f5b1c63bcb76ffaefc3c3be05e4f34be440351a5b50d94ba537fcd87755523b1",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.26": {
+      "package_source_digest": "3ce244dbf3187ebd1d2b40bbc15a5e2f4980bceb356dfede1efe05ab34b6cf58",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.27": {
+      "package_source_digest": "a1c6f4f5e8af6affbd970b3e66c8a3adac3ec3c0dd4899c518189e09ed1bf02c",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.28": {
+      "package_source_digest": "c5c9eb8073dd4a80b6afa8d308a1d17b79b66552afe9b5995836f8b967c9ff7d",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.29": {
+      "package_source_digest": "9098d975670c93643ce8dc04208ecbb930c167f2a51a6f72bd26ab284439325b",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.3.30": {
+      "package_source_digest": "eb5ff16ffdcfd425deb3b3799883e42998838960d53c74bfceba0b07a9654302",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV2_AWS_6",
+        "CKV2_K8S_6",
+        "CKV_AWS_18",
+        "CKV_AWS_19",
+        "CKV_AWS_23",
+        "CKV_AWS_24",
+        "CKV_AWS_3",
+        "CKV_AWS_53",
+        "CKV_AWS_54",
+        "CKV_K8S_10",
+        "CKV_K8S_11",
+        "CKV_K8S_12",
+        "CKV_K8S_13",
+        "CKV_K8S_14",
+        "CKV_K8S_15",
+        "CKV_K8S_20",
+        "CKV_K8S_21",
+        "CKV_K8S_22",
+        "CKV_K8S_23",
+        "CKV_K8S_30"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "K8S_40_NOT_QUALIFIED",
+      "property_definitions": {
+        "CKV2_AWS_6": {
+          "framework": "terraform",
+          "definition_digest": "351604b56bad88c2a1f877a511a22e8cfa712140df716bbb399a0ff22d8d9ee0"
+        },
+        "CKV2_K8S_6": {
+          "framework": "kubernetes",
+          "definition_digest": "9be480bda4389b36c688eb3aa4500bac7cc8651abebae0d361c74a68d7d5eb58"
+        },
+        "CKV_AWS_18": {
+          "framework": "terraform",
+          "definition_digest": "d1472e1ad4b5bfcdf79bad1520520221f39607836f49939df0aa722ff7b2952d"
+        },
+        "CKV_AWS_19": {
+          "framework": "terraform",
+          "definition_digest": "22a159795b7601cdff20528aff1fa212a2d74e4536a42e29e8d6e155e8afa90a"
+        },
+        "CKV_AWS_23": {
+          "framework": "terraform",
+          "definition_digest": "14f25fe98c824ccefbd94beef18063f689202125714d5576ad248d55882fdea4"
+        },
+        "CKV_AWS_24": {
+          "framework": "terraform",
+          "definition_digest": "d740bb7c3ce37314df8f794ba87c94fd8e13ef93cf0ac3f4d1f0eb116427a40b"
+        },
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        },
+        "CKV_AWS_53": {
+          "framework": "terraform",
+          "definition_digest": "560310cb2cb1ca8c915c0db87997f2eab748cb4909d7bbe5fbe2925815555ab7"
+        },
+        "CKV_AWS_54": {
+          "framework": "terraform",
+          "definition_digest": "8f7d1e537e749e2102e39012f8c9c7c0625aabb6668d8ac7136e044c5c6583a0"
+        },
+        "CKV_K8S_10": {
+          "framework": "kubernetes",
+          "definition_digest": "88e7c23b4b9c09f68dbd85cff24c6475647168166baab5346b2ca537e5663119"
+        },
+        "CKV_K8S_11": {
+          "framework": "kubernetes",
+          "definition_digest": "20ef531895aa5d7ac3746ae50377261aec95cc3763107c5e6d605490bb1e9f28"
+        },
+        "CKV_K8S_12": {
+          "framework": "kubernetes",
+          "definition_digest": "6c8b5a536d882c1e56e763b41be25de245491ac82b892973f7001f2aced0ef0c"
+        },
+        "CKV_K8S_13": {
+          "framework": "kubernetes",
+          "definition_digest": "55ba6c79ba0366f3460f9f5d3e16c429d279c68e8a104c88202122b8173125fc"
+        },
+        "CKV_K8S_14": {
+          "framework": "kubernetes",
+          "definition_digest": "97e0d144f39b5a2ffea5978cb93fcbe99774d945696bb146895c973ddf9ddc58"
+        },
+        "CKV_K8S_15": {
+          "framework": "kubernetes",
+          "definition_digest": "9d663d5164c204966e5470f912f2f4ea62cece4a2c4eef61d558c24822130f1d"
+        },
+        "CKV_K8S_20": {
+          "framework": "kubernetes",
+          "definition_digest": "af55cf6a11eb66e054e935177b4aae8ed5a618b8388923b85c175b2afaf89195"
+        },
+        "CKV_K8S_21": {
+          "framework": "kubernetes",
+          "definition_digest": "3988c10f4f1f806b88402bc8f5847176d4f2b4bedc517b205de16de75588ff23"
+        },
+        "CKV_K8S_22": {
+          "framework": "kubernetes",
+          "definition_digest": "7f9ba6c22cd95f57c5e11b0c4dd4e256e5bc04c2934432541934fcd9420b52d8"
+        },
+        "CKV_K8S_23": {
+          "framework": "kubernetes",
+          "definition_digest": "ee103d6934b21ca93d88193cc8acd1ab86c27b2dd9686ee8a10de46248627643"
+        },
+        "CKV_K8S_30": {
+          "framework": "kubernetes",
+          "definition_digest": "367303bacd490cdb8837fbdec4a2538ff8d1dfcc240f62837188f41598f06d3a"
+        }
+      },
+      "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    }
+  },
+  "excluded_changed_policy": "CKV_K8S_40; remaining unobserved/changed policies are outside this property allowlist"
+}

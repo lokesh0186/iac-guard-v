@@ -46,7 +46,7 @@ _A10_SEMANTIC_DIGESTS = {
 
 
 def test_beta_compatibility_surface_and_current_registry_snapshot() -> None:
-    assert __version__ == "1.0.1"
+    assert __version__ == "1.0.2"
     catalog = property_catalog()
     assert catalog["registry_identity"]
     assert len(catalog["properties"]) == 18

@@ -28,13 +28,16 @@ incomplete evidence never becomes success.
 Version 1.0.1 corrects Git tree ancestor validation; see the
 [maintenance release notes](RELEASE_NOTES_1_0_1.md).
 
+Version 1.0.2 adds [qualified Checkov profiles and shared installation
+support](docs/CHECKOV_COMPATIBILITY.md).
+
 ## Install
 
 IaC-Guard-V 1.0 supports Python 3.10, 3.11, 3.12, and 3.13. Python 3.14 is not in the
 1.0 support matrix.
 
 ```bash
-python -m pip install 'iac-guard-v==1.0.1'
+python -m pip install 'iac-guard-v==1.0.2'
 iac-guard --version
 iac-guard doctor --mode native --format json
 iac-guard properties list

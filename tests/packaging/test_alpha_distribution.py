@@ -22,7 +22,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -75,6 +75,8 @@ ALLOWED_SDIST_ROOT_FILES = {
     "MIGRATION_0_1_0B1_TO_1_0.md",
     "RELEASE_NOTES_1_0.md",
     "RELEASE_NOTES_1_0_1.md",
+    "RELEASE_NOTES_1_0_2.md",
+    "CHECKOV_AUTHORITY_SURFACE.md",
     "SUPPORT_POLICY.md",
     "SUPPORT.md",
     "pyproject.toml",
@@ -82,6 +84,7 @@ ALLOWED_SDIST_ROOT_FILES = {
 ALLOWED_SDIST_EXACT_FILES = {
     "packaging/iac_guard_v_no_bytecode.pth",
     "docs/ADVANCED_INSTALLATION.md",
+    "docs/CHECKOV_COMPATIBILITY.md",
     "docs/BETA_RELEASE_CHECKLIST.md",
     "docs/CANDIDATE_ACCEPTANCE.md",
     "docs/HELM_MATERIALIZATION.md",
@@ -482,7 +485,7 @@ def test_public_stable_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
         "fail-closed verifier for declared infrastructure invariants",
-        "python -m pip install 'iac-guard-v==1.0.1'",
+        "python -m pip install 'iac-guard-v==1.0.2'",
         "iac-guard doctor --mode native",
         "exact set of 18 native properties",
         "Python 3.14 is not in the",
@@ -528,7 +531,7 @@ def test_public_stable_docs_state_current_boundaries() -> None:
         assert statement in release_notes
 
     citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
-    assert "version: 1.0.1" in citation
+    assert "version: 1.0.2" in citation
     assert 'doi: "10.5281/zenodo.22088272"' in citation
 
     security_model = (ROOT / "SECURITY_MODEL.md").read_text(encoding="utf-8")

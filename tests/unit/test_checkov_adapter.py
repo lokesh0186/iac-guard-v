@@ -213,7 +213,7 @@ def normalize(req: CheckovScanRequest, payload, proc: CommandResult | None = Non
 def test_contract_is_closed_and_checkov_only() -> None:
     assert CHECKOV_CONTRACT.canonical_dict() == {
         "name": "checkov",
-        "supported_versions": ["3.2.517", "3.3.0"],
+        "supported_versions": ["3.2.517", *sorted(f"3.3.{i}" for i in range(31))],
         "frameworks": ["kubernetes", "terraform"],
         "expected_exit_codes": [0, 1],
     }
@@ -399,7 +399,7 @@ def test_zero_resource_summary_with_eligible_input_fails_closed(tmp_path: Path) 
     assert run.diagnostics == (AdapterReason.ZERO_FILES_DISCOVERED.value,)
 
 
-@pytest.mark.parametrize("version", ["3.2.516", "3.3.1", "latest"])
+@pytest.mark.parametrize("version", ["3.2.516", "3.3.31", "3.4.0", "latest"])
 def test_version_outside_closed_contract_is_error(tmp_path: Path, version: str) -> None:
     run = normalize(request(tmp_path), document(version=version))
     assert run.status is Status.ERROR
@@ -714,7 +714,7 @@ def test_request_validation_mutations(tmp_path: Path) -> None:
     with pytest.raises(DomainError, match="duplicates"):
         request(tmp_path, files_eligible=("main.tf", "main.tf"))
     with pytest.raises(DomainError, match="outside the supported"):
-        request(tmp_path, expected_version="3.3.1")
+        request(tmp_path, expected_version="3.3.31")
     with pytest.raises(DomainError, match="exact tuple"):
         request(tmp_path, kubernetes_identities=[])
     with pytest.raises(DomainError, match="must be > 0"):
@@ -804,7 +804,8 @@ def test_normalize_rejects_nonexact_boundary_values(tmp_path: Path) -> None:
     ("stdout", "expected"),
     [
         (b"", AdapterReason.VERSION_PROBE_FAILED),
-        (b"3.3.1\n", AdapterReason.UNSUPPORTED_VERSION),
+        (b"3.3.31\n", AdapterReason.UNSUPPORTED_VERSION),
+        (b"3.3.1\n", AdapterReason.VERSION_MISMATCH),
         (b"3.2.517\n", AdapterReason.VERSION_MISMATCH),
         (b"\xff", AdapterReason.VERSION_PROBE_FAILED),
     ],

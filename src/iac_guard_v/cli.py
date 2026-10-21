@@ -15,6 +15,7 @@ from types import MappingProxyType, SimpleNamespace
 
 from . import __version__
 from .adapters.checkov import CHECKOV_CONTRACT, checkov_distribution_identity
+from .checkov_authority import AUTHORITY_PROFILE, QUALIFIED_VERSIONS, CheckovAuthorityUnavailable, authority_details, authority_properties, require_authority
 from .api import (
     BaselineDiscoveryUnavailable,
     _verify_git,
@@ -163,6 +164,7 @@ def doctor(
         try:
             executable = Path(discovered).resolve(strict=True)
             version = _version(executable)
+            require_authority(version)
             identity = checkov_distribution_identity(executable, version)
             supported = version in CHECKOV_CONTRACT.supported_versions
             checkov = {
@@ -174,6 +176,10 @@ def doctor(
                 "launcher_name": executable.name,
                 "launcher_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
                 "version": version,
+                "authority_profile": AUTHORITY_PROFILE,
+                "qualified_versions": list(QUALIFIED_VERSIONS),
+                "qualified_properties": list(authority_properties(version)),
+                **authority_details(version),
                 "scanner_environment_digest": identity.scanner_environment_digest,
                 "policy_inventory_digest": identity.policy_inventory_digest,
                 "installed_distribution_digest": identity.installed_distribution_digest,
@@ -183,6 +189,11 @@ def doctor(
                     if supported else "Install exactly Checkov 3.3.0."
                 ),
             }
+        except CheckovAuthorityUnavailable as exc:
+            checkov = {"status": "UNSUPPORTED", "reason_code": exc.reason,
+                "version": version, "authority_profile": AUTHORITY_PROFILE,
+                "qualified_versions": list(QUALIFIED_VERSIONS), "detail": str(exc),
+                "remediation": "Select a qualified Checkov version/property. Native properties remain available."}
         except (DomainError, OSError) as exc:
             detail = str(exc)
             unsafe_bytecode = "bytecode/cache" in detail
@@ -718,7 +729,8 @@ def _direct_request(args) -> PublicVerificationRequest | OperationalReportV1:
         )
     except BaselineDiscoveryUnavailable as exc:
         return OperationalReportV1(
-            "BASELINE_TARGET_DISCOVERY_UNAVAILABLE",
+            (CheckovAuthorityUnavailable.reason if str(exc).startswith(CheckovAuthorityUnavailable.reason)
+                else "BASELINE_TARGET_DISCOVERY_UNAVAILABLE"),
             redact_detail(str(exc)),
             "Run doctor --mode local-trusted and repair the exact Checkov 3.3.0 environment.",
         )

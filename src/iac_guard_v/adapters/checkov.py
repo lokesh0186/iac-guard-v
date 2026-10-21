@@ -68,11 +68,12 @@ from ..normalisation import assign_occurrence_indices
 from ..process import CommandRequest, CommandResult, ProcessReason, run_command
 from ..redaction import redact_detail
 from .base import AdapterReason, ScannerContract
+from ..checkov_authority import QUALIFIED_VERSIONS, property_supported, require_published_package
 
 
 CHECKOV_CONTRACT = ScannerContract(
     name="checkov",
-    supported_versions=("3.2.517", "3.3.0"),
+    supported_versions=("3.2.517", *QUALIFIED_VERSIONS),
     frameworks=("kubernetes", "terraform"),
     expected_exit_codes=(0, 1),
 )
@@ -309,6 +310,29 @@ def checkov_distribution_identity(
     executable: Path, expected_version: str
 ) -> CheckovDistributionIdentity:
     """Hash the installed distribution tree and its policy/check inventory."""
+    from ..external_checkov import load_manifest
+    external = load_manifest(executable)
+    if external is not None:
+        if external["version"] != expected_version:
+            raise DomainError("external Checkov manifest version does not match request")
+        files = external["site_files"]
+        package = {name: digest for name, digest in files.items() if name.startswith("checkov/")}
+        require_published_package(expected_version, package)
+        policies = {name: digest for name, digest in package.items() if "/checks/" in name or "/policies/" in name}
+        if not package or not policies:
+            raise DomainError("external Checkov package or policy inventory is empty")
+        encode = lambda value: hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        components = ScannerEnvironmentComponents(
+            non_policy_package_digest=encode({k: v for k, v in package.items() if k not in policies}),
+            installed_distribution_digest=encode(package),
+            dependency_closure_digest=encode({"site": files, "stdlib": external["stdlib_files"], "records": external["source_records_digest"]}),
+            custom_check_digest=encode({"custom-checks": "disabled", "external-source-bootstrap": 1}),
+            policy_inventory_digest=encode(policies),
+            runtime_interpreter_digest=external["interpreter_sha256"],
+        )
+        return CheckovDistributionIdentity(components.environment_digest, components.policy_inventory_digest,
+            "external-source-build-manifest-v1-" + expected_version, components.installed_distribution_digest,
+            components.dependency_closure_digest, components.custom_check_digest, components)
     resolved = executable.resolve(strict=True)
     try:
         first_line = resolved.read_bytes().splitlines()[0].decode("utf-8", errors="strict")
@@ -345,6 +369,11 @@ def checkov_distribution_identity(
         item for item in package_files if item[0] not in policy_paths
     ]
     distribution_digest = _sha256_manifest(package_files)
+    if expected_version not in {"3.2.517", "3.3.0"}:
+        require_published_package(expected_version, {
+            path.relative_to(checkov_roots[0].parent).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for _relative, path in package_files
+        })
     policy_digest = _sha256_manifest(policy_files)
     site_packages = checkov_roots[0].parent
     for metadata in sorted(site_packages.glob("*.dist-info")):
@@ -565,6 +594,11 @@ class CheckovScanRequest:
             raise DomainError("scan_root must resolve inside workspace_root")
         if _within(executable, workspace):
             raise DomainError("Checkov executable must not resolve inside workspace_root")
+        from ..external_checkov import load_manifest
+        external = load_manifest(executable, verify=False)
+        if external is not None and any(_within(Path(external[name]), workspace)
+                for name in ("site_packages", "stdlib", "interpreter", "original_launcher")):
+            raise DomainError("external Checkov roots must remain outside workspace_root")
         executable_sha256 = _file_sha256(executable)
         if (
             type(self.expected_executable_sha256) is not str
@@ -1568,6 +1602,8 @@ def evaluate_checkov_target(
         raise DomainError("target evaluation requires an exact Checkov ScannerRun")
     require_trusted_scanner_run(run)
     rule = canonical_identifier(rule_id, "target rule_id")
+    if run.scanner_version not in {"3.2.517", "3.3.0"} and not property_supported(run.scanner_version, rule, resource_address):
+        return _target_evidence(Status.INCONCLUSIVE, CheckTargetReason.TARGET_EVALUATION_UNKNOWN, ())
     if relationship_required is None:
         relationship_required = (
             legacy_report_v1_property_capability("checkov", rule)
