@@ -44,6 +44,11 @@ jobs:
         run: |
           "$RUNNER_TEMP/iacgv-product/bin/python" tools/compatibility/qualify.py --ordinary "$(command -v checkov)" --controlled "$RUNNER_TEMP/iacgv-scanner/checkov" --output "$RUNNER_TEMP/qualification"
 
+      - name: Qualify the security-group description policy
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          "$RUNNER_TEMP/iacgv-product/bin/python" tools/compatibility/qualify_description.py --controlled "$RUNNER_TEMP/iacgv-scanner/checkov" --output "$RUNNER_TEMP/qualification/description-supplement"
       - name: Retain qualification evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -73,6 +78,11 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
         run: |
           "$RUNNER_TEMP/iacgv-product/bin/python" tools/compatibility/qualify.py --ordinary "$(command -v checkov)" --controlled "$RUNNER_TEMP/iacgv-scanner/checkov" --output "$RUNNER_TEMP/canary"
+      - name: Qualify canary description policy
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          "$RUNNER_TEMP/iacgv-product/bin/python" tools/compatibility/qualify_description.py --controlled "$RUNNER_TEMP/iacgv-scanner/checkov" --output "$RUNNER_TEMP/canary/description-supplement"
       - name: Retain canary evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
