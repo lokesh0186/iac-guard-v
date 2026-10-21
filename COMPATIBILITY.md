@@ -42,3 +42,12 @@ Every known public IaC-Guard-V-dependent contract, command, report consumer, iss
 and pull request is replayed before release. The 1.0 gate covers 32 cases and permits
 no unexplained `BREAKING` or `NEWLY_UNSUPPORTED` result. Changing a package pin from
 `0.1.0b1` to `1.0.0` is the only expected consumer edit.
+
+## Checkov maintenance candidate
+
+The 1.0.2 candidate adds qualified Checkov version/property combinations without
+changing native predicates, report semantics or existing 3.3.0 authority.
+[The Checkov profile](docs/CHECKOV_COMPATIBILITY.md) is an explicit set, not
+a promise to support every patch or future release. Shared installation is an
+opt-in execution/provenance contract; the ordinary Checkov installation remains
+unchanged. No hidden scanner substitution is performed.

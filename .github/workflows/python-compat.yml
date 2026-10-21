@@ -41,6 +41,11 @@ jobs:
           PYTHONDONTWRITEBYTECODE: "1"
           PYTHONPATH: src
         run: /tmp/iacgv-compat/bin/python -m tools.testing.ci_gates d4-adapters-parser-graph
+      - name: Enforce external scanner authority coverage
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+          PYTHONPATH: src
+        run: /tmp/iacgv-compat/bin/python -m tools.testing.ci_gates checkov-external-authority
       - name: Enforce D5 engine coverage
         env:
           PYTHONDONTWRITEBYTECODE: "1"

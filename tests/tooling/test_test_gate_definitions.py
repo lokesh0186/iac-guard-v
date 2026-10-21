@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_all_gate_paths_exist_and_thresholds_remain_90() -> None:
     validate_paths(ROOT)
-    assert len(COVERAGE_GATES) == 11
+    assert len(COVERAGE_GATES) == 12
     assert all(gate.threshold == 90 for gate in COVERAGE_GATES)
     assert all(gate.modules for gate in COVERAGE_GATES)
     assert all(gate.tests for gate in COVERAGE_GATES)
@@ -93,8 +93,8 @@ def test_public_workflow_uses_shared_gates_in_clean_environment() -> None:
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     backend = re.search(r'^requires = \["(hatchling==[^"]+)"\]$', pyproject, re.MULTILINE)
     assert backend is not None
-    assert workflow.count("-m tools.testing.ci_gates") == 6
-    assert workflow.count('PYTHONDONTWRITEBYTECODE: "1"') == 6
+    assert workflow.count("-m tools.testing.ci_gates") == 7
+    assert workflow.count('PYTHONDONTWRITEBYTECODE: "1"') == 7
     assert "python -m pytest tests/unit/test_fingerprints.py" not in workflow
     assert "python -m venv --copies /tmp/iacgv-compat" in workflow
     assert 'install --no-compile -e ".[compat-test]"' in workflow

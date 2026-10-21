@@ -143,6 +143,12 @@ CONTRACT_TESTS = (
 )
 
 COVERAGE_GATES = (
+    CoverageGate(
+        "checkov-external-authority",
+        ("tests/unit/test_external_checkov.py", "tests/unit/test_checkov_authority.py"),
+        ("iac_guard_v.external_checkov", "iac_guard_v.checkov_authority"),
+        branch=True,
+    ),
     CoverageGate("d3-fingerprints", D3_TESTS, ("iac_guard_v.fingerprints",)),
     CoverageGate("d3-matching", D3_TESTS, ("iac_guard_v.matching",)),
     CoverageGate("d3-diffing", D3_TESTS, ("iac_guard_v.diffing",)),

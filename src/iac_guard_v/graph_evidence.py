@@ -308,6 +308,10 @@ def _attributes_satisfy(
 
 
 def _installation_roots(executable: Path) -> tuple[Path, ...]:
+    from .external_checkov import load_manifest
+    external = load_manifest(executable, verify=False)
+    if external is not None:
+        return (Path(external["site_packages"]) / "checkov",)
     resolved = executable.resolve(strict=True)
     try:
         first_line = resolved.read_bytes().splitlines()[0].decode("utf-8", errors="strict")

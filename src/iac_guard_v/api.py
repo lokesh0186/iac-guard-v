@@ -57,6 +57,7 @@ from .scanner_core import (
     protect_scan_artifact,
 )
 from .workflow import GitVerificationMaterialization
+from .checkov_authority import installed_version, require_authority, CheckovAuthorityUnavailable
 
 
 def _launcher_digest(path: Path) -> str:
@@ -74,14 +75,16 @@ def _untrusted_scan_request(
     frameworks: tuple,
 ) -> CheckovScanRequest:
     executable = executable.resolve(strict=True)
-    distribution = checkov_distribution_identity(executable, "3.3.0")
+    version = installed_version(executable)
+    require_authority(version)
+    distribution = checkov_distribution_identity(executable, version)
     return CheckovScanRequest(
         executable=executable,
         scan_root=root,
         workspace_root=workspace,
         frameworks=frameworks,
         files_eligible=(),
-        expected_version="3.3.0",
+        expected_version=version,
         expected_executable_sha256=_launcher_digest(executable),
         expected_scanner_environment_sha256=distribution.scanner_environment_digest,
         expected_policy_inventory_sha256=distribution.policy_inventory_digest,
@@ -320,6 +323,7 @@ def _verify_candidate_request(
             "Use explicit reduced isolation only for operator-controlled local content.",
         )
     try:
+        require_authority(installed_version(request.checkov_executable), tuple(p.rule_id for p in request.properties), resources=tuple(p.resource_address for p in request.properties))
         raw = _untrusted_scan_request(
             request.candidate_root,
             request.candidate_root,
@@ -331,6 +335,8 @@ def _verify_candidate_request(
         neutral_evidence = _neutral_acceptance_evidence(
             request, plan, run, materialized=materialization is not None
         )
+    except CheckovAuthorityUnavailable as exc:
+        return OperationalReportV1(exc.reason, str(exc), "Run doctor for the qualified version/property profile; native properties remain available.")
     except (DomainError, OSError) as exc:
         return OperationalReportV1(
             "CANDIDATE_EVIDENCE_UNAVAILABLE",
@@ -546,10 +552,13 @@ def _verify_request(
     executable = request.checkov_executable
     isolation = ExecutionIsolationEvidence.reduced_verified()
     try:
+        require_authority(installed_version(executable), tuple(t.rule_id for t in request.targets), resources=tuple(t.resource_address for t in request.targets))
         baseline_raw = _untrusted_scan_request(
             request.baseline_root, request.baseline_root, executable, request.frameworks
         )
         baseline = attest_checkov_scan_plan(baseline_raw)
+    except CheckovAuthorityUnavailable as exc:
+        return OperationalReportV1(exc.reason, str(exc), "Select a qualified version/property; native properties remain available.")
     except DomainError as exc:
         return OperationalReportV1(
             "TRUSTED_BASELINE_EVIDENCE_UNAVAILABLE", str(exc),
@@ -660,11 +669,14 @@ def discover_baseline_targets(
         raise DomainError("eligible target paths must be an exact nonblank string tuple")
 
     try:
+        require_authority(installed_version(executable), tuple(s[0] for s in selectors), resources=tuple(s[1] for s in selectors))
         raw = _untrusted_scan_request(
             baseline_root, baseline_root, executable, frameworks
         )
         plan = attest_checkov_scan_plan(raw)
         run = require_trusted_scanner_run(CheckovAdapter().scan(plan.request))
+    except CheckovAuthorityUnavailable as exc:
+        raise BaselineDiscoveryUnavailable(exc.reason + ": " + str(exc)) from exc
     except (DomainError, OSError) as exc:
         raise BaselineDiscoveryUnavailable(str(exc)) from exc
     if run.status is not Status.PASS or run.ruleset_integrity is not Status.PASS:
@@ -708,6 +720,10 @@ def discover_baseline_targets(
         )
 
     if all_findings:
+        try:
+            require_authority(run.scanner_version, tuple(key[0] for key in grouped), resources=tuple(key[1] for key in grouped))
+        except CheckovAuthorityUnavailable as exc:
+            raise BaselineDiscoveryUnavailable(exc.reason + ": " + str(exc)) from exc
         return tuple(
             public_target(key, len(values))
             for key, values in sorted(
