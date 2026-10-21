@@ -73,6 +73,12 @@ loader, fixed import roots, and private HOME/TMPDIR/XDG state. `-B` alone would 
 insufficient. Hidden source/data in cache directories is rejected. Each invocation
 cleans only its own exclusive private directory; it never deletes global caches.
 
+The controlled launcher disables only Checkov’s optional package-update notification.
+It still revalidates the bound installation and RECORD provenance for authoritative
+requests. The ordinary Checkov environment is unchanged. Re-run the trusted setup
+when upgrading IaC-Guard-V: generated launcher bytes are bound to the supported
+bootstrap, and an outdated launcher fails validation.
+
 The environment and manifest must be controlled by the operator/trusted build and
 remain outside candidate content. The OS, native runtime libraries and build
 operator remain trusted. This does not add hostile-input isolation or protection

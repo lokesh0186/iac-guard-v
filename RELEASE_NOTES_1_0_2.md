@@ -16,4 +16,8 @@ property lists, build requirements, and CHECKOV_VERSION behavior. The 18 native
 V1 properties, schemas, public interfaces and Python 3.10–3.13 support remain
 unchanged. Compatibility is not a promise to support arbitrary Checkov versions.
 
+The controlled launcher also disables Checkov’s optional PyPI update notification,
+avoiding network lookup latency during version probes. Source-only execution,
+runtime drift detection and the ordinary Checkov path remain unchanged.
+
 Implementation and validation preparation were assisted by Codex.

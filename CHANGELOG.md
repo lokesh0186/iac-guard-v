@@ -5,6 +5,9 @@ artifact has its own immutable provenance and is not rewritten by this changelog
 
 ## [1.0.2] - Unreleased maintenance candidate
 
+- Disable the optional Checkov package-update advisory only in the controlled
+  launcher; retain source-only execution and all runtime provenance checks.
+
 - Add explicit qualified Checkov version/property profiles for 3.3.0–3.3.30.
   Retain the released 3.3.0 contract. Exclude CKV_K8S_40 on 3.3.8 and newer
   because its policy semantics changed; unqualified combinations fail closed.

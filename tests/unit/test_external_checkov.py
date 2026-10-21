@@ -211,23 +211,29 @@ def test_cli_prepare_success_and_failure(monkeypatch,tmp_path: Path,capsys) -> N
     assert exc.value.code==3
 
 
-def test_real_wrapper_isolates_runtime_state_and_cleans_only_its_private_directory(tmp_path: Path) -> None:
+@pytest.mark.parametrize('parent_update_check',['false','true'])
+def test_real_wrapper_isolates_runtime_state_and_cleans_only_its_private_directory(tmp_path: Path,parent_update_check: str) -> None:
     import sysconfig
     sites=tmp_path/'sites';sites.mkdir()
     (sites/'qualification_probe.py').write_text('VALUE="source"\n')
     original=tmp_path/'ordinary-checkov'
     original.write_text('import json,os,sys,qualification_probe\n'
         'print(json.dumps({"home":os.environ["HOME"],"tmp":os.environ["TMPDIR"],'
-        '"cache":sys.pycache_prefix,"value":qualification_probe.VALUE,"path":sys.path}))\n')
+        '"cache":sys.pycache_prefix,"value":qualification_probe.VALUE,"path":sys.path,"skip_update":os.environ["CKV_SKIP_PACKAGE_UPDATE_CHECK"]}))\n')
     manifest={'interpreter':str(Path(sys.executable).resolve()),
         'stdlib':sysconfig.get_path('stdlib'),'site_packages':str(sites),'original_launcher':str(original)}
     launcher=tmp_path/'controlled';launcher.write_bytes(launcher_bytes(manifest,_canonical(manifest)));launcher.chmod(0o755)
     scratch=tmp_path/'scratch';scratch.mkdir()
     sentinel=scratch/'existing-operator-data';sentinel.write_text('preserved')
-    p=subprocess.run([str(launcher)],env=dict(os.environ,TMPDIR=str(scratch)),capture_output=True,text=True)
+    ordinary_before=original.read_bytes()
+    parent_environment=dict(os.environ,TMPDIR=str(scratch),CKV_SKIP_PACKAGE_UPDATE_CHECK=parent_update_check)
+    p=subprocess.run([str(launcher)],env=parent_environment,capture_output=True,text=True)
     assert p.returncode==0,p.stderr
     observed=json.loads(p.stdout)
     assert observed['value']=='source'
+    assert observed['skip_update']=='true'
+    assert parent_environment['CKV_SKIP_PACKAGE_UPDATE_CHECK']==parent_update_check
+    assert original.read_bytes()==ordinary_before
     assert observed['home']==observed['tmp']==observed['cache']
     assert Path(observed['cache']).parent==scratch
     assert not Path(observed['cache']).exists()

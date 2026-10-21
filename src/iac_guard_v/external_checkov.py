@@ -136,6 +136,8 @@ def launcher_bytes(manifest: dict, manifest_bytes: bytes) -> bytes:
     command = " ".join(shlex.quote(x) for x in [manifest["interpreter"], "-I", "-S", "-B", "-X"])
     command += ' "pycache_prefix=$cache" ' + " ".join(shlex.quote(x) for x in ["-c", BOOTSTRAP, json.dumps(roots), manifest["original_launcher"]])
     return ("#!/bin/sh\n" + MARKER + hashlib.sha256(manifest_bytes).hexdigest() + "\n"
+        # Disable only the optional PyPI update banner, never provenance checks.
+        'export CKV_SKIP_PACKAGE_UPDATE_CHECK=true\n'
         'cache="${TMPDIR:-/tmp}/iacgv-checkov-source-$$"\n'
         '/bin/mkdir -m 700 "$cache" || exit 3\n'
         'export TMPDIR="$cache" HOME="$cache" XDG_CACHE_HOME="$cache/cache" XDG_CONFIG_HOME="$cache/config" XDG_DATA_HOME="$cache/data"\n'
