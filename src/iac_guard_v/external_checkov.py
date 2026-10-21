@@ -76,6 +76,8 @@ def inventory(root: Path, *, exclude_sites: bool = False) -> dict[str, str]:
             path = Path(entry.path)
             if entry.name == "__pycache__" or path.suffix.lower() in {".pyc", ".pyo"}:
                 if entry.name == "__pycache__":
+                    if not entry.is_dir(follow_symlinks=False):
+                        raise DomainError("external cache directory must be nonsymlink directory")
                     for cached in path.iterdir():
                         if cached.is_symlink() or not cached.is_file() or cached.suffix.lower() not in {".pyc", ".pyo"}:
                             raise DomainError("external cache contains non-cache content")

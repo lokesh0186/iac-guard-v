@@ -62,7 +62,7 @@ def test_inventory_accepts_only_derived_regular_cache_files(tmp_path: Path) -> N
         inventory(tmp_path)
 
 
-@pytest.mark.parametrize('kind',['source-symlink','cache-symlink','loose-cache-symlink','empty'])
+@pytest.mark.parametrize('kind',['source-symlink','cache-symlink','loose-cache-symlink','cache-directory-symlink','cache-directory-file','empty'])
 def test_unsafe_inventory_shape_rejected(tmp_path: Path,kind: str) -> None:
     if kind=='source-symlink':
         (tmp_path/'source.py').symlink_to('absent')
@@ -70,6 +70,12 @@ def test_unsafe_inventory_shape_rejected(tmp_path: Path,kind: str) -> None:
         d=tmp_path/'__pycache__';d.mkdir();(d/'cache.pyc').symlink_to('absent')
     elif kind=='loose-cache-symlink':
         (tmp_path/'cache.pyc').symlink_to('absent')
+    elif kind=='cache-directory-symlink':
+        derived=tmp_path/'derived';derived.mkdir()
+        (derived/'qualification.pyc').write_bytes(b'derived')
+        (tmp_path/'__pycache__').symlink_to(derived,target_is_directory=True)
+    elif kind=='cache-directory-file':
+        (tmp_path/'__pycache__').write_bytes(b'not a directory')
     with pytest.raises(DomainError): inventory(tmp_path)
 
 
