@@ -213,7 +213,7 @@ def normalize(req: CheckovScanRequest, payload, proc: CommandResult | None = Non
 def test_contract_is_closed_and_checkov_only() -> None:
     assert CHECKOV_CONTRACT.canonical_dict() == {
         "name": "checkov",
-        "supported_versions": ["3.2.517", *sorted(f"3.3.{i}" for i in range(31))],
+        "supported_versions": ["3.2.517", *sorted(f"3.3.{i}" for i in range(31)), "3.4.3"],
         "frameworks": ["kubernetes", "terraform"],
         "expected_exit_codes": [0, 1],
     }

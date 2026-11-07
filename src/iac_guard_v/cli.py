@@ -158,7 +158,7 @@ def doctor(
         checkov = {
             "status": "UNAVAILABLE",
             "reason_code": "CHECKOV_NOT_FOUND",
-            "remediation": "python -m pip install --no-compile checkov==3.3.0",
+            "remediation": "Install an explicitly qualified Checkov version/property in an operator-provisioned environment.",
         }
     elif mode != "native":
         try:
@@ -186,7 +186,7 @@ def doctor(
                 "dependency_lock_digest": identity.dependency_lock_digest,
                 "remediation": (
                     "Environment is usable only with explicit reduced-isolation."
-                    if supported else "Install exactly Checkov 3.3.0."
+                    if supported else "Select an explicitly qualified Checkov version/property."
                 ),
             }
         except CheckovAuthorityUnavailable as exc:
@@ -207,9 +207,9 @@ def doctor(
                 ),
                 "detail": redact_detail(detail),
                 "remediation": (
-                    "python -m pip install --force-reinstall --no-compile checkov==3.3.0"
+                    "Recreate the selected qualified Checkov environment from pinned wheels using --no-compile."
                     if unsafe_bytecode else
-                    "Reinstall Checkov 3.3.0 and its dependency closure from pinned wheels with valid RECORD hashes."
+                    "Reinstall the selected qualified Checkov version and its dependency closure from pinned wheels with valid RECORD hashes."
                 ),
             }
     docker = shutil.which("docker")
@@ -372,7 +372,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     doctor_parser.add_argument(
         "--checkov-executable", type=Path,
-        help="exact Checkov 3.3.0 launcher for local-trusted diagnosis",
+        help="operator-provisioned qualified Checkov launcher for local-trusted diagnosis",
     )
     doctor_parser.add_argument("--format", choices=("json", "console"), default="console")
     demo_parser = subcommands.add_parser(
@@ -648,7 +648,7 @@ def _helm_request(args) -> PublicHelmVerificationRequest | OperationalReportV1:
             return OperationalReportV1(
                 "CHECKOV_NOT_FOUND",
                 "The locked Checkov executable was not found.",
-                "Install Checkov 3.3.0 and select its exact executable path.",
+                "Install an explicitly qualified Checkov version/property and select its exact executable path.",
             )
         checkov = Path(discovered_checkov)
     selectors = tuple(
@@ -708,7 +708,7 @@ def _direct_request(args) -> PublicVerificationRequest | OperationalReportV1:
             return OperationalReportV1(
                 "CHECKOV_NOT_FOUND",
                 "Local trusted mode could not find the locked Checkov executable.",
-                "Install Checkov 3.3.0, then rerun with --local-trusted.",
+                "Install an explicitly qualified Checkov version/property, then rerun with --local-trusted.",
             )
         configured = Path(discovered)
     selectors = tuple(
@@ -732,7 +732,7 @@ def _direct_request(args) -> PublicVerificationRequest | OperationalReportV1:
             (CheckovAuthorityUnavailable.reason if str(exc).startswith(CheckovAuthorityUnavailable.reason)
                 else "BASELINE_TARGET_DISCOVERY_UNAVAILABLE"),
             redact_detail(str(exc)),
-            "Run doctor --mode local-trusted and repair the exact Checkov 3.3.0 environment.",
+            "Run doctor --mode local-trusted for the selected operator-provisioned scanner; repair its integrity or select an explicitly qualified version/property.",
         )
     if not targets:
         return OperationalReportV1(
@@ -768,7 +768,7 @@ def _acceptance_request(
             return OperationalReportV1(
                 "CHECKOV_NOT_FOUND",
                 "The locked Checkov executable was not found.",
-                "Install Checkov 3.3.0 and select its exact executable path.",
+                "Install an explicitly qualified Checkov version/property and select its exact executable path.",
             )
         checkov = Path(discovered)
     return PublicCandidateAcceptanceRequest(
@@ -796,7 +796,7 @@ def _pr_executable(args) -> Path | OperationalReportV1:
             return OperationalReportV1(
                 "CHECKOV_NOT_FOUND",
                 "Local trusted mode could not find the locked Checkov executable.",
-                "Install Checkov 3.3.0, then rerun with --local-trusted.",
+                "Install an explicitly qualified Checkov version/property, then rerun with --local-trusted.",
             )
         configured = Path(discovered)
     return configured
@@ -832,7 +832,7 @@ def _git_pr_report(args):
             return OperationalReportV1(
                 "BASELINE_TARGET_DISCOVERY_UNAVAILABLE",
                 redact_detail(str(exc)),
-                "Run doctor --mode local-trusted and repair Checkov 3.3.0.",
+                "Run doctor --mode local-trusted and repair the selected qualified Checkov environment.",
             )
         if not targets:
             return OperationalReportV1(
@@ -1299,7 +1299,7 @@ def main(argv: list[str] | None = None) -> int:
                 return _write_report(OperationalReportV1(
                     "WORKFLOW_LOCK_ENVIRONMENT_UNAVAILABLE",
                     redact_detail(str(exc)),
-                    "Run doctor and reinstall the exact Checkov 3.3.0 dependency closure "
+                    "Run doctor and reinstall the selected qualified Checkov dependency closure "
                     "from pinned wheels before creating a lock.",
                 ), args.format)
             payload = canonical_json(lock)

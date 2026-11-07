@@ -12,18 +12,25 @@ def test_release_matrix_matches_the_closed_candidate_profile() -> None:
     profiles = json.loads((ROOT / 'src/iac_guard_v/adapters/checkov_profiles.json').read_text())
     matrix = workflow['jobs']['release-required-matrix']['strategy']['matrix']['checkov']
     assert matrix == list(profiles['versions'])
-    assert len(matrix) == len(set(matrix)) == 31
+    assert len(matrix) == len(set(matrix)) == 32
     for job in workflow['jobs'].values():
         assert all('write' not in permission for permission in workflow['permissions'].values())
         commands = '\n'.join(step.get('run', '') for step in job['steps'])
         assert '--system-site-packages' not in commands  # delegated to reviewed helper
         assert 'prepare_shared.py' in commands
         assert 'qualify.py' in commands
+        assert 'qualify_343.py' in commands
         assert '--adapter-only' not in commands
         assert not any(token in commands for token in ('git push', 'gh release', 'twine upload'))
     canary = workflow['jobs']['latest-canary']
     assert 'schedule' in canary['if']
     assert not canary.get('continue-on-error', False)
+    steps = workflow['jobs']['release-required-matrix']['steps']
+    narrow = next(step for step in steps if 'qualify_343.py' in step.get('run', ''))
+    assert narrow['if'] == "matrix.checkov == '3.4.3'"
+    for step in steps:
+        if 'qualify.py ' in step.get('run', '') or 'qualify_description.py ' in step.get('run', ''):
+            assert step['if'] == "matrix.checkov != '3.4.3'"
 
 
 def test_profile_does_not_grant_changed_policy_authority_on_newer_versions() -> None:
@@ -33,3 +40,4 @@ def test_profile_does_not_grant_changed_policy_authority_on_newer_versions() -> 
         assert ('CKV_K8S_40' in properties) is (patch < 8)
         assert not set(properties) & {'CKV_AWS_70', 'CKV_AZURE_53', 'CKV_AZURE_190',
                                       'CKV_GCP_62', 'CKV_GCP_63', 'CKV_GCP_123', 'CKV_AWS_394'}
+    assert profiles['versions']['3.4.3']['properties'] == ['CKV_AWS_3']

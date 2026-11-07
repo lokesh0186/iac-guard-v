@@ -236,3 +236,9 @@ product venv using `--system-site-packages`; no second scanner dependency tree i
 required. The installation recipe above remains the strict legacy path.
 See [the explicit compatibility/profile and build requirements](CHECKOV_COMPATIBILITY.md).
 Do not delete or disable the global scanner caches to enable this path.
+
+For the 1.0.3 candidate, install the reviewed non-editable wheel instead of a
+PyPI requirement until publication. Checkov 3.4.3 is qualified only for
+Terraform CKV_AWS_3; the previous 3.3.x profiles remain available. Run doctor
+and inspect both validator_registry.status and checkov.status. Neither a
+successful install nor doctor exit 0 establishes a verified repair.

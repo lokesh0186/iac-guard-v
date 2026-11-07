@@ -3482,6 +3482,22 @@
         }
       },
       "policy_qualification_identity": "b80449b14d812a6b69c846d781af67ad1c1ac4230d301c03aca5dc0b75989213"
+    },
+    "3.4.3": {
+      "package_source_digest": "5de942be6207223d7e96dd2aa57288306014c62320e1a9d7094e30bd8ab7bc73",
+      "authority_profile": "CHECKOV_3_3_REVIEWED_PATHS_V1",
+      "properties": [
+        "CKV_AWS_3"
+      ],
+      "launcher_body_sha256": "aa73c383dde0101b77e9e3482673cbaa8864d13f4a3b5ca181748ca274f2258a",
+      "policy_variant": "EBS_ENCRYPTION_ONLY_3_4_3",
+      "property_definitions": {
+        "CKV_AWS_3": {
+          "framework": "terraform",
+          "definition_digest": "509cfd3f959218f7bd81e510f6398b2eab84b3f49271970e00d28a830de7a1b7"
+        }
+      },
+      "policy_qualification_identity": "90025e94e957170fd94ae07406ac220efcb63f9b62f0295144bf0c2a6ede1cdd"
     }
   },
   "excluded_changed_policy": "CKV_K8S_40; remaining unobserved/changed policies are outside this property allowlist"

@@ -9,10 +9,12 @@ from iac_guard_v.models import DomainError
 
 
 def test_qualified_line_is_explicit_and_future_does_not_self_promote() -> None:
-    assert authority.QUALIFIED_VERSIONS==tuple(f'3.3.{i}' for i in range(31))
-    for version in authority.QUALIFIED_VERSIONS:
+    legacy = tuple(f'3.3.{i}' for i in range(31))
+    assert authority.QUALIFIED_VERSIONS==(*legacy, '3.4.3')
+    for version in legacy:
         authority.require_authority(version,('CKV_AWS_3','CKV2_AWS_6','CKV2_K8S_6'))
-    for version in ['3.3.31','3.4.0','latest','3.2.517']:
+    authority.require_authority('3.4.3', ('CKV_AWS_3',), resources=('aws_ebs_volume.target',))
+    for version in ['3.3.31','3.4.0','3.4.1','3.4.2','3.4.4','latest','3.2.517']:
         with pytest.raises(authority.CheckovAuthorityUnavailable,match='Native|native'):
             authority.require_authority(version)
 
@@ -26,6 +28,19 @@ def test_changed_or_unqualified_properties_do_not_gain_authority() -> None:
         authority.require_authority('3.3.30',('CKV_K8S_40',))
     assert 'CKV_AWS_3' in authority.authority_properties('3.3.30')
     assert authority.authority_properties('3.3.31')==()
+
+
+def test_343_is_property_specific_and_preserves_legacy_profiles() -> None:
+    import hashlib
+    assert authority.authority_properties('3.4.3') == ('CKV_AWS_3',)
+    for check in ('CKV_K8S_40', 'CKV_AWS_23', 'CKV2_AWS_6', 'CKV2_K8S_6', 'unknown'):
+        assert not authority.property_supported('3.4.3', check)
+        with pytest.raises(authority.CheckovAuthorityUnavailable):
+            authority.require_authority('3.4.3', (check,))
+    assert not authority.property_supported('3.4.3', 'CKV_AWS_3', 'v1/Pod/default/app')
+    legacy = {key: value for key, value in authority._DATA['versions'].items() if key.startswith('3.3.')}
+    assert hashlib.sha256(json.dumps(legacy, sort_keys=True, separators=(',', ':')).encode()).hexdigest() == (
+        '42e704c8569699171b99d8b70ed1d32ffb4f48597837a139eea55f6db0010771')
 
 
 def test_metadata_version_is_read_without_scanner_execution(tmp_path: Path) -> None:

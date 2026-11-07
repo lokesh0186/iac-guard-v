@@ -44,6 +44,8 @@ def test_direct_request_remediation_branches(monkeypatch, tmp_path: Path) -> Non
     unavailable = CLI._direct_request(_direct(tmp_path, checkov_executable=None))
     assert isinstance(unavailable, OperationalReportV1)
     assert unavailable.reason_code == "CHECKOV_NOT_FOUND"
+    assert "3.3.0" not in unavailable.remediation
+    assert "qualified" in unavailable.remediation
 
     monkeypatch.setattr(
         CLI, "discover_baseline_targets",
@@ -53,6 +55,8 @@ def test_direct_request_remediation_branches(monkeypatch, tmp_path: Path) -> Non
     )
     unavailable = CLI._direct_request(_direct(tmp_path))
     assert unavailable.reason_code == "BASELINE_TARGET_DISCOVERY_UNAVAILABLE"
+    assert "3.3.0" not in unavailable.remediation
+    assert "selected operator-provisioned scanner" in unavailable.remediation
 
 
 def test_pr_request_remediation_branches(monkeypatch, tmp_path: Path) -> None:

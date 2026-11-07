@@ -50,3 +50,10 @@ A scanner can gain authority for one property and target path only through a sep
 reviewed evidence contract with exact identities, oracle semantics, complete positive,
 negative, ambiguous, and adversarial fixtures, protected-universe proof, and a
 versioned compatibility commitment. That review does not promote the scanner generally.
+
+## 1.0.3 maintenance candidate
+
+The exact Checkov 3.4.3 profile grants only Terraform CKV_AWS_3 authority.
+All prior profiles remain unchanged. Other properties, including CKV_K8S_40,
+remain unqualified on 3.4.3. The published source and launcher identities are
+pinned independently of the retained execution-contract family identifier.

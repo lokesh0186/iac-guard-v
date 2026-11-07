@@ -51,3 +51,7 @@ changing native predicates, report semantics or existing 3.3.0 authority.
 a promise to support every patch or future release. Shared installation is an
 opt-in execution/provenance contract; the ordinary Checkov installation remains
 unchanged. No hidden scanner substitution is performed.
+
+The 1.0.3 candidate adds only the exact Checkov 3.4.3/Terraform CKV_AWS_3
+combination. Existing 1.0.2 profiles and public interfaces are retained byte for
+byte; no other 3.4.x version or property is automatically supported.

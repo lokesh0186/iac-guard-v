@@ -1,6 +1,6 @@
 # Checkov compatibility candidate
 
-This document describes the 1.0.2 maintenance version. It does not claim that arbitrary Checkov versions are supported.
+This document describes the 1.0.3 maintenance candidate. It does not claim that arbitrary Checkov versions are supported.
 
 Native IaC-Guard-V properties remain scanner-independent. Scanner-backed
 verification distinguishes adapter conformance from policy authority. A scanner
@@ -8,7 +8,8 @@ that emits parseable JSON is not automatically authoritative.
 
 ## Explicit version and property profiles
 
-The candidate enumerates the 31 released versions 3.3.0 through 3.3.30 in
+The candidate enumerates the 31 released versions 3.3.0 through 3.3.30 and the
+exact version 3.4.3 in
 `src/iac_guard_v/adapters/checkov_profiles.json`. Future versions, including
 3.3.31 and 3.4.0, do not enter this set automatically. Each entry pins the published
 Checkov source inventory and console-script body as well as its property set.
@@ -20,6 +21,7 @@ Checkov source inventory and console-script body as well as its property set.
 | 3.3.1–3.3.7 | Common properties below, plus manifest CKV_K8S_40 with the original semantics |
 | 3.3.8–3.3.30 | Common properties below; CKV_K8S_40 excluded |
 | 3.3.0 | Existing released authority/scope retained; the common corpus is also replayed |
+| 3.4.3 | Terraform CKV_AWS_3 only (EBS encryption); all other properties excluded |
 
 The common candidate properties are Terraform CKV_AWS_3, 18, 19, 23, 24, 53, 54,
 CKV2_AWS_6, and Kubernetes-manifest CKV_K8S_10, 11, 12, 13, 14, 15, 20, 21,
@@ -115,7 +117,19 @@ remains INCONCLUSIVE; the corpus preserves that negative control.
 `policy_inventory.py` independently inventories the verified wheel definitions.
 Matching policy bytes alone are not sufficient for promotion.
 
-The compatibility workflow has an explicit 31-version release-required matrix and
+The compatibility workflow has an explicit 32-version release-required matrix and
 a separate latest canary. Canary failures require review; they never update the
 support set. A new version requires artifact identity, policy review, the complete
 qualification and normal product release gates before intentional promotion.
+
+## Checkov 3.4.3 maintenance qualification
+
+Version 1.0.3 adds exactly Terraform `CKV_AWS_3` on Checkov `3.4.3`. The
+3.3.x profiles are unchanged. `CKV_AWS_23`, graph checks and `CKV_K8S_40`
+do not gain authority on 3.4.3. Neither intermediate 3.4.0–3.4.2 nor future
+versions are qualified. The retained `CHECKOV_3_3_REVIEWED_PATHS_V1` identifier
+names the existing execution contract family, not a permissive version range.
+
+The separate `tools/compatibility/qualify_343.py` corpus exercises the narrow
+profile through the installed public CLI; the broad 3.3.x corpus remains
+required for every existing profile. See the [qualification record](CHECKOV_3_4_3_QUALIFICATION.md).
