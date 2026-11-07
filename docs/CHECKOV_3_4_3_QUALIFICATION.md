@@ -1,13 +1,13 @@
 # Exact Checkov 3.4.3 qualification record
 
-The proposed 1.0.3 profile is limited to Terraform `CKV_AWS_3` (the scanner's
+The 1.0.3 profile is limited to Terraform `CKV_AWS_3` (the scanner's
 EBS encryption predicate). It establishes neither provider-valid deployment nor
 universal encryption safety. It does not qualify Kubernetes or graph checks.
 
 | Scanner | Property | Authority |
 | --- | --- | --- |
 | 3.3.0–3.3.30 | Existing property profiles | Unchanged from 1.0.2 |
-| 3.4.3 | Terraform CKV_AWS_3 | New narrowly qualified candidate |
+| 3.4.3 | Terraform CKV_AWS_3 | Terraform EBS encryption only |
 | 3.4.3 | Any other check, including CKV_K8S_40 | Unqualified; non-success |
 | 3.4.0–3.4.2, unknown future versions | Any Checkov property | Unqualified; non-success |
 

@@ -29,13 +29,9 @@ Version 1.0.1 corrects Git tree ancestor validation; see the
 [maintenance release notes](RELEASE_NOTES_1_0_1.md).
 
 Version 1.0.2 adds [qualified Checkov profiles and shared installation
-support](docs/CHECKOV_COMPATIBILITY.md). The 1.0.3 candidate adds exactly
+support](docs/CHECKOV_COMPATIBILITY.md). Version 1.0.3 adds exactly
 Checkov 3.4.3 with Terraform CKV_AWS_3; all other properties on that version
 remain unqualified. Existing 3.3.0–3.3.30 profiles are unchanged.
-
-**1.0.3 is an unpublished release candidate.** Until publication, install the
-reviewed non-editable wheel with `python -m pip install /path/to/iac_guard_v-1.0.3-py3-none-any.whl`.
-The pinned PyPI command below becomes usable after release approval.
 
 ## Install
 

@@ -1,6 +1,6 @@
 # Checkov compatibility candidate
 
-This document describes the 1.0.3 maintenance candidate. It does not claim that arbitrary Checkov versions are supported.
+This document describes the 1.0.3 maintenance version. It does not claim that arbitrary Checkov versions are supported.
 
 Native IaC-Guard-V properties remain scanner-independent. Scanner-backed
 verification distinguishes adapter conformance from policy authority. A scanner

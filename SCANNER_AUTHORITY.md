@@ -51,7 +51,7 @@ reviewed evidence contract with exact identities, oracle semantics, complete pos
 negative, ambiguous, and adversarial fixtures, protected-universe proof, and a
 versioned compatibility commitment. That review does not promote the scanner generally.
 
-## 1.0.3 maintenance candidate
+## 1.0.3 compatibility profile
 
 The exact Checkov 3.4.3 profile grants only Terraform CKV_AWS_3 authority.
 All prior profiles remain unchanged. Other properties, including CKV_K8S_40,
