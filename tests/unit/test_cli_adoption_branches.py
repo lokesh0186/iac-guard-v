@@ -81,6 +81,46 @@ def test_pr_request_remediation_branches(monkeypatch, tmp_path: Path) -> None:
         CLI._git_pr_report(args)
 
 
+def test_direct_discovery_preserves_the_operator_selected_scanner(monkeypatch, tmp_path: Path) -> None:
+    selected = tmp_path / "operator-selected-checkov"
+    seen = []
+    monkeypatch.setattr(CLI.shutil, "which", lambda name: str(selected) if name == "checkov" else None)
+
+    def discover(before, executable, frameworks, selectors, **kwargs):
+        seen.append((executable, frameworks, selectors))
+        return ()
+
+    monkeypatch.setattr(CLI, "discover_baseline_targets", discover)
+    report = CLI._direct_request(_direct(tmp_path, checkov_executable=None))
+    assert seen == [(selected, ("terraform",), (("CKV_X", "aws_x.r", ""),))]
+    payload = report.canonical_dict()
+    assert payload["diagnostic"]["reason_code"] == "NO_BASELINE_TARGETS"
+    assert (payload["verdict"], payload["exit_code"]) == ("INCONCLUSIVE", 3)
+
+
+@pytest.mark.parametrize("detail", [
+    "CHECKOV_VERSION_UNSUPPORTED_FOR_REQUESTED_PROPERTY: Checkov 3.4.4",
+    "CHECKOV_VERSION_UNSUPPORTED_FOR_REQUESTED_PROPERTY: Checkov 3.4.3 / CKV_K8S_40",
+])
+def test_unqualified_scanner_diagnostic_stays_inconclusive(monkeypatch, tmp_path: Path, detail: str) -> None:
+    def unavailable(*args, **kwargs):
+        raise BaselineDiscoveryUnavailable(detail)
+
+    monkeypatch.setattr(CLI, "discover_baseline_targets", unavailable)
+    payload = CLI._direct_request(_direct(tmp_path)).canonical_dict()
+    assert payload["diagnostic"]["reason_code"] == "CHECKOV_VERSION_UNSUPPORTED_FOR_REQUESTED_PROPERTY"
+    assert (payload["verdict"], payload["exit_code"]) == ("INCONCLUSIVE", 3)
+    assert "selected operator-provisioned scanner" in payload["diagnostic"]["remediation"]
+    assert "3.3.0" not in payload["diagnostic"]["remediation"]
+
+
+def test_doctor_rejects_conflicting_or_mistyped_scanner_configuration(tmp_path: Path) -> None:
+    with pytest.raises(DomainError, match="native"):
+        CLI.doctor("native", tmp_path / "checkov")
+    with pytest.raises(DomainError, match=r"pathlib\.Path"):
+        CLI.doctor("local-trusted", str(tmp_path / "checkov"))
+
+
 def test_doctor_and_reporter_closed_vocabularies() -> None:
     with pytest.raises(DomainError, match="doctor mode"):
         CLI.doctor("unknown")
