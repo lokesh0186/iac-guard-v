@@ -1,5 +1,10 @@
 # IaC-Guard-V
 
+> This branch contains the unpublished 1.0.4 cancellation-fix candidate.
+> Version-pinned index installation below applies after owner-approved publication;
+> candidate validation installs the reviewed non-editable wheel directly.
+
+
 [![PyPI](https://img.shields.io/pypi/v/iac-guard-v)](https://pypi.org/project/iac-guard-v/)
 [![Python compatibility](https://github.com/lokesh0186/iac-guard-v/actions/workflows/python-compat.yml/badge.svg?branch=main)](https://github.com/lokesh0186/iac-guard-v/actions/workflows/python-compat.yml)
 [![License](https://img.shields.io/pypi/l/iac-guard-v)](LICENSE)
@@ -39,7 +44,7 @@ IaC-Guard-V 1.0 supports Python 3.10, 3.11, 3.12, and 3.13. Python 3.14 is not i
 1.0 support matrix.
 
 ```bash
-python -m pip install 'iac-guard-v==1.0.3'
+python -m pip install 'iac-guard-v==1.0.4'
 iac-guard --version
 iac-guard doctor --mode native --format json
 iac-guard properties list
@@ -194,3 +199,14 @@ executables are not bundled in the installable wheel or sdist. Historical
 research/replay corpora in the source repository retain pinned tool artifacts for
 reproducibility; see the [a8 Helm provenance qualification](docs/A8_HELM_PROVENANCE.md).
 Third-party tools retain their own licenses and trademarks.
+
+### Cooperative cancellation
+
+The 1.0.4 candidate CLI handles SIGINT and SIGTERM with bounded cleanup of its
+owned scanner group before returning nonzero. The runner requires default SIGCHLD
+and exclusive ownership of its child waits. Linux and macOS are exercised; native
+Windows descendant cleanup is not qualified. SIGKILL, a crashed/unresponsive
+verifier, and machine failure cannot promise cooperative cleanup. A report must
+always be interpreted with its process exit; a report written just before an
+interruption is not an accepted result. Hook integrations quarantine interrupted
+reports in their own invocation directories.

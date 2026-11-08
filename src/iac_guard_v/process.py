@@ -15,6 +15,7 @@ import ntpath
 import os
 import re
 import selectors
+import select
 import shlex
 import shutil
 import signal
@@ -30,6 +31,7 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
+from .cancellation import defer_signals
 from .enums import Status
 from .models import DomainError, canonical_identifier, require_bool, require_int
 from .redaction import display_command, redact_argv, redact_detail
@@ -802,6 +804,93 @@ def _terminate_process_group(process: subprocess.Popen, pgid: int) -> ProcessGro
     )
 
 
+
+def _peek_exit(process: subprocess.Popen) -> int | None:
+    """Observe POSIX child exit without releasing its PID/group identity."""
+    if os.name != "posix":  # native Windows tree cleanup is not guaranteed
+        return process.poll()
+    if process.returncode is not None:
+        return process.returncode
+    if hasattr(os, "waitid"):
+        info = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+        if info is None:
+            return None
+        return info.si_status if info.si_code == os.CLD_EXITED else -info.si_status
+    # CPython on macOS exposes kqueue but may omit waitid. NOTE_EXIT observes
+    # an exited (including already-zombie) child without consuming wait status.
+    queue = select.kqueue()
+    try:
+        events = queue.control([select.kevent(
+            process.pid, filter=select.KQ_FILTER_PROC,
+            flags=select.KQ_EV_ADD | select.KQ_EV_ONESHOT,
+            fflags=select.KQ_NOTE_EXIT,
+        )], 1, 0)
+        for event in events:
+            if event.flags & select.KQ_EV_ERROR:
+                # Darwin refuses a new filter for an already-exited zombie.
+                # Sole wait ownership and default SIGCHLD reserve that PID;
+                # ESRCH here is readiness, not consumption of its exit status.
+                if event.data == errno.ESRCH:
+                    return 0
+                raise OSError(event.data, "child exit observation failed")
+            if event.ident != process.pid or not event.fflags & select.KQ_NOTE_EXIT:
+                raise OSError(errno.EIO, "unexpected child exit observation")
+        return 0 if events else None  # readiness only; Popen later reads actual status
+    finally:
+        queue.close()
+
+
+def _terminate_owned_group(process: subprocess.Popen) -> ProcessGroupCleanup:
+    """Signal only while the unreaped child reserves this group's identity.
+
+    The final signal precedes wait/reaping. After reaping we only inspect group
+    absence, never signal a numeric identity which the OS may have recycled.
+    """
+    if os.name != "posix":
+        return _terminate_process_group(process, process.pid)
+    diagnostics: list[str] = []
+    observation_uncertain = False
+    error = _signal_group(process, process.pid, signal.SIGTERM)
+    if error:
+        diagnostics.append(error)
+    deadline = time.monotonic() + _GRACE_SECONDS
+    try:
+        while _peek_exit(process) is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+    except ChildProcessError:
+        # An external waiter released our identity; signalling is no longer safe.
+        return ProcessGroupCleanup(
+            attempted=True, success=False, killed_signal=None,
+            diagnostic="owned child was reaped by another waiter; cleanup unconfirmed",
+        )
+    except OSError as exc:
+        # Observation failure must not skip the final signal/reap of our still
+        # owned child. Report the uncertainty even when forced cleanup succeeds.
+        observation_uncertain = True
+        diagnostics.append(f"child observation failed: {redact_detail(str(exc))}")
+    error = _signal_group(process, process.pid, signal.SIGKILL)
+    if error:
+        diagnostics.append(error)
+    try:
+        process.wait(timeout=_GRACE_SECONDS)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        diagnostics.append(f"cancelled child reap failed: {redact_detail(str(exc))}")
+    deadline = time.monotonic() + _GRACE_SECONDS
+    state = _process_group_alive(process.pid)
+    while state is not ProcessGroupState.ABSENT and time.monotonic() < deadline:
+        time.sleep(0.05)
+        state = _process_group_alive(process.pid)
+    # Darwin can return EPERM when signalling a group containing only zombies.
+    # Confirmed post-reap absence is authoritative, not the signal syscall alone.
+    success = state is ProcessGroupState.ABSENT and process.returncode is not None and not observation_uncertain
+    if not success:
+        diagnostics.append("cancelled process-group absence could not be confirmed")
+    return ProcessGroupCleanup(
+        attempted=True, success=success,
+        killed_signal=-process.returncode if process.returncode is not None and process.returncode < 0 else None,
+        diagnostic="; ".join(diagnostics),
+    )
+
 def _revalidate_spawn_paths(
     request: CommandRequest, executable: _PathIdentity
 ) -> tuple[Path, Path | None, tuple[Path, ...]]:
@@ -836,6 +925,9 @@ def run_command(request: CommandRequest) -> CommandResult:
     if type(request) is not CommandRequest:
         raise ProcessPolicyError(f"request must be exactly CommandRequest, got {type(request).__name__}")
 
+    if os.name == "posix" and signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+        raise ProcessPolicyError("native execution requires default SIGCHLD and sole child ownership")
+
     workspace = request._workspace_identity.resolved if request._workspace_identity else None
     lookup_dirs = tuple(Path(entry) for entry in MINIMAL_SYSTEM_PATH.split(os.pathsep)) + tuple(
         item.resolved for item in request._helper_identities
@@ -863,6 +955,7 @@ def run_command(request: CommandRequest) -> CommandResult:
     scratch_cleanup_success: bool | None = None
     scratch_cleanup_detail = ""
     process: subprocess.Popen | None = None
+    ownership_outstanding = True
     process_group = ProcessGroupCleanup(attempted=False, success=True)
     started = time.monotonic()
     stdout_chunks: list[bytes] = []
@@ -921,7 +1014,8 @@ def run_command(request: CommandRequest) -> CommandResult:
         if os.name == "posix":
             popen_kwargs["start_new_session"] = True
         try:
-            process = subprocess.Popen(actual_argv, **popen_kwargs)  # noqa: S603
+            with defer_signals():
+                process = subprocess.Popen(actual_argv, **popen_kwargs)  # noqa: S603
         except (FileNotFoundError, PermissionError, OSError) as exc:
             primary_event = ProcessReason.SPAWN_FAILED
             detail = f"spawn failed: {redact_detail(str(exc))}"
@@ -969,99 +1063,112 @@ def run_command(request: CommandRequest) -> CommandResult:
                         if keep < len(chunk):
                             truncated = True
                             break
-                    if process.poll() is not None and open_streams == 0:
+                    if _peek_exit(process) is not None and open_streams == 0:
                         break
             finally:
                 selector.close()
 
             if not timed_out and not truncated:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    timed_out = True
-                elif process.poll() is None:
-                    try:
-                        process.wait(timeout=max(0, remaining))
-                    except subprocess.TimeoutExpired:
+                while _peek_exit(process) is None:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
                         timed_out = True
+                        break
+                    time.sleep(min(0.05, remaining))
 
-            if timed_out:
-                primary_event = ProcessReason.DEADLINE_EXCEEDED
-                process_group = _terminate_process_group(process, pgid)
-            elif truncated:
-                primary_event = ProcessReason.OUTPUT_LIMIT_EXCEEDED
-                process_group = _terminate_process_group(process, pgid)
-            elif process.poll() is None:
-                primary_event = ProcessReason.NO_EXIT_STATUS
-                process_group = _terminate_process_group(process, pgid)
-            else:
-                leader_exit = process.poll()
-                if leader_exit is not None and leader_exit < 0:
-                    primary_event = ProcessReason.KILLED_BY_SIGNAL
-                elif leader_exit in request.expected_exit_codes:
-                    primary_event = ProcessReason.COMPLETED_WITHIN_CONTRACT
-                else:
-                    primary_event = ProcessReason.EXIT_CODE_OUTSIDE_CONTRACT
-                group_state = _process_group_alive(pgid)
-                if group_state is ProcessGroupState.ABSENT:
-                    process_group = ProcessGroupCleanup(attempted=False, success=True)
-                else:
-                    lingering_descendants = group_state is ProcessGroupState.ALIVE
+            with defer_signals():
+                ownership_outstanding = False
+                if timed_out:
+                    primary_event = ProcessReason.DEADLINE_EXCEEDED
                     process_group = _terminate_process_group(process, pgid)
+                elif truncated:
+                    primary_event = ProcessReason.OUTPUT_LIMIT_EXCEEDED
+                    process_group = _terminate_process_group(process, pgid)
+                elif process.poll() is None:
+                    primary_event = ProcessReason.NO_EXIT_STATUS
+                    process_group = _terminate_process_group(process, pgid)
+                else:
+                    leader_exit = process.poll()
+                    if leader_exit is not None and leader_exit < 0:
+                        primary_event = ProcessReason.KILLED_BY_SIGNAL
+                    elif leader_exit in request.expected_exit_codes:
+                        primary_event = ProcessReason.COMPLETED_WITHIN_CONTRACT
+                    else:
+                        primary_event = ProcessReason.EXIT_CODE_OUTSIDE_CONTRACT
+                    group_state = _process_group_alive(pgid)
+                    if group_state is ProcessGroupState.ABSENT:
+                        process_group = ProcessGroupCleanup(attempted=False, success=True)
+                    else:
+                        lingering_descendants = group_state is ProcessGroupState.ALIVE
+                        process_group = _terminate_process_group(process, pgid)
 
-            exit_code = process.poll()
-            if exit_code is None:
-                try:
-                    exit_code = process.wait(timeout=_GRACE_SECONDS)
-                except subprocess.TimeoutExpired:
-                    pass
-            killed_signal = -exit_code if exit_code is not None and exit_code < 0 else None
+                exit_code = process.poll()
+                if exit_code is None:
+                    try:
+                        exit_code = process.wait(timeout=_GRACE_SECONDS)
+                    except subprocess.TimeoutExpired:
+                        pass
+                killed_signal = -exit_code if exit_code is not None and exit_code < 0 else None
 
-            if not process_group.success:
-                status = Status.ERROR
-                reason = ProcessReason.PROCESS_GROUP_CLEANUP_FAILED
-                detail = process_group.diagnostic or "process-group cleanup could not be confirmed"
-            elif timed_out:
-                status = Status.TIMEOUT
-                reason = ProcessReason.DEADLINE_EXCEEDED
-                detail = f"exceeded {request.timeout_seconds}s; process-group absence was confirmed"
-            elif truncated:
-                status = Status.PARTIAL
-                reason = ProcessReason.OUTPUT_LIMIT_EXCEEDED
-                detail = (
-                    "output exceeded a retained-byte cap; process-group absence was confirmed; "
-                    "output hashes cover retained bytes only"
-                )
-            elif lingering_descendants:
-                status = Status.ERROR
-                reason = ProcessReason.LINGERING_DESCENDANTS_TERMINATED
-                primary_event = reason
-                detail = "leader exited but descendants were found and terminated"
-            elif exit_code is None:
-                status = Status.ERROR
-                reason = ProcessReason.NO_EXIT_STATUS
-                primary_event = reason
-                detail = "the child produced no exit status"
-            elif exit_code < 0:
-                status = Status.ERROR
-                reason = ProcessReason.KILLED_BY_SIGNAL
-                primary_event = reason
-                detail = f"terminated by signal {-exit_code}"
-            elif exit_code in request.expected_exit_codes:
-                status = Status.PASS
-                reason = ProcessReason.COMPLETED_WITHIN_CONTRACT
-                primary_event = reason
-                detail = ""
-            else:
-                status = Status.ERROR
-                reason = ProcessReason.EXIT_CODE_OUTSIDE_CONTRACT
-                primary_event = reason
-                detail = (
-                    f"exit code {exit_code} is not in the adapter's declared contract "
-                    f"{list(request.expected_exit_codes)}"
-                )
+                if not process_group.success:
+                    status = Status.ERROR
+                    reason = ProcessReason.PROCESS_GROUP_CLEANUP_FAILED
+                    detail = process_group.diagnostic or "process-group cleanup could not be confirmed"
+                elif timed_out:
+                    status = Status.TIMEOUT
+                    reason = ProcessReason.DEADLINE_EXCEEDED
+                    detail = f"exceeded {request.timeout_seconds}s; process-group absence was confirmed"
+                elif truncated:
+                    status = Status.PARTIAL
+                    reason = ProcessReason.OUTPUT_LIMIT_EXCEEDED
+                    detail = (
+                        "output exceeded a retained-byte cap; process-group absence was confirmed; "
+                        "output hashes cover retained bytes only"
+                    )
+                elif lingering_descendants:
+                    status = Status.ERROR
+                    reason = ProcessReason.LINGERING_DESCENDANTS_TERMINATED
+                    primary_event = reason
+                    detail = "leader exited but descendants were found and terminated"
+                elif exit_code is None:
+                    status = Status.ERROR
+                    reason = ProcessReason.NO_EXIT_STATUS
+                    primary_event = reason
+                    detail = "the child produced no exit status"
+                elif exit_code < 0:
+                    status = Status.ERROR
+                    reason = ProcessReason.KILLED_BY_SIGNAL
+                    primary_event = reason
+                    detail = f"terminated by signal {-exit_code}"
+                elif exit_code in request.expected_exit_codes:
+                    status = Status.PASS
+                    reason = ProcessReason.COMPLETED_WITHIN_CONTRACT
+                    primary_event = reason
+                    detail = ""
+                else:
+                    status = Status.ERROR
+                    reason = ProcessReason.EXIT_CODE_OUTSIDE_CONTRACT
+                    primary_event = reason
+                    detail = (
+                        f"exit code {exit_code} is not in the adapter's declared contract "
+                        f"{list(request.expected_exit_codes)}"
+                    )
+                if not process_group.success:
+                    logger.error("process cleanup unconfirmed: %s", process_group.diagnostic)
         else:
             reason = ProcessReason.SPAWN_FAILED
             killed_signal = None
+    except BaseException:
+        # Checkov owns a separate session: killing this verifier alone cannot
+        # clean it up. Finish group cleanup before allowing CLI cancellation to
+        # return, and do not let a second interrupt abandon that cleanup.
+        with defer_signals(deliver=False):
+            if process is not None and ownership_outstanding:
+                cleanup = _terminate_owned_group(process)
+                if not cleanup.success:
+                    logger.error("cancelled process cleanup unconfirmed: %s", cleanup.diagnostic)
+                    raise RuntimeError("cancelled process cleanup could not be confirmed")
+            raise
     finally:
         if process is not None:
             for stream in (process.stdout, process.stderr):

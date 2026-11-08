@@ -22,7 +22,7 @@ from packaging.specifiers import SpecifierSet
 
 
 ROOT = Path(__file__).parents[2]
-VERSION = "1.0.3"
+VERSION = "1.0.4"
 FORBIDDEN_DISTRIBUTION_PARTS = {
     "benchmark",
     "runs",
@@ -487,7 +487,7 @@ def test_public_stable_docs_state_current_boundaries() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     for statement in (
         "fail-closed verifier for declared infrastructure invariants",
-        "python -m pip install 'iac-guard-v==1.0.3'",
+        "python -m pip install 'iac-guard-v==1.0.4'",
         "iac-guard doctor --mode native",
         "exact set of 18 native properties",
         "Python 3.14 is not in the",
@@ -533,7 +533,7 @@ def test_public_stable_docs_state_current_boundaries() -> None:
         assert statement in release_notes
 
     citation = (ROOT / "CITATION.cff").read_text(encoding="utf-8")
-    assert "version: 1.0.3" in citation
+    assert "version: 1.0.4" in citation
     assert 'doi: "10.5281/zenodo.22088272"' in citation
 
     security_model = (ROOT / "SECURITY_MODEL.md").read_text(encoding="utf-8")

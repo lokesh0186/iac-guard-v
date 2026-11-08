@@ -45,6 +45,7 @@ from .contracts.report import (
     validate_contract_report_payload,
 )
 from .helm import HelmRenderSpec
+from .cancellation import Cancelled, cancellation_boundary
 from .models import DomainError
 from .report import OperationalReportV1, render_console, validate_report_payload
 from .redaction import redact_detail
@@ -1117,7 +1118,7 @@ def _explain_report(value: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def main(argv: list[str] | None = None) -> int:
+def _main(argv: list[str] | None = None) -> int:
     args = None
     try:
         args = _parser().parse_args(argv)
@@ -1454,6 +1455,21 @@ def main(argv: list[str] | None = None) -> int:
             "reason_code": "UNEXPECTED_INTERNAL_ERROR",
         }, sort_keys=True, separators=(",", ":")) + "\n")
         return 21 if contract_request else 4
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the CLI with cooperative SIGINT/SIGTERM cleanup, never success on cancel."""
+    try:
+        with cancellation_boundary():
+            return _main(argv)
+    except Cancelled as exc:
+        sys.stderr.write(json.dumps({
+            "schema_version": "request-error-v1",
+            "exit_code": 3,
+            "reason_code": "EXECUTION_CANCELLED",
+            "signal": exc.signum,
+        }, sort_keys=True, separators=(",", ":")) + "\n")
+        return 3
 
 
 if __name__ == "__main__":
